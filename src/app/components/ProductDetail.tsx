@@ -1,9 +1,11 @@
-import { X, Play, Heart, Share2, Download, ShoppingCart, Check } from "lucide-react";
+import { X, Play, Heart, Share2, Download, ShoppingCart, Check, Volume2, VolumeX, Maximize } from "lucide-react";
 import { Button } from "./ui/button";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Label } from "./ui/label";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "motion/react";
+import videojs from "video.js";
+import "video.js/dist/video-js.css";
 
 interface ProductDetailProps {
   product: {
@@ -15,6 +17,9 @@ interface ProductDetailProps {
     duration: string;
     resolution?: string;
     tool: string;
+    videoUrl: string;
+    highlightStart?: number;
+    highlightEnd?: number;
   };
   onClose: () => void;
 }
@@ -65,6 +70,85 @@ export function ProductDetail({ product, onClose }: ProductDetailProps) {
   const [selectedLicense, setSelectedLicense] = useState("standard");
   const [isLiked, setIsLiked] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(true);
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const playerRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (product.videoUrl && videoRef.current && !playerRef.current) {
+      const player = videojs(videoRef.current, {
+        autoplay: true,
+        controls: false,
+        loop: true,
+        muted: isMuted,
+        fluid: true,
+        responsive: true,
+        html5: {
+          vhs: {
+            withCredentials: false
+          }
+        },
+        crossOrigin: 'anonymous'
+      });
+
+      player.ready(() => {
+        player.src({
+          src: product.videoUrl,
+          type: product.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
+        });
+      });
+
+      // 하이라이트 구간 반복 재생 로직 (Video.js)
+      player.on('timeupdate', () => {
+        const p = player;
+        const item = product;
+        if (!p || !item) return;
+        
+        const start = item.highlightStart || 0;
+        const end = item.highlightEnd || 10;
+        if (p.currentTime() >= end) {
+          p.currentTime(start);
+        }
+      });
+
+      playerRef.current = player;
+    }
+
+    return () => {
+      if (playerRef.current) {
+        playerRef.current.dispose();
+        playerRef.current = null;
+      }
+    };
+  }, [product]);
+
+  useEffect(() => {
+    if (playerRef.current) {
+      playerRef.current.muted(isMuted);
+    }
+  }, [isMuted]);
+
+  useEffect(() => {
+    if (playerRef.current) {
+      if (isPlaying) {
+        playerRef.current.play().catch(() => {});
+      } else {
+        playerRef.current.pause();
+      }
+    }
+  }, [isPlaying]);
+
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsPlaying(!isPlaying);
+  };
+
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsMuted(!isMuted);
+  };
 
   const selectedOption = licenseOptions.find(opt => opt.id === selectedLicense);
 
@@ -90,32 +174,67 @@ export function ProductDetail({ product, onClose }: ProductDetailProps) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="relative">
-          <div className="aspect-video bg-black flex items-center justify-center overflow-hidden">
-            <img 
-              src={product.thumbnail} 
-              alt={product.title}
-              className="w-full h-full object-cover"
-            />
-            
-            {/* Watermark */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="text-white/20 text-6xl font-bold rotate-[-30deg]">
-                AI-V-MARKET
+        <div className="relative bg-black aspect-video flex items-center justify-center overflow-hidden">
+          {product.videoUrl ? (
+            <div className="w-full h-full" onClick={togglePlay}>
+              <video
+                ref={videoRef}
+                className="video-js vjs-big-play-centered w-full h-full object-contain"
+                playsInline
+              />
+              
+              {/* Play/Pause Overlay on Hover or Pause */}
+              <div className={`absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-300 ${isPlaying ? 'opacity-0 hover:opacity-100' : 'opacity-100'}`}>
+                <button 
+                  onClick={togglePlay}
+                  className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white flex items-center justify-center hover:bg-white/30 transition-colors"
+                >
+                  {isPlaying ? (
+                    <div className="flex gap-1.5 items-center justify-center">
+                      <div className="w-2 h-8 bg-white rounded-full"></div>
+                      <div className="w-2 h-8 bg-white rounded-full"></div>
+                    </div>
+                  ) : (
+                    <Play className="w-8 h-8 text-white ml-1" />
+                  )}
+                </button>
+              </div>
+
+              {/* Volume Control */}
+              <div className="absolute bottom-4 right-4 flex gap-2">
+                <button
+                  onClick={toggleMute}
+                  className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-black/60 transition-colors"
+                >
+                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                </button>
               </div>
             </div>
-
-            {/* Play Button Overlay */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <button className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white flex items-center justify-center hover:bg-white/30 transition-colors">
-                <Play className="w-8 h-8 text-white ml-1" />
-              </button>
+          ) : (
+            <div className="relative w-full h-full">
+              <img 
+                src={product.thumbnail} 
+                alt={product.title}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="px-4 py-2 bg-black/60 backdrop-blur-md rounded-lg text-white text-sm">
+                  비디오 정보를 불러올 수 없습니다
+                </div>
+              </div>
             </div>
+          )}
 
-            {/* Duration Badge */}
-            <div className="absolute top-4 right-4 px-3 py-1 bg-black/70 backdrop-blur-sm rounded-full text-white text-sm">
-              {product.duration}
+          {/* Watermark */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="text-white/20 text-6xl font-bold rotate-[-30deg]">
+              AI-V-MARKET
             </div>
+          </div>
+
+          {/* Duration Badge */}
+          <div className="absolute top-4 right-4 px-3 py-1 bg-black/70 backdrop-blur-sm rounded-full text-white text-sm">
+            {product.duration}
           </div>
 
           <button

@@ -14,6 +14,8 @@ interface Video {
   duration: string;
   tool: string;
   videoUrl: string;
+  highlightStart?: number;
+  highlightEnd?: number;
 }
 
 interface DiscoveryFeedProps {
@@ -25,10 +27,25 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [likedVideos, setLikedVideos] = useState<Set<string>>(new Set());
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const touchStartY = useRef(0);
   const touchEndY = useRef(0);
+
+  const currentVideo = videos[currentIndex];
+
+  // 현재 영상이 바뀌면 자동으로 하이라이트 시작점으로 이동 및 재생
+  useEffect(() => {
+    if (videoRef.current && currentVideo) {
+      const start = currentVideo.highlightStart || 0;
+      videoRef.current.currentTime = start;
+      videoRef.current.play().catch(err => {
+        console.log("Autoplay prevented or failed", err);
+      });
+    }
+  }, [currentIndex, currentVideo]);
 
   // Supabase에서 영상 데이터 가져오기 (주로 숏폼 카테고리)
   useEffect(() => {
@@ -38,10 +55,11 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
         const { data, error } = await supabase
           .from("videos")
           .select("*")
-          .eq("category", "숏폼") // 탐색 피드는 주로 숏폼 위주
           .order("created_at", { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
         if (data && data.length > 0) {
           const mappedVideos: Video[] = data.map((item: any) => ({
@@ -54,11 +72,14 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
             duration: item.duration || "0:00",
             tool: item.ai_tool || "AI Tool",
             videoUrl: item.video_url || "",
+            highlightStart: item.highlight_start || 0,
+            highlightEnd: item.highlight_end || 10, // 기본 10초
           }));
           setVideos(mappedVideos);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching discovery videos:", error);
+        setErrorMsg(error.message || String(error));
       } finally {
         setLoading(false);
       }
@@ -106,12 +127,24 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
     });
   };
 
+  // 하이라이트 구간 반복 재생 로직
+  const handleTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+    const start = currentVideo.highlightStart || 0;
+    const end = currentVideo.highlightEnd || 10;
+
+    if (video.currentTime >= end) {
+      video.currentTime = start;
+    }
+  };
+
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center bg-black">
         <div className="text-center">
           <Loader2 className="w-10 h-10 animate-spin text-[#6366f1] mx-auto mb-4" />
           <p className="text-white/60">영상을 준비하는 중...</p>
+          {errorMsg && <p className="text-red-500 mt-2 text-sm">{errorMsg}</p>}
         </div>
       </div>
     );
@@ -124,8 +157,6 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
       </div>
     );
   }
-
-  const currentVideo = videos[currentIndex];
 
   return (
     <>
@@ -150,13 +181,19 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
         <div className="relative h-full w-full flex items-center justify-center bg-black">
           {currentVideo.videoUrl ? (
             <video
+              ref={videoRef}
               src={currentVideo.videoUrl}
               poster={currentVideo.thumbnail}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
               autoPlay
               loop
               muted={isMuted}
               playsInline
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={(e) => {
+                const start = currentVideo.highlightStart || 0;
+                e.currentTarget.currentTime = start;
+              }}
             />
           ) : (
             <img 
@@ -279,7 +316,7 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {mockVideos.map((video) => (
+            {videos.map((video) => (
               <motion.div
                 key={video.id}
                 whileHover={{ scale: 1.02 }}

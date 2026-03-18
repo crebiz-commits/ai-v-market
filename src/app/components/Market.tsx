@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { Search, Filter, SlidersHorizontal, Loader2 } from "lucide-react";
+import { Search, Filter, SlidersHorizontal, Loader2, Play, Eye, ShoppingCart } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -28,6 +29,8 @@ interface Product {
   tool: string;
   category: string;
   videoUrl: string;
+  highlightStart?: number;
+  highlightEnd?: number;
 }
 
 const aiTools = ["전체", "Sora", "Runway Gen-3", "Pika Labs", "Luma Dream Machine"];
@@ -70,12 +73,15 @@ export function Market({ onProductClick }: MarketProps) {
             title: item.title,
             creator: item.creator || "AI Creator",
             price: item.price_standard || 0,
-            duration: item.duration || "0:00",
+            duration: item.duration || "0:15",
             resolution: item.resolution || "1080p",
             tool: item.ai_tool || "AI Tool",
-            category: item.category || "기타",
+            category: item.category || "General",
             videoUrl: item.video_url || "",
+            highlightStart: item.highlight_start || 0,
+            highlightEnd: item.highlight_end || 10,
           }));
+          console.log("Fetched Products from Supabase:", mappedProducts);
           setProducts(mappedProducts);
         }
       } catch (error) {
@@ -122,17 +128,6 @@ export function Market({ onProductClick }: MarketProps) {
     return filtered;
   }, [products, searchQuery, selectedCategory, priceRange, selectedTools, selectedResolutions, selectedGenres, sortBy]);
 
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-background">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-[#6366f1] mx-auto mb-4" />
-          <p className="text-muted-foreground">상품을 불러오는 중...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Prepare videos for CoverFlow - using top 10 products
   const coverFlowVideos = useMemo(() => {
     return products.slice(0, 10).map((product) => ({
@@ -145,8 +140,21 @@ export function Market({ onProductClick }: MarketProps) {
       resolution: product.resolution,
       tool: product.tool,
       price: product.price,
+      highlightStart: product.highlightStart,
+      highlightEnd: product.highlightEnd,
     }));
   }, [products]);
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 animate-spin text-[#6366f1] mx-auto mb-4" />
+          <p className="text-muted-foreground">상품을 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
@@ -319,53 +327,109 @@ export function Market({ onProductClick }: MarketProps) {
       </div>
 
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto">
-        {/* CoverFlow Section - 임시 비활성화 */}
-        {/* <div className="flex-shrink-0">
+      <div className="flex-1 overflow-y-auto scrollbar-hide">
+        {/* Featured Carousel Section */}
+        <div className="flex-shrink-0 bg-gradient-to-b from-card/30 to-transparent border-b border-white/5 py-4">
           <CoverFlow videos={coverFlowVideos} hideControls={isFilterOpen} />
-        </div> */}
+        </div>
 
         {/* Product Grid */}
         <div className="p-4 md:px-6 pb-8">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 md:max-w-7xl md:mx-auto">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                onClick={() => onProductClick(product)}
-                className="bg-card rounded-lg overflow-hidden border border-border hover:border-[#6366f1] transition-all cursor-pointer group"
-              >
-                <div className="relative aspect-[9/16] overflow-hidden">
-                  <img
-                    src={product.thumbnail}
-                    alt={product.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                  />
-                  <div className="absolute top-2 right-2 px-2 py-1 bg-black/70 backdrop-blur-sm rounded text-white text-xs">
-                    {product.duration}
-                  </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  
-                  {/* Watermark */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="text-white/15 text-2xl font-bold rotate-[-30deg]">
-                      AI-V-MARKET
+          <motion.div 
+            layout
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8 md:max-w-7xl md:mx-auto"
+          >
+            <AnimatePresence mode="popLayout">
+              {filteredProducts.map((product, index) => (
+                <motion.div
+                  key={product.id}
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ 
+                    duration: 0.4, 
+                    delay: index * 0.05,
+                    ease: "easeOut" 
+                  }}
+                  onClick={() => onProductClick(product)}
+                  className="group relative flex flex-col bg-card/40 backdrop-blur-md rounded-2xl overflow-hidden border border-white/10 hover:border-[#6366f1]/50 transition-all duration-500 cursor-pointer hover:shadow-[0_20px_40px_-15px_rgba(99,102,241,0.3)]"
+                >
+                  {/* Image Container with aspect ratio */}
+                  <div className="relative aspect-[9/16] overflow-hidden">
+                    <motion.img
+                      src={product.thumbnail}
+                      alt={product.title}
+                      className="w-full h-full object-cover"
+                      whileHover={{ scale: 1.05 }}
+                      transition={{ duration: 0.6 }}
+                    />
+                    
+                    {/* Glassmorphism Badges */}
+                    <div className="absolute top-3 left-3 flex flex-col gap-2">
+                      <div className="px-2.5 py-1 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-white text-[10px] font-bold tracking-wider uppercase">
+                        {product.tool}
+                      </div>
+                    </div>
+
+                    <div className="absolute top-3 right-3">
+                      <div className="px-2 py-1 bg-[#6366f1]/80 backdrop-blur-md rounded-lg text-white text-[10px] font-bold shadow-lg">
+                        {product.duration}
+                      </div>
+                    </div>
+
+                    {/* Quick Preview Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-end p-4">
+                      <div className="flex justify-center gap-3 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                        <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-[#6366f1] transition-colors">
+                          <Eye className="w-5 h-5" />
+                        </div>
+                        <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-[#6366f1] transition-colors">
+                          <ShoppingCart className="w-5 h-5" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Watermark */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-10 group-hover:opacity-20 transition-opacity">
+                      <div className="text-white text-3xl font-black rotate-[-30deg]">
+                        PREMIUM
+                      </div>
                     </div>
                   </div>
-                </div>
-                
-                <div className="p-3">
-                  <h3 className="font-medium mb-1 truncate">{product.title}</h3>
-                  <p className="text-xs text-muted-foreground mb-2">{product.creator}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-[#6366f1]">
-                      ₩{product.price.toLocaleString()}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{product.resolution}</span>
+                  
+                  {/* Info Section */}
+                  <div className="p-4 bg-gradient-to-b from-card/80 to-card flex flex-col flex-1">
+                    <div className="flex-1">
+                      <h3 className="font-bold text-white text-base mb-1 line-clamp-1 group-hover:text-[#6366f1] transition-colors">
+                        {product.title}
+                      </h3>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-[#6366f1] to-[#8b5cf6]" />
+                        <span className="text-xs text-muted-foreground/80 font-medium">{product.creator}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-tighter">Price</span>
+                        <span className="text-lg font-black text-white bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
+                          ₩{product.price.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-tighter">Res</span>
+                        <span className="text-xs font-bold text-[#6366f1]">{product.resolution}</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
+
+                  {/* Top Shine Effect */}
+                  <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
         </div>
       </div>
     </div>

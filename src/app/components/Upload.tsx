@@ -10,7 +10,7 @@ import { motion } from "motion/react";
 import { BunnySetupGuide } from "./BunnySetupGuide";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { useAuth } from "../contexts/AuthContext";
-import { projectId, publicAnonKey } from "/utils/supabase/info";
+import { supabase, supabaseAnonKey, supabaseUrl } from "../utils/supabaseClient";
 import { toast } from "sonner";
 
 const aiTools = ["Sora", "Runway Gen-3", "Runway Gen-2", "Pika Labs", "Luma Dream Machine", "Kling AI", "기타"];
@@ -137,8 +137,10 @@ export function Upload() {
   };
 
   // Bunny.net에 직접 업로드
-  const uploadToBunny = async (file: File, videoId: string, libraryId: string) => {
-    const apiKey = import.meta.env.VITE_BUNNY_API_KEY || 'b57f23d5-ad78-4dfd-a63d2fb89bf0-3e4b-4d65';
+  const uploadToBunny = async (file: File, videoId: string, libraryId: string, apiKey: string) => {
+    if (!apiKey) {
+      throw new Error('Bunny.net API Key가 제공되지 않았습니다.');
+    }
     
     const uploadUrl = `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}`;
 
@@ -191,15 +193,33 @@ export function Upload() {
     setUploadProgress(0);
 
     try {
+      // 0. 토큰 최신화 확인
+      console.log('Checking session/token...');
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentToken = session?.access_token || accessToken;
+      
+      if (!currentToken) {
+        console.error('No current token found');
+        throw new Error('인증 토큰을 찾을 수 없습니다. 다시 로그인해 주세요.');
+      }
+
+      const publicAnonKey = supabaseAnonKey;
+      console.log('Request Diagnostics:', {
+        url: `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/make-server-f4aeac42/videos/create-upload`,
+        hasAnonKey: !!publicAnonKey,
+        tokenPrefix: currentToken.substring(0, 10)
+      });
+
       // 1. 서버에 비디오 생성 요청
-      console.log('Creating video on Bunny.net...');
+      console.log('Creating video on Bunny.net via Edge Function...');
       const createResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-f4aeac42/videos/create-upload`,
+        `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/make-server-f4aeac42/videos/create-upload`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
+            'Authorization': `Bearer ${currentToken}`,
+            'apikey': supabaseAnonKey
           },
           body: JSON.stringify({
             title: formData.title || selectedFile.name,
@@ -208,68 +228,66 @@ export function Upload() {
       );
 
       if (!createResponse.ok) {
-        const errorData = await createResponse.json();
-        console.error('Create video error details:', {
-          status: createResponse.status,
-          statusText: createResponse.statusText,
-          error: errorData
-        });
-        throw new Error(errorData.error || 'Failed to create video');
+        const errorData = await createResponse.json().catch(() => ({}));
+        console.error('Video creation failed:', errorData);
+        throw new Error(errorData.error || `Failed to create video (${createResponse.status})`);
       }
 
-      const { videoId, libraryId } = await createResponse.json();
+      const createData = await createResponse.json();
+      const { videoId, libraryId, apiKey: serverApiKey } = createData;
       console.log('Video created:', videoId);
       setBunnyVideoId(videoId);
 
       // 2. Bunny.net에 직접 업로드
       console.log('Uploading file to Bunny.net...');
-      await uploadToBunny(selectedFile, videoId, libraryId);
+      await uploadToBunny(selectedFile, videoId, libraryId, serverApiKey);
       console.log('File uploaded successfully');
 
-      // 3. 메타데이터 저장
-      console.log('Saving metadata...');
-      const hostname = import.meta.env.VITE_BUNNY_HOSTNAME || 'vz-9f7fe8dc-5a0.b-cdn.net';
+      // 3. 메타데이터 저장 (Edge Function 호출로 변경 - KV 및 DB 동시 저장)
+      console.log('Saving metadata via Edge Function...');
+      // @ts-ignore
+      const envHostname = (import.meta as any).env.VITE_BUNNY_HOSTNAME;
+      const bunnyHostname = envHostname || 'vz-6e85411f-96a.b-cdn.net';
       
-      const metadataResponse = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-f4aeac42/videos/save-metadata`,
+      const metadata = {
+        videoId: videoId,
+        title: formData.title || selectedFile.name,
+        description: formData.description || '',
+        thumbnailUrl: `https://${bunnyHostname}/${videoId}/thumbnail.jpg`,
+        hlsUrl: `https://${bunnyHostname}/${videoId}/playlist.m3u8`,
+        duration: formData.duration || '0:00',
+        tags: formData.tags || "",
+        standardPrice: formData.standardPrice || "0",
+        commercialPrice: formData.commercialPrice || "0",
+        exclusivePrice: formData.exclusivePrice || "0",
+        aiTool: formData.aiTool || '',
+        category: formData.category || '',
+        genre: formData.genre || '',
+        prompt: formData.prompt || '',
+        resolution: formData.resolution || '',
+        status: 'ready'
+      };
+
+      const saveResponse = await fetch(
+        `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/make-server-f4aeac42/videos/save-metadata`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
+            'Authorization': `Bearer ${currentToken}`,
+            'apikey': supabaseAnonKey
           },
-          body: JSON.stringify({
-            videoId,
-            ...formData,
-            fileName: selectedFile.name,
-            fileSize: selectedFile.size,
-            bunnyHostname: hostname,
-            thumbnailUrl: `https://${hostname}/${videoId}/thumbnail.jpg`,
-            hlsUrl: `https://${hostname}/${videoId}/playlist.m3u8`,
-          }),
+          body: JSON.stringify(metadata),
         }
       );
 
-      if (!metadataResponse.ok) {
-        const errorData = await metadataResponse.json();
-        throw new Error(errorData.error || 'Failed to save metadata');
+      if (!saveResponse.ok) {
+        const errorData = await saveResponse.json().catch(() => ({}));
+        console.error('Metadata saving failed:', errorData);
+        throw new Error(errorData.error || `데이터 저장 실패 (${saveResponse.status})`);
       }
 
-      console.log('Metadata saved successfully');
-      
-      // 4. 상태 업데이트
-      await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-f4aeac42/videos/${videoId}/status`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({ status: 'ready' }),
-        }
-      );
-
+      console.log('Metadata saved successfully via Edge Function');
       setUploadComplete(true);
       toast.success('영상이 성공적으로 업로드되었습니다!');
     } catch (error: any) {

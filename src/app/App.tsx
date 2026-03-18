@@ -44,6 +44,7 @@ interface VideoProduct {
   resolution?: string;
   tool: string;
   category?: string;
+  videoUrl: string;
 }
 
 function AppContent() {

@@ -1,7 +1,7 @@
 import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
-import * as kv from "./kv_store.tsx";
+import * as kv from "./kv_store.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const app = new Hono();
@@ -166,7 +166,8 @@ app.post("/make-server-f4aeac42/videos/create-upload", async (c) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
 
     if (authError || !user) {
-      return c.json({ error: "유효하지 않은 토큰입니다." }, 401);
+      console.error('인증 실패 상세:', authError?.message || '사용자 정보를 찾을 수 없음');
+      return c.json({ error: `인증에 실패했습니다: ${authError?.message || 'Unknown error'}` }, 401);
     }
 
     const { title } = await c.req.json();
@@ -216,6 +217,7 @@ app.post("/make-server-f4aeac42/videos/create-upload", async (c) => {
       videoId: videoData.guid,
       libraryId: libraryId,
       title: videoData.title,
+      apiKey: apiKey, // Client side upload needs this
     });
   } catch (error) {
     console.error('비디오 생성 중 에러:', error);
@@ -248,7 +250,7 @@ app.post("/make-server-f4aeac42/videos/save-metadata", async (c) => {
       return c.json({ error: "videoId가 필요합니다." }, 400);
     }
 
-    const supabase = getSupabaseClient(true); // Service role for DB operations
+    const supabaseAdmin = getSupabaseClient(true); // Service role for DB operations
 
     // 1. KV 스토어에 메타데이터 저장 (하위 호환성 유지)
     const key = `video:${videoId}`;
@@ -262,7 +264,7 @@ app.post("/make-server-f4aeac42/videos/save-metadata", async (c) => {
     await kv.set(key, videoData);
 
     // 2. Supabase DB 'videos' 테이블에 저장
-    const { error: dbError } = await supabase
+    const { error: dbError } = await supabaseAdmin
       .from('videos')
       .upsert({
         id: videoId,

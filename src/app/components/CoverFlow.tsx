@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, X, Play, Pause, Volume2, VolumeX, Maximize } from 'lucide-react';
+import videojs from 'video.js';
+import 'video.js/dist/video-js.css';
+import Player from 'video.js/dist/types/player';
 
 interface Video {
   id: string;
@@ -11,6 +14,8 @@ interface Video {
   resolution?: string;
   tool?: string;
   price?: number;
+  highlightStart?: number;
+  highlightEnd?: number;
 }
 
 interface CoverFlowProps {
@@ -29,6 +34,7 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
   const [isMuted, setIsMuted] = useState(true);
   const [selectedLicense, setSelectedLicense] = useState<'standard' | 'commercial' | 'exclusive'>('standard');
   const videoRef = useRef<HTMLVideoElement>(null);
+  const playerRef = useRef<Player | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const autoRotateTimeoutRef = useRef<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -68,6 +74,79 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    // Make sure Video.js player is only initialized once per modal open
+    if (selectedVideo?.videoUrl && videoRef.current && !playerRef.current) {
+      console.log('Initializing video.js player for:', selectedVideo.videoUrl);
+      
+      const videoElement = videoRef.current;
+      const player = videojs(videoElement, {
+        autoplay: true,
+        controls: false,
+        loop: true,
+        muted: isMuted,
+        fluid: true,
+        responsive: true,
+        html5: {
+          vhs: {
+            withCredentials: false
+          }
+        },
+        crossOrigin: 'anonymous'
+      });
+
+      player.ready(() => {
+        console.log('Player is ready, setting source');
+        player.src({
+          src: selectedVideo.videoUrl!,
+          type: selectedVideo.videoUrl!.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
+        });
+      });
+
+      // 하이라이트 구간 반복 재생 로직 (Video.js)
+      player.on('timeupdate', () => {
+        const currentVideo = selectedVideo;
+        if (!player || !currentVideo) return;
+        
+        const start = currentVideo.highlightStart || 0;
+        const end = currentVideo.highlightEnd || 10;
+        
+        if (player.currentTime() >= end) {
+          player.currentTime(start);
+        }
+      });
+
+      playerRef.current = player;
+    }
+
+      return () => {
+        const player = playerRef.current;
+        if (player) {
+          console.log('Disposing video.js player');
+          player.dispose();
+          playerRef.current = null;
+        }
+      };
+  }, [selectedVideo]);
+
+  // Sync volume/muted state with player
+  useEffect(() => {
+    if (playerRef.current) {
+      playerRef.current.muted(isMuted);
+    }
+  }, [isMuted]);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (player) {
+      if (isPlaying) {
+        player.play().catch(e => console.log('Play failed', e));
+      } else {
+        player.pause();
+      }
+    }
+  }, [isPlaying]);
+
   const handlePrev = () => {
     setIsAutoRotating(false);
     setRotation((prev) => prev + anglePerItem);
@@ -75,7 +154,7 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
     if (autoRotateTimeoutRef.current) {
       clearTimeout(autoRotateTimeoutRef.current);
     }
-    autoRotateTimeoutRef.current = setTimeout(() => {
+    autoRotateTimeoutRef.current = window.setTimeout(() => {
       setIsAutoRotating(true);
     }, 3000);
   };
@@ -87,7 +166,7 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
     if (autoRotateTimeoutRef.current) {
       clearTimeout(autoRotateTimeoutRef.current);
     }
-    autoRotateTimeoutRef.current = setTimeout(() => {
+    autoRotateTimeoutRef.current = window.setTimeout(() => {
       setIsAutoRotating(true);
     }, 3000);
   };
@@ -117,7 +196,7 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
     if (autoRotateTimeoutRef.current) {
       clearTimeout(autoRotateTimeoutRef.current);
     }
-    autoRotateTimeoutRef.current = setTimeout(() => {
+    autoRotateTimeoutRef.current = window.setTimeout(() => {
       setIsAutoRotating(true);
     }, 3000);
   };
@@ -148,7 +227,7 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
     if (autoRotateTimeoutRef.current) {
       clearTimeout(autoRotateTimeoutRef.current);
     }
-    autoRotateTimeoutRef.current = setTimeout(() => {
+    autoRotateTimeoutRef.current = window.setTimeout(() => {
       setIsAutoRotating(true);
     }, 3000);
   };
@@ -175,7 +254,7 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
     if (autoRotateTimeoutRef.current) {
       clearTimeout(autoRotateTimeoutRef.current);
     }
-    autoRotateTimeoutRef.current = setTimeout(() => {
+    autoRotateTimeoutRef.current = window.setTimeout(() => {
       setIsAutoRotating(true);
     }, 3000);
   };
@@ -422,15 +501,13 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
             {/* Video Element - 16:9 Aspect Ratio */}
             <div className="aspect-video bg-black relative">
               {selectedVideo.videoUrl ? (
-                <video
-                  ref={videoRef}
-                  src={selectedVideo.videoUrl}
-                  className="w-full h-full object-cover"
-                  autoPlay
-                  loop
-                  muted={isMuted}
-                  playsInline
-                />
+                <div data-vjs-player>
+                  <video
+                    ref={videoRef}
+                    className="video-js vjs-big-play-centered w-full h-full"
+                    playsInline
+                  />
+                </div>
               ) : (
                 <div className="w-full h-full relative">
                   <img
