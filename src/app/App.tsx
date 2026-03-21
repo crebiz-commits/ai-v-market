@@ -17,7 +17,7 @@
 import './init';
 
 import { useState, useEffect } from "react";
-import { Sparkles, Store, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut } from "lucide-react";
+import { Sparkles, Store, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell } from "lucide-react";
 import { DiscoveryFeed } from "./components/DiscoveryFeed";
 import { Market } from "./components/Market";
 import { Upload } from "./components/Upload";
@@ -130,17 +130,49 @@ function AppContent() {
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
+      {/* Mobile Top Header (YouTube Style) */}
+      <header className="md:hidden border-b border-border bg-card/50 backdrop-blur-lg sticky top-0 z-50">
+        <div className="flex items-center justify-between h-14 px-4">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab("market")}>
+            <img 
+              src="/logo.png" 
+              alt="AI-V-Market Logo" 
+              className="h-8 w-auto object-contain"
+            />
+            <span className="text-lg font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">
+              AI-V-Market
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button className="p-2 text-muted-foreground hover:text-foreground">
+              <Search className="w-6 h-6" />
+            </button>
+            <button className="p-2 text-muted-foreground hover:text-foreground">
+              <Bell className="w-6 h-6" />
+            </button>
+            <button 
+              onClick={() => isAuthenticated ? setActiveTab("mypage") : setShowAuthModal(true)}
+              className="p-2 text-muted-foreground hover:text-foreground"
+            >
+              <User className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+      </header>
+
       {/* Desktop Header Navigation */}
       <header className="hidden md:block border-b border-border bg-card/50 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] flex items-center justify-center">
-              <span className="text-white font-bold text-lg">AI</span>
-            </div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab("market")}>
+            <img 
+              src="/logo.png" 
+              alt="AI-V-Market Logo" 
+              className="h-10 w-auto object-contain"
+            />
+            <span className="text-xl font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent hidden lg:block">
               AI-V-Market
-            </h1>
+            </span>
           </div>
 
           {/* Desktop Navigation */}

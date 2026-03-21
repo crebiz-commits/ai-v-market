@@ -104,11 +104,13 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
           </button>
           
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <span className="text-2xl font-bold">AI</span>
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="AI-V-Market Logo" 
+              className="w-12 h-12 object-contain"
+            />
             <div>
-              <h2 className="text-2xl font-bold">AI-V-Market</h2>
+              <h2 className="text-2xl font-bold text-white">AI-V-Market</h2>
               <p className="text-white/80 text-sm">
                 {mode === "signin" ? "로그인하여 시작하기" : "회원가입하여 시작하기"}
               </p>

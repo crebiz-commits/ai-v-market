@@ -112,7 +112,8 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
           const start = currentVideo.highlightStart || 0;
           const end = currentVideo.highlightEnd || 10;
           
-          if (player?.currentTime() >= end) {
+          const currentTime = player.currentTime();
+          if (typeof currentTime === 'number' && currentTime >= end) {
             player.currentTime(start);
           }
         });

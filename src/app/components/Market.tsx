@@ -166,7 +166,7 @@ export function Market({ onProductClick }: MarketProps) {
       {/* Search Header */}
       <div className="flex-shrink-0 p-4 md:px-6 md:py-6 border-b border-border">
         <div className="md:max-w-7xl md:mx-auto">
-          <div className="text-[10px] text-muted-foreground/30 mb-1">Market Component v1.0.3 (Categories Fixed)</div>
+          <div className="text-[10px] text-muted-foreground/30 mb-1">Market Component v1.0.4 (Categories Fixed)</div>
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
             <Input

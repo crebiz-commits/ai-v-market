@@ -23,8 +23,12 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
           transition={{ type: "spring", duration: 0.8 }}
           className="mb-8"
         >
-          <div className="w-24 h-24 mx-auto mb-4 rounded-3xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center shadow-2xl shadow-[#6366f1]/50">
-            <Sparkles className="w-12 h-12 text-white" />
+          <div className="w-32 h-32 mx-auto mb-4 flex items-center justify-center">
+            <img 
+              src="/logo.png" 
+              alt="AI-V-Market Logo" 
+              className="w-full h-full object-contain"
+            />
           </div>
           <h1 className="text-4xl mb-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">
             AI-V-Market
