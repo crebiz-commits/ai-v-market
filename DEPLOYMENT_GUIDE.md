@@ -44,8 +44,31 @@ GitHub에 코드가 올라갔다면, 이제 실제 웹사이트로 만드는 단
 
 ---
 
+## 3단계: Supabase 인증 설정 (구글 & 카카오)
+
+소셜 로그인이 정상적으로 작동하려면 Supabase 대시보드에서 추가 설정이 필요합니다.
+
+1.  **소셜 로그인 활성화:**
+    - [Supabase Dashboard](https://supabase.com/dashboard) -> **Authentication** -> **Providers**로 이동합니다.
+    - **Google**과 **Kakao**를 각각 찾아 **Enabled**로 변경합니다.
+    - 각 서비스의 Developers 사이트에서 발급받은 `Client ID`와 `Client Secret`을 입력합니다.
+
+2.  **Redirect URL 설정:**
+    - **Authentication** -> **URL Configuration**으로 이동합니다.
+    - `Redirect URLs` 섹션에 아래 주소를 추가합니다:
+      - `https://ai-v-market.vercel.app`
+    - `Site URL`도 위 주소로 변경하는 것이 좋습니다.
+
+---
+
 ## 📱 배포 후 확인 사항
 - 생성된 `https://...vercel.app` 주소로 스마트폰에서 바로 접속해 보세요.
+- **최신 코드 반영:** 만약 화면에 카카오 로그인 버튼이 보이지 않는다면, 터미널에서 아래 명령어를 입력해 다시 푸시하세요:
+  ```bash
+  git add .
+  git commit -m "인증 기능 업데이트"
+  git push origin main
+  ```
 - 이제는 **터널 비밀번호/IP 입력이 필요 없고**, 캐시 문제도 없어 바로 최신 화면이 뜹니다.
 
 가이드를 보시면서 진행하시다가 막히는 부분이 있으면 언제든 말씀해 주세요! 😃

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 import { supabase } from '../utils/supabaseClient';
 
 interface User {
@@ -16,6 +16,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInWithKakao: () => Promise<void>;
   signOut: () => void;
   isAuthenticated: boolean;
 }
@@ -287,6 +288,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signInWithKakao = async () => {
+    try {
+      const currentUrl = window.location.origin;
+      console.log('Kakao OAuth - Redirect URL:', currentUrl);
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'kakao',
+        options: {
+          redirectTo: currentUrl,
+        }
+      });
+
+      if (error) {
+        console.error('OAuth error:', error);
+        throw error;
+      }
+    } catch (error: any) {
+      console.error('Kakao 로그인 에러:', error);
+      throw new Error(error.message || 'Kakao 로그인에 실패했습니다.');
+    }
+  };
+
   const value = {
     user,
     accessToken,
@@ -294,6 +317,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signUp,
     signInWithGoogle,
+    signInWithKakao,
     signOut,
     isAuthenticated: !!user,
   };

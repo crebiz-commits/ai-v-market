@@ -18,7 +18,11 @@ const categories = ["소스 영상", "숏폼", "애니메이션", "영화/드라
 const resolutions = ["720p", "1080p", "4K", "8K"];
 const genres = ["SF", "액션", "로맨스", "공포", "판타지", "드라마", "코미디", "다큐멘터리", "자연/풍경", "추상", "기타"];
 
-export function Upload() {
+interface UploadProps {
+  onSignInClick?: () => void;
+}
+
+export function Upload({ onSignInClick }: UploadProps) {
   const { user, accessToken } = useAuth();
   const [step, setStep] = useState(1);
   const [uploadMethod, setUploadMethod] = useState<"single" | "bulk" | null>(null);
@@ -135,6 +139,28 @@ export function Upload() {
     
     video.src = URL.createObjectURL(file);
   };
+
+  if (!user) {
+    return (
+      <div className="h-full flex items-center justify-center bg-background p-6">
+        <div className="text-center max-w-md mx-auto">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mx-auto mb-6 flex items-center justify-center">
+            <UploadIcon className="w-10 h-10 text-white" />
+          </div>
+          <h2 className="text-2xl mb-3">로그인이 필요합니다</h2>
+          <p className="text-muted-foreground mb-6">
+            영상을 업로드하고 마켓에 등록하려면 먼저 로그인해주세요.
+          </p>
+          <Button 
+            onClick={onSignInClick}
+            className="w-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] py-6 text-lg"
+          >
+            로그인 / 회원가입
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Bunny.net에 직접 업로드
   const uploadToBunny = async (file: File, videoId: string, libraryId: string, apiKey: string) => {

@@ -27,7 +27,11 @@ interface MyProduct {
   status: string;
 }
 
-export function MyPage() {
+interface MyPageProps {
+  onSignInClick?: () => void;
+}
+
+export function MyPage({ onSignInClick }: MyPageProps) {
   const [activeTab, setActiveTab] = useState("profile");
   const { user, signOut, isAuthenticated } = useAuth();
   const [purchaseHistory, setPurchaseHistory] = useState<Purchase[]>([]);
@@ -146,9 +150,15 @@ export function MyPage() {
           <p className="text-muted-foreground mb-6">
             마이페이지를 이용하려면 먼저 로그인해주세요.
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground mb-6">
             데스크톱에서는 우측 상단의 로그인 버튼을 클릭하세요.
           </p>
+          <Button 
+            onClick={onSignInClick}
+            className="w-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] py-6 text-lg"
+          >
+            로그인 / 회원가입
+          </Button>
         </div>
       </div>
     );

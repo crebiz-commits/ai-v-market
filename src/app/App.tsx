@@ -118,11 +118,11 @@ function AppContent() {
       case "market":
         return <Market onProductClick={setSelectedProduct} />;
       case "upload":
-        return <Upload />;
+        return <Upload onSignInClick={() => setShowAuthModal(true)} />;
       case "community":
         return <Community />;
       case "mypage":
-        return <MyPage />;
+        return <MyPage onSignInClick={() => setShowAuthModal(true)} />;
       default:
         return <Market onProductClick={setSelectedProduct} />;
     }

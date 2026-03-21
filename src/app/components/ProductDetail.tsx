@@ -102,7 +102,7 @@ export function ProductDetail({ product, onClose }: ProductDetailProps) {
 
       // 하이라이트 구간 반복 재생 로직 (Video.js)
       player.on('timeupdate', () => {
-        const p = player;
+        const p = playerRef.current;
         const item = product;
         if (!p || !item) return;
         
@@ -174,7 +174,7 @@ export function ProductDetail({ product, onClose }: ProductDetailProps) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="relative bg-black aspect-video flex items-center justify-center overflow-hidden">
+        <div className="relative bg-black aspect-video md:aspect-video max-h-[40vh] md:max-h-none flex items-center justify-center overflow-hidden shrink-0">
           {product.videoUrl ? (
             <div className="w-full h-full" onClick={togglePlay}>
               <video
@@ -247,7 +247,7 @@ export function ProductDetail({ product, onClose }: ProductDetailProps) {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          <div className="p-6">
+          <div className="p-6 pb-40 md:pb-6">
             {/* Title & Creator */}
             <div className="mb-6">
               <h2 className="text-2xl mb-2">{product.title}</h2>
@@ -358,7 +358,7 @@ export function ProductDetail({ product, onClose }: ProductDetailProps) {
         </div>
 
         {/* Bottom Actions */}
-        <div className="border-t border-border p-4 bg-card">
+        <div className="border-t border-border p-4 pb-8 md:pb-4 bg-card shrink-0">
           <div className="flex items-center gap-3 mb-3">
             <button
               onClick={() => setIsLiked(!isLiked)}
