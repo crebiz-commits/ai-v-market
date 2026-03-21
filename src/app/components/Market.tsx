@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from "react";
-import { Search, Filter, SlidersHorizontal, Loader2, Play, Eye, ShoppingCart } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { Search, Filter, SlidersHorizontal, Loader2, Play, Eye, ShoppingCart, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
@@ -133,6 +133,18 @@ export function Market({ onProductClick }: MarketProps) {
     return filtered;
   }, [products, searchQuery, selectedCategory, priceRange, selectedTools, selectedResolutions, selectedGenres, sortBy]);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = 400; // 한 번에 이동할 픽셀 수
+      scrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   // Prepare videos for CoverFlow - using top 10 products
   const coverFlowVideos = useMemo(() => {
     return products.slice(0, 10).map((product) => ({
@@ -166,7 +178,7 @@ export function Market({ onProductClick }: MarketProps) {
       {/* Search Header */}
       <div className="flex-shrink-0 p-4 md:px-6 md:py-6 border-b border-border">
         <div className="md:max-w-7xl md:mx-auto">
-          <div className="text-[10px] text-muted-foreground/30 mb-1">Market Component v1.0.5 (Categories Fixed)</div>
+          <div className="text-[10px] text-muted-foreground/30 mb-1">Market Component v1.0.7 (Search Tabs Fixed)</div>
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
             <Input
@@ -178,21 +190,49 @@ export function Market({ onProductClick }: MarketProps) {
             />
           </div>
 
-          {/* Category Tabs */}
-          <div className="flex flex-wrap gap-2 pb-2 scrollbar-hide">
-            {categories.map((category) => (
-              <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
-                className={`px-4 py-2 rounded-full whitespace-nowrap transition-colors ${
-                  selectedCategory === category
-                    ? 'bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white'
-                    : 'bg-card text-muted-foreground border border-border'
-                }`}
-              >
-                {category}
-              </button>
-            ))}
+          {/* Category Tabs with Scroll Buttons */}
+          <div className="relative group/categories">
+            {/* Left Scroll Button */}
+            <button
+              onClick={() => scroll('left')}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center justify-center text-white opacity-0 group-hover/categories:opacity-100 transition-opacity hover:bg-black/80"
+              aria-label="Scroll left"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+
+            {/* Category Scroll Container */}
+            <div 
+              ref={scrollRef}
+              className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scroll-smooth"
+            >
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-4 py-2 rounded-full whitespace-nowrap transition-colors flex-shrink-0 ${
+                    selectedCategory === category
+                      ? 'bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white'
+                      : 'bg-card text-muted-foreground border border-border'
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+
+            {/* Right Scroll Button */}
+            <button
+              onClick={() => scroll('right')}
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center justify-center text-white opacity-0 group-hover/categories:opacity-100 transition-opacity hover:bg-black/80"
+              aria-label="Scroll right"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+
+            {/* Horizontal Fades */}
+            <div className="absolute left-0 top-0 bottom-2 w-12 bg-gradient-to-r from-background to-transparent pointer-events-none opacity-0 group-hover/categories:opacity-100 transition-opacity" />
+            <div className="absolute right-0 top-0 bottom-2 w-12 bg-gradient-to-l from-background to-transparent pointer-events-none opacity-0 group-hover/categories:opacity-100 transition-opacity" />
           </div>
         </div>
       </div>

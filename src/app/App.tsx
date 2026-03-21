@@ -137,7 +137,7 @@ function AppContent() {
             <img 
               src="/logo.png" 
               alt="AI-V-Market Logo" 
-              className="h-8 w-auto object-contain"
+              className="h-9 w-auto object-contain"
             />
             <span className="text-lg font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">
               AI-V-Market
@@ -168,7 +168,7 @@ function AppContent() {
             <img 
               src="/logo.png" 
               alt="AI-V-Market Logo" 
-              className="h-10 w-auto object-contain"
+              className="h-12 w-auto object-contain"
             />
             <span className="text-xl font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent hidden lg:block">
               AI-V-Market
