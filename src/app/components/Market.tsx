@@ -62,7 +62,8 @@ export function Market({ onProductClick }: MarketProps) {
         const { data, error } = await supabase
           .from("videos")
           .select("*")
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false })
+          .limit(24);
 
         if (error) throw error;
 
@@ -81,7 +82,6 @@ export function Market({ onProductClick }: MarketProps) {
             highlightStart: item.highlight_start || 0,
             highlightEnd: item.highlight_end || 10,
           }));
-          console.log("Fetched Products from Supabase:", mappedProducts);
           setProducts(mappedProducts);
         }
       } catch (error) {

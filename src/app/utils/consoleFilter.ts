@@ -55,19 +55,16 @@ function isBunnyDetails(message: string): boolean {
 export function installConsoleFilter() {
   // console.error 필터링
   console.error = function (...args: any[]) {
-    const message = args.map(arg => {
-      if (typeof arg === 'string') return arg;
-      if (typeof arg === 'object') return JSON.stringify(arg);
-      return String(arg);
-    }).join(' ');
+    // 문자열로 변환하여 중복 체크 (로깅 여부 결정용)
+    const logString = args.map(arg => typeof arg === 'string' ? arg : String(arg)).join(' ');
 
     // Bunny.net 세부 정보 필터링 (HTML 응답, headers 등)
-    if (isBunnyDetails(message)) {
+    if (isBunnyDetails(logString)) {
       return; // 완전히 무시
     }
 
     // Bunny.net 403 에러 중복 필터링
-    if (isBunnyError(message)) {
+    if (isBunnyError(logString)) {
       const now = Date.now();
       
       // 쿨다운 기간 내에는 중복 출력 방지
@@ -81,18 +78,18 @@ export function installConsoleFilter() {
       if (!bunnyErrorShown) {
         bunnyErrorShown = true;
         console.group('%c🚨 Bunny.net 설정이 필요합니다', 'color: #ef4444; font-weight: bold; font-size: 14px;');
-        console.log('%c403 Forbidden 에러가 감지되었습니다.', 'color: #f97316;');
-        console.log('%c해결 방법:', 'font-weight: bold;');
-        console.log('  1. 앱에서 "업로드" 탭으로 이동');
-        console.log('  2. "설정 가이드 보기" 버튼 클릭');
-        console.log('  3. 단계별 안내에 따라 Bunny.net 설정 완료');
-        console.log('%c자세한 문서: /BUNNY_SETUP_GUIDE.md', 'color: #6366f1;');
+        originalConsoleLog('%c403 Forbidden 에러가 감지되었습니다.', 'color: #f97316;');
+        originalConsoleLog('%c해결 방법:', 'font-weight: bold;');
+        originalConsoleLog('  1. 앱에서 "업로드" 탭으로 이동');
+        originalConsoleLog('  2. "설정 가이드 보기" 버튼 클릭');
+        originalConsoleLog('  3. 단계별 안내에 따라 Bunny.net 설정 완료');
+        originalConsoleLog('%c자세한 문서: /BUNNY_SETUP_GUIDE.md', 'color: #6366f1;');
         console.groupEnd();
         return;
       }
       
       // 이후에는 간단한 메시지만 출력
-      console.log('%c⚠️ Bunny.net 설정을 완료해주세요 (업로드 탭 → 설정 가이드 보기)', 'color: #f59e0b;');
+      originalConsoleLog('%c⚠️ Bunny.net 설정을 완료해주세요 (업로드 탭 → 설정 가이드 보기)', 'color: #f59e0b;');
       return;
     }
 
@@ -102,19 +99,15 @@ export function installConsoleFilter() {
 
   // console.warn 필터링
   console.warn = function (...args: any[]) {
-    const message = args.map(arg => {
-      if (typeof arg === 'string') return arg;
-      if (typeof arg === 'object') return JSON.stringify(arg);
-      return String(arg);
-    }).join(' ');
+    const logString = args.map(arg => typeof arg === 'string' ? arg : String(arg)).join(' ');
 
     // Bunny.net 관련 세부 정보 필터링
-    if (isBunnyDetails(message)) {
+    if (isBunnyDetails(logString)) {
       return;
     }
 
     // Bunny.net 관련 중복 경고 필터링
-    if (isBunnyError(message) && bunnyErrorShown) {
+    if (isBunnyError(logString) && bunnyErrorShown) {
       return; // 이미 에러를 표시했으므로 중복 경고 무시
     }
 
@@ -123,19 +116,15 @@ export function installConsoleFilter() {
 
   // console.log 필터링 (추가)
   console.log = function (...args: any[]) {
-    const message = args.map(arg => {
-      if (typeof arg === 'string') return arg;
-      if (typeof arg === 'object') return JSON.stringify(arg);
-      return String(arg);
-    }).join(' ');
+    const logString = args.map(arg => typeof arg === 'string' ? arg : String(arg)).join(' ');
 
     // Bunny.net 관련 세부 정보 필터링
-    if (isBunnyDetails(message)) {
+    if (isBunnyDetails(logString)) {
       return;
     }
 
     // Bunny.net 에러 관련 로그 필터링
-    if (message.includes('===== BUNNY.NET 설정이 필요합니다 =====')) {
+    if (logString.includes('===== BUNNY.NET 설정이 필요합니다 =====')) {
       return; // 중복 메시지 필터링
     }
 

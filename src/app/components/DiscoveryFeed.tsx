@@ -55,7 +55,8 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
         const { data, error } = await supabase
           .from("videos")
           .select("*")
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false })
+          .limit(10);
 
         if (error) {
           throw error;
