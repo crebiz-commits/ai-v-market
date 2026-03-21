@@ -33,8 +33,7 @@ const licenseOptions = [
     features: [
       "개인 유튜브 채널 사용 가능",
       "SNS 게시물 사용 가능",
-      "최대 100만 뷰까지",
-      "워터마크 제거"
+      "최대 100만 뷰까지"
     ]
   },
   {
@@ -46,7 +45,6 @@ const licenseOptions = [
       "상업적 광고 사용 가능",
       "기업 마케팅 용도",
       "무제한 뷰",
-      "워터마크 제거",
       "재배포 가능"
     ]
   },
@@ -60,7 +58,6 @@ const licenseOptions = [
       "구매 후 마켓에서 즉시 삭제",
       "타인 사용 불가",
       "무제한 용도",
-      "워터마크 제거",
       "원본 프로젝트 파일 제공"
     ]
   }
@@ -225,12 +222,6 @@ export function ProductDetail({ product, onClose }: ProductDetailProps) {
             </div>
           )}
 
-          {/* Watermark */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="text-white/20 text-6xl font-bold rotate-[-30deg]">
-              AI-V-MARKET
-            </div>
-          </div>
 
           {/* Duration Badge */}
           <div className="absolute top-4 right-4 px-3 py-1 bg-black/70 backdrop-blur-sm rounded-full text-white text-sm">

@@ -14,7 +14,7 @@ import { supabase, supabaseAnonKey, supabaseUrl } from "../utils/supabaseClient"
 import { toast } from "sonner";
 
 const aiTools = ["Sora", "Runway Gen-3", "Runway Gen-2", "Pika Labs", "Luma Dream Machine", "Kling AI", "기타"];
-const categories = ["소스 영상", "숏폼", "애니메이션", "영화/드라마", "광고용"];
+const categories = ["AI영화", "AI드라마", "AI애니메이션", "AI다큐멘터리", "AI뮤직비디오", "SF", "액션", "로맨스", "공포", "판타지", "드라마", "코미디", "자연/풍경", "추상", "기타"];
 const resolutions = ["720p", "1080p", "4K", "8K"];
 const genres = ["SF", "액션", "로맨스", "공포", "판타지", "드라마", "코미디", "다큐멘터리", "자연/풍경", "추상", "기타"];
 
@@ -57,9 +57,13 @@ export function Upload({ onSignInClick }: UploadProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 파일 형식 검증
-    const validTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo'];
-    if (!validTypes.includes(file.type)) {
+    // 파일 형식 검증 (MIME + 확장자 체크)
+    const validMimeTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo'];
+    const fileName = file.name.toLowerCase();
+    const validExtensions = ['.mp4', '.mov', '.avi'];
+    const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+
+    if (!validMimeTypes.includes(file.type) && !hasValidExtension) {
       toast.error('지원하지 않는 파일 형식입니다. MP4, MOV, AVI 파일만 업로드 가능합니다.');
       return;
     }
@@ -138,6 +142,14 @@ export function Upload({ onSignInClick }: UploadProps) {
     };
     
     video.src = URL.createObjectURL(file);
+
+    // 모바일 환경 대응: 3초 후에도 메타데이터가 로드되지 않으면 자동 종료 (업로드는 가능하게 유지)
+    setTimeout(() => {
+      if (video.src) {
+        window.URL.revokeObjectURL(video.src);
+        video.src = '';
+      }
+    }, 5000);
   };
 
   if (!user) {
@@ -219,7 +231,8 @@ export function Upload({ onSignInClick }: UploadProps) {
     setUploadProgress(0);
 
     try {
-      // 0. 토큰 최신화 확인
+      // 0. 버전 확인 및 토큰 최신화 확인
+      console.log('Upload Component Version: 1.0.2 (Fixed URL)');
       console.log('Checking session/token...');
       const { data: { session } } = await supabase.auth.getSession();
       const currentToken = session?.access_token || accessToken;
@@ -230,16 +243,18 @@ export function Upload({ onSignInClick }: UploadProps) {
       }
 
       const publicAnonKey = supabaseAnonKey;
+      const targetUrl = `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/make-server-f4aeac42/videos/create-upload`;
       console.log('Request Diagnostics:', {
-        url: `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/make-server-f4aeac42/videos/create-upload`,
-        hasAnonKey: !!publicAnonKey,
-        tokenPrefix: currentToken.substring(0, 10)
+        url: targetUrl,
+        hasUser: !!user,
+        userId: user?.id,
+        hasToken: !!currentToken
       });
 
       // 1. 서버에 비디오 생성 요청
       console.log('Creating video on Bunny.net via Edge Function...');
       const createResponse = await fetch(
-        `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/make-server-f4aeac42/videos/create-upload`,
+        targetUrl,
         {
           method: 'POST',
           headers: {
@@ -294,8 +309,11 @@ export function Upload({ onSignInClick }: UploadProps) {
         status: 'ready'
       };
 
+      const saveUrl = `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/make-server-f4aeac42/videos/save-metadata`;
+      console.log('Saving metadata to:', saveUrl);
+      
       const saveResponse = await fetch(
-        `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/make-server-f4aeac42/videos/save-metadata`,
+        saveUrl,
         {
           method: 'POST',
           headers: {
@@ -520,7 +538,7 @@ export function Upload({ onSignInClick }: UploadProps) {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="video/mp4,video/quicktime,video/x-msvideo"
+                accept="video/*,.mp4,.mov,.avi"
                 onChange={handleFileSelect}
                 className="hidden"
               />

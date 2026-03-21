@@ -204,12 +204,6 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
             />
           )}
           
-          {/* Watermark Overlay */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="text-white/20 text-6xl font-bold rotate-[-30deg]">
-              AI-V-MARKET
-            </div>
-          </div>
 
           {/* Gradient Overlays */}
           <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />

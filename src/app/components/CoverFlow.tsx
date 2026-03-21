@@ -103,18 +103,20 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
         });
       });
 
-      // 하이라이트 구간 반복 재생 로직 (Video.js)
-      player.on('timeupdate', () => {
-        const currentVideo = selectedVideo;
-        if (!player || !currentVideo) return;
-        
-        const start = currentVideo.highlightStart || 0;
-        const end = currentVideo.highlightEnd || 10;
-        
-        if (player.currentTime() >= end) {
-          player.currentTime(start);
-        }
-      });
+      if (player) {
+        // 하이라이트 구간 반복 재생 로직 (Video.js)
+        player.on('timeupdate', () => {
+          const currentVideo = selectedVideo;
+          if (!player || !currentVideo) return;
+          
+          const start = currentVideo.highlightStart || 0;
+          const end = currentVideo.highlightEnd || 10;
+          
+          if (player?.currentTime() >= end) {
+            player.currentTime(start);
+          }
+        });
+      }
 
       playerRef.current = player;
     }
@@ -140,7 +142,7 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
     const player = playerRef.current;
     if (player) {
       if (isPlaying) {
-        player.play().catch(e => console.log('Play failed', e));
+        player.play()?.catch(e => console.log('Play failed', e));
       } else {
         player.pause();
       }
@@ -420,12 +422,6 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
                     className="w-full h-full object-cover"
                   />
                   
-                  {/* Watermark */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="text-white/10 text-xl md:text-2xl font-bold rotate-[-30deg]">
-                      AI-V-MARKET
-                    </div>
-                  </div>
 
                   {/* Play Button for center item */}
                   {index === centerIndex && (
@@ -523,12 +519,6 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
                 </div>
               )}
 
-              {/* Watermark */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="text-white/15 text-3xl md:text-5xl lg:text-6xl font-bold rotate-[-30deg]">
-                  AI-V-MARKET
-                </div>
-              </div>
             </div>
 
             {/* Video Controls & Info Overlay */}

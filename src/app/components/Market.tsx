@@ -34,7 +34,7 @@ interface Product {
 }
 
 const aiTools = ["전체", "Sora", "Runway Gen-3", "Pika Labs", "Luma Dream Machine"];
-const categories = ["전체", "소스 영상", "숏폼", "애니메이션", "영화/드라마"];
+const categories = ["전체", "인기급상승", "AI영화", "AI드라마", "AI애니메이션", "AI다큐멘터리", "AI뮤직비디오", "SF", "액션", "로맨스", "공포", "판타지", "드라마", "코미디", "자연/풍경", "추상", "기타"];
 const resolutions = ["전체", "1080p", "4K", "8K"];
 const genres = ["전체", "SF", "액션", "로맨스", "공포", "판타지", "드라마", "코미디", "자연/풍경", "추상", "기타"];
 
@@ -98,7 +98,9 @@ export function Market({ onProductClick }: MarketProps) {
     let filtered = products.filter(product => {
       const matchesSearch = product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            product.creator.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === "전체" || product.category === selectedCategory;
+      const matchesCategory = (selectedCategory === "전체" || selectedCategory === "인기급상승") 
+        ? true 
+        : product.category === selectedCategory;
       const matchesPrice = product.price >= priceRange[0] && product.price <= priceRange[1];
       const matchesTool = selectedTools.length === 0 || selectedTools.includes(product.tool);
       const matchesResolution = selectedResolutions.length === 0 || selectedResolutions.includes(product.resolution);
@@ -106,8 +108,11 @@ export function Market({ onProductClick }: MarketProps) {
       return matchesSearch && matchesCategory && matchesPrice && matchesTool && matchesResolution;
     });
 
+    // 인기급상승 카테고리 선택 시 자동으로 인기순 정렬 적용
+    const effectiveSortBy = selectedCategory === "인기급상승" ? "popular" : sortBy;
+
     // 정렬 적용
-    switch (sortBy) {
+    switch (effectiveSortBy) {
       case "latest":
         // 이미 fetch 단계에서 최신순으로 가져옴
         break;
@@ -161,6 +166,7 @@ export function Market({ onProductClick }: MarketProps) {
       {/* Search Header */}
       <div className="flex-shrink-0 p-4 md:px-6 md:py-6 border-b border-border">
         <div className="md:max-w-7xl md:mx-auto">
+          <div className="text-[10px] text-muted-foreground/30 mb-1">Market Component v1.0.3 (Categories Fixed)</div>
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
             <Input
@@ -390,12 +396,6 @@ export function Market({ onProductClick }: MarketProps) {
                       </div>
                     </div>
                     
-                    {/* Watermark */}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-10 group-hover:opacity-20 transition-opacity">
-                      <div className="text-white text-3xl font-black rotate-[-30deg]">
-                        PREMIUM
-                      </div>
-                    </div>
                   </div>
                   
                   {/* Info Section */}
