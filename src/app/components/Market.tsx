@@ -178,7 +178,7 @@ export function Market({ onProductClick }: MarketProps) {
       {/* Search Header */}
       <div className="flex-shrink-0 p-4 md:px-6 md:py-6 border-b border-border">
         <div className="md:max-w-7xl md:mx-auto">
-          <div className="text-[10px] text-muted-foreground/30 mb-1">Market Component v1.0.9 (Upload Fix)</div>
+          <div className="text-[10px] text-muted-foreground/30 mb-1">Market Component v1.1.0 (UI Refined)</div>
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
             <Input
@@ -191,32 +191,32 @@ export function Market({ onProductClick }: MarketProps) {
           </div>
 
           {/* Category Tabs with Netflix-style Scroll Buttons */}
-          <div className="relative group/categories px-2">
+          <div className="relative group/categories px-1">
             {/* Left Scroll Sidebar (Netflix Style) */}
             <div 
-              className="absolute left-0 top-0 bottom-2 z-20 w-12 bg-gradient-to-r from-background via-background/60 to-transparent flex items-center justify-start pl-1 opacity-0 group-hover/categories:opacity-100 transition-all duration-300 pointer-events-none"
+              className="absolute left-0 top-0 bottom-1 z-20 w-10 bg-gradient-to-r from-background via-background/60 to-transparent flex items-center justify-start pl-0.5 opacity-0 group-hover/categories:opacity-100 transition-all duration-300 pointer-events-none"
             >
               <button
                 onClick={() => scroll('left')}
-                className="w-10 h-full flex items-center justify-center text-white hover:scale-125 transition-transform pointer-events-auto"
+                className="w-8 h-full flex items-center justify-center text-white hover:scale-125 transition-transform pointer-events-auto"
                 aria-label="Scroll left"
               >
-                <ChevronLeft className="w-6 h-6 drop-shadow-lg" />
+                <ChevronLeft className="w-5 h-5 drop-shadow-lg" />
               </button>
             </div>
 
             {/* Category Scroll Container */}
             <div 
               ref={scrollRef}
-              className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scroll-smooth"
+              className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide scroll-smooth"
             >
               {categories.map((category) => (
                 <button
                   key={category}
                   onClick={() => setSelectedCategory(category)}
-                  className={`px-4 py-2 rounded-full whitespace-nowrap transition-colors flex-shrink-0 ${
+                  className={`px-3 py-1 rounded-full whitespace-nowrap transition-colors flex-shrink-0 text-xs ${
                     selectedCategory === category
-                      ? 'bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white'
+                      ? 'bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-medium'
                       : 'bg-card text-muted-foreground border border-border'
                   }`}
                 >
@@ -227,14 +227,14 @@ export function Market({ onProductClick }: MarketProps) {
 
             {/* Right Scroll Sidebar (Netflix Style) */}
             <div 
-              className="absolute right-0 top-0 bottom-2 z-20 w-12 bg-gradient-to-l from-background via-background/60 to-transparent flex items-center justify-end pr-1 opacity-0 group-hover/categories:opacity-100 transition-all duration-300 pointer-events-none"
+              className="absolute right-0 top-0 bottom-1 z-20 w-10 bg-gradient-to-l from-background via-background/60 to-transparent flex items-center justify-end pr-0.5 opacity-0 group-hover/categories:opacity-100 transition-all duration-300 pointer-events-none"
             >
               <button
                 onClick={() => scroll('right')}
-                className="w-10 h-full flex items-center justify-center text-white hover:scale-125 transition-transform pointer-events-auto"
+                className="w-8 h-full flex items-center justify-center text-white hover:scale-125 transition-transform pointer-events-auto"
                 aria-label="Scroll right"
               >
-                <ChevronRight className="w-6 h-6 drop-shadow-lg" />
+                <ChevronRight className="w-5 h-5 drop-shadow-lg" />
               </button>
             </div>
           </div>
