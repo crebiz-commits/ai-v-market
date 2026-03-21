@@ -232,7 +232,7 @@ export function Upload({ onSignInClick }: UploadProps) {
 
     try {
       // 0. 버전 확인 및 토큰 최신화 확인
-      console.log('Upload Component Version: 1.0.2 (Fixed URL)');
+      console.log('Upload Component Version: 1.0.3 (Fixed Server Slug)');
       console.log('Checking session/token...');
       const { data: { session } } = await supabase.auth.getSession();
       const currentToken = session?.access_token || accessToken;
@@ -243,7 +243,7 @@ export function Upload({ onSignInClick }: UploadProps) {
       }
 
       const publicAnonKey = supabaseAnonKey;
-      const targetUrl = `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/make-server-f4aeac42/videos/create-upload`;
+      const targetUrl = `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/videos/create-upload`;
       console.log('Request Diagnostics:', {
         url: targetUrl,
         hasUser: !!user,
@@ -309,7 +309,7 @@ export function Upload({ onSignInClick }: UploadProps) {
         status: 'ready'
       };
 
-      const saveUrl = `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/make-server-f4aeac42/videos/save-metadata`;
+      const saveUrl = `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/videos/save-metadata`;
       console.log('Saving metadata to:', saveUrl);
       
       const saveResponse = await fetch(
