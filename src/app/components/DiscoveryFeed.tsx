@@ -79,7 +79,7 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
   // Initialize and update video.js player
   useEffect(() => {
     if (currentVideo?.videoUrl && videoRef.current) {
-      console.log("Initializing player for:", currentVideo.title, currentVideo.videoUrl);
+      console.log("Initializing player for:", currentVideo.title);
       
       // Dispose old player if exists
       if (playerRef.current) {
@@ -95,6 +95,7 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
         fluid: true,
         responsive: true,
         playsinline: true,
+        poster: currentVideo.thumbnail,
         html5: {
           vhs: {
             withCredentials: false
@@ -109,30 +110,26 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
           type: currentVideo.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
         });
 
-        // Set initial highlight position once metadata is loaded
         player.one('loadedmetadata', () => {
           const duration = player.duration();
           let start = currentVideo.highlightStart || 0;
           
-          // If start point is beyond duration, reset to 0
-          if (start >= duration) {
-            console.warn(`Highlight start (${start}) is beyond duration (${duration}). Resetting to 0.`);
+          if (start >= duration && duration > 0) {
             start = 0;
           }
           
           player.currentTime(start);
-          player.play().catch((e: any) => {
-            console.error("Autoplay failed:", e);
-            // Show play button if needed
-          });
+          player.play().catch((e: any) => console.log("Play error:", e));
         });
       });
 
-      player.on('play', () => setIsPlaying(true));
-      player.on('pause', () => setIsPlaying(false));
-      player.on('error', () => {
-        console.error("Video player error:", player.error());
+      player.on('play', () => {
+        setIsPlaying(true);
+        // Hide poster manually if needed by adding a class
+        player.addClass('vjs-has-started');
       });
+      
+      player.on('pause', () => setIsPlaying(false));
 
       // Highlight looping logic
       player.on('timeupdate', () => {
@@ -140,7 +137,6 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
         let end = currentVideo.highlightEnd || 15;
         const duration = player.duration();
         
-        // Ensure end point doesn't exceed duration
         if (duration > 0 && end > duration) {
           end = duration;
         }
@@ -163,7 +159,6 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
     };
   }, [currentIndex, currentVideo]);
 
-  // Sync volume state
   useEffect(() => {
     if (playerRef.current) {
       playerRef.current.muted(isMuted);
@@ -222,9 +217,7 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center bg-[#050505]">
-        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-          <Loader2 className="w-10 h-10 text-[#6366f1]" />
-        </motion.div>
+        <Loader2 className="w-10 h-10 text-[#6366f1] animate-spin" />
       </div>
     );
   }
@@ -241,7 +234,6 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
 
   return (
     <div className="h-full w-full bg-[#050505] overflow-hidden">
-      {/* Mobile: Full-Screen Immersive Layout */}
       <div 
         className="md:hidden relative h-full w-full bg-black overflow-hidden"
         onTouchStart={handleTouchStart}
@@ -258,87 +250,78 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
             exit={{ opacity: 0 }}
             className="absolute inset-0 w-full h-full"
           >
-            {/* Full Screen Video Background */}
-            <div className="absolute inset-0 w-full h-full video-js-responsive-container">
-              <div data-vjs-player>
+            <div className="absolute inset-0 w-full h-full vjs-player-wrapper">
+              <div data-vjs-player className="w-full h-full">
                 <video
                   ref={videoRef}
-                  className="video-js vjs-big-play-centered vjs-fill"
+                  className="video-js vjs-fill vjs-big-play-centered"
                   playsInline
-                  poster={currentVideo.thumbnail}
                 />
               </div>
-
-              {/* Gradient Overlay for Readability */}
-              <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/95 pointer-events-none z-10" />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/90 pointer-events-none z-10" />
             </div>
 
-            {/* Play/Pause Indicator (Central Overlay) */}
             {!isPlaying && (
               <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-                <div className="w-20 h-20 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/20">
-                  <div className="w-0 h-0 border-t-[10px] border-t-transparent border-l-[20px] border-l-white border-b-[10px] border-b-transparent ml-2" />
+                <div className="w-16 h-16 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/20">
+                  <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[16px] border-l-white border-b-[8px] border-b-transparent ml-1" />
                 </div>
               </div>
             )}
 
-            {/* Top UI Elements */}
             <div className="absolute top-6 left-6 z-30">
-              <span className="px-3 py-1 bg-black/40 backdrop-blur-md rounded-full text-white font-black text-[10px] tracking-widest border border-white/10 uppercase italic">
+              <span className="px-3 py-1 bg-black/50 backdrop-blur-md rounded-full text-white font-black text-[10px] tracking-widest border border-white/20 uppercase italic">
                 {currentVideo.tool}
               </span>
             </div>
 
-            <div className="absolute top-6 right-6 flex flex-col gap-3 z-30">
+            <div className="absolute top-6 right-6 z-30">
               <button 
                 onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
-                className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white"
+                className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center text-white"
               >
                 {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
               </button>
             </div>
 
-            {/* Right Side Interaction Bar */}
             <div className="absolute right-4 bottom-32 flex flex-col gap-6 items-center z-30" onClick={(e) => e.stopPropagation()}>
               <button onClick={() => toggleLike(currentVideo.id)} className="flex flex-col items-center gap-1 group">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-md border transition-all ${isLiked ? 'bg-red-500/20 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)]' : 'bg-black/40 border-white/10 group-hover:bg-black/60'}`}>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-md border transition-all ${isLiked ? 'bg-red-500/20 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)]' : 'bg-black/50 border-white/20 group-hover:bg-black/70'}`}>
                   <Heart className={`w-6 h-6 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
                 </div>
                 <span className="text-[10px] font-bold text-white drop-shadow-md">{(currentVideo.likes + (isLiked ? 1 : 0)).toLocaleString()}</span>
               </button>
               
               <button className="flex flex-col items-center gap-1 group">
-                <div className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center group-hover:bg-black/60 shadow-lg">
+                <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center group-hover:bg-black/70 shadow-lg">
                   <ShoppingCart className="w-5 h-5 text-white" />
                 </div>
                 <span className="text-[10px] font-bold text-white drop-shadow-md">담기</span>
               </button>
 
               <button className="flex flex-col items-center gap-1 group">
-                <div className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center group-hover:bg-black/60 shadow-lg">
+                <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center group-hover:bg-black/70 shadow-lg">
                   <Share2 className="w-5 h-5 text-white" />
                 </div>
                 <span className="text-[10px] font-bold text-white drop-shadow-md">공유</span>
               </button>
             </div>
 
-            {/* Bottom Metadata Info */}
             <div className="absolute bottom-24 left-6 right-20 z-30 pointer-events-none">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold text-white shadow-lg ring-2 ring-indigo-500/20">AI</div>
                 <span className="text-sm font-bold text-white drop-shadow-md">{currentVideo.creator}</span>
               </div>
               <h3 className="text-2xl font-black text-white leading-tight drop-shadow-lg mb-2">{currentVideo.title}</h3>
-              <p className="text-xs text-white/70 line-clamp-2 drop-shadow-md max-w-xs">
+              <p className="text-xs text-white/90 line-clamp-2 drop-shadow-md max-w-xs">
                 {currentVideo.tool} 툴로 제작된 영화적 감성의 고화질 AI 영상입니다. 상업적 사용이 가능합니다.
               </p>
             </div>
 
-            {/* Bottom Floating CTA Button */}
             <div className="absolute bottom-6 left-6 right-6 z-30 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
               <Button 
                 onClick={() => onVideoClick(currentVideo)}
-                className="w-full h-14 bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white font-black rounded-2xl text-lg border border-white/20 shadow-2xl transition-all active:scale-[0.98]"
+                className="w-full h-14 bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white font-black rounded-2xl text-lg border border-white/30 shadow-2xl transition-all active:scale-[0.98]"
               >
                 상세 보기 ₩{currentVideo.price.toLocaleString()}
               </Button>
@@ -347,21 +330,30 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
         </AnimatePresence>
       </div>
 
-      {/* Desktop View (Basic Grid) */}
       <style>{`
-        .video-js-responsive-container {
+        .vjs-player-wrapper {
           width: 100%;
           height: 100%;
+          position: absolute;
+          inset: 0;
         }
         .video-js.vjs-fill {
-          width: 100%;
-          height: 100%;
+          width: 100% !important;
+          height: 100% !important;
         }
-        .vjs-poster {
-          background-size: cover;
+        .vjs-tech {
+          object-fit: cover !important;
+          width: 100% !important;
+          height: 100% !important;
         }
-        video.vjs-tech {
-          object-fit: cover;
+        /* Ensure the video track is visible and not hidden by the poster */
+        .vjs-has-started .vjs-poster {
+          display: none !important;
+        }
+        .video-js .vjs-tech {
+          position: absolute;
+          top: 0;
+          left: 0;
         }
       `}</style>
     </div>
