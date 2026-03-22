@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useCallback } from "react";
-import { Upload as UploadIcon, Video, FileText, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { Upload as UploadIcon, Video, FileText, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -145,7 +145,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
         event: e
       });
       // v1.0.7: 에러 메시지 브라우저 캐시 방지를 위해 버전 명시
-      toast.warning('동영상 정보를 자동으로 가져오지 못했습니다. 직접 입력해 주세요. (v1.0.7)');
+      toast.warning('동영상 정보를 자동으로 가져오지 못했습니다. 직접 입력해 주세요. (v1.0.9)');
     };
     
     video.src = URL.createObjectURL(file);
