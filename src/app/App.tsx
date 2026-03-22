@@ -120,7 +120,7 @@ function AppContent() {
       case "market":
         return <Market onProductClick={setSelectedProduct} />;
       case "upload":
-        return <Upload onSignInClick={() => setShowAuthModal(true)} />;
+        return <Upload onSignInClick={() => setShowAuthModal(true)} onViewMyProducts={() => setActiveTab("mypage")} />;
       case "community":
         return <Community />;
       case "mypage":
@@ -138,7 +138,7 @@ function AppContent() {
     { id: "mypage", label: "마이페이지", icon: User },
   ] as const;
 
-  const springTransition = { type: "spring", stiffness: 500, damping: 30 };
+  const springTransition: any = { type: "spring", stiffness: 500, damping: 30 };
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden selection:bg-[#6366f1]/30">

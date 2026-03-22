@@ -31,6 +31,7 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
   const [likedVideos, setLikedVideos] = useState<Set<string>>(new Set());
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<any>(null);
   const touchStartY = useRef(0);
@@ -65,7 +66,8 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
           })));
         }
       } catch (error) {
-        console.error("Error fetching discovery videos:", error);
+        console.log('Upload Component Version: 1.0.6 (Interaction & Error Fix)');
+      console.log('Checking session/token...');
       } finally {
         setLoading(false);
       }
@@ -78,8 +80,14 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
     const player = videojs(videoRef.current, {
       autoplay: true, controls: false, loop: false, muted: isMuted, fill: true, responsive: true, playsinline: true, crossOrigin: 'anonymous'
     });
-    player.on('play', () => setIsPlaying(true));
+    player.on('play', () => { setIsPlaying(true); setHasError(false); });
     player.on('pause', () => setIsPlaying(false));
+    player.on('error', () => {
+      const err = player.error();
+      if (err && (err.code === 4 || err.code === 2)) {
+        setHasError(true);
+      }
+    });
     playerRef.current = player;
     return () => { if (playerRef.current) playerRef.current.dispose(); };
   }, [loading]);
@@ -178,14 +186,39 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
             lastWheelTime.current = now;
           }
         }}
-        onClick={(e) => {
-          // Only play/pause if we WEREN'T dragging
-          if (!isDragging.current && playerRef.current) {
-            playerRef.current.paused() ? playerRef.current.play() : playerRef.current.pause();
-          }
-        }}
       >
-        <div className="vjs-fixed-container"><video ref={videoRef} className="video-js vjs-fill vjs-big-play-centered" playsInline /><div className="bottom-gradient-overlay" /></div>
+        {/* 🎬 Video Section */}
+        <div className="relative w-full h-full pointer-events-none">
+          <video ref={videoRef} className="video-js vjs-big-play-centered w-full h-full" playsInline />
+          
+          {/* Error/Processing Overlay */}
+          {hasError && (
+            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm p-8 text-center pointer-events-auto">
+              <Loader2 className="w-12 h-12 text-[#6366f1] animate-spin mb-4" />
+              <h3 className="text-xl font-bold text-white mb-2">영상이 현재 처리 중입니다</h3>
+              <p className="text-gray-300 text-sm max-w-[280px]">
+                고화질 스트리밍을 위해 서버에서 영상을 변환하고 있습니다. 잠시 후 다시 시도해 주세요.
+              </p>
+            </div>
+          )}
+          <div className="bottom-gradient-overlay" />
+        </div>
+
+        {/* 👆 Dedicated Tap Layer for Play/Pause */}
+        <div 
+          className="absolute inset-0 z-10 cursor-pointer pointer-events-auto"
+          onPointerUp={(e) => {
+            if (!isDragging.current && playerRef.current) {
+              if (playerRef.current.paused()) {
+                playerRef.current.play();
+              } else {
+                playerRef.current.pause();
+              }
+            }
+          }}
+        />
+
+        <div className="absolute top-4 right-4 z-50 pointer-events-none opacity-20 text-[8px] text-white">v1.0.6-interaction</div>
         <AnimatePresence mode="wait">
           <motion.div key={currentVideo.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-20 pointer-events-none">
             <div className="absolute top-6 left-6 pointer-events-auto"><span className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-white font-black text-[10px] items-center italic border border-white/10 uppercase">{currentVideo.tool}</span></div>

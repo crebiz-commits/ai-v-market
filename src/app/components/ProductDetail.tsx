@@ -1,4 +1,4 @@
-import { X, Play, Heart, Share2, Download, ShoppingCart, Check, Volume2, VolumeX, Maximize } from "lucide-react";
+import { X, Play, Heart, Share2, Download, ShoppingCart, Check, Volume2, VolumeX, Maximize, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Label } from "./ui/label";
@@ -68,6 +68,7 @@ export function ProductDetail({ product, onClose }: ProductDetailProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -91,10 +92,22 @@ export function ProductDetail({ product, onClose }: ProductDetailProps) {
       });
 
       player.ready(() => {
+        if (!player) return;
         player.src({
           src: product.videoUrl,
           type: product.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
         });
+        player.one('loadedmetadata', () => {
+          if (player) player.play().catch(() => {});
+          setHasError(false);
+        });
+      });
+
+      player.on('error', () => {
+        const err = player.error();
+        if (err && (err.code === 4 || err.code === 2)) {
+          setHasError(true);
+        }
       });
 
       // 하이라이트 구간 반복 재생 로직 (Video.js)
@@ -180,6 +193,17 @@ export function ProductDetail({ product, onClose }: ProductDetailProps) {
                 playsInline
               />
               
+              {/* Error/Processing Overlay */}
+              {hasError && (
+                <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm p-8 text-center pointer-events-auto">
+                  <Loader2 className="w-12 h-12 text-[#6366f1] animate-spin mb-4" />
+                  <h3 className="text-xl font-bold text-white mb-2">영상이 현재 처리 중입니다</h3>
+                  <p className="text-gray-300 text-sm max-w-[300px]">
+                    고화질 스트리밍을 위해 서버에서 영상을 부드럽게 변환하고 있습니다. 잠시 후 상쾌하게 감상하실 수 있습니다!
+                  </p>
+                </div>
+              )}
+
               {/* Play/Pause Overlay on Hover or Pause */}
               <div className={`absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-300 ${isPlaying ? 'opacity-0 hover:opacity-100' : 'opacity-100'}`}>
                 <button 

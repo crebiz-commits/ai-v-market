@@ -20,9 +20,10 @@ const genres = ["SF", "액션", "로맨스", "공포", "판타지", "드라마",
 
 interface UploadProps {
   onSignInClick?: () => void;
+  onViewMyProducts?: () => void;
 }
 
-export function Upload({ onSignInClick }: UploadProps) {
+export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
   const { user, accessToken } = useAuth();
   const [step, setStep] = useState(1);
   const [uploadMethod, setUploadMethod] = useState<"single" | "bulk" | null>(null);
@@ -136,20 +137,36 @@ export function Upload({ onSignInClick }: UploadProps) {
       toast.success(`영상 정보: ${resolution}, ${formattedDuration}`);
     };
     
-    video.onerror = () => {
-      console.error('Failed to read video metadata');
-      toast.error('영상 정보를 읽을 수 없습니다.');
+    video.onerror = (e) => {
+      const error = video.error;
+      console.error('Failed to read video metadata:', {
+        code: error?.code,
+        message: error?.message,
+        event: e
+      });
+      // 에러가 발생해도 파일은 선택되었으므로 진행은 가능함. 사용자에게 안내만 함.
+      toast.warning('동영상 정보를 자동으로 가져오지 못했습니다. 직접 입력해 주세요.');
     };
     
     video.src = URL.createObjectURL(file);
 
-    // 모바일 환경 대응: 3초 후에도 메타데이터가 로드되지 않으면 자동 종료 (업로드는 가능하게 유지)
-    setTimeout(() => {
+    // 모바일 환경 대응: 10초 후에도 메타데이터가 로드되지 않으면 소스 정리 (업로드는 가능하게 유지)
+    const cleanupTimeout = setTimeout(() => {
       if (video.src) {
         window.URL.revokeObjectURL(video.src);
         video.src = '';
+        console.log('Metadata extraction timed out, source revoked.');
       }
-    }, 5000);
+    }, 10000);
+
+    // 성공 시 타임아웃 해제
+    const originalOnLoaded = video.onloadedmetadata;
+    video.onloadedmetadata = (e) => {
+      clearTimeout(cleanupTimeout);
+      if (typeof originalOnLoaded === 'function') {
+        originalOnLoaded.call(video, e);
+      }
+    };
   };
 
   if (!user) {
@@ -280,6 +297,7 @@ export function Upload({ onSignInClick }: UploadProps) {
       if (!createResponse.ok) {
         const errorData = await createResponse.json().catch(() => ({}));
         console.error('Video creation failed:', errorData);
+        toast.error(`업로드 서버 오류: ${errorData.error || createResponse.statusText}`);
         throw new Error(errorData.error || `Failed to create video (${createResponse.status})`);
       }
 
@@ -405,9 +423,13 @@ export function Upload({ onSignInClick }: UploadProps) {
             >
               계속 업로드
             </Button>
-            <Button className="flex-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]">
+            <Button 
+              className="flex-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
+              onClick={onViewMyProducts}
+            >
               내 상품 보기
             </Button>
+          </div>
           </div>
         </motion.div>
       </div>
@@ -576,7 +598,7 @@ export function Upload({ onSignInClick }: UploadProps) {
                 <Button 
                   type="button" 
                   onClick={(e) => {
-                    e.stopPropagation();
+                    e.stopPropagation(); // Prevent the div's onClick from firing again
                     fileInputRef.current?.click();
                   }}
                   className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
