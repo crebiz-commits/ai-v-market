@@ -144,8 +144,8 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
         message: error?.message,
         event: e
       });
-      // 에러가 발생해도 파일은 선택되었으므로 진행은 가능함. 사용자에게 안내만 함.
-      toast.warning('동영상 정보를 자동으로 가져오지 못했습니다. 직접 입력해 주세요.');
+      // v1.0.7: 에러 메시지 브라우저 캐시 방지를 위해 버전 명시
+      toast.warning('동영상 정보를 자동으로 가져오지 못했습니다. 직접 입력해 주세요. (v1.0.7)');
     };
     
     video.src = URL.createObjectURL(file);

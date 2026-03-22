@@ -218,7 +218,7 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
           }}
         />
 
-        <div className="absolute top-4 right-4 z-50 pointer-events-none opacity-20 text-[8px] text-white">v1.0.6-interaction</div>
+        <div className="absolute top-4 right-4 z-50 pointer-events-none opacity-20 text-[8px] text-white">v1.0.7-final</div>
         <AnimatePresence mode="wait">
           <motion.div key={currentVideo.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-20 pointer-events-none">
             <div className="absolute top-6 left-6 pointer-events-auto"><span className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-white font-black text-[10px] items-center italic border border-white/10 uppercase">{currentVideo.tool}</span></div>
