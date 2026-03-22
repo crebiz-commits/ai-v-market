@@ -34,6 +34,8 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<any>(null);
   const touchStartY = useRef(0);
+  const isDragging = useRef(false);
+  const lastWheelTime = useRef(0);
 
   const currentVideo = videos[currentIndex];
 
@@ -83,6 +85,21 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
   }, [loading]);
 
   useEffect(() => {
+    if (playerRef.current) {
+      playerRef.current.muted(isMuted);
+    }
+  }, [isMuted]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowUp" && currentIndex > 0) setCurrentIndex(prev => prev - 1);
+      if (e.key === "ArrowDown" && currentIndex < videos.length - 1) setCurrentIndex(prev => prev + 1);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentIndex, videos.length]);
+
+  useEffect(() => {
     const player = playerRef.current;
     if (player && currentVideo) {
       player.pause();
@@ -118,18 +135,55 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
   const isLiked = currentVideo && likedVideos.has(currentVideo.id);
 
   return (
-    <div className="h-full w-full bg-[#050505] overflow-y-auto custom-scrollbar">
+    <div className="discovery-feed-wrapper h-full w-full bg-[#050505]">
       {/* 📱 Mobile */}
       <div className="mobile-feed-container" 
-        onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY; }}
-        onTouchEnd={(e) => {
-          const diff = touchStartY.current - e.changedTouches[0].clientY;
-          if (Math.abs(diff) > 50) {
-            if (diff > 0 && currentIndex < videos.length - 1) setCurrentIndex(v => v + 1);
-            else if (diff < 0 && currentIndex > 0) setCurrentIndex(v => v - 1);
+        onPointerDown={(e) => { 
+          touchStartY.current = e.clientY; 
+          isDragging.current = false;
+        }}
+        onPointerMove={(e) => { 
+          if (Math.abs(e.clientY - touchStartY.current) > 10) {
+            if (!isDragging.current) {
+              isDragging.current = true;
+              try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch (err) {}
+            }
           }
         }}
-        onClick={() => playerRef.current?.paused() ? playerRef.current.play() : playerRef.current.pause()}
+        onPointerUp={(e) => {
+          if (isDragging.current) {
+            const touchEndY = e.clientY;
+            const diff = touchStartY.current - touchEndY;
+            
+            if (Math.abs(diff) > 50) {
+              if (diff > 0 && currentIndex < videos.length - 1) {
+                setCurrentIndex(v => v + 1);
+              } else if (diff < 0 && currentIndex > 0) {
+                setCurrentIndex(v => v - 1);
+              }
+            }
+            try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch (err) {}
+            isDragging.current = false;
+          }
+        }}
+        onWheel={(e) => {
+          const now = Date.now();
+          if (now - lastWheelTime.current < 500) return; // Debounce wheel
+          
+          if (e.deltaY > 50 && currentIndex < videos.length - 1) {
+            setCurrentIndex(v => v + 1);
+            lastWheelTime.current = now;
+          } else if (e.deltaY < -50 && currentIndex > 0) {
+            setCurrentIndex(v => v - 1);
+            lastWheelTime.current = now;
+          }
+        }}
+        onClick={(e) => {
+          // Only play/pause if we WEREN'T dragging
+          if (!isDragging.current && playerRef.current) {
+            playerRef.current.paused() ? playerRef.current.play() : playerRef.current.pause();
+          }
+        }}
       >
         <div className="vjs-fixed-container"><video ref={videoRef} className="video-js vjs-fill vjs-big-play-centered" playsInline /><div className="bottom-gradient-overlay" /></div>
         <AnimatePresence mode="wait">
@@ -169,14 +223,32 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
       </div>
 
       <style>{`
-        .mobile-feed-container { display: block; position: relative; height: calc(100vh - 64px); width: 100%; border-bottom: 1px solid #111; }
-        .desktop-feed-container { display: none; }
-        @media (min-width: 768px) { .mobile-feed-container { display: none; } .desktop-feed-container { display: block; } }
-        .vjs-fixed-container { position: absolute; inset: 0; background: #000; }
+        .discovery-feed-wrapper { position: relative; overflow: hidden; }
+        .mobile-feed-container { 
+          display: block; 
+          position: relative; 
+          height: 100%; 
+          width: 100%; 
+          background: #000;
+          touch-action: none !important; 
+        }
+        .desktop-feed-container { 
+          display: none; 
+          height: 100%; 
+          overflow-y: auto; 
+          background: #050505;
+        }
+        @media (min-width: 768px) { 
+          .mobile-feed-container { display: none; } 
+          .desktop-feed-container { display: block; } 
+          .discovery-feed-wrapper { overflow: visible; }
+        }
+        .vjs-fixed-container { position: absolute; inset: 0; background: #000; overflow: hidden; }
         .video-js.vjs-fill { width: 100% !important; height: 100% !important; }
         .vjs-tech { object-fit: cover !important; }
         .bottom-gradient-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.9) 100%); pointer-events: none; z-index: 10; }
-        .desktop-grid-wrapper { max-width: 1400px; margin: 0 auto; }
+        .full-vjs-container { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .desktop-grid-wrapper { max-width: 1400px; margin: 0 auto; padding-bottom: 100px; }
         .desktop-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 40px; }
         .desktop-title { font-size: 2rem; font-weight: 900; color: white; text-transform: uppercase; font-style: italic; }
         .beta-tag { color: #6366f1; font-size: 0.7rem; vertical-align: top; margin-left: 4px; }
@@ -215,18 +287,44 @@ function DesktopCard({ video, onVideoClick }: { video: Video; onVideoClick: (vid
   const playerRef = useRef<any>(null);
 
   useEffect(() => {
-    if (isHovered && videoRef.current && !playerRef.current) {
-      const p = videojs(videoRef.current, { autoplay: true, controls: false, loop: true, muted: true, fill: true, playsinline: true, crossOrigin: 'anonymous' });
-      p.ready(() => {
-        p.src({ src: video.videoUrl, type: video.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4' });
-        p.one('loadedmetadata', () => { p.currentTime(video.highlightStart || 0); p.play().catch(() => {}); });
+    let p: any = null;
+    if (isHovered && videoRef.current) {
+      p = videojs(videoRef.current, { 
+        autoplay: true, 
+        controls: false, 
+        loop: true, 
+        muted: true, 
+        fill: true, 
+        responsive: true,
+        playsinline: true, 
+        crossOrigin: 'anonymous' 
       });
-      playerRef.current = p;
-    } else if (!isHovered && playerRef.current) { p_dispose(); }
-    return () => p_dispose();
-  }, [isHovered, video]);
+      
+      const setupPlayer = () => {
+        if (!p) return;
+        p.src({ 
+          src: video.videoUrl, 
+          type: video.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4' 
+        });
+        p.one('loadedmetadata', () => { 
+          if (!p) return;
+          p.currentTime(video.highlightStart || 0); 
+          p.play().catch(() => {}); 
+        });
+      };
 
-  const p_dispose = () => { if (playerRef.current) { playerRef.current.dispose(); playerRef.current = null; } };
+      p.ready(setupPlayer);
+      playerRef.current = p;
+    }
+    
+    return () => {
+      if (p) {
+        p.dispose();
+        if (playerRef.current === p) playerRef.current = null;
+      }
+    };
+  }, [isHovered, video.videoUrl, video.highlightStart]);
+
 
   return (
     <motion.div onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} onClick={() => onVideoClick(video)} className="desktop-card-outer">
