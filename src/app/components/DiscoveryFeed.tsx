@@ -275,72 +275,23 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
         
         .desktop-grid { 
           display: grid; 
-          grid-template-cols: repeat(1, minmax(0, 1fr)); 
-          gap: 32px; 
+          grid-template-cols: repeat(auto-fill, minmax(280px, 1fr)); 
+          gap: 40px; 
+          justify-items: center;
         }
-        @media (min-width: 640px) { .desktop-grid { grid-template-cols: repeat(2, minmax(0, 1fr)); } }
-        @media (min-width: 1024px) { .desktop-grid { grid-template-cols: repeat(3, minmax(0, 1fr)); } }
-        @media (min-width: 1280px) { .desktop-grid { grid-template-cols: repeat(4, minmax(0, 1fr)); } }
 
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-      `}</style>
-    </div>
-  );
-}
-
-function DesktopCard({ video, onVideoClick }: { video: Video; onVideoClick: (video: Video) => void }) {
-  const [isHovered, setIsHovered] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const playerRef = useRef<any>(null);
-
-  useEffect(() => {
-    if (isHovered && videoRef.current && !playerRef.current) {
-      const player = videojs(videoRef.current, {
-        autoplay: true,
-        controls: false,
-        loop: true,
-        muted: true,
-        fill: true,
-        playsinline: true,
-        crossOrigin: 'anonymous'
-      });
-      
-      player.ready(() => {
-        player.src({
-          src: video.videoUrl,
-          type: video.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
-        });
-        player.one('loadedmetadata', () => {
-          player.currentTime(video.highlightStart || 0);
-          player.play().catch(() => {});
-        });
-      });
-      playerRef.current = player;
-    } else if (!isHovered && playerRef.current) {
-      playerRef.current.dispose();
-      playerRef.current = null;
-    }
-
-    return () => {
-      if (playerRef.current) {
-        playerRef.current.dispose();
-        playerRef.current = null;
-      }
-    };
-  }, [isHovered, video]);
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onClick={() => onVideoClick(video)}
-      className="desktop-card-outer"
-    >
+        .desktop-card-outer {
+          position: relative;
+          width: 100%;
+          max-width: 320px;
+          aspect-ratio: 9/16;
+          border-radius: 2rem;
+          overflow: hidden;
+          background: #111;
+          border: 1px solid rgba(255,255,255,0.05);
+          cursor: pointer;
+          transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
       <img src={video.thumbnail} alt={video.title} className={`card-thumbnail ${isHovered ? 'hidden' : 'visible'}`} />
       {isHovered && (
         <div className="card-video-container">
@@ -363,20 +314,10 @@ function DesktopCard({ video, onVideoClick }: { video: Video; onVideoClick: (vid
       <div className="card-hover-accent" />
 
       <style>{`
-        .desktop-card-outer {
-          position: relative;
-          aspect-ratio: 9/16;
-          border-radius: 2rem;
-          overflow: hidden;
-          background: #111;
-          border: 1px solid rgba(255,255,255,0.05);
-          cursor: pointer;
-          transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-        }
         .desktop-card-outer:hover {
           border-color: rgba(255,255,255,0.2);
-          box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-          transform: translateY(-8px);
+          box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+          transform: translateY(-12px) scale(1.02);
         }
         .card-thumbnail { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.7s ease; }
         .desktop-card-outer:hover .card-thumbnail { transform: scale(1.1); }
