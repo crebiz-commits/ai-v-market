@@ -30,6 +30,7 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [likedVideos, setLikedVideos] = useState<Set<string>>(new Set());
   const [isMuted, setIsMuted] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<any>(null);
   const touchStartY = useRef(0);
@@ -78,17 +79,18 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
   // Initialize and update video.js player
   useEffect(() => {
     if (currentVideo?.videoUrl && videoRef.current) {
+      console.log("Initializing player for:", currentVideo.title, currentVideo.videoUrl);
+      
       // Dispose old player if exists
       if (playerRef.current) {
         playerRef.current.dispose();
-        playerRef.current = null;
       }
 
       // Initialize new player
       const player = videojs(videoRef.current, {
         autoplay: true,
         controls: false,
-        loop: false, // Handle looping manually for highlights
+        loop: false,
         muted: isMuted,
         fluid: true,
         responsive: true,
@@ -107,20 +109,46 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
           type: currentVideo.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
         });
 
-        // Set initial highlight position
-        const start = currentVideo.highlightStart || 0;
-        player.currentTime(start);
-        player.play().catch(e => console.log("Play failed:", e));
+        // Set initial highlight position once metadata is loaded
+        player.one('loadedmetadata', () => {
+          const duration = player.duration();
+          let start = currentVideo.highlightStart || 0;
+          
+          // If start point is beyond duration, reset to 0
+          if (start >= duration) {
+            console.warn(`Highlight start (${start}) is beyond duration (${duration}). Resetting to 0.`);
+            start = 0;
+          }
+          
+          player.currentTime(start);
+          player.play().catch((e: any) => {
+            console.error("Autoplay failed:", e);
+            // Show play button if needed
+          });
+        });
+      });
+
+      player.on('play', () => setIsPlaying(true));
+      player.on('pause', () => setIsPlaying(false));
+      player.on('error', () => {
+        console.error("Video player error:", player.error());
       });
 
       // Highlight looping logic
       player.on('timeupdate', () => {
         const start = currentVideo.highlightStart || 0;
-        const end = currentVideo.highlightEnd || 15;
-        const currentTime = player.currentTime();
+        let end = currentVideo.highlightEnd || 15;
+        const duration = player.duration();
         
+        // Ensure end point doesn't exceed duration
+        if (duration > 0 && end > duration) {
+          end = duration;
+        }
+
+        const currentTime = player.currentTime();
         if (typeof currentTime === 'number' && currentTime >= end) {
           player.currentTime(start);
+          player.play().catch(() => {});
         }
       });
 
@@ -181,6 +209,16 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
     });
   };
 
+  const togglePlay = () => {
+    if (playerRef.current) {
+      if (playerRef.current.paused()) {
+        playerRef.current.play();
+      } else {
+        playerRef.current.pause();
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center bg-[#050505]">
@@ -210,6 +248,7 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onWheel={handleWheel}
+        onClick={togglePlay}
       >
         <AnimatePresence mode="wait">
           <motion.div
@@ -234,6 +273,15 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
               <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/95 pointer-events-none z-10" />
             </div>
 
+            {/* Play/Pause Indicator (Central Overlay) */}
+            {!isPlaying && (
+              <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+                <div className="w-20 h-20 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/20">
+                  <div className="w-0 h-0 border-t-[10px] border-t-transparent border-l-[20px] border-l-white border-b-[10px] border-b-transparent ml-2" />
+                </div>
+              </div>
+            )}
+
             {/* Top UI Elements */}
             <div className="absolute top-6 left-6 z-30">
               <span className="px-3 py-1 bg-black/40 backdrop-blur-md rounded-full text-white font-black text-[10px] tracking-widest border border-white/10 uppercase italic">
@@ -241,15 +289,17 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
               </span>
             </div>
 
-            <button 
-              onClick={() => setIsMuted(!isMuted)}
-              className="absolute top-6 right-6 w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white z-30"
-            >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </button>
+            <div className="absolute top-6 right-6 flex flex-col gap-3 z-30">
+              <button 
+                onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
+                className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white"
+              >
+                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </button>
+            </div>
 
             {/* Right Side Interaction Bar */}
-            <div className="absolute right-4 bottom-32 flex flex-col gap-6 items-center z-30">
+            <div className="absolute right-4 bottom-32 flex flex-col gap-6 items-center z-30" onClick={(e) => e.stopPropagation()}>
               <button onClick={() => toggleLike(currentVideo.id)} className="flex flex-col items-center gap-1 group">
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-md border transition-all ${isLiked ? 'bg-red-500/20 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)]' : 'bg-black/40 border-white/10 group-hover:bg-black/60'}`}>
                   <Heart className={`w-6 h-6 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
@@ -285,7 +335,7 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
             </div>
 
             {/* Bottom Floating CTA Button */}
-            <div className="absolute bottom-6 left-6 right-6 z-30 pointer-events-auto">
+            <div className="absolute bottom-6 left-6 right-6 z-30 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
               <Button 
                 onClick={() => onVideoClick(currentVideo)}
                 className="w-full h-14 bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white font-black rounded-2xl text-lg border border-white/20 shadow-2xl transition-all active:scale-[0.98]"
@@ -298,24 +348,6 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
       </div>
 
       {/* Desktop View (Basic Grid) */}
-      <div className="hidden md:block h-full overflow-y-auto p-8 max-w-7xl mx-auto">
-        <h2 className="text-3xl font-black mb-8 text-white">AI 영상 탐색</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {videos.map(video => (
-            <div key={video.id} onClick={() => onVideoClick(video)} className="bg-[#111] rounded-2xl overflow-hidden border border-white/10 hover:border-indigo-500/50 transition-all cursor-pointer group">
-              <div className="aspect-video relative overflow-hidden">
-                <img src={video.thumbnail} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                <div className="absolute bottom-4 left-4 right-4 text-white">
-                  <p className="text-sm font-black mb-1 line-clamp-1">{video.title}</p>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase">{video.creator}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       <style>{`
         .video-js-responsive-container {
           width: 100%;
