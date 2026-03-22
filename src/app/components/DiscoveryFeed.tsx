@@ -78,14 +78,14 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
 
   // Initialize player ONCE
   useEffect(() => {
-    if (!videoRef.current || playerRef.current) return;
+    if (!videoRef.current || playerRef.current || loading) return;
 
     const player = videojs(videoRef.current, {
       autoplay: true,
       controls: false,
       loop: false,
       muted: isMuted,
-      fluid: true,
+      fill: true, // Force to fill the container instead of maintaining aspect ratio
       responsive: true,
       playsinline: true,
       html5: {
@@ -107,18 +107,13 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
         playerRef.current = null;
       }
     };
-  }, [loading]); // Initialize after loading is done and DOM is ready
+  }, [loading]);
 
   // Handle source changes separately to avoid player re-initialization
   useEffect(() => {
     const player = playerRef.current;
     if (player && currentVideo) {
-      console.log("Updating source for:", currentVideo.title);
-      
-      // Stop current playback
       player.pause();
-      
-      // Set new source
       player.src({
         src: currentVideo.videoUrl,
         type: currentVideo.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
@@ -133,13 +128,11 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
         player.play().catch((e: any) => console.log("Play failed on source change:", e));
       });
 
-      // Update highlight looping logic for the new video
       player.off('timeupdate');
       player.on('timeupdate', () => {
         const start = currentVideo.highlightStart || 0;
         let end = currentVideo.highlightEnd || 15;
         const duration = player.duration();
-        
         if (duration > 0 && end > duration) end = duration;
 
         const currentTime = player.currentTime();
@@ -151,7 +144,6 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
     }
   }, [currentIndex, currentVideo]);
 
-  // Sync volume state
   useEffect(() => {
     if (playerRef.current) {
       playerRef.current.muted(isMuted);
@@ -236,8 +228,8 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
         onWheel={handleWheel}
         onClick={togglePlay}
       >
-        {/* Persistent Video Layer (Outside AnimatePresence to avoid re-mounting tech) */}
-        <div className="absolute inset-0 w-full h-full vjs-fixed-container">
+        {/* Persistent Video Layer (Absolute Cover) */}
+        <div className="absolute inset-0 w-full h-full vjs-fixed-container overflow-hidden">
           <div data-vjs-player className="w-full h-full">
             <video
               ref={videoRef}
@@ -245,10 +237,10 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
               playsInline
             />
           </div>
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/90 pointer-events-none z-10" />
+          {/* Subtle gradient for metadata readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/90 pointer-events-none z-10" />
         </div>
 
-        {/* Dynamic Metadata Overlay (Using AnimatePresence) */}
         <AnimatePresence mode="wait">
           <motion.div
             key={currentVideo.id}
@@ -333,6 +325,8 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
 
       <style>{`
         .vjs-fixed-container {
+          position: absolute;
+          inset: 0;
           width: 100%;
           height: 100%;
           background: #000;
@@ -340,26 +334,23 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
         .video-js.vjs-fill {
           width: 100% !important;
           height: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
         }
+        /* Ensure the actual video element (tech) always crops to fill the container */
         .vjs-tech {
           object-fit: cover !important;
           width: 100% !important;
           height: 100% !important;
-          visibility: visible !important;
-          opacity: 1 !important;
+          position: absolute !important;
+          top: 0 !important;
+          left: 0 !important;
         }
-        /* Override default video.js poster behavior */
         .vjs-poster {
           background-size: cover !important;
-          display: none !important;
         }
         .vjs-loading-spinner {
           display: none !important;
-        }
-        .video-js .vjs-tech {
-          position: absolute;
-          top: 0;
-          left: 0;
         }
       `}</style>
     </div>
