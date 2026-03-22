@@ -1,10 +1,6 @@
 /**
  * AI-V-Market (AI 영상 특화 오픈마켓 플랫폼)
  * 
- * AI로 제작된 영상 콘텐츠를 창작자와 소비자가 직접 거래하는 C2C/B2B 오픈마켓
- * - 목적형 커머스: 카테고리별 검색 및 필터링
- * - 발견형 커머스: 틱톡/릴스 스타일의 세로 스와이프 피드
- * 
  * 주요 기능:
  * - 탐색: AI 추천 알고리즘 기반 숏폼 피드
  * - 마켓: 검색, 필터링, 다중 라이선스 옵션
@@ -18,6 +14,7 @@ import './init';
 
 import { useState, useEffect } from "react";
 import { Sparkles, Store, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell } from "lucide-react";
+import { motion } from "motion/react";
 import { DiscoveryFeed } from "./components/DiscoveryFeed";
 import { Market } from "./components/Market";
 import { Upload } from "./components/Upload";
@@ -69,9 +66,7 @@ function AppContent() {
   useEffect(() => {
     document.title = "AI-V-Market | AI 영상 특화 오픈마켓";
 
-    // Bunny.net 에러 감지를 위 전역 에러 핸들러
     const handleError = (event: ErrorEvent) => {
-      // Bunny.net 관련 에러 자동 감지 및 로깅
       if (event.error) {
         handleBunnyError(event.error);
       } else if (event.message) {
@@ -79,7 +74,6 @@ function AppContent() {
       }
     };
 
-    // Unhandled promise rejection 핸들러
     const handleRejection = (event: PromiseRejectionEvent) => {
       handleBunnyError(event.reason);
     };
@@ -93,16 +87,24 @@ function AppContent() {
     };
   }, []);
 
-  // Auth 로딩 중에는 빈 화면 표시
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] flex items-center justify-center animate-pulse">
+        <motion.div 
+          className="text-center"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <motion.div 
+            className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] flex items-center justify-center shadow-[0_0_30px_rgba(99,102,241,0.5)]"
+            animate={{ scale: [1, 1.1, 1] }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+          >
             <span className="text-white font-bold text-2xl">AI</span>
-          </div>
-          <p className="text-muted-foreground">로딩 중...</p>
-        </div>
+          </motion.div>
+          <p className="text-muted-foreground font-medium">로딩 중...</p>
+        </motion.div>
       </div>
     );
   }
@@ -128,220 +130,226 @@ function AppContent() {
     }
   };
 
+  const desktopTabs = [
+    { id: "discovery", label: "탐색", icon: Sparkles },
+    { id: "market", label: "마켓", icon: Store },
+    { id: "upload", label: "업로드", icon: UploadIcon },
+    { id: "community", label: "커뮤니티", icon: MessageSquare },
+    { id: "mypage", label: "마이페이지", icon: User },
+  ] as const;
+
+  const springTransition = { type: "spring", stiffness: 500, damping: 30 };
+
   return (
-    <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
-      {/* Mobile Top Header (YouTube Style) */}
-      <header className="md:hidden border-b border-border bg-card/50 backdrop-blur-lg sticky top-0 z-50">
+    <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden selection:bg-[#6366f1]/30">
+      
+      {/* Mobile Top Header */}
+      <motion.header 
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="md:hidden border-b border-white/5 bg-background/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm"
+      >
         <div className="flex items-center justify-between h-14 px-4">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab("market")}>
             <img 
               src="/logo.png" 
               alt="AI-V-Market Logo" 
-              className="h-9 w-auto object-contain"
+              className="h-9 w-auto object-contain drop-shadow-sm"
             />
-            <span className="text-lg font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">
+            <span className="text-[17px] font-extrabold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent tracking-tight">
               AI-V-Market
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <button className="p-2 text-muted-foreground hover:text-foreground">
-              <Search className="w-6 h-6" />
-            </button>
-            <button className="p-2 text-muted-foreground hover:text-foreground">
-              <Bell className="w-6 h-6" />
-            </button>
-            <button 
+            <motion.button whileTap={{ scale: 0.9 }} className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+              <Search className="w-[22px] h-[22px]" />
+            </motion.button>
+            <motion.button whileTap={{ scale: 0.9 }} className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+              <Bell className="w-[22px] h-[22px]" />
+            </motion.button>
+            <motion.button 
+              whileTap={{ scale: 0.9 }}
               onClick={() => isAuthenticated ? setActiveTab("mypage") : setShowAuthModal(true)}
-              className="p-2 text-muted-foreground hover:text-foreground"
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
             >
-              <User className="w-6 h-6" />
-            </button>
+              <User className="w-[22px] h-[22px]" />
+            </motion.button>
           </div>
         </div>
-      </header>
+      </motion.header>
 
       {/* Desktop Header Navigation */}
-      <header className="hidden md:block border-b border-border bg-card/50 backdrop-blur-lg">
+      <motion.header 
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="hidden md:block border-b border-white/5 bg-background/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm"
+      >
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab("market")}>
+          <motion.div 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex items-center gap-3 cursor-pointer select-none" 
+            onClick={() => setActiveTab("market")}
+          >
             <img 
               src="/logo.png" 
               alt="AI-V-Market Logo" 
-              className="h-12 w-auto object-contain"
+              className="h-10 w-auto object-contain drop-shadow-md"
             />
-            <span className="text-xl font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent hidden lg:block">
+            <span className="text-xl font-extrabold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent hidden lg:block tracking-tight drop-shadow-sm">
               AI-V-Market
             </span>
-          </div>
+          </motion.div>
 
           {/* Desktop Navigation */}
-          <nav className="flex items-center gap-1">
-            <button
-              onClick={() => setActiveTab("discovery")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                activeTab === "discovery" 
-                  ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              }`}
-            >
-              <Sparkles className="w-5 h-5" />
-              <span>탐색</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("market")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                activeTab === "market" 
-                  ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              }`}
-            >
-              <Store className="w-5 h-5" />
-              <span>마켓</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("upload")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                activeTab === "upload" 
-                  ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              }`}
-            >
-              <UploadIcon className="w-5 h-5" />
-              <span>업로드</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("community")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                activeTab === "community" 
-                  ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              }`}
-            >
-              <MessageSquare className="w-5 h-5" />
-              <span>커뮤니티</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("mypage")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                activeTab === "mypage" 
-                  ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              }`}
-            >
-              <User className="w-5 h-5" />
-              <span>마이페이지</span>
-            </button>
-
-            {/* Auth Button */}
-            <div className="ml-2 pl-2 border-l border-border">
-              {isAuthenticated ? (
-                <Button
-                  onClick={signOut}
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
+          <nav className="flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-white/5">
+            {desktopTabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as Tab)}
+                  className={`relative flex items-center gap-2 px-4 py-2 rounded-lg transition-colors duration-200 text-sm font-semibold select-none
+                    ${isActive ? "text-white" : "text-muted-foreground hover:text-gray-200 hover:bg-white/5"}
+                  `}
                 >
-                  <LogOut className="w-4 h-4" />
-                  {user?.name}
-                </Button>
-              ) : (
+                  <Icon className="w-[18px] h-[18px] shrink-0" />
+                  <span>{tab.label}</span>
+                  
+                  {isActive && (
+                    <motion.div
+                      layoutId="desktop-active-tab"
+                      className="absolute inset-0 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] rounded-lg -z-10 shadow-[0_4px_12px_rgba(99,102,241,0.3)] border border-white/10"
+                      initial={false}
+                      transition={springTransition}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Auth Button */}
+          <div className="flex items-center">
+            {isAuthenticated ? (
+              <Button
+                onClick={signOut}
+                variant="outline"
+                size="sm"
+                className="gap-2 bg-transparent border-white/10 hover:bg-white/5 font-semibold"
+              >
+                <LogOut className="w-4 h-4" />
+                {user?.name}
+              </Button>
+            ) : (
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button
                   onClick={() => setShowAuthModal(true)}
-                  className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
+                  className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 border border-white/10 shadow-lg shadow-[#6366f1]/20 font-bold"
                   size="sm"
                 >
                   <LogIn className="w-4 h-4" />
                   로그인
                 </Button>
-              )}
-            </div>
-          </nav>
+              </motion.div>
+            )}
+          </div>
         </div>
-      </header>
+      </motion.header>
 
       {/* Main Content Area */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative overflow-hidden bg-[#0A0A0A]">
         {renderContent()}
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden border-t border-border bg-card backdrop-blur-lg bg-opacity-90">
-        <div className="flex items-center justify-around h-20 px-4">
-          <button
-            onClick={() => setActiveTab("discovery")}
-            className={`flex flex-col items-center justify-center gap-1 flex-1 transition-colors ${
-              activeTab === "discovery" ? "text-[#6366f1]" : "text-muted-foreground"
-            }`}
-          >
-            <div className="relative">
-              <Sparkles className="w-6 h-6" />
-              {activeTab === "discovery" && (
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#6366f1]" />
-              )}
-            </div>
-            <span className="text-xs">탐색</span>
-          </button>
+      <motion.nav 
+        initial={{ y: 50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
+        className="md:hidden border-t border-white/5 bg-background/80 backdrop-blur-xl sticky bottom-0 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]"
+      >
+        <div className="flex items-center justify-around h-20 px-2 pb-safe">
+          {["discovery", "market"].map((tabId) => {
+            const isDiscovery = tabId === "discovery";
+            const Icon = isDiscovery ? Sparkles : Store;
+            const label = isDiscovery ? "탐색" : "마켓";
+            const isActive = activeTab === tabId;
+            
+            return (
+              <button
+                key={tabId}
+                onClick={() => setActiveTab(tabId as Tab)}
+                className={`relative flex flex-col items-center justify-center gap-1.5 flex-1 h-full select-none
+                  ${isActive ? "text-[#8b5cf6]" : "text-muted-foreground hover:text-gray-300"}
+                  transition-colors duration-200
+                `}
+              >
+                <Icon className={`w-6 h-6 transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} />
+                <span className="text-[11px] font-bold tracking-wide">{label}</span>
+                {isActive && (
+                  <motion.div 
+                    layoutId="mobile-active-tab" 
+                    transition={springTransition}
+                    className="absolute top-1 w-10 h-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] rounded-full shadow-[0_0_8px_rgba(139,92,246,0.8)]" 
+                  />
+                )}
+              </button>
+            );
+          })}
 
-          <button
-            onClick={() => setActiveTab("market")}
-            className={`flex flex-col items-center justify-center gap-1 flex-1 transition-colors ${
-              activeTab === "market" ? "text-[#6366f1]" : "text-muted-foreground"
-            }`}
-          >
-            <div className="relative">
-              <Store className="w-6 h-6" />
-              {activeTab === "market" && (
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#6366f1]" />
-              )}
-            </div>
-            <span className="text-xs">마켓</span>
-          </button>
+          {/* Upload Button */}
+          <div className="flex items-center justify-center flex-1 h-full">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setActiveTab("upload")}
+              className="relative -mt-8 outline-none group"
+            >
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 border-[3px] border-background
+                ${activeTab === "upload" 
+                  ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] shadow-[0_0_25px_rgba(99,102,241,0.6)]" 
+                  : "bg-[#222] hover:bg-[#333] shadow-lg"}
+              `}>
+                <UploadIcon className={`w-6 h-6 ${activeTab === "upload" ? "text-white" : "text-gray-300 group-hover:text-white"}`} />
+              </div>
+            </motion.button>
+          </div>
 
-          <button
-            onClick={() => setActiveTab("upload")}
-            className="relative -mt-6"
-          >
-            <div className="w-14 h-14 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] flex items-center justify-center shadow-lg shadow-[#6366f1]/50">
-              <UploadIcon className="w-7 h-7 text-white" />
-            </div>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("community")}
-            className={`flex flex-col items-center justify-center gap-1 flex-1 transition-colors ${
-              activeTab === "community" ? "text-[#6366f1]" : "text-muted-foreground"
-            }`}
-          >
-            <div className="relative">
-              <MessageSquare className="w-6 h-6" />
-              {activeTab === "community" && (
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#6366f1]" />
-              )}
-            </div>
-            <span className="text-xs">커뮤니티</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("mypage")}
-            className={`flex flex-col items-center justify-center gap-1 flex-1 transition-colors ${
-              activeTab === "mypage" ? "text-[#6366f1]" : "text-muted-foreground"
-            }`}
-          >
-            <div className="relative">
-              <User className="w-6 h-6" />
-              {activeTab === "mypage" && (
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#6366f1]" />
-              )}
-            </div>
-            <span className="text-xs">마이</span>
-          </button>
+          {["community", "mypage"].map((tabId) => {
+            const isCommunity = tabId === "community";
+            const Icon = isCommunity ? MessageSquare : User;
+            const label = isCommunity ? "커뮤니티" : "마이";
+            const isActive = activeTab === tabId;
+            
+            return (
+              <button
+                key={tabId}
+                onClick={() => setActiveTab(tabId as Tab)}
+                className={`relative flex flex-col items-center justify-center gap-1.5 flex-1 h-full select-none
+                  ${isActive ? "text-[#8b5cf6]" : "text-muted-foreground hover:text-gray-300"}
+                  transition-colors duration-200
+                `}
+              >
+                <Icon className={`w-6 h-6 transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} />
+                <span className="text-[11px] font-bold tracking-wide">{label}</span>
+                {isActive && (
+                  <motion.div 
+                    layoutId="mobile-active-tab" 
+                    transition={springTransition}
+                    className="absolute top-1 w-10 h-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] rounded-full shadow-[0_0_8px_rgba(139,92,246,0.8)]" 
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
-      </nav>
+      </motion.nav>
 
       {/* Product Detail Modal */}
       {selectedProduct && (

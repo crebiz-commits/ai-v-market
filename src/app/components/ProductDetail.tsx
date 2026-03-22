@@ -104,7 +104,7 @@ export function ProductDetail({ product, onClose }: ProductDetailProps) {
         if (!p || !item) return;
         
         const start = item.highlightStart || 0;
-        const end = item.highlightEnd || 10;
+        const end = item.highlightEnd || 15;
         if (p.currentTime() >= end) {
           p.currentTime(start);
         }

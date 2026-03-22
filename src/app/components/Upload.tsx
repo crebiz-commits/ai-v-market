@@ -174,6 +174,15 @@ export function Upload({ onSignInClick }: UploadProps) {
     );
   }
 
+  // 가격 포맷팅 (쉼표 추가)
+  const formatWithCommas = (value: string) => {
+    const number = value.replace(/[^0-9]/g, "");
+    return number ? parseInt(number).toLocaleString() : "";
+  };
+
+  // 가격 포맷팅 제거 (쉼표 제거)
+  const stripCommas = (value: string) => value.replace(/,/g, "");
+
   // Bunny.net에 직접 업로드
   const uploadToBunny = async (file: File, videoId: string, libraryId: string, apiKey: string) => {
     if (!apiKey) {
@@ -232,7 +241,7 @@ export function Upload({ onSignInClick }: UploadProps) {
 
     try {
       // 0. 버전 확인 및 토큰 최신화 확인
-      console.log('Upload Component Version: 1.0.3 (Fixed Server Slug)');
+      console.log('Upload Component Version: 1.0.5 (Dynamic Hostname)');
       console.log('Checking session/token...');
       const { data: { session } } = await supabase.auth.getSession();
       const currentToken = session?.access_token || accessToken;
@@ -288,7 +297,8 @@ export function Upload({ onSignInClick }: UploadProps) {
       console.log('Saving metadata via Edge Function...');
       // @ts-ignore
       const envHostname = (import.meta as any).env.VITE_BUNNY_HOSTNAME;
-      const bunnyHostname = envHostname || 'vz-6e85411f-96a.b-cdn.net';
+      const bunnyHostname = envHostname || `vz-${libraryId}.b-cdn.net`;
+      console.log('Using Bunny Hostname:', bunnyHostname);
       
       const metadata = {
         videoId: videoId,
@@ -298,9 +308,9 @@ export function Upload({ onSignInClick }: UploadProps) {
         hlsUrl: `https://${bunnyHostname}/${videoId}/playlist.m3u8`,
         duration: formData.duration || '0:00',
         tags: formData.tags || "",
-        standardPrice: formData.standardPrice || "0",
-        commercialPrice: formData.commercialPrice || "0",
-        exclusivePrice: formData.exclusivePrice || "0",
+        standardPrice: stripCommas(formData.standardPrice) || "0",
+        commercialPrice: stripCommas(formData.commercialPrice) || "0",
+        exclusivePrice: stripCommas(formData.exclusivePrice) || "0",
         aiTool: formData.aiTool || '',
         category: formData.category || '',
         genre: formData.genre || '',
@@ -384,7 +394,8 @@ export function Upload({ onSignInClick }: UploadProps) {
           <h2 className="text-2xl mb-3">업로드 완료!</h2>
           <p className="text-muted-foreground mb-6">
             영상이 성공적으로 등록되었습니다.<br />
-            검토 후 24시간 내에 마켓에 게시됩니다.
+            현재 AI가 탐색 피드를 위한 <strong>최적의 하이라이트 구간</strong>을 분석하고 있습니다.<br />
+            분석이 완료되면 마켓과 탐색 피드에 자동으로 게시됩니다.
           </p>
           <div className="flex gap-3">
             <Button 
@@ -478,7 +489,6 @@ export function Upload({ onSignInClick }: UploadProps) {
               <h3 className="mb-4">CSV 파일 작성 가이드</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>• 파일명, 제목, 설명, 카테고리, AI 툴, 해상도, 길이 필수 입력</li>
-                <li>• 프롬프트와 창작성 부가 내역 권장 입력</li>
                 <li>• 가격은 Standard, Commercial, Exclusive 순서로 입력</li>
                 <li>• 태그는 쉼표(,)로 구분하여 입력</li>
               </ul>
@@ -596,19 +606,20 @@ export function Upload({ onSignInClick }: UploadProps) {
           {step === 2 && (
             <div className="space-y-6">
               <div>
-                <Label htmlFor="title" className="mb-2 block">영상 제목 *</Label>
+                <Label htmlFor="title" className="mb-2 block">영상 제목 * (30자 제한)</Label>
                 <Input
                   id="title"
                   value={formData.title}
                   onChange={(e) => setFormData({...formData, title: e.target.value})}
                   placeholder="예: 우주를 여행하는 코스믹 저니"
                   className="bg-card"
+                  maxLength={30}
                   required
                 />
               </div>
 
               <div>
-                <Label htmlFor="description" className="mb-2 block">상품 설명 *</Label>
+                <Label htmlFor="description" className="mb-2 block">상품 설명 * (50자 제한)</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
@@ -616,6 +627,7 @@ export function Upload({ onSignInClick }: UploadProps) {
                   placeholder="영상의 특징, 활용 가능한 용도 등을 자세히 설명해주세요"
                   rows={4}
                   className="bg-card"
+                  maxLength={50}
                   required
                 />
               </div>
@@ -702,34 +714,6 @@ export function Upload({ onSignInClick }: UploadProps) {
               </div>
 
               <div>
-                <Label htmlFor="prompt" className="mb-2 block">사용한 프롬프트 (선택)</Label>
-                <Textarea
-                  id="prompt"
-                  value={formData.prompt}
-                  onChange={(e) => setFormData({...formData, prompt: e.target.value})}
-                  placeholder="AI 생성에 사용한 프롬프트를 입력하세요"
-                  rows={3}
-                  className="bg-card"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="creativity" className="mb-2 block">창작성 부가 역 *</Label>
-                <Textarea
-                  id="creativity"
-                  value={formData.creativityDescription}
-                  onChange={(e) => setFormData({...formData, creativityDescription: e.target.value})}
-                  placeholder="편집, 배열, 수정 등 인간의 창작성이 부가된 내역을 서술해주세요"
-                  rows={3}
-                  className="bg-card"
-                  required
-                />
-                <p className="text-xs text-muted-foreground mt-2">
-                  저작물성 인정을 위해 필수입니다
-                </p>
-              </div>
-
-              <div>
                 <Label htmlFor="tags" className="mb-2 block">태그</Label>
                 <Input
                   id="tags"
@@ -785,13 +769,13 @@ export function Upload({ onSignInClick }: UploadProps) {
                 
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="standard">Standard 라이선스</Label>
+                    <Label htmlFor="standard" className="mb-2 block">Standard 라이선스</Label>
                     <Input
                       id="standard"
-                      type="number"
+                      type="text"
                       value={formData.standardPrice}
-                      onChange={(e) => setFormData({...formData, standardPrice: e.target.value})}
-                      placeholder="19000"
+                      onChange={(e) => setFormData({...formData, standardPrice: formatWithCommas(e.target.value)})}
+                      placeholder="19,000"
                       className="bg-background"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
@@ -800,13 +784,13 @@ export function Upload({ onSignInClick }: UploadProps) {
                   </div>
 
                   <div>
-                    <Label htmlFor="commercial">Commercial 라이선스</Label>
+                    <Label htmlFor="commercial" className="mb-2 block">Commercial 라이선스</Label>
                     <Input
                       id="commercial"
-                      type="number"
+                      type="text"
                       value={formData.commercialPrice}
-                      onChange={(e) => setFormData({...formData, commercialPrice: e.target.value})}
-                      placeholder="59000"
+                      onChange={(e) => setFormData({...formData, commercialPrice: formatWithCommas(e.target.value)})}
+                      placeholder="59,000"
                       className="bg-background"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
@@ -815,13 +799,13 @@ export function Upload({ onSignInClick }: UploadProps) {
                   </div>
 
                   <div>
-                    <Label htmlFor="exclusive">Exclusive 라이선스</Label>
+                    <Label htmlFor="exclusive" className="mb-2 block">Exclusive 라이선스</Label>
                     <Input
                       id="exclusive"
-                      type="number"
+                      type="text"
                       value={formData.exclusivePrice}
-                      onChange={(e) => setFormData({...formData, exclusivePrice: e.target.value})}
-                      placeholder="299000"
+                      onChange={(e) => setFormData({...formData, exclusivePrice: formatWithCommas(e.target.value)})}
+                      placeholder="299,000"
                       className="bg-background"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
@@ -834,11 +818,12 @@ export function Upload({ onSignInClick }: UploadProps) {
               <div className="bg-card p-6 rounded-lg border border-border space-y-4">
                 <h3>저작권 서약</h3>
                 
-                <div className="flex items-start space-x-3">
+                <div className="flex items-center space-x-3">
                   <Checkbox
                     id="terms"
                     checked={agreedToTerms}
                     onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+                    className="border-zinc-400 dark:border-zinc-300"
                   />
                   <label htmlFor="terms" className="text-sm leading-relaxed">
                     본 영상은 타인의 저작권을 침해하지 않았으며, 상업적 이용이 가능한 요금제를 사용하여 제작되었음을 확인합니다. 

@@ -108,16 +108,12 @@ export function Market({ onProductClick }: MarketProps) {
       return matchesSearch && matchesCategory && matchesPrice && matchesTool && matchesResolution;
     });
 
-    // 인기급상승 카테고리 선택 시 자동으로 인기순 정렬 적용
     const effectiveSortBy = selectedCategory === "인기급상승" ? "popular" : sortBy;
 
-    // 정렬 적용
     switch (effectiveSortBy) {
       case "latest":
-        // 이미 fetch 단계에서 최신순으로 가져옴
         break;
       case "popular":
-        // 인기도 데이터가 없으므로 가격 높은 순으로 대체
         filtered = [...filtered].sort((a, b) => b.price - a.price);
         break;
       case "price-low":
@@ -137,7 +133,7 @@ export function Market({ onProductClick }: MarketProps) {
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const scrollAmount = 400; // 한 번에 이동할 픽셀 수
+      const scrollAmount = 400;
       scrollRef.current.scrollBy({
         left: direction === 'left' ? -scrollAmount : scrollAmount,
         behavior: 'smooth'
@@ -145,14 +141,13 @@ export function Market({ onProductClick }: MarketProps) {
     }
   };
 
-  // Prepare videos for CoverFlow - using top 10 products
   const coverFlowVideos = useMemo(() => {
     return products.slice(0, 10).map((product) => ({
       id: product.id,
       thumbnail: product.thumbnail,
       title: product.title,
       creator: product.creator,
-      videoUrl: product.videoUrl, // Market.tsx fetching should be updated to include video_url
+      videoUrl: product.videoUrl,
       duration: product.duration,
       resolution: product.resolution,
       tool: product.tool,
@@ -165,28 +160,43 @@ export function Market({ onProductClick }: MarketProps) {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-[#6366f1] mx-auto mb-4" />
-          <p className="text-muted-foreground">상품을 불러오는 중...</p>
-        </div>
+        <motion.div 
+          className="text-center"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <motion.div 
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+            className="mx-auto mb-4 w-10 h-10 text-[#6366f1]"
+          >
+            <Loader2 className="w-10 h-10" />
+          </motion.div>
+          <p className="text-muted-foreground font-medium">상품을 불러오는 중...</p>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-background overflow-hidden">
+    <div className="h-full flex flex-col bg-background overflow-hidden selection:bg-[#6366f1]/30">
       {/* Search Header */}
-      <div className="flex-shrink-0 p-4 md:px-6 md:py-6 border-b border-border">
+      <motion.div 
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        className="flex-shrink-0 p-4 md:px-6 md:py-6 border-b border-border/50 bg-card/30 backdrop-blur-md"
+      >
         <div className="md:max-w-7xl md:mx-auto">
-          <div className="text-[10px] text-muted-foreground/30 mb-1">Market Component v1.1.0 (UI Refined)</div>
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+          <div className="text-[10px] text-muted-foreground/30 mb-1">Market Component v2.0 (Premium UI)</div>
+          <div className="relative mb-5 group">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5 group-focus-within:text-[#6366f1] transition-colors" />
             <Input
               type="text"
               placeholder="AI 영상 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-card border-border"
+              className="pl-10 h-12 bg-white/5 border-white/10 hover:border-white/20 focus:border-[#6366f1] focus:ring-1 focus:ring-[#6366f1] transition-all rounded-xl shadow-inner"
             />
           </div>
 
@@ -194,83 +204,98 @@ export function Market({ onProductClick }: MarketProps) {
           <div className="relative group/categories px-1">
             {/* Left Scroll Sidebar (Netflix Style) */}
             <div 
-              className="absolute left-0 top-0 bottom-1 z-20 w-10 bg-gradient-to-r from-background via-background/60 to-transparent flex items-center justify-start pl-0.5 opacity-0 group-hover/categories:opacity-100 transition-all duration-300 pointer-events-none"
+              className="absolute left-0 top-0 bottom-1 z-20 w-12 bg-gradient-to-r from-background via-background/80 to-transparent flex items-center justify-start pl-0.5 opacity-0 group-hover/categories:opacity-100 transition-all duration-300 pointer-events-none"
             >
               <button
                 onClick={() => scroll('left')}
-                className="w-8 h-full flex items-center justify-center text-white hover:scale-125 transition-transform pointer-events-auto"
+                className="w-8 h-full flex items-center justify-center text-white hover:scale-125 transition-transform pointer-events-auto drop-shadow-lg"
                 aria-label="Scroll left"
               >
-                <ChevronLeft className="w-5 h-5 drop-shadow-lg" />
+                <ChevronLeft className="w-6 h-6" />
               </button>
             </div>
 
             {/* Category Scroll Container */}
             <div 
               ref={scrollRef}
-              className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide scroll-smooth"
+              className="flex gap-2 overflow-x-auto pb-2 pt-1 scrollbar-hide scroll-smooth"
             >
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`px-3 py-1 rounded-full whitespace-nowrap transition-colors flex-shrink-0 text-xs ${
-                    selectedCategory === category
-                      ? 'bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-medium'
-                      : 'bg-card text-muted-foreground border border-border'
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
+              {categories.map((category) => {
+                const isActive = selectedCategory === category;
+                return (
+                  <button
+                    key={category}
+                    onClick={() => setSelectedCategory(category)}
+                    className={`relative px-4 py-1.5 rounded-full whitespace-nowrap transition-colors flex-shrink-0 text-xs font-semibold select-none
+                      ${isActive ? 'text-white' : 'text-muted-foreground hover:text-white hover:bg-white/5 bg-white/5 border border-white/5'}
+                    `}
+                  >
+                    {isActive && (
+                      <motion.div 
+                        layoutId="activeCategory"
+                        className="absolute inset-0 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] rounded-full shadow-[0_0_15px_rgba(99,102,241,0.5)] -z-10"
+                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      />
+                    )}
+                    {category}
+                  </button>
+                )
+              })}
             </div>
 
             {/* Right Scroll Sidebar (Netflix Style) */}
             <div 
-              className="absolute right-0 top-0 bottom-1 z-20 w-10 bg-gradient-to-l from-background via-background/60 to-transparent flex items-center justify-end pr-0.5 opacity-0 group-hover/categories:opacity-100 transition-all duration-300 pointer-events-none"
+              className="absolute right-0 top-0 bottom-1 z-20 w-12 bg-gradient-to-l from-background via-background/80 to-transparent flex items-center justify-end pr-0.5 opacity-0 group-hover/categories:opacity-100 transition-all duration-300 pointer-events-none"
             >
               <button
                 onClick={() => scroll('right')}
-                className="w-8 h-full flex items-center justify-center text-white hover:scale-125 transition-transform pointer-events-auto"
+                className="w-8 h-full flex items-center justify-center text-white hover:scale-125 transition-transform pointer-events-auto drop-shadow-lg"
                 aria-label="Scroll right"
               >
-                <ChevronRight className="w-5 h-5 drop-shadow-lg" />
+                <ChevronRight className="w-6 h-6" />
               </button>
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Filter & Sort Bar */}
-      <div className="flex-shrink-0 flex items-center justify-between p-4 md:px-6 border-b border-border">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
+        className="flex-shrink-0 flex items-center justify-between p-4 md:px-6 border-b border-border/50 bg-background/50 backdrop-blur-sm"
+      >
         <div className="md:max-w-7xl md:mx-auto md:w-full flex items-center justify-between w-full">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <SlidersHorizontal className="w-4 h-4" />
-                  필터
-                </Button>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button variant="outline" size="sm" className="gap-2 border-white/10 bg-white/5 hover:bg-white/10 hover:text-white transition-all rounded-lg font-medium shadow-sm">
+                    <SlidersHorizontal className="w-4 h-4" />
+                    상세 필터
+                  </Button>
+                </motion.div>
               </SheetTrigger>
-              <SheetContent side="left" className="bg-card px-6">
+              <SheetContent side="left" className="bg-[#121212] px-6 border-r border-white/10">
                 <SheetHeader className="mb-6">
-                  <SheetTitle>상세 필터</SheetTitle>
-                  <SheetDescription>원하는 조건으로 영상을 찾아보세요</SheetDescription>
+                  <SheetTitle className="text-white text-xl">상세 필터</SheetTitle>
+                  <SheetDescription className="text-gray-400">원하는 조건으로 영상을 정교하게 찾아보세요</SheetDescription>
                 </SheetHeader>
                 
-                <div className="space-y-6">
+                <div className="space-y-8">
                   {/* Price Range */}
                   <div className="px-1">
-                    <Label className="mb-3 block">가격 범위</Label>
+                    <Label className="mb-4 block text-gray-200 font-semibold">가격 범위</Label>
                     <Slider
                       min={0}
                       max={200000}
                       step={10000}
                       value={priceRange}
                       onValueChange={setPriceRange}
-                      className="mb-2"
+                      className="mb-3"
                     />
-                    <div className="flex justify-between text-sm text-muted-foreground">
+                    <div className="flex justify-between text-sm text-[#8b5cf6] font-medium">
                       <span>₩{priceRange[0].toLocaleString()}</span>
                       <span>₩{priceRange[1].toLocaleString()}</span>
                     </div>
@@ -278,7 +303,7 @@ export function Market({ onProductClick }: MarketProps) {
 
                   {/* AI Tools */}
                   <div className="px-1">
-                    <Label className="mb-3 block">AI 툴</Label>
+                    <Label className="mb-4 block text-gray-200 font-semibold">AI 툴</Label>
                     {aiTools.filter(t => t !== "전체").map((tool) => (
                       <div key={tool} className="flex items-center space-x-3 mb-3">
                         <Checkbox
@@ -291,10 +316,11 @@ export function Market({ onProductClick }: MarketProps) {
                               setSelectedTools(selectedTools.filter(t => t !== tool));
                             }
                           }}
+                          className="border-white/20 data-[state=checked]:bg-[#6366f1] data-[state=checked]:border-[#6366f1]"
                         />
                         <label
                           htmlFor={tool}
-                          className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          className="text-sm font-medium text-gray-300 leading-none cursor-pointer hover:text-white transition-colors"
                         >
                           {tool}
                         </label>
@@ -304,7 +330,7 @@ export function Market({ onProductClick }: MarketProps) {
 
                   {/* Resolution */}
                   <div className="px-1">
-                    <Label className="mb-3 block">해상도</Label>
+                    <Label className="mb-4 block text-gray-200 font-semibold">해상도</Label>
                     {resolutions.filter(r => r !== "전체").map((resolution) => (
                       <div key={resolution} className="flex items-center space-x-3 mb-3">
                         <Checkbox
@@ -317,10 +343,11 @@ export function Market({ onProductClick }: MarketProps) {
                               setSelectedResolutions(selectedResolutions.filter(r => r !== resolution));
                             }
                           }}
+                          className="border-white/20 data-[state=checked]:bg-[#6366f1] data-[state=checked]:border-[#6366f1]"
                         />
                         <label
                           htmlFor={resolution}
-                          className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          className="text-sm font-medium text-gray-300 leading-none cursor-pointer hover:text-white transition-colors"
                         >
                           {resolution}
                         </label>
@@ -330,7 +357,7 @@ export function Market({ onProductClick }: MarketProps) {
 
                   {/* Genre */}
                   <div className="px-1">
-                    <Label className="mb-3 block">장르</Label>
+                    <Label className="mb-4 block text-gray-200 font-semibold">장르</Label>
                     {genres.filter(g => g !== "전체").map((genre) => (
                       <div key={genre} className="flex items-center space-x-3 mb-3">
                         <Checkbox
@@ -343,10 +370,11 @@ export function Market({ onProductClick }: MarketProps) {
                               setSelectedGenres(selectedGenres.filter(g => g !== genre));
                             }
                           }}
+                          className="border-white/20 data-[state=checked]:bg-[#6366f1] data-[state=checked]:border-[#6366f1]"
                         />
                         <label
                           htmlFor={genre}
-                          className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          className="text-sm font-medium text-gray-300 leading-none cursor-pointer hover:text-white transition-colors"
                         >
                           {genre}
                         </label>
@@ -357,123 +385,144 @@ export function Market({ onProductClick }: MarketProps) {
               </SheetContent>
             </Sheet>
 
-            <span className="text-sm text-muted-foreground">
-              {filteredProducts.length}개 상품
-            </span>
+            <motion.div 
+              initial={{ opacity: 0, x: -10 }} 
+              animate={{ opacity: 1, x: 0 }} 
+              className="px-3 py-1 bg-[#6366f1]/10 text-[#8b5cf6] rounded-full text-xs font-bold border border-[#6366f1]/20 shadow-sm"
+            >
+              {filteredProducts.length}건 검색됨
+            </motion.div>
           </div>
 
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-32 bg-card">
+            <SelectTrigger className="w-[130px] bg-white/5 border-white/10 hover:border-white/20 transition-colors rounded-lg font-medium focus:ring-[#6366f1]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="latest">최신순</SelectItem>
-              <SelectItem value="popular">인기순</SelectItem>
-              <SelectItem value="price-low">낮은 가격순</SelectItem>
-              <SelectItem value="price-high">높은 가격순</SelectItem>
+            <SelectContent className="bg-[#1c1c1e] border-white/10">
+              <SelectItem value="latest" className="focus:bg-white/10 focus:text-white cursor-pointer">최신순</SelectItem>
+              <SelectItem value="popular" className="focus:bg-white/10 focus:text-white cursor-pointer">인기순</SelectItem>
+              <SelectItem value="price-low" className="focus:bg-white/10 focus:text-white cursor-pointer">낮은 가격순</SelectItem>
+              <SelectItem value="price-high" className="focus:bg-white/10 focus:text-white cursor-pointer">높은 가격순</SelectItem>
             </SelectContent>
           </Select>
         </div>
-      </div>
+      </motion.div>
 
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide">
+      <div className="flex-1 overflow-y-auto scrollbar-hide pb-20">
         {/* Featured Carousel Section */}
-        <div className="flex-shrink-0 bg-gradient-to-b from-card/30 to-transparent border-b border-white/5 py-4">
+        <div className="flex-shrink-0 bg-gradient-to-b from-background via-card/5 to-transparent pt-4 pb-8 mb-4 border-b border-white/5">
           <CoverFlow videos={coverFlowVideos} hideControls={isFilterOpen} />
         </div>
 
         {/* Product Grid */}
-        <div className="p-4 md:px-6 pb-8">
+        <div className="p-4 md:px-6 pb-20">
           <motion.div 
             layout
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8 md:max-w-7xl md:mx-auto"
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 md:max-w-7xl md:mx-auto"
           >
             <AnimatePresence mode="popLayout">
               {filteredProducts.map((product, index) => (
                 <motion.div
                   key={product.id}
                   layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
+                  initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
                   transition={{ 
-                    duration: 0.4, 
-                    delay: index * 0.05,
-                    ease: "easeOut" 
+                    duration: 0.5, 
+                    delay: (index % 10) * 0.05,
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 25
                   }}
+                  whileHover={{ y: -8, scale: 1.02 }}
                   onClick={() => onProductClick(product)}
-                  className="group relative flex flex-col bg-card/40 backdrop-blur-md rounded-2xl overflow-hidden border border-white/10 hover:border-[#6366f1]/50 transition-all duration-500 cursor-pointer hover:shadow-[0_20px_40px_-15px_rgba(99,102,241,0.3)]"
+                  className="group relative flex flex-col bg-[#1a1a1c] border border-white/10 hover:border-[#6366f1]/50 rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer hover:shadow-[0_15px_35px_-10px_rgba(99,102,241,0.5)]"
                 >
                   {/* Image Container with aspect ratio */}
-                  <div className="relative aspect-[9/16] overflow-hidden">
+                  <div className="relative aspect-[9/16] overflow-hidden bg-black">
                     <motion.img
                       src={product.thumbnail}
                       alt={product.title}
                       className="w-full h-full object-cover"
-                      whileHover={{ scale: 1.05 }}
-                      transition={{ duration: 0.6 }}
+                      whileHover={{ scale: 1.08 }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
                     />
                     
                     {/* Glassmorphism Badges */}
                     <div className="absolute top-3 left-3 flex flex-col gap-2">
-                      <div className="px-2.5 py-1 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-white text-[10px] font-bold tracking-wider uppercase">
+                      <div className="px-2.5 py-1 bg-black/50 backdrop-blur-md border border-white/20 rounded-lg text-white text-[10px] font-bold tracking-wider uppercase shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
                         {product.tool}
                       </div>
                     </div>
 
                     <div className="absolute top-3 right-3">
-                      <div className="px-2 py-1 bg-[#6366f1]/80 backdrop-blur-md rounded-lg text-white text-[10px] font-bold shadow-lg">
+                      <div className="px-2 py-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] backdrop-blur-md rounded-lg text-white text-[10px] font-bold shadow-lg">
                         {product.duration}
                       </div>
                     </div>
 
                     {/* Quick Preview Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-end p-4">
-                      <div className="flex justify-center gap-3 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
-                        <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-[#6366f1] transition-colors">
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#121212] via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-4">
+                      <div className="flex justify-center gap-3 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 drop-shadow-xl">
+                        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-lg border border-white/30 flex items-center justify-center text-white hover:bg-[#6366f1] hover:border-[#6366f1] transition-colors shadow-lg">
                           <Eye className="w-5 h-5" />
-                        </div>
-                        <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-[#6366f1] transition-colors">
+                        </motion.div>
+                        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-lg border border-white/30 flex items-center justify-center text-white hover:bg-[#8b5cf6] hover:border-[#8b5cf6] transition-colors shadow-lg">
                           <ShoppingCart className="w-5 h-5" />
-                        </div>
+                        </motion.div>
                       </div>
                     </div>
-                    
                   </div>
                   
                   {/* Info Section */}
-                  <div className="p-4 bg-gradient-to-b from-card/80 to-card flex flex-col flex-1">
+                  <div className="p-4 flex flex-col flex-1 relative z-10 bg-gradient-to-b from-transparent to-[#121212]">
                     <div className="flex-1">
-                      <h3 className="font-bold text-white text-base mb-1 line-clamp-1 group-hover:text-[#6366f1] transition-colors">
+                      <h3 className="font-bold text-gray-100 text-[15px] mb-1.5 leading-tight line-clamp-1 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-indigo-400 group-hover:to-purple-400 transition-all">
                         {product.title}
                       </h3>
                       <div className="flex items-center gap-2 mb-3">
-                        <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-[#6366f1] to-[#8b5cf6]" />
-                        <span className="text-xs text-muted-foreground/80 font-medium">{product.creator}</span>
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-[#6366f1] to-[#8b5cf6] drop-shadow-sm flex items-center justify-center">
+                          <span className="text-[8px] font-bold text-white">AI</span>
+                        </div>
+                        <span className="text-xs text-gray-400 font-medium">{product.creator}</span>
                       </div>
                     </div>
                     
-                    <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                    <div className="flex items-center justify-between pt-3 border-t border-white/10 mt-auto">
                       <div className="flex flex-col">
-                        <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-tighter">Price</span>
-                        <span className="text-lg font-black text-white bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
+                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-0.5">Price</span>
+                        <span className="text-lg font-extrabold text-white">
                           ₩{product.price.toLocaleString()}
                         </span>
                       </div>
                       <div className="flex flex-col items-end">
-                        <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-tighter">Res</span>
-                        <span className="text-xs font-bold text-[#6366f1]">{product.resolution}</span>
+                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-0.5">Res</span>
+                        <span className="text-xs font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">{product.resolution}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Top Shine Effect */}
-                  <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                  <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-50 group-hover:opacity-100 transition-opacity duration-300" />
                 </motion.div>
               ))}
             </AnimatePresence>
           </motion.div>
+          {filteredProducts.length === 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-20"
+            >
+              <div className="inline-flex w-16 h-16 rounded-full bg-[#1c1c1e] items-center justify-center mb-4 border border-white/10 shadow-inner">
+                <Search className="w-8 h-8 text-gray-500" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">검색 결과가 없습니다</h3>
+              <p className="text-gray-400">다른 키워드나 필터 조건으로 다시 시도해 보세요.</p>
+            </motion.div>
+          )}
         </div>
       </div>
     </div>

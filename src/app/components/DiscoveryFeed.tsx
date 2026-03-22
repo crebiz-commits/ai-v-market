@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Heart, Share2, ShoppingCart, Play, Pause, Volume2, VolumeX, Loader2 } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
 
@@ -36,18 +36,20 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
 
   const currentVideo = videos[currentIndex];
 
-  // 현재 영상이 바뀌면 자동으로 하이라이트 시작점으로 이동 및 재생
   useEffect(() => {
     if (videoRef.current && currentVideo) {
       const start = currentVideo.highlightStart || 0;
+      // 영상이 바뀔 때 하이라이트 시작 지점으로 이동
       videoRef.current.currentTime = start;
-      videoRef.current.play().catch(err => {
-        console.log("Autoplay prevented or failed", err);
-      });
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.log("Autoplay prevented or failed", err);
+        });
+      }
     }
   }, [currentIndex, currentVideo]);
 
-  // Supabase에서 영상 데이터 가져오기 (주로 숏폼 카테고리)
   useEffect(() => {
     async function fetchVideos() {
       setLoading(true);
@@ -58,9 +60,7 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
           .order("created_at", { ascending: false })
           .limit(10);
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         if (data && data.length > 0) {
           const mappedVideos: Video[] = data.map((item: any) => ({
@@ -74,7 +74,7 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
             tool: item.ai_tool || "AI Tool",
             videoUrl: item.video_url || "",
             highlightStart: item.highlight_start || 0,
-            highlightEnd: item.highlight_end || 10, // 기본 10초
+            highlightEnd: item.highlight_end || 15,
           }));
           setVideos(mappedVideos);
         }
@@ -128,11 +128,11 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
     });
   };
 
-  // 하이라이트 구간 반복 재생 로직
   const handleTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
     const video = e.currentTarget;
+    if (!currentVideo) return;
     const start = currentVideo.highlightStart || 0;
-    const end = currentVideo.highlightEnd || 10;
+    const end = currentVideo.highlightEnd || 15;
 
     if (video.currentTime >= end) {
       video.currentTime = start;
@@ -141,236 +141,158 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center bg-black">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-[#6366f1] mx-auto mb-4" />
-          <p className="text-white/60">영상을 준비하는 중...</p>
-          {errorMsg && <p className="text-red-500 mt-2 text-sm">{errorMsg}</p>}
-        </div>
+      <div className="h-full flex items-center justify-center bg-[#050505]">
+        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+          <Loader2 className="w-10 h-10 text-[#6366f1]" />
+        </motion.div>
       </div>
     );
   }
 
   if (videos.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center bg-black">
-        <p className="text-white/60">표시할 영상이 없습니다.</p>
+      <div className="h-full flex items-center justify-center bg-[#050505] text-gray-500">
+        표시할 영상이 없습니다.
       </div>
     );
   }
 
+  const isLiked = currentVideo && likedVideos.has(currentVideo.id);
+
   return (
-    <>
-      {/* Mobile: Vertical Swipe Feed */}
+    <div className="h-full w-full bg-[#050505] overflow-hidden">
+      {/* Mobile: Consistent 16:9 + Details Layout */}
       <div 
         ref={containerRef}
-        className="md:hidden relative h-full w-full overflow-hidden bg-black"
+        className="md:hidden relative h-full w-full flex flex-col"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onWheel={handleWheel}
       >
-        <motion.div
-          key={currentVideo.id}
-          initial={{ opacity: 0, y: 100 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -100 }}
-          transition={{ duration: 0.3 }}
-          className="relative h-full w-full"
-        >
-        {/* Video Container */}
-        <div className="relative h-full w-full flex items-center justify-center bg-black">
-          {currentVideo.videoUrl ? (
-            <video
-              ref={videoRef}
-              src={currentVideo.videoUrl}
-              poster={currentVideo.thumbnail}
-              className="h-full w-full object-contain"
-              autoPlay
-              loop
-              muted={isMuted}
-              playsInline
-              onTimeUpdate={handleTimeUpdate}
-              onLoadedMetadata={(e) => {
-                const start = currentVideo.highlightStart || 0;
-                e.currentTarget.currentTime = start;
-              }}
-            />
-          ) : (
-            <img 
-              src={currentVideo.thumbnail} 
-              alt={currentVideo.title}
-              className="h-full w-full object-cover"
-            />
-          )}
-          
-
-          {/* Gradient Overlays */}
-          <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
-          <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
-        </div>
-
-        {/* Top Info */}
-        <div className="absolute top-6 left-6 right-6 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center">
-              <span className="text-white text-sm font-medium">AI</span>
-            </div>
-            <span className="text-white">{currentVideo.creator}</span>
-          </div>
-          <div className="px-3 py-1 bg-black/50 backdrop-blur-sm rounded-full text-white text-sm">
-            {currentVideo.duration}
-          </div>
-        </div>
-
-        {/* Bottom Info */}
-        <div className="absolute bottom-24 left-6 right-24">
-          <h3 className="text-white text-xl mb-2">{currentVideo.title}</h3>
-          <div className="flex items-center gap-3 text-white/80 text-sm mb-4">
-            <span className="px-2 py-1 bg-[#6366f1]/20 border border-[#6366f1]/40 rounded text-[#6366f1]">
-              {currentVideo.tool}
-            </span>
-            <span>₩{currentVideo.price.toLocaleString()}</span>
-          </div>
-          <Button 
-            onClick={() => onVideoClick(currentVideo)}
-            className="w-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:from-[#5558e3] hover:to-[#7c4ee5]"
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentVideo.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex-1 flex flex-col min-h-0"
           >
-            상세보기
-          </Button>
-        </div>
+            {/* Top Fixed Video Container (Strictly 16:9) */}
+            <div className="relative w-full overflow-hidden bg-black shrink-0 shadow-2xl z-20" style={{ aspectRatio: '16/9' }}>
+              {currentVideo.videoUrl ? (
+                <video
+                  ref={videoRef}
+                  src={currentVideo.videoUrl}
+                  poster={currentVideo.thumbnail}
+                  className="w-full h-full object-contain"
+                  autoPlay
+                  loop
+                  muted={isMuted}
+                  playsInline
+                  onTimeUpdate={handleTimeUpdate}
+                />
+              ) : (
+                <img src={currentVideo.thumbnail} className="w-full h-full object-contain" alt="" />
+              )}
+              
+              <div className="absolute top-4 left-4 z-30">
+                <span className="px-2 py-1 bg-black/60 backdrop-blur-md rounded text-white font-black text-[10px] tracking-widest border border-white/10">
+                  {currentVideo.tool.toUpperCase()}
+                </span>
+              </div>
 
-        {/* Right Action Buttons */}
-        <div className="absolute right-6 bottom-32 flex flex-col items-center gap-6">
-          <button 
-            onClick={() => toggleLike(currentVideo.id)}
-            className="flex flex-col items-center gap-1"
-          >
-            <div className={`w-14 h-14 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors ${
-              likedVideos.has(currentVideo.id) 
-                ? 'bg-[#ef4444]/20 border-2 border-[#ef4444]' 
-                : 'bg-black/30 border border-white/20'
-            }`}>
-              <Heart 
-                className={`w-6 h-6 ${
-                  likedVideos.has(currentVideo.id) ? 'fill-[#ef4444] text-[#ef4444]' : 'text-white'
-                }`} 
-              />
-            </div>
-            <span className="text-white text-xs">
-              {(currentVideo.likes + (likedVideos.has(currentVideo.id) ? 1 : 0)).toLocaleString()}
-            </span>
-          </button>
-
-          <button className="flex flex-col items-center gap-1">
-            <div className="w-14 h-14 rounded-full bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center">
-              <ShoppingCart className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-white text-xs">담기</span>
-          </button>
-
-          <button className="flex flex-col items-center gap-1">
-            <div className="w-14 h-14 rounded-full bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center">
-              <Share2 className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-white text-xs">공유</span>
-          </button>
-
-          <button 
-            onClick={() => setIsMuted(!isMuted)}
-            className="flex flex-col items-center gap-1"
-          >
-            <div className="w-14 h-14 rounded-full bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center">
-              {isMuted ? <VolumeX className="w-6 h-6 text-white" /> : <Volume2 className="w-6 h-6 text-white" />}
-            </div>
-          </button>
-        </div>
-
-        {/* Scroll Indicator */}
-        <div className="absolute right-1/2 translate-x-1/2 bottom-4 flex flex-col items-center gap-2">
-          {videos.map((_, idx) => (
-            <div 
-              key={idx}
-              className={`w-1 h-1 rounded-full transition-all ${
-                idx === currentIndex 
-                  ? 'bg-white w-1.5 h-1.5' 
-                  : 'bg-white/30'
-              }`}
-            />
-          ))}
-        </div>
-      </motion.div>
-      </div>
-
-      {/* Desktop: Grid View */}
-      <div className="hidden md:block h-full overflow-y-auto bg-background">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold mb-2">AI 영상 탐색</h2>
-            <p className="text-muted-foreground">AI로 제작된 최신 영상 콘텐츠를 만나보세요</p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {videos.map((video) => (
-              <motion.div
-                key={video.id}
-                whileHover={{ scale: 1.02 }}
-                transition={{ duration: 0.2 }}
-                className="bg-card rounded-xl overflow-hidden border border-border hover:border-[#6366f1] transition-all cursor-pointer group"
-                onClick={() => onVideoClick(video)}
+              <button 
+                onClick={() => setIsMuted(!isMuted)}
+                className="absolute bottom-4 right-4 w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white z-30"
               >
-                <div className="relative aspect-[9/16] overflow-hidden bg-black">
-                  <img 
-                    src={video.thumbnail} 
-                    alt={video.title}
-                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  
-                  {/* Watermark */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="text-white/15 text-4xl font-bold rotate-[-30deg]">
-                      AI-V-MARKET
-                    </div>
-                  </div>
+                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </button>
+            </div>
 
-                  {/* Gradient Overlay */}
-                  <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
-
-                  {/* Duration Badge */}
-                  <div className="absolute top-3 right-3 px-2 py-1 bg-black/70 backdrop-blur-sm rounded text-white text-sm">
-                    {video.duration}
-                  </div>
-
-                  {/* Creator Info */}
-                  <div className="absolute top-3 left-3 flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center">
-                      <span className="text-white text-xs font-medium">AI</span>
-                    </div>
-                    <span className="text-white text-sm">{video.creator}</span>
-                  </div>
-
-                  {/* Bottom Info */}
-                  <div className="absolute bottom-0 left-0 right-0 p-4">
-                    <h3 className="text-white text-lg font-medium mb-2">{video.title}</h3>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-1 bg-[#6366f1]/20 border border-[#6366f1]/40 rounded text-[#6366f1] text-xs">
-                          {video.tool}
-                        </span>
-                        <span className="text-white/80 text-sm">₩{video.price.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-white/80 text-sm">
-                        <Heart className={`w-4 h-4 ${likedVideos.has(video.id) ? 'fill-[#ef4444] text-[#ef4444]' : ''}`} />
-                        <span>{(video.likes + (likedVideos.has(video.id) ? 1 : 0)).toLocaleString()}</span>
-                      </div>
-                    </div>
+            {/* Bottom Scrollable Details Section */}
+            <div className="flex-1 overflow-y-auto bg-[#050505] p-6 pb-24 z-10">
+              <div className="flex justify-between items-start mb-8">
+                <div className="flex-1 pr-4">
+                  <h3 className="text-2xl font-black text-white mb-2 leading-tight">{currentVideo.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-[8px] font-bold text-white">AI</div>
+                    <span className="text-sm font-bold text-gray-400">{currentVideo.creator}</span>
                   </div>
                 </div>
-              </motion.div>
-            ))}
-          </div>
+                
+                <div className="flex flex-col gap-6 items-center">
+                  <button onClick={() => toggleLike(currentVideo.id)} className="flex flex-col items-center gap-1">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all ${isLiked ? 'bg-red-500/20 border-red-500 ring-4 ring-red-500/10' : 'bg-white/5 border-white/10'}`}>
+                      <Heart className={`w-6 h-6 ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-500">{(currentVideo.likes + (isLiked ? 1 : 0)).toLocaleString()}</span>
+                  </button>
+                  <button className="flex flex-col items-center gap-1">
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                      <ShoppingCart className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-500">담기</span>
+                  </button>
+                  <button className="flex flex-col items-center gap-1">
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                      <Share2 className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-500">공유</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white/5 p-5 rounded-2xl border border-white/5 mb-8">
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <p className="text-[10px] text-indigo-400 font-black mb-1">STANDARD LICENSE</p>
+                    <p className="text-2xl font-black text-white">₩{currentVideo.price.toLocaleString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-gray-500 font-bold mb-1">DURATION</p>
+                    <p className="text-lg font-bold text-white">{currentVideo.duration}</p>
+                  </div>
+                </div>
+                <div className="flex gap-4 border-t border-white/5 pt-4">
+                  <div className="text-[10px] text-gray-400 font-bold bg-white/5 px-2 py-1 rounded">TOOL: {currentVideo.tool}</div>
+                  <div className="text-[10px] text-gray-400 font-bold bg-white/5 px-2 py-1 rounded">RES: 4K</div>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-400 mb-8 leading-relaxed">
+                본 영상은 영화적 연출이 돋보이는 고화질 AI 영상입니다. 상업적 용도로 사용 가능하며, {currentVideo.tool} 툴로 제작되었습니다.
+              </p>
+
+              <Button 
+                onClick={() => onVideoClick(currentVideo)}
+                className="w-full h-14 bg-gradient-to-r from-indigo-500 to-purple-600 font-black rounded-xl text-lg shadow-lg shadow-indigo-500/20"
+              >
+                상세 보기 및 구매하기
+              </Button>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Desktop View (Basic Grid) */}
+      <div className="hidden md:block h-full overflow-y-auto p-8 max-w-7xl mx-auto">
+        <h2 className="text-3xl font-black mb-8 text-white">AI 영상 탐색</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {videos.map(video => (
+            <div key={video.id} onClick={() => onVideoClick(video)} className="bg-[#111] rounded-2xl overflow-hidden border border-white/10 hover:border-indigo-500/50 transition-all cursor-pointer group">
+              <div className="aspect-video relative overflow-hidden">
+                <img src={video.thumbnail} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                <div className="absolute bottom-4 left-4 right-4 text-white">
+                  <p className="text-sm font-black mb-1 line-clamp-1">{video.title}</p>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase">{video.creator}</p>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
-    </>
+    </div>
   );
 }
