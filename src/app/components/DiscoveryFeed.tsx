@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { Heart, Share2, ShoppingCart, Play, Pause, Volume2, VolumeX, Loader2 } from "lucide-react";
+import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import videojs from "video.js";
+import "video.js/dist/video-js.css";
 import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
 
@@ -27,28 +29,13 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [likedVideos, setLikedVideos] = useState<Set<string>>(new Set());
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(true);
-  const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const playerRef = useRef<any>(null);
   const touchStartY = useRef(0);
   const touchEndY = useRef(0);
 
   const currentVideo = videos[currentIndex];
-
-  useEffect(() => {
-    if (videoRef.current && currentVideo) {
-      const start = currentVideo.highlightStart || 0;
-      // 영상이 바뀔 때 하이라이트 시작 지점으로 이동
-      videoRef.current.currentTime = start;
-      const playPromise = videoRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(err => {
-          console.log("Autoplay prevented or failed", err);
-        });
-      }
-    }
-  }, [currentIndex, currentVideo]);
 
   useEffect(() => {
     async function fetchVideos() {
@@ -80,7 +67,6 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
         }
       } catch (error: any) {
         console.error("Error fetching discovery videos:", error);
-        setErrorMsg(error.message || String(error));
       } finally {
         setLoading(false);
       }
@@ -88,6 +74,73 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
 
     fetchVideos();
   }, []);
+
+  // Initialize and update video.js player
+  useEffect(() => {
+    if (currentVideo?.videoUrl && videoRef.current) {
+      // Dispose old player if exists
+      if (playerRef.current) {
+        playerRef.current.dispose();
+        playerRef.current = null;
+      }
+
+      // Initialize new player
+      const player = videojs(videoRef.current, {
+        autoplay: true,
+        controls: false,
+        loop: false, // Handle looping manually for highlights
+        muted: isMuted,
+        fluid: true,
+        responsive: true,
+        playsinline: true,
+        html5: {
+          vhs: {
+            withCredentials: false
+          }
+        },
+        crossOrigin: 'anonymous'
+      });
+
+      player.ready(() => {
+        player.src({
+          src: currentVideo.videoUrl,
+          type: currentVideo.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
+        });
+
+        // Set initial highlight position
+        const start = currentVideo.highlightStart || 0;
+        player.currentTime(start);
+        player.play().catch(e => console.log("Play failed:", e));
+      });
+
+      // Highlight looping logic
+      player.on('timeupdate', () => {
+        const start = currentVideo.highlightStart || 0;
+        const end = currentVideo.highlightEnd || 15;
+        const currentTime = player.currentTime();
+        
+        if (typeof currentTime === 'number' && currentTime >= end) {
+          player.currentTime(start);
+        }
+      });
+
+      playerRef.current = player;
+    }
+
+    return () => {
+      if (playerRef.current) {
+        playerRef.current.dispose();
+        playerRef.current = null;
+      }
+    };
+  }, [currentIndex, currentVideo]);
+
+  // Sync volume state
+  useEffect(() => {
+    if (playerRef.current) {
+      playerRef.current.muted(isMuted);
+    }
+  }, [isMuted]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
@@ -128,17 +181,6 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
     });
   };
 
-  const handleTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
-    const video = e.currentTarget;
-    if (!currentVideo) return;
-    const start = currentVideo.highlightStart || 0;
-    const end = currentVideo.highlightEnd || 15;
-
-    if (video.currentTime >= end) {
-      video.currentTime = start;
-    }
-  };
-
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center bg-[#050505]">
@@ -161,10 +203,9 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
 
   return (
     <div className="h-full w-full bg-[#050505] overflow-hidden">
-      {/* Mobile: Consistent 16:9 + Details Layout */}
+      {/* Mobile: Full-Screen Immersive Layout */}
       <div 
-        ref={containerRef}
-        className="md:hidden relative h-full w-full flex flex-col"
+        className="md:hidden relative h-full w-full bg-black overflow-hidden"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -173,102 +214,83 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
         <AnimatePresence mode="wait">
           <motion.div
             key={currentVideo.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="flex-1 flex flex-col min-h-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 w-full h-full"
           >
-            {/* Top Fixed Video Container (Strictly 16:9) */}
-            <div className="relative w-full overflow-hidden bg-black shrink-0 shadow-2xl z-20" style={{ aspectRatio: '16/9' }}>
-              {currentVideo.videoUrl ? (
+            {/* Full Screen Video Background */}
+            <div className="absolute inset-0 w-full h-full video-js-responsive-container">
+              <div data-vjs-player>
                 <video
                   ref={videoRef}
-                  src={currentVideo.videoUrl}
-                  poster={currentVideo.thumbnail}
-                  className="w-full h-full object-contain"
-                  autoPlay
-                  loop
-                  muted={isMuted}
+                  className="video-js vjs-big-play-centered vjs-fill"
                   playsInline
-                  onTimeUpdate={handleTimeUpdate}
+                  poster={currentVideo.thumbnail}
                 />
-              ) : (
-                <img src={currentVideo.thumbnail} className="w-full h-full object-contain" alt="" />
-              )}
-              
-              <div className="absolute top-4 left-4 z-30">
-                <span className="px-2 py-1 bg-black/60 backdrop-blur-md rounded text-white font-black text-[10px] tracking-widest border border-white/10">
-                  {currentVideo.tool.toUpperCase()}
-                </span>
               </div>
 
-              <button 
-                onClick={() => setIsMuted(!isMuted)}
-                className="absolute bottom-4 right-4 w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white z-30"
-              >
-                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              {/* Gradient Overlay for Readability */}
+              <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/95 pointer-events-none z-10" />
+            </div>
+
+            {/* Top UI Elements */}
+            <div className="absolute top-6 left-6 z-30">
+              <span className="px-3 py-1 bg-black/40 backdrop-blur-md rounded-full text-white font-black text-[10px] tracking-widest border border-white/10 uppercase italic">
+                {currentVideo.tool}
+              </span>
+            </div>
+
+            <button 
+              onClick={() => setIsMuted(!isMuted)}
+              className="absolute top-6 right-6 w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white z-30"
+            >
+              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+
+            {/* Right Side Interaction Bar */}
+            <div className="absolute right-4 bottom-32 flex flex-col gap-6 items-center z-30">
+              <button onClick={() => toggleLike(currentVideo.id)} className="flex flex-col items-center gap-1 group">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-md border transition-all ${isLiked ? 'bg-red-500/20 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)]' : 'bg-black/40 border-white/10 group-hover:bg-black/60'}`}>
+                  <Heart className={`w-6 h-6 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
+                </div>
+                <span className="text-[10px] font-bold text-white drop-shadow-md">{(currentVideo.likes + (isLiked ? 1 : 0)).toLocaleString()}</span>
+              </button>
+              
+              <button className="flex flex-col items-center gap-1 group">
+                <div className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center group-hover:bg-black/60 shadow-lg">
+                  <ShoppingCart className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-[10px] font-bold text-white drop-shadow-md">담기</span>
+              </button>
+
+              <button className="flex flex-col items-center gap-1 group">
+                <div className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center group-hover:bg-black/60 shadow-lg">
+                  <Share2 className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-[10px] font-bold text-white drop-shadow-md">공유</span>
               </button>
             </div>
 
-            {/* Bottom Scrollable Details Section */}
-            <div className="flex-1 overflow-y-auto bg-[#050505] p-6 pb-24 z-10">
-              <div className="flex justify-between items-start mb-8">
-                <div className="flex-1 pr-4">
-                  <h3 className="text-2xl font-black text-white mb-2 leading-tight">{currentVideo.title}</h3>
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-[8px] font-bold text-white">AI</div>
-                    <span className="text-sm font-bold text-gray-400">{currentVideo.creator}</span>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col gap-6 items-center">
-                  <button onClick={() => toggleLike(currentVideo.id)} className="flex flex-col items-center gap-1">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all ${isLiked ? 'bg-red-500/20 border-red-500 ring-4 ring-red-500/10' : 'bg-white/5 border-white/10'}`}>
-                      <Heart className={`w-6 h-6 ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
-                    </div>
-                    <span className="text-[10px] font-bold text-gray-500">{(currentVideo.likes + (isLiked ? 1 : 0)).toLocaleString()}</span>
-                  </button>
-                  <button className="flex flex-col items-center gap-1">
-                    <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-                      <ShoppingCart className="w-5 h-5 text-gray-400" />
-                    </div>
-                    <span className="text-[10px] font-bold text-gray-500">담기</span>
-                  </button>
-                  <button className="flex flex-col items-center gap-1">
-                    <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-                      <Share2 className="w-5 h-5 text-gray-400" />
-                    </div>
-                    <span className="text-[10px] font-bold text-gray-500">공유</span>
-                  </button>
-                </div>
+            {/* Bottom Metadata Info */}
+            <div className="absolute bottom-24 left-6 right-20 z-30 pointer-events-none">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold text-white shadow-lg ring-2 ring-indigo-500/20">AI</div>
+                <span className="text-sm font-bold text-white drop-shadow-md">{currentVideo.creator}</span>
               </div>
-
-              <div className="bg-white/5 p-5 rounded-2xl border border-white/5 mb-8">
-                <div className="flex justify-between items-center mb-4">
-                  <div>
-                    <p className="text-[10px] text-indigo-400 font-black mb-1">STANDARD LICENSE</p>
-                    <p className="text-2xl font-black text-white">₩{currentVideo.price.toLocaleString()}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] text-gray-500 font-bold mb-1">DURATION</p>
-                    <p className="text-lg font-bold text-white">{currentVideo.duration}</p>
-                  </div>
-                </div>
-                <div className="flex gap-4 border-t border-white/5 pt-4">
-                  <div className="text-[10px] text-gray-400 font-bold bg-white/5 px-2 py-1 rounded">TOOL: {currentVideo.tool}</div>
-                  <div className="text-[10px] text-gray-400 font-bold bg-white/5 px-2 py-1 rounded">RES: 4K</div>
-                </div>
-              </div>
-
-              <p className="text-sm text-gray-400 mb-8 leading-relaxed">
-                본 영상은 영화적 연출이 돋보이는 고화질 AI 영상입니다. 상업적 용도로 사용 가능하며, {currentVideo.tool} 툴로 제작되었습니다.
+              <h3 className="text-2xl font-black text-white leading-tight drop-shadow-lg mb-2">{currentVideo.title}</h3>
+              <p className="text-xs text-white/70 line-clamp-2 drop-shadow-md max-w-xs">
+                {currentVideo.tool} 툴로 제작된 영화적 감성의 고화질 AI 영상입니다. 상업적 사용이 가능합니다.
               </p>
+            </div>
 
+            {/* Bottom Floating CTA Button */}
+            <div className="absolute bottom-6 left-6 right-6 z-30 pointer-events-auto">
               <Button 
                 onClick={() => onVideoClick(currentVideo)}
-                className="w-full h-14 bg-gradient-to-r from-indigo-500 to-purple-600 font-black rounded-xl text-lg shadow-lg shadow-indigo-500/20"
+                className="w-full h-14 bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white font-black rounded-2xl text-lg border border-white/20 shadow-2xl transition-all active:scale-[0.98]"
               >
-                상세 보기 및 구매하기
+                상세 보기 ₩{currentVideo.price.toLocaleString()}
               </Button>
             </div>
           </motion.div>
@@ -293,6 +315,23 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
           ))}
         </div>
       </div>
+
+      <style>{`
+        .video-js-responsive-container {
+          width: 100%;
+          height: 100%;
+        }
+        .video-js.vjs-fill {
+          width: 100%;
+          height: 100%;
+        }
+        .vjs-poster {
+          background-size: cover;
+        }
+        video.vjs-tech {
+          object-fit: cover;
+        }
+      `}</style>
     </div>
   );
 }
