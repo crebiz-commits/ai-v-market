@@ -145,7 +145,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
         event: e
       });
       // v1.0.7: 에러 메시지 브라우저 캐시 방지를 위해 버전 명시
-      toast.warning('동영상 정보를 자동으로 가져오지 못했습니다. 직접 입력해 주세요. (v1.1.0)');
+      toast.warning('동영상 정보를 자동으로 가져오지 못했습니다. 직접 입력해 주세요. (v1.1.1)');
     };
     
     video.src = URL.createObjectURL(file);
@@ -430,7 +430,6 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
               내 상품 보기
             </Button>
           </div>
-          </div>
         </motion.div>
       </div>
     );
@@ -557,6 +556,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
               </div>
             ))}
           </div>
+          <div className="absolute top-4 right-4 z-50 pointer-events-none opacity-20 text-[8px] text-white">v1.1.1-final</div>
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>파일 업로드</span>
             <span>상품 정보</span>
