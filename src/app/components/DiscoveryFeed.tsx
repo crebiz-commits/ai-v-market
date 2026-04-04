@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, memo } from "react";
 import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageSquare, ChevronRight } from "lucide-react";
-import { motion } from "motion/react";
+import { motion } from "framer-motion";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import { Button } from "./ui/button";
@@ -122,7 +122,7 @@ const MovieSection = memo(({
 
   return (
     <div 
-      className="discovery-section snap-start w-full flex flex-col bg-white overflow-hidden"
+      className="discovery-section snap-start w-full flex flex-col bg-white overflow-hidden shadow-sm"
       data-video-id={video.id}
     >
       {/* 🎬 Video Area (70% height for maximum impact) */}
@@ -305,7 +305,6 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
 
       entries.forEach(entry => {
         if (entry.isIntersecting) {
-          // IntersectionRatio relative to the rootMargin area
           if (entry.intersectionRatio > maxRatio) {
             maxRatio = entry.intersectionRatio;
             targetId = entry.target.getAttribute("data-video-id");
@@ -318,7 +317,6 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
       }
     }, { 
       threshold: [0.1, 0.3, 0.5, 0.7, 0.9],
-      // Focus strictly on the top 40% of the screen where the current "main" video sits
       rootMargin: "0px 0px -60% 0px"
     });
 
@@ -326,7 +324,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
     elements.forEach(el => observer.observe(el));
 
     return () => observer.disconnect();
-  }, [videos]); // Only recreate when the video list itself changes
+  }, [videos]);
 
   const toggleLike = async (videoId: string, currentlyLiked: boolean) => {
     if (!user) {
@@ -351,14 +349,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
         await supabase.from("video_likes").insert({ video_id: videoId, user_id: user.id });
       }
     } catch (error) {
-      setLikedVideos(prev => {
-        const n = new Set(prev);
-        currentlyLiked ? n.add(videoId) : n.delete(videoId);
-        return n;
-      });
-      setVideos(prev => prev.map(v => 
-        v.id === videoId ? { ...v, likes: v.likes + (currentlyLiked ? 1 : -1) } : v
-      ));
+      console.error("Error toggling like:", error);
     }
   };
 
@@ -372,7 +363,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
         className="mobile-feed-container h-full overflow-y-auto snap-y snap-mandatory custom-scrollbar"
       >
         {videos.map((video) => (
-          <div key={video.id} className="discovery-section-wrapper">
+          <div key={video.id} className="discovery-section-wrapper h-full">
              <MovieSection 
                 video={video} 
                 isActive={video.id === activeId}
@@ -390,8 +381,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
       <div className="desktop-feed-container min-h-screen p-8 lg:p-12 overflow-y-auto">
         <div className="desktop-grid-wrapper max-w-[1600px] mx-auto">
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-3xl font-black text-gray-900 tracking-tighter">DISCOVERY <span className="text-indigo-600">FILMS</span></h2>
-            <span className="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-500">{videos.length} VIDEOS</span>
+            <h2 className="text-3xl font-black text-gray-900 tracking-tighter uppercase">DISCOVERY <span className="text-indigo-600">FILMS</span></h2>
+            <span className="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-500 uppercase">{videos.length} VIDEOS</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
             {videos.map(v => (
@@ -410,18 +401,17 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
       <style>{`
         .mobile-feed-container { 
           display: block; 
-          /* Calculate available height: Viewport - Header(approx 60px) - TabBar(approx 70px) */
           height: calc(100dvh - 130px); 
           overflow-y: auto; 
           snap-y snap-mandatory;
           -webkit-overflow-scrolling: touch; 
         }
-        .discovery-section {
-          height: 100%; /* Take full available height of the split slot */
-        }
         .discovery-section-wrapper {
-          height: 50%; /* Strictly 50% of the calculated container height */
+          height: 50%;
           scroll-snap-align: start;
+        }
+        .discovery-section {
+          height: 100%;
         }
         .desktop-feed-container { display: none; background: #fff; }
         @media (min-width: 1024px) { 
@@ -467,7 +457,11 @@ function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike }: { vide
       <div className="relative aspect-video bg-black overflow-hidden">
         <img src={video.thumbnail} className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isHovered ? 'opacity-0' : 'opacity-100'}`} />
         {isHovered && <video ref={videoRef} className="video-js vjs-fill" />}
-        <div className="absolute top-3 left-3 px-2 py-0.5 bg-black/60 rounded text-[9px] font-bold text-white uppercase">{video.tool}</div>
+        <div className="absolute top-3 left-3 z-10">
+          <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md rounded text-white font-bold text-[8px] border border-white/10 uppercase tracking-tighter">
+            {video.tool}
+          </span>
+        </div>
       </div>
       <div className="p-5">
         <div className="flex justify-between items-start mb-2">
