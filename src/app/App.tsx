@@ -116,7 +116,7 @@ function AppContent() {
   const renderContent = () => {
     switch (activeTab) {
       case "discovery":
-        return <DiscoveryFeed onVideoClick={setSelectedProduct} />;
+        return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} />;
       case "market":
         return <Market onProductClick={setSelectedProduct} />;
       case "upload":

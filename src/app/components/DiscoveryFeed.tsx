@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from "react";
-import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { useState, useRef, useEffect, memo } from "react";
+import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageSquare, ChevronRight } from "lucide-react";
+import { motion } from "motion/react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
+import { useAuth } from "../contexts/AuthContext";
 
 interface Video {
   id: string;
@@ -22,36 +23,246 @@ interface Video {
 
 interface DiscoveryFeedProps {
   onVideoClick: (video: Video) => void;
+  onSignInClick?: () => void;
 }
 
-export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [likedVideos, setLikedVideos] = useState<Set<string>>(new Set());
-  const [isMuted, setIsMuted] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [hasError, setHasError] = useState(false);
+// 🎬 Movie Section Component (2 per screen)
+const MovieSection = memo(({ 
+  video, 
+  isActive, 
+  isMuted, 
+  onToggleMute, 
+  onVideoClick, 
+  isLiked, 
+  onToggleLike 
+}: { 
+  video: Video; 
+  isActive: boolean; 
+  isMuted: boolean; 
+  onToggleMute: () => void;
+  onVideoClick: (video: Video) => void;
+  isLiked: boolean;
+  onToggleLike: (id: string, currentlyLiked: boolean) => void;
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<any>(null);
-  const touchStartY = useRef(0);
-  const isDragging = useRef(false);
-  const lastWheelTime = useRef(0);
-
-  const currentVideo = videos[currentIndex];
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    async function fetchVideos() {
+    if (!videoRef.current) return;
+
+    const player = videojs(videoRef.current, {
+      autoplay: false,
+      controls: false,
+      loop: true,
+      muted: isMuted,
+      fill: true,
+      responsive: true,
+      playsinline: true,
+      preload: "auto",
+      crossOrigin: 'anonymous',
+      sources: [{
+        src: video.videoUrl,
+        type: video.videoUrl?.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
+      }]
+    });
+
+    player.on('play', () => setIsPlaying(true));
+    player.on('pause', () => setIsPlaying(false));
+    player.on('error', () => {
+      const err = player.error();
+      if (err && (err.code === 4 || err.code === 2)) setHasError(true);
+    });
+
+    player.on('timeupdate', () => {
+      const s = video.highlightStart || 0;
+      let e = video.highlightEnd || 15;
+      const d = player.duration();
+      if (typeof d === 'number' && d > 0 && e > d) e = d;
+      const currentTime = player.currentTime();
+      if (typeof currentTime === 'number' && currentTime >= e) {
+        player.currentTime(s);
+        player.play()?.catch(() => {});
+      }
+    });
+
+    playerRef.current = player;
+
+    return () => {
+      if (playerRef.current) {
+        playerRef.current.dispose();
+        playerRef.current = null;
+      }
+    };
+  }, [video.id]);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player) return;
+
+    if (isActive) {
+      player.muted(isMuted);
+      if (player.readyState() >= 1) {
+        player.currentTime(video.highlightStart || 0);
+      } else {
+        player.one('loadedmetadata', () => {
+          player.currentTime(video.highlightStart || 0);
+        });
+      }
+      player.play().catch(() => {});
+    } else {
+      player.pause();
+    }
+  }, [isActive, video.highlightStart]);
+
+  useEffect(() => {
+    if (playerRef.current) playerRef.current.muted(isMuted);
+  }, [isMuted]);
+
+  return (
+    <div 
+      className="discovery-section snap-start w-full flex flex-col bg-white overflow-hidden"
+      data-video-id={video.id}
+    >
+      {/* 🎬 Video Area (70% height for maximum impact) */}
+      <div className="relative w-full h-[70%] bg-black overflow-hidden group border-b border-white/10">
+        <img 
+          src={video.thumbnail} 
+          alt="" 
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 z-0 ${isPlaying ? 'opacity-0' : 'opacity-100'}`}
+        />
+        
+        <div className="relative w-full h-full z-10 pointer-events-none">
+          <video 
+            ref={videoRef} 
+            className="video-js vjs-big-play-centered w-full h-full" 
+            playsInline 
+            poster={video.thumbnail}
+          />
+          {hasError && (
+            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-center pointer-events-auto">
+              <Loader2 className="w-8 h-8 text-[#6366f1] animate-spin mb-2" />
+              <p className="text-white text-xs">영상 처리 중...</p>
+            </div>
+          )}
+        </div>
+
+        {/* Playback Control Overlay */}
+        <div 
+          className="absolute inset-0 z-20 cursor-pointer pointer-events-auto"
+          onClick={() => {
+            if (playerRef.current) {
+              if (playerRef.current.paused()) playerRef.current.play();
+              else playerRef.current.pause();
+            }
+          }}
+        />
+
+        {/* 🚀 Floating Icons Overlay on Video (Right Side) */}
+        <div className="absolute right-3 bottom-6 z-30 flex flex-col gap-3 items-center pointer-events-auto">
+          <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }} className="flex flex-col items-center">
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md border transition-all ${isLiked ? 'bg-red-500/20 border-red-500' : 'bg-black/20 border-white/20'}`}>
+              <Heart className={`w-4.5 h-4.5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
+            </div>
+            <span className="text-[8px] font-bold text-white mt-0.5 drop-shadow-md">{video.likes.toLocaleString()}</span>
+          </button>
+          
+          <button className="flex flex-col items-center">
+            <div className="w-9 h-9 rounded-full bg-black/20 backdrop-blur-md border border-white/20 flex items-center justify-center">
+              <MessageSquare className="w-4.5 h-4.5 text-white" />
+            </div>
+            <span className="text-[8px] font-bold text-white mt-0.5 drop-shadow-md">0</span>
+          </button>
+        </div>
+
+        {/* UI Overlay Labels */}
+        <div className="absolute top-3 left-3 z-25 pointer-events-none">
+          <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md rounded text-white font-bold text-[8px] border border-white/10 uppercase tracking-tighter">
+            {video.tool}
+          </span>
+        </div>
+
+        <button 
+          onClick={(e) => { e.stopPropagation(); onToggleMute(); }} 
+          className="absolute top-3 right-3 z-30 w-7 h-7 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white pointer-events-auto"
+        >
+          {isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+        </button>
+
+        {!isPlaying && isActive && !hasError && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/20">
+              <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 📄 Info Area (30% height - Slim and clean) */}
+      <div className="h-[30%] p-2.5 flex flex-col justify-between bg-white">
+        <div>
+          <div className="flex justify-between items-center bg-gray-50/50 p-1 rounded-md border border-gray-100/50">
+            <h3 className="text-xs font-bold text-gray-900 leading-tight line-clamp-1 flex-1 px-1">{video.title}</h3>
+            <div className="flex items-center gap-1 ml-2 shrink-0 pr-1">
+               <div className="w-3 h-3 rounded-full bg-indigo-100 flex items-center justify-center text-[6px] font-bold text-indigo-600">AI</div>
+               <span className="text-[9px] font-semibold text-gray-400">{video.creator}</span>
+            </div>
+          </div>
+          <p className="text-[9px] text-gray-400 line-clamp-1 mt-1.5 px-1 font-medium italic opacity-80">🎬 AI Cinematic Film Series</p>
+        </div>
+
+        <div className="flex items-center justify-between px-1 pb-1">
+          <div className="flex items-center gap-2">
+            <div className="flex flex-col">
+              <span className="text-[7px] text-gray-400 font-bold uppercase tracking-tight leading-none mb-0.5">PREMIUM</span>
+              <span className="text-xs font-black text-red-600">₩{video.price.toLocaleString()}</span>
+            </div>
+            <div className="h-4 w-[1px] bg-gray-100 ml-1" />
+            <div className="flex items-center gap-2 ml-1">
+              <Share2 className="w-3.5 h-3.5 text-gray-300 hover:text-gray-700 transition-colors" />
+              <ShoppingCart className="w-3.5 h-3.5 text-gray-300 hover:text-gray-700 transition-colors" />
+            </div>
+          </div>
+          
+          <Button 
+            onClick={(e) => { e.stopPropagation(); onVideoClick(video); }} 
+            className="h-7 px-3 bg-gray-900 hover:bg-black text-white font-bold rounded-md text-[10px] transition-all shadow-sm"
+          >
+            영화 상세 <ChevronRight className="w-2.5 h-2.5 ml-0.5" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+MovieSection.displayName = "MovieSection";
+
+export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProps) {
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [likedVideos, setLikedVideos] = useState<Set<string>>(new Set());
+  const [isMuted, setIsMuted] = useState(true);
+  const { user } = useAuth();
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Fetch initial data
+  useEffect(() => {
+    async function fetchData() {
       setLoading(true);
       try {
-        const { data, error } = await supabase
+        const { data: videoData, error: videoError } = await supabase
           .from("videos")
           .select("*")
           .order("created_at", { ascending: false })
           .limit(20);
-        if (error) throw error;
-        if (data && data.length > 0) {
-          setVideos(data.map((item: any) => ({
+
+        if (videoError) throw videoError;
+
+        if (videoData) {
+          const formatted = videoData.map((item: any) => ({
             id: item.id,
             thumbnail: item.thumbnail,
             title: item.title,
@@ -63,257 +274,169 @@ export function DiscoveryFeed({ onVideoClick }: DiscoveryFeedProps) {
             videoUrl: item.video_url || "",
             highlightStart: item.highlight_start || 0,
             highlightEnd: item.highlight_end || 15,
-          })));
+          }));
+          setVideos(formatted);
+          if (formatted.length > 0) setActiveId(formatted[0].id);
+
+          if (user) {
+            const { data: likesData } = await supabase
+              .from("video_likes")
+              .select("video_id")
+              .eq("user_id", user.id);
+            if (likesData) setLikedVideos(new Set(likesData.map(l => l.video_id)));
+          }
         }
       } catch (error) {
-        console.error("Error fetching discovery videos:", error);
+        console.error("Error fetching discovery data:", error);
       } finally {
         setLoading(false);
       }
     }
-    fetchVideos();
-  }, []);
+    fetchData();
+  }, [user?.id]);
 
+  // Intersection Observer to detect the most prominent top video
   useEffect(() => {
-    if (!videoRef.current || playerRef.current || loading) return;
-    const player = videojs(videoRef.current, {
-      autoplay: true, controls: false, loop: false, muted: isMuted, fill: true, responsive: true, playsinline: true, crossOrigin: 'anonymous'
-    });
-    player.on('play', () => { setIsPlaying(true); setHasError(false); });
-    player.on('pause', () => setIsPlaying(false));
-    player.on('error', () => {
-      const err = player.error();
-      if (err && (err.code === 4 || err.code === 2)) {
-        setHasError(true);
+    if (!containerRef.current || videos.length === 0) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      let targetId: string | null = null;
+      let maxRatio = 0;
+
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          // IntersectionRatio relative to the rootMargin area
+          if (entry.intersectionRatio > maxRatio) {
+            maxRatio = entry.intersectionRatio;
+            targetId = entry.target.getAttribute("data-video-id");
+          }
+        }
+      });
+
+      if (targetId) {
+        setActiveId(prev => (prev !== targetId ? targetId : prev));
       }
+    }, { 
+      threshold: [0.1, 0.3, 0.5, 0.7, 0.9],
+      // Focus strictly on the top 40% of the screen where the current "main" video sits
+      rootMargin: "0px 0px -60% 0px"
     });
-    playerRef.current = player;
-    return () => { if (playerRef.current) playerRef.current.dispose(); };
-  }, [loading]);
 
-  useEffect(() => {
-    if (playerRef.current) {
-      playerRef.current.muted(isMuted);
+    const elements = containerRef.current.querySelectorAll(".discovery-section");
+    elements.forEach(el => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, [videos]); // Only recreate when the video list itself changes
+
+  const toggleLike = async (videoId: string, currentlyLiked: boolean) => {
+    if (!user) {
+      if (onSignInClick) onSignInClick();
+      return;
     }
-  }, [isMuted]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowUp" && currentIndex > 0) setCurrentIndex(prev => prev - 1);
-      if (e.key === "ArrowDown" && currentIndex < videos.length - 1) setCurrentIndex(prev => prev + 1);
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentIndex, videos.length]);
-
-  useEffect(() => {
-    const player = playerRef.current;
-    if (player && currentVideo) {
-      player.pause();
-      player.src({ src: currentVideo.videoUrl, type: currentVideo.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4' });
-      player.one('loadedmetadata', () => {
-        const d = player.duration();
-        let s = currentVideo.highlightStart || 0;
-        if (d > 0 && s >= d) s = 0;
-        player.currentTime(s);
-        player.play().catch(() => {});
-      });
-      player.on('timeupdate', () => {
-        const s = currentVideo.highlightStart || 0;
-        let e = currentVideo.highlightEnd || 15;
-        const d = player.duration();
-        if (d > 0 && e > d) e = d;
-        if (player.currentTime() >= e) { player.currentTime(s); player.play().catch(() => {}); }
-      });
-    }
-  }, [currentIndex, currentVideo]);
-
-  const toggleLike = (id: string) => {
     setLikedVideos(prev => {
       const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
+      currentlyLiked ? n.delete(videoId) : n.add(videoId);
       return n;
     });
+
+    setVideos(prev => prev.map(v => 
+      v.id === videoId ? { ...v, likes: v.likes + (currentlyLiked ? -1 : 1) } : v
+    ));
+
+    try {
+      if (currentlyLiked) {
+        await supabase.from("video_likes").delete().match({ video_id: videoId, user_id: user.id });
+      } else {
+        await supabase.from("video_likes").insert({ video_id: videoId, user_id: user.id });
+      }
+    } catch (error) {
+      setLikedVideos(prev => {
+        const n = new Set(prev);
+        currentlyLiked ? n.add(videoId) : n.delete(videoId);
+        return n;
+      });
+      setVideos(prev => prev.map(v => 
+        v.id === videoId ? { ...v, likes: v.likes + (currentlyLiked ? 1 : -1) } : v
+      ));
+    }
   };
 
-  if (loading) return <div className="h-full flex items-center justify-center bg-[#050505]"><Loader2 className="w-10 h-10 text-indigo-500 animate-spin" /></div>;
-  if (videos.length === 0) return <div className="h-full flex items-center justify-center bg-[#050505] text-gray-500">표시할 영상이 없습니다.</div>;
-
-  const isLiked = currentVideo && likedVideos.has(currentVideo.id);
+  if (loading) return <div className="h-full flex items-center justify-center bg-white"><Loader2 className="w-10 h-10 text-indigo-500 animate-spin" /></div>;
+  if (videos.length === 0) return <div className="h-full flex items-center justify-center bg-white text-gray-500">표시할 영상이 없습니다.</div>;
 
   return (
-    <div className="discovery-feed-wrapper h-full w-full bg-[#050505]">
-      {/* 📱 Mobile */}
-      <div className="mobile-feed-container" 
-        onPointerDown={(e) => { 
-          touchStartY.current = e.clientY; 
-          isDragging.current = false;
-        }}
-        onPointerMove={(e) => { 
-          if (Math.abs(e.clientY - touchStartY.current) > 10) {
-            if (!isDragging.current) {
-              isDragging.current = true;
-              try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch (err) {}
-            }
-          }
-        }}
-        onPointerUp={(e) => {
-          if (isDragging.current) {
-            const touchEndY = e.clientY;
-            const diff = touchStartY.current - touchEndY;
-            
-            if (Math.abs(diff) > 50) {
-              if (diff > 0 && currentIndex < videos.length - 1) {
-                setCurrentIndex(v => v + 1);
-              } else if (diff < 0 && currentIndex > 0) {
-                setCurrentIndex(v => v - 1);
-              }
-            }
-            try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch (err) {}
-            isDragging.current = false;
-          }
-        }}
-        onWheel={(e) => {
-          const now = Date.now();
-          if (now - lastWheelTime.current < 500) return; // Debounce wheel
-          
-          if (e.deltaY > 50 && currentIndex < videos.length - 1) {
-            setCurrentIndex(v => v + 1);
-            lastWheelTime.current = now;
-          } else if (e.deltaY < -50 && currentIndex > 0) {
-            setCurrentIndex(v => v - 1);
-            lastWheelTime.current = now;
-          }
-        }}
+    <div className="discovery-feed-wrapper h-full w-full bg-gray-50 overflow-hidden flex flex-col">
+      <div 
+        ref={containerRef}
+        className="mobile-feed-container h-full overflow-y-auto snap-y snap-mandatory custom-scrollbar"
       >
-        {/* 🎬 Video Section */}
-        <div className="relative w-full h-full pointer-events-none">
-          <video ref={videoRef} className="video-js vjs-big-play-centered w-full h-full" playsInline />
-          
-          {/* Error/Processing Overlay */}
-          {hasError && (
-            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm p-8 text-center pointer-events-auto">
-              <Loader2 className="w-12 h-12 text-[#6366f1] animate-spin mb-4" />
-              <h3 className="text-xl font-bold text-white mb-2">영상이 현재 처리 중입니다</h3>
-              <p className="text-gray-300 text-sm max-w-[280px]">
-                고화질 스트리밍을 위해 서버에서 영상을 변환하고 있습니다. 잠시 후 다시 시도해 주세요.
-              </p>
-            </div>
-          )}
-          <div className="bottom-gradient-overlay" />
-        </div>
-
-        {/* 👆 Dedicated Tap Layer for Play/Pause */}
-        <div 
-          className="absolute inset-0 z-10 cursor-pointer pointer-events-auto"
-          onPointerUp={(e) => {
-            if (!isDragging.current && playerRef.current) {
-              if (playerRef.current.paused()) {
-                playerRef.current.play();
-              } else {
-                playerRef.current.pause();
-              }
-            }
-          }}
-        />
-
-        <div className="absolute top-4 right-4 z-50 pointer-events-none opacity-20 text-[8px] text-white">v1.1.0-final</div>
-        <AnimatePresence mode="wait">
-          <motion.div key={currentVideo.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-20 pointer-events-none">
-            <div className="absolute top-6 left-6 pointer-events-auto"><span className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-white font-black text-[10px] items-center italic border border-white/10 uppercase">{currentVideo.tool}</span></div>
-            <div className="absolute top-6 right-6 pointer-events-auto"><button onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }} className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white">{isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}</button></div>
-            {!isPlaying && <div className="absolute inset-0 flex items-center justify-center"><div className="w-16 h-16 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/20"><Play className="w-8 h-8 text-white fill-white ml-2" /></div></div>}
-            <div className="absolute right-4 bottom-32 flex flex-col gap-6 items-center pointer-events-auto" onClick={e => e.stopPropagation()}>
-              <button onClick={() => toggleLike(currentVideo.id)} className="flex flex-col items-center gap-1">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-md border transition-all ${isLiked ? 'bg-red-500/20 border-red-500' : 'bg-black/60 border-white/20'}`}><Heart className={`w-6 h-6 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} /></div>
-                <span className="text-[10px] font-bold text-white">{(currentVideo.likes + (isLiked ? 1 : 0)).toLocaleString()}</span>
-              </button>
-              <button className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center"><ShoppingCart className="w-5 h-5 text-white" /></button>
-              <button className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center"><Share2 className="w-5 h-5 text-white" /></button>
-            </div>
-            <div className="absolute bottom-24 left-6 right-20">
-              <div className="flex items-center gap-2 mb-3"><div className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold text-white">AI</div><span className="text-sm font-bold text-white">{currentVideo.creator}</span></div>
-              <h3 className="text-2xl font-black text-white leading-tight mb-2">{currentVideo.title}</h3>
-              <p className="text-xs text-white/80 line-clamp-2 max-w-xs">{currentVideo.tool} 툴로 제작된 고화질 AI 영상입니다.</p>
-            </div>
-            <div className="absolute bottom-6 left-6 right-6 pointer-events-auto" onClick={e => e.stopPropagation()}><Button onClick={() => onVideoClick(currentVideo)} className="w-full h-14 bg-white/10 hover:bg-white/20 backdrop-blur-xl text-white font-black rounded-2xl text-lg border border-white/40">상세 보기 ₩{currentVideo.price.toLocaleString()}</Button></div>
-          </motion.div>
-        </AnimatePresence>
+        {videos.map((video) => (
+          <div key={video.id} className="discovery-section-wrapper">
+             <MovieSection 
+                video={video} 
+                isActive={video.id === activeId}
+                isMuted={isMuted}
+                onToggleMute={() => setIsMuted(!isMuted)}
+                onVideoClick={onVideoClick}
+                isLiked={likedVideos.has(video.id)}
+                onToggleLike={toggleLike}
+              />
+          </div>
+        ))}
+        <div className="py-20 text-center text-gray-300 text-[10px] font-bold">END OF FEED</div>
       </div>
 
-      {/* 🖥️ Desktop */}
-      <div className="desktop-feed-container min-h-screen p-8 lg:p-12">
-        <div className="desktop-grid-wrapper">
-          <div className="desktop-header">
-            <h2 className="desktop-title">Discovery <span className="beta-tag">Beta</span></h2>
-            <span className="video-count">{videos.length} VIDEOS</span>
+      <div className="desktop-feed-container min-h-screen p-8 lg:p-12 overflow-y-auto">
+        <div className="desktop-grid-wrapper max-w-[1600px] mx-auto">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-black text-gray-900 tracking-tighter">DISCOVERY <span className="text-indigo-600">FILMS</span></h2>
+            <span className="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-500">{videos.length} VIDEOS</span>
           </div>
-          <div className="desktop-grid">
-            {videos.map(v => <DesktopCard key={v.id} video={v} onVideoClick={onVideoClick} />)}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            {videos.map(v => (
+              <DesktopMovieCard 
+                key={v.id} 
+                video={v} 
+                onVideoClick={onVideoClick} 
+                isLiked={likedVideos.has(v.id)} 
+                onToggleLike={toggleLike} 
+              />
+            ))}
           </div>
         </div>
       </div>
 
       <style>{`
-        .discovery-feed-wrapper { position: relative; overflow: hidden; }
         .mobile-feed-container { 
           display: block; 
-          position: relative; 
-          height: 100%; 
-          width: 100%; 
-          background: #000;
-          touch-action: none !important; 
-        }
-        .desktop-feed-container { 
-          display: none; 
-          height: 100%; 
+          /* Calculate available height: Viewport - Header(approx 60px) - TabBar(approx 70px) */
+          height: calc(100dvh - 130px); 
           overflow-y: auto; 
-          background: #050505;
+          snap-y snap-mandatory;
+          -webkit-overflow-scrolling: touch; 
         }
-        @media (min-width: 768px) { 
+        .discovery-section {
+          height: 100%; /* Take full available height of the split slot */
+        }
+        .discovery-section-wrapper {
+          height: 50%; /* Strictly 50% of the calculated container height */
+          scroll-snap-align: start;
+        }
+        .desktop-feed-container { display: none; background: #fff; }
+        @media (min-width: 1024px) { 
           .mobile-feed-container { display: none; } 
           .desktop-feed-container { display: block; } 
-          .discovery-feed-wrapper { overflow: visible; }
         }
-        .vjs-fixed-container { position: absolute; inset: 0; background: #000; overflow: hidden; }
+        .custom-scrollbar::-webkit-scrollbar { width: 0px; }
         .video-js.vjs-fill { width: 100% !important; height: 100% !important; }
-        .vjs-tech { object-fit: cover !important; }
-        .bottom-gradient-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.9) 100%); pointer-events: none; z-index: 10; }
-        .full-vjs-container { position: absolute; inset: 0; width: 100%; height: 100%; }
-        .desktop-grid-wrapper { max-width: 1400px; margin: 0 auto; padding-bottom: 100px; }
-        .desktop-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 40px; }
-        .desktop-title { font-size: 2rem; font-weight: 900; color: white; text-transform: uppercase; font-style: italic; }
-        .beta-tag { color: #6366f1; font-size: 0.7rem; vertical-align: top; margin-left: 4px; }
-        .video-count { color: rgba(255,255,255,0.4); font-size: 0.8rem; font-weight: bold; }
-        
-        .desktop-grid { 
-          display: grid !important; 
-          grid-template-columns: repeat(2, 1fr) !important;
-          gap: 32px !important; 
-          width: 100% !important;
-        }
-        @media (min-width: 1024px) { .desktop-grid { grid-template-columns: repeat(3, 1fr) !important; } }
-        @media (min-width: 1440px) { .desktop-grid { grid-template-columns: repeat(4, 1fr) !important; } }
-
-        .desktop-card-outer { position: relative; width: 100%; aspect-ratio: 9/16; border-radius: 1.5rem; overflow: hidden; background: #111; border: 1px solid #222; cursor: pointer; transition: all 0.4s ease; }
-        .desktop-card-outer:hover { transform: translateY(-8px); border-color: #444; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .card-thumbnail { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s; }
-        .card-video-container { position: absolute; inset: 0; z-index: 5; }
-        .card-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 60%); z-index: 10; }
-        .card-content { position: absolute; inset: 0; padding: 20px; display: flex; flex-direction: column; justify-content: flex-end; z-index: 20; }
-        .card-title { font-size: 1.1rem; font-weight: 800; color: white; margin-bottom: 2px; }
-        .card-creator { font-size: 0.7rem; color: #aaa; margin-bottom: 12px; }
-        .card-footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #222; padding-top: 12px; }
-        .card-price { font-size: 0.8rem; font-weight: 800; color: white; }
-        .card-icons { display: flex; gap: 8px; color: #666; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        .vjs-tech { object-fit: contain !important; } 
       `}</style>
     </div>
   );
 }
 
-function DesktopCard({ video, onVideoClick }: { video: Video; onVideoClick: (video: Video) => void }) {
+function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike }: { video: Video; onVideoClick: (video: Video) => void; isLiked: boolean; onToggleLike: (id: string, currentlyLiked: boolean) => void }) {
   const [isHovered, setIsHovered] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<any>(null);
@@ -322,47 +445,47 @@ function DesktopCard({ video, onVideoClick }: { video: Video; onVideoClick: (vid
     let p: any = null;
     if (isHovered && videoRef.current) {
       p = videojs(videoRef.current, { 
-        autoplay: true, 
-        controls: false, 
-        loop: true, 
-        muted: true, 
-        fill: true, 
-        responsive: true,
-        playsinline: true, 
-        crossOrigin: 'anonymous' 
+        autoplay: true, controls: false, loop: true, muted: true, fill: true, responsive: true, playsinline: true, crossOrigin: 'anonymous' 
       });
-      
-      const setupPlayer = () => {
+      p.ready(() => {
         if (!p) return;
-        p.src({ 
-          src: video.videoUrl, 
-          type: video.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4' 
-        });
-        p.one('loadedmetadata', () => { 
-          if (!p) return;
-          p.currentTime(video.highlightStart || 0); 
-          p.play().catch(() => {}); 
-        });
-      };
-
-      p.ready(setupPlayer);
+        p.src({ src: video.videoUrl, type: video.videoUrl?.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4' });
+        p.one('loadedmetadata', () => { if (!p) return; p.currentTime(video.highlightStart || 0); p.play().catch(() => {}); });
+      });
       playerRef.current = p;
     }
-    
-    return () => {
-      if (p) {
-        p.dispose();
-        if (playerRef.current === p) playerRef.current = null;
-      }
-    };
+    return () => { if (p) { p.dispose(); if (playerRef.current === p) playerRef.current = null; } };
   }, [isHovered, video.videoUrl, video.highlightStart]);
 
-
   return (
-    <motion.div onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} onClick={() => onVideoClick(video)} className="desktop-card-outer">
-      <img src={video.thumbnail} className="card-thumbnail" style={{ opacity: isHovered ? 0 : 1 }} />
-      {isHovered && <div className="card-video-container"><div className="full-vjs-container"><video ref={videoRef} className="video-js vjs-fill" /></div></div>}
-      <div className="card-overlay" /><div className="card-content"><div className="card-tag"><span style={{fontSize:'8px', background:'rgba(255,255,255,0.1)', padding:'2px 6px', borderRadius:'4px', color:'#888'}}>{video.tool}</span></div><h3 className="card-title">{video.title}</h3><p className="card-creator">{video.creator}</p><div className="card-footer"><span className="card-price">₩{video.price.toLocaleString()}</span><div className="card-icons"><Heart className="w-4 h-4" /><ShoppingCart className="w-4 h-4" /></div></div></div>
+    <motion.div 
+      onMouseEnter={() => setIsHovered(true)} 
+      onMouseLeave={() => setIsHovered(false)} 
+      onClick={() => onVideoClick(video)} 
+      className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group"
+    >
+      <div className="relative aspect-video bg-black overflow-hidden">
+        <img src={video.thumbnail} className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isHovered ? 'opacity-0' : 'opacity-100'}`} />
+        {isHovered && <video ref={videoRef} className="video-js vjs-fill" />}
+        <div className="absolute top-3 left-3 px-2 py-0.5 bg-black/60 rounded text-[9px] font-bold text-white uppercase">{video.tool}</div>
+      </div>
+      <div className="p-5">
+        <div className="flex justify-between items-start mb-2">
+          <h3 className="font-extrabold text-lg text-gray-900 line-clamp-1 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{video.title}</h3>
+        </div>
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xs font-bold text-gray-400">{video.creator}</span>
+        </div>
+        <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+          <span className="text-lg font-black text-red-600">₩{video.price.toLocaleString()}</span>
+          <div className="flex items-center gap-4">
+             <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }} className="p-2 hover:bg-red-50 rounded-full transition-colors">
+              <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-300'}`} />
+            </button>
+            <ShoppingCart className="w-5 h-5 text-gray-300 hover:text-gray-900 transition-colors" />
+          </div>
+        </div>
+      </div>
     </motion.div>
   );
 }

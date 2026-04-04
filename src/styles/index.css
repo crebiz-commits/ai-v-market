@@ -35,3 +35,16 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Video.js Full Screen Cover */
+.vjs-cover .vjs-tech {
+  object-fit: cover !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.video-js.vjs-cover {
+  width: 100% !important;
+  height: 100% !important;
+}
+

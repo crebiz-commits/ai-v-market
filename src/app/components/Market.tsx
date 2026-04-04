@@ -80,7 +80,7 @@ export function Market({ onProductClick }: MarketProps) {
             category: item.category || "General",
             videoUrl: item.video_url || "",
             highlightStart: item.highlight_start || 0,
-            highlightEnd: item.highlight_end || 10,
+            highlightEnd: item.highlight_end || (item.highlight_start || 0) + 15,
           }));
           setProducts(mappedProducts);
         }
