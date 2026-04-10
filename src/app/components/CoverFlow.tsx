@@ -41,7 +41,8 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
   const dragStartPosRef = useRef({ x: 0, y: 0 });
   const hasDraggedRef = useRef(false);
   
-  const anglePerItem = 360 / videos.length;
+  const isEmpty = videos.length === 0;
+  const anglePerItem = isEmpty ? 0 : 360 / videos.length;
   
   // 화면 크기에 따라 반경 조정
   const getRadius = () => {
@@ -58,6 +59,7 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
 
   // rotation 값을 기준으로 실제 중앙에 있는 인덱스 계산
   const getCenterIndex = () => {
+    if (isEmpty) return 0;
     const normalizedRotation = ((rotation % 360) + 360) % 360;
     const index = Math.round(normalizedRotation / anglePerItem) % videos.length;
     return index;
@@ -276,6 +278,7 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
   }, []);
 
   const getTransform = (index: number) => {
+    if (isEmpty) return { display: 'none' };
     const angle = -index * anglePerItem + rotation;
     const x = radius * Math.sin(angle * Math.PI / 180);
     const z = radius * Math.cos(angle * Math.PI / 180);
@@ -356,6 +359,8 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
     if (selectedLicense === 'commercial') return basePrice * 3;
     return basePrice * 8; // exclusive
   };
+
+  if (isEmpty) return null;
 
   return (
     <div className="relative w-full bg-black py-6 md:py-12 lg:py-28">

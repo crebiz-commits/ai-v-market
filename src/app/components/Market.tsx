@@ -411,9 +411,11 @@ export function Market({ onProductClick }: MarketProps) {
       {/* Scrollable Content Area */}
       <div className="flex-1 overflow-y-auto scrollbar-hide pb-20">
         {/* Featured Carousel Section */}
-        <div className="flex-shrink-0 bg-gradient-to-b from-background via-card/5 to-transparent pt-4 pb-8 mb-4 border-b border-white/5">
-          <CoverFlow videos={coverFlowVideos} hideControls={isFilterOpen} />
-        </div>
+        {coverFlowVideos.length > 0 && (
+          <div className="flex-shrink-0 bg-gradient-to-b from-background via-card/5 to-transparent pt-4 pb-8 mb-4 border-b border-white/5">
+            <CoverFlow videos={coverFlowVideos} hideControls={isFilterOpen} />
+          </div>
+        )}
 
         {/* Product Grid */}
         <div className="p-4 md:px-6 pb-20">

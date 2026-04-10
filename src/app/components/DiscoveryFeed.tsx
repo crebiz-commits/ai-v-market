@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, memo } from "react";
 import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageSquare, ChevronRight } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import { Button } from "./ui/button";
@@ -50,13 +50,14 @@ const MovieSection = memo(({
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !video.videoUrl) return;
 
+    // 1. 플레이어 생성
     const player = videojs(videoRef.current, {
       autoplay: false,
       controls: false,
       loop: true,
-      muted: isMuted,
+      muted: true, // 자동 재생을 위해 무조건 뮤트 시작
       fill: true,
       responsive: true,
       playsinline: true,
@@ -64,10 +65,16 @@ const MovieSection = memo(({
       crossOrigin: 'anonymous',
       sources: [{
         src: video.videoUrl,
-        type: video.videoUrl?.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
+        type: video.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
       }]
     });
 
+    playerRef.current = player;
+
+    // 2. 초기 뮤트 상태 적용
+    player.muted(isMuted);
+
+    // 3. 상태 리스너
     player.on('play', () => setIsPlaying(true));
     player.on('pause', () => setIsPlaying(false));
     player.on('error', () => {
@@ -87,7 +94,21 @@ const MovieSection = memo(({
       }
     });
 
-    playerRef.current = player;
+    // 4. 활성화 상태 보장 (이전 영상은 중지, 현재 영상은 재생)
+    if (isActive) {
+      player.ready(() => {
+        player.muted(isMuted);
+        player.currentTime(video.highlightStart || 0);
+        player.play().catch(err => {
+          console.warn("Autoplay blocked or failed:", err);
+          // 브라우저 정책으로 차단된 경우 뮤트 강제 후 재시도
+          player.muted(true);
+          player.play().catch(() => {});
+        });
+      });
+    } else {
+      player.pause();
+    }
 
     return () => {
       if (playerRef.current) {
@@ -95,27 +116,9 @@ const MovieSection = memo(({
         playerRef.current = null;
       }
     };
-  }, [video.id]);
+  }, [video.id, video.videoUrl, isActive]); // video.id와 isActive가 바뀔 때마다 완전히 새로 관리
 
-  useEffect(() => {
-    const player = playerRef.current;
-    if (!player) return;
-
-    if (isActive) {
-      player.muted(isMuted);
-      if (player.readyState() >= 1) {
-        player.currentTime(video.highlightStart || 0);
-      } else {
-        player.one('loadedmetadata', () => {
-          player.currentTime(video.highlightStart || 0);
-        });
-      }
-      player.play().catch(() => {});
-    } else {
-      player.pause();
-    }
-  }, [isActive, video.highlightStart]);
-
+  // 뮤트 상태만 따로 빠르게 반영
   useEffect(() => {
     if (playerRef.current) playerRef.current.muted(isMuted);
   }, [isMuted]);
@@ -153,6 +156,9 @@ const MovieSection = memo(({
           className="absolute inset-0 z-20 cursor-pointer pointer-events-auto"
           onClick={() => {
             if (playerRef.current) {
+              // 🖐️ 클릭 시 현재 영상이 활성 상태가 아니면 활성화를 먼저 유도 (부모에게 전달 등의 로직이 필요할 수 있으나 현재는 상태 유지 위주)
+              if (!isActive) return; 
+
               if (playerRef.current.paused()) playerRef.current.play();
               else playerRef.current.pause();
             }
@@ -316,8 +322,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
         setActiveId(prev => (prev !== targetId ? targetId : prev));
       }
     }, { 
-      threshold: [0.1, 0.3, 0.5, 0.7, 0.9],
-      rootMargin: "0px 0px -60% 0px"
+      threshold: [0.1, 0.2, 0.3, 0.5, 0.7, 0.9],
+      rootMargin: "-25% 0px -25% 0px" // 2분할 레이아웃을 위해 중앙 50% 영역 집중 감지
     });
 
     const elements = containerRef.current.querySelectorAll(".discovery-section");
@@ -363,7 +369,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
         className="mobile-feed-container h-full overflow-y-auto snap-y snap-mandatory custom-scrollbar"
       >
         {videos.map((video) => (
-          <div key={video.id} className="discovery-section-wrapper h-full">
+          <div key={video.id} className="discovery-section-wrapper">
              <MovieSection 
                 video={video} 
                 isActive={video.id === activeId}
@@ -401,17 +407,24 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
       <style>{`
         .mobile-feed-container { 
           display: block; 
-          height: calc(100dvh - 130px); 
+          height: calc(100dvh - 136px); 
           overflow-y: auto; 
           snap-y snap-mandatory;
           -webkit-overflow-scrolling: touch; 
+          background: #f3f4f6; /* bg-gray-100 */
         }
         .discovery-section-wrapper {
-          height: 50%;
+          height: calc(50% - 6px) !important;
           scroll-snap-align: start;
+          padding: 6px 0; /* 위아래 6px씩 합쳐서 12px 여백 생성 */
+          box-sizing: border-box;
+          background: #f3f4f6;
         }
         .discovery-section {
           height: 100%;
+          background: white;
+          overflow: hidden;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         .desktop-feed-container { display: none; background: #fff; }
         @media (min-width: 1024px) { 

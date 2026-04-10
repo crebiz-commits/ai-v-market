@@ -144,8 +144,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const token = data.session.access_token;
       setAccessToken(token);
       setUser(data.user);
-
-      setUser(data.user);
     } catch (error) {
       console.error('로그인 에러:', error);
       throw error;
