@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Mail, Lock, User as UserIcon, Loader2, HelpCircle, ChevronLeft } from "lucide-react";
+import { X, User as UserIcon, Loader2, ChevronLeft } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -19,7 +19,6 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const { signIn, signUp, signInWithGoogle, signInWithKakao } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,11 +45,9 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
-      setError("");
       await signInWithGoogle();
     } catch (err: any) {
-      console.error("Google 로그인 실패:", err);
-      setError(err.message || "Google 로그인에 실패했습니다.");
+      toast.error(err.message || "Google 로그인에 실패했습니다.");
       setLoading(false);
     }
   };
@@ -58,11 +55,9 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
   const handleKakaoSignIn = async () => {
     try {
       setLoading(true);
-      setError("");
       await signInWithKakao();
     } catch (err: any) {
-      console.error("Kakao 로그인 실패:", err);
-      setError(err.message || "Kakao 로그인에 실패했습니다.");
+      toast.error(err.message || "Kakao 로그인에 실패했습니다.");
       setLoading(false);
     }
   };
@@ -85,12 +80,15 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
       >
         {/* Header */}
         <div className="relative p-6 flex items-center justify-between border-b border-gray-100">
-          <button
-            onClick={() => showEmailForm ? setShowEmailForm(false) : onClose()}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors"
-          >
-            {showEmailForm ? <ChevronLeft className="w-6 h-6" /> : <HelpCircle className="w-5 h-5" />}
-          </button>
+          {showEmailForm && (
+            <button
+              onClick={() => setShowEmailForm(false)}
+              className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+          )}
+          {!showEmailForm && <div className="w-10 h-10" />}
           
           <h2 className="text-[19px] font-bold text-black text-center absolute left-1/2 -translate-x-1/2">
             {mode === "signin" ? "AI-V-MARKET 로그인" : "AI-V-MARKET 가입하기"}

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Lightbulb, Trophy, MessageCircle, Heart, Bookmark, TrendingUp } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
-import { Avatar } from "./ui/avatar";
 
 interface Post {
   id: string;
@@ -78,13 +77,19 @@ const mockPosts: Post[] = [
   }
 ];
 
+const getNextDeadline = (offsetDays: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+};
+
 const challenges = [
   {
     id: "1",
     title: "미래 도시 챌린지",
     prize: "500만원",
     participants: 342,
-    deadline: "2026.03.15",
+    deadline: getNextDeadline(15),
     image: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=400&h=200&fit=crop"
   },
   {
@@ -92,7 +97,7 @@ const challenges = [
     title: "자연 다큐멘터리",
     prize: "300만원",
     participants: 189,
-    deadline: "2026.03.20",
+    deadline: getNextDeadline(20),
     image: "https://images.unsplash.com/photo-1551728715-88730314d185?w=400&h=200&fit=crop"
   },
   {
@@ -100,7 +105,7 @@ const challenges = [
     title: "추상 아트 비주얼",
     prize: "200만원",
     participants: 267,
-    deadline: "2026.03.25",
+    deadline: getNextDeadline(25),
     image: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=400&h=200&fit=crop"
   }
 ];

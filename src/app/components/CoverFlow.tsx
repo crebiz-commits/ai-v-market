@@ -275,6 +275,18 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [anglePerItem]);
+
+  // 언마운트 시 타임아웃 정리
+  useEffect(() => {
+    return () => {
+      if (autoRotateTimeoutRef.current) {
+        clearTimeout(autoRotateTimeoutRef.current);
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
   }, []);
 
   const getTransform = (index: number) => {
@@ -319,36 +331,36 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
   }, [isAutoRotating, anglePerItem, centerIndex, videos.length]);
 
   const handleVideoPlay = () => {
-    if (videoRef.current) {
-      videoRef.current.play();
+    if (playerRef.current) {
+      playerRef.current.play()?.catch(() => {});
       setIsPlaying(true);
     }
   };
 
   const handleVideoPause = () => {
-    if (videoRef.current) {
-      videoRef.current.pause();
+    if (playerRef.current) {
+      playerRef.current.pause();
       setIsPlaying(false);
     }
   };
 
   const handleVideoMute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = true;
+    if (playerRef.current) {
+      playerRef.current.muted(true);
       setIsMuted(true);
     }
   };
 
   const handleVideoUnmute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = false;
+    if (playerRef.current) {
+      playerRef.current.muted(false);
       setIsMuted(false);
     }
   };
 
   const handleVideoMaximize = () => {
-    if (videoRef.current) {
-      videoRef.current.requestFullscreen();
+    if (playerRef.current) {
+      playerRef.current.requestFullscreen();
     }
   };
 
@@ -534,7 +546,7 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
                 <h3 className="text-white text-lg md:text-xl font-bold mb-1.5 md:mb-2">{selectedVideo.title}</h3>
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-white text-xs md:text-sm font-bold">
-                    {selectedVideo.creator?.charAt(1).toUpperCase()}
+                    {selectedVideo.creator?.charAt(0).toUpperCase()}
                   </div>
                   <span className="text-white/80 text-xs md:text-sm">{selectedVideo.creator}</span>
                 </div>

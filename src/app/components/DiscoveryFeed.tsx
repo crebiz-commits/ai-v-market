@@ -169,21 +169,21 @@ const MovieSection = memo(({
         <div className="absolute right-3 bottom-6 z-30 flex flex-col gap-3 items-center pointer-events-auto">
           <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }} className="flex flex-col items-center">
             <div className={`w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md border transition-all ${isLiked ? 'bg-red-500/20 border-red-500' : 'bg-black/20 border-white/20'}`}>
-              <Heart className={`w-4.5 h-4.5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
+              <Heart className={`w-[18px] h-[18px] ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
             </div>
             <span className="text-[8px] font-bold text-white mt-0.5 drop-shadow-md">{video.likes.toLocaleString()}</span>
           </button>
-          
+
           <button className="flex flex-col items-center">
             <div className="w-9 h-9 rounded-full bg-black/20 backdrop-blur-md border border-white/20 flex items-center justify-center">
-              <MessageSquare className="w-4.5 h-4.5 text-white" />
+              <MessageSquare className="w-[18px] h-[18px] text-white" />
             </div>
             <span className="text-[8px] font-bold text-white mt-0.5 drop-shadow-md">0</span>
           </button>
         </div>
 
         {/* UI Overlay Labels */}
-        <div className="absolute top-3 left-3 z-25 pointer-events-none">
+        <div className="absolute top-3 left-3 z-30 pointer-events-none">
           <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md rounded text-white font-bold text-[8px] border border-white/10 uppercase tracking-tighter">
             {video.tool}
           </span>
@@ -359,8 +359,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
     }
   };
 
-  if (loading) return <div className="h-full flex items-center justify-center bg-white"><Loader2 className="w-10 h-10 text-indigo-500 animate-spin" /></div>;
-  if (videos.length === 0) return <div className="h-full flex items-center justify-center bg-white text-gray-500">표시할 영상이 없습니다.</div>;
+  if (loading) return <div className="h-full flex items-center justify-center bg-background"><Loader2 className="w-10 h-10 text-[#6366f1] animate-spin" /></div>;
+  if (videos.length === 0) return <div className="h-full flex items-center justify-center bg-background text-muted-foreground">표시할 영상이 없습니다.</div>;
 
   return (
     <div className="discovery-feed-wrapper h-full w-full bg-gray-50 overflow-hidden flex flex-col">
@@ -405,12 +405,12 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
       </div>
 
       <style>{`
-        .mobile-feed-container { 
-          display: block; 
-          height: calc(100dvh - 136px); 
-          overflow-y: auto; 
-          snap-y snap-mandatory;
-          -webkit-overflow-scrolling: touch; 
+        .mobile-feed-container {
+          display: block;
+          height: calc(100dvh - 136px);
+          overflow-y: auto;
+          scroll-snap-type: y mandatory;
+          -webkit-overflow-scrolling: touch;
           background: #f3f4f6; /* bg-gray-100 */
         }
         .discovery-section-wrapper {

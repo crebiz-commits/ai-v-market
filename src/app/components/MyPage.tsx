@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Package, BarChart3, LogIn, Loader2, ChevronRight } from "lucide-react";
+import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Package, BarChart3, LogIn, Loader2, ChevronRight, Bell } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -400,7 +400,7 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                 <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-2 gap-4">
                   <motion.div variants={itemVariants} className="bg-[#121212] p-5 rounded-2xl border border-white/5 relative overflow-hidden group">
                     <div className="relative z-10">
-                      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">총 출</p>
+                      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">총 매출</p>
                       <p className="text-2xl font-black text-white">₩{totalRevenue.toLocaleString()}</p>
                     </div>
                     <DollarSign className="absolute right-2 bottom-2 w-16 h-16 text-[#6366f1]/10 group-hover:scale-110 transition-transform duration-500" />
@@ -424,7 +424,11 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                     <div>
                       <h4 className="font-bold text-white mb-1">다음 정산 예정</h4>
                       <p className="text-[13px] text-gray-300 font-medium mb-1">
-                        2026년 3월 15일 • <span className="font-bold text-[#8b5cf6]">₩{expectedPayout.toLocaleString()}</span>
+                        {(() => {
+                          const now = new Date();
+                          const nextPayout = new Date(now.getFullYear(), now.getDate() <= 15 ? now.getMonth() : now.getMonth() + 1, 15);
+                          return `${nextPayout.getFullYear()}년 ${nextPayout.getMonth() + 1}월 ${nextPayout.getDate()}일`;
+                        })()} • <span className="font-bold text-[#8b5cf6]">₩{expectedPayout.toLocaleString()}</span>
                       </p>
                       <p className="text-[11px] text-gray-500">매월 15일에 전월 매출이 자동 정산됩니다</p>
                     </div>

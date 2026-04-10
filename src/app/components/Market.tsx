@@ -114,6 +114,7 @@ export function Market({ onProductClick }: MarketProps) {
       case "latest":
         break;
       case "popular":
+        // 인기순: 가격이 높을수록 인기 많은 콘텐츠로 간주 (likes 필드 없을 때 대체)
         filtered = [...filtered].sort((a, b) => b.price - a.price);
         break;
       case "price-low":
@@ -188,7 +189,6 @@ export function Market({ onProductClick }: MarketProps) {
         className="flex-shrink-0 p-4 md:px-6 md:py-6 border-b border-border/50 bg-card/30 backdrop-blur-md"
       >
         <div className="md:max-w-7xl md:mx-auto">
-          <div className="text-[10px] text-muted-foreground/30 mb-1">Market Component v2.0 (Premium UI)</div>
           <div className="relative mb-5 group">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5 group-focus-within:text-[#6366f1] transition-colors" />
             <Input

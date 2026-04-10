@@ -81,24 +81,29 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     // 영상 정보 자동 측정 (길이, 해상도)
     const video = document.createElement('video');
     video.preload = 'metadata';
-    
+
+    // 모바일 환경 대응: 10초 후에도 메타데이터가 로드되지 않으면 소스 정리
+    const cleanupTimeout = setTimeout(() => {
+      if (video.src) {
+        window.URL.revokeObjectURL(video.src);
+        video.src = '';
+      }
+    }, 10000);
+
     video.onloadedmetadata = () => {
+      clearTimeout(cleanupTimeout);
       window.URL.revokeObjectURL(video.src);
-      
+
       // 1. 영상 길이 측정
       const duration = video.duration;
       const minutes = Math.floor(duration / 60);
       const seconds = Math.floor(duration % 60);
       const formattedDuration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-      
+
       // 2. 해상도 측정
-      const width = video.videoWidth;
       const height = video.videoHeight;
       let resolution = '';
-      
-      console.log('Raw video dimensions:', { width, height });
-      
-      // 해상도 자동 판별
+
       if (height >= 4320) {
         resolution = '8K';
       } else if (height >= 2160) {
@@ -110,63 +115,18 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
       } else {
         resolution = '1080p'; // 기본값
       }
-      
-      console.log('Detected resolution:', resolution);
-      console.log('Video metadata detected:', {
-        duration: formattedDuration,
-        resolution: `${width}x${height} (${resolution})`,
-      });
-      
-      // 상태 업데이트 + 강제 리렌더링
-      setFormData(prev => {
-        const updated = {
-          ...prev,
-          duration: formattedDuration,
-          resolution: resolution
-        };
-        console.log('Updated formData:', updated);
-        return updated;
-      });
-      
-      // 강제 리렌더링 트리거 (약간의 지연 후)
-      setTimeout(() => {
-        setForceUpdate(prev => prev + 1);
-        console.log('Force update triggered, resolution should now be:', resolution);
-      }, 100);
-      
+
+      setFormData(prev => ({ ...prev, duration: formattedDuration, resolution }));
+      setForceUpdate(prev => prev + 1);
       toast.success(`영상 정보: ${resolution}, ${formattedDuration}`);
     };
-    
-    video.onerror = (e) => {
-      const error = video.error;
-      console.error('Failed to read video metadata:', {
-        code: error?.code,
-        message: error?.message,
-        event: e
-      });
-      // v1.0.7: 에러 메시지 브라우저 캐시 방지를 위해 버전 명시
-      toast.warning('동영상 정보를 자동으로 가져오지 못했습니다. 직접 입력해 주세요. (v1.1.1)');
-    };
-    
-    video.src = URL.createObjectURL(file);
 
-    // 모바일 환경 대응: 10초 후에도 메타데이터가 로드되지 않으면 소스 정리 (업로드는 가능하게 유지)
-    const cleanupTimeout = setTimeout(() => {
-      if (video.src) {
-        window.URL.revokeObjectURL(video.src);
-        video.src = '';
-        console.log('Metadata extraction timed out, source revoked.');
-      }
-    }, 10000);
-
-    // 성공 시 타임아웃 해제
-    const originalOnLoaded = video.onloadedmetadata;
-    video.onloadedmetadata = (e) => {
+    video.onerror = () => {
       clearTimeout(cleanupTimeout);
-      if (typeof originalOnLoaded === 'function') {
-        originalOnLoaded.call(video, e);
-      }
+      toast.warning('동영상 정보를 자동으로 가져오지 못했습니다. 직접 입력해 주세요.');
     };
+
+    video.src = URL.createObjectURL(file);
   };
 
   if (!user) {
