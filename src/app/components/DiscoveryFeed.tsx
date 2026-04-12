@@ -552,17 +552,42 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
           background: #0a0a0a; /* bg-gray-100 */
         }
         .discovery-section-wrapper {
-          height: calc(50% - 6px) !important;
+          height: calc(50% - 1.5px) !important;
           scroll-snap-align: start;
-          padding: 6px 0; /* 위아래 6px씩 합쳐서 12px 여백 생성 */
           box-sizing: border-box;
           background: #0a0a0a;
+          position: relative;
+        }
+        /* 카드 하단 글로우 구분선 */
+        .discovery-section-wrapper::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            #4f46e5 15%,
+            #8b5cf6 40%,
+            #06b6d4 65%,
+            #8b5cf6 85%,
+            transparent 100%
+          );
+          background-size: 250% 100%;
+          animation: divider-sweep 3s linear infinite;
+          box-shadow: 0 0 10px rgba(139, 92, 246, 0.7), 0 0 20px rgba(6, 182, 212, 0.3);
+          z-index: 50;
+        }
+        @keyframes divider-sweep {
+          0%   { background-position: 120% 0; }
+          100% { background-position: -120% 0; }
         }
         .discovery-section {
           height: 100%;
-          background: white;
+          background: black;
           overflow: hidden;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         .desktop-feed-container { display: none; background: #fff; }
         @media (min-width: 1024px) { 
