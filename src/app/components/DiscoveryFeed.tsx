@@ -208,27 +208,21 @@ const MovieSection = memo(({
       return;
     }
 
-    console.log(`[DF] isActive=${isActive} playerReady=${playerReady} title=${video.title}`);
-    if (!playerReady) { console.log(`[DF] ⏳ waiting playerReady`); return; }
+    if (!playerReady) return;
 
     const player = playerRef.current;
-    if (!player || player.isDisposed()) { console.log(`[DF] ❌ no player`); return; }
+    if (!player || player.isDisposed()) return;
 
     player.currentTime(video.highlightStart || 0);
     player.muted(isMuted);
     const playPromise = player.play();
     if (playPromise) {
-      playPromise.then(() => {
-        console.log(`[DF] ✅ playing: ${video.title}`);
-      }).catch((e: any) => {
-        console.log(`[DF] play() failed (${e?.message}), retrying muted`);
+      playPromise.catch(() => {
         if (!player.isDisposed()) {
           player.muted(true);
           player.play()?.catch(() => {});
         }
       });
-    } else {
-      console.log(`[DF] ✅ play() called (no promise): ${video.title}`);
     }
   }, [isActive, playerReady]);
 
@@ -448,7 +442,6 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
 
   // 스크롤 스냅 완료 후 상단 영상 감지 및 활성화
   useEffect(() => {
-    console.log(`[DF] EFFECT videos=${videos.length} container=${!!containerRef.current}`);
     const container = containerRef.current;
     if (!container || videos.length === 0) return;
 
@@ -470,12 +463,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
       // 광고 카드는 data-video-id 없음 → null → 모든 영상 정지
       const section = targetWrapper.querySelector<HTMLElement>("[data-video-id]");
       const videoId = section ? section.getAttribute("data-video-id") : null;
-      console.log(`[DF] detectActive idx=${idx} scrollTop=${scrollTop.toFixed(0)} sectionH=${sectionHeight.toFixed(0)} videoId=${videoId}`);
       setActiveId(prev => (prev !== videoId ? videoId : prev));
     };
-
-    // 컨테이너 스크롤 가능 여부 확인
-    console.log(`[DF] SETUP scrollH=${container.scrollHeight} clientH=${container.clientHeight} overflow=${getComputedStyle(container).overflowY}`);
 
     // scrollend: 스냅 완전히 멈춘 후 (Chrome 114+, Firefox 109+)
     container.addEventListener("scrollend", detectActive, { passive: true });
@@ -483,7 +472,6 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
     // scroll + 디바운스: iOS Safari / 데스크탑 마우스 휠 fallback
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const onScroll = () => {
-      console.log(`[DF] SCROLL scrollTop=${container.scrollTop.toFixed(0)}`);
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(detectActive, 350);
     };
