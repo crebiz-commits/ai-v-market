@@ -208,15 +208,18 @@ const MovieSection = memo(({
       return;
     }
 
-    // 활성 상태지만 플레이어가 아직 준비 안 됨 → playerReady가 true가 되면 자동 재실행
-    if (!playerReady) return;
+    console.log(`[DF] isActive=${isActive} playerReady=${playerReady} title=${video.title}`);
+    if (!playerReady) { console.log(`[DF] ⏳ waiting playerReady`); return; }
 
     const player = playerRef.current;
-    if (!player || player.isDisposed()) return;
+    if (!player || player.isDisposed()) { console.log(`[DF] ❌ no player`); return; }
 
     player.currentTime(video.highlightStart || 0);
     player.muted(isMuted);
-    player.play()?.catch(() => {
+    player.play()?.then(() => {
+      console.log(`[DF] ✅ playing: ${video.title}`);
+    }).catch((e: any) => {
+      console.log(`[DF] play() failed (${e?.message}), retrying muted`);
       if (!player.isDisposed()) {
         player.muted(true);
         player.play()?.catch(() => {});
@@ -461,6 +464,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
       // 광고 카드는 data-video-id 없음 → null → 모든 영상 정지
       const section = targetWrapper.querySelector<HTMLElement>("[data-video-id]");
       const videoId = section ? section.getAttribute("data-video-id") : null;
+      console.log(`[DF] detectActive idx=${idx} scrollTop=${scrollTop.toFixed(0)} sectionH=${sectionHeight.toFixed(0)} videoId=${videoId}`);
       setActiveId(prev => (prev !== videoId ? videoId : prev));
     };
 
