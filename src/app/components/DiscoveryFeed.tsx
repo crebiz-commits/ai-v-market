@@ -216,23 +216,22 @@ const MovieSection = memo(({
   }, [isMuted]);
 
   return (
-    <div 
-      className="discovery-section snap-start w-full flex flex-col bg-white overflow-hidden shadow-sm"
+    <div
+      className="discovery-section snap-start w-full relative bg-black overflow-hidden"
       data-video-id={video.id}
     >
-      {/* 🎬 Video Area (70% height for maximum impact) */}
-      <div className="relative w-full h-[70%] bg-black overflow-hidden group border-b border-white/10">
+      {/* 🎬 Video — 전체 높이 */}
+      <div className="absolute inset-0">
         <img
           src={video.thumbnail}
           alt=""
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 z-[15] pointer-events-none ${isPlaying ? 'opacity-0' : 'opacity-100'}`}
         />
-
         <div className="relative w-full h-full z-10 pointer-events-none">
-          <video 
-            ref={videoRef} 
-            className="video-js vjs-big-play-centered w-full h-full" 
-            playsInline 
+          <video
+            ref={videoRef}
+            className="video-js vjs-big-play-centered w-full h-full"
+            playsInline
             poster={video.thumbnail}
           />
           {hasError && (
@@ -242,93 +241,90 @@ const MovieSection = memo(({
             </div>
           )}
         </div>
-
-        {/* Playback Control Overlay */}
-        <div 
-          className="absolute inset-0 z-20 cursor-pointer pointer-events-auto"
-          onClick={() => {
-            if (playerRef.current) {
-              // 🖐️ 클릭 시 현재 영상이 활성 상태가 아니면 활성화를 먼저 유도 (부모에게 전달 등의 로직이 필요할 수 있으나 현재는 상태 유지 위주)
-              if (!isActive) return; 
-
-              if (playerRef.current.paused()) playerRef.current.play();
-              else playerRef.current.pause();
-            }
-          }}
-        />
-
-        {/* 🚀 Floating Icons Overlay on Video (Right Side) */}
-        <div className="absolute right-3 bottom-6 z-30 flex flex-col gap-3 items-center pointer-events-auto">
-          <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }} className="flex flex-col items-center">
-            <div className={`w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md border transition-all ${isLiked ? 'bg-red-500/20 border-red-500' : 'bg-black/20 border-white/20'}`}>
-              <Heart className={`w-[18px] h-[18px] ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
-            </div>
-            <span className="text-[8px] font-bold text-white mt-0.5 drop-shadow-md">{video.likes.toLocaleString()}</span>
-          </button>
-
-          <button className="flex flex-col items-center">
-            <div className="w-9 h-9 rounded-full bg-black/20 backdrop-blur-md border border-white/20 flex items-center justify-center">
-              <MessageSquare className="w-[18px] h-[18px] text-white" />
-            </div>
-            <span className="text-[8px] font-bold text-white mt-0.5 drop-shadow-md">0</span>
-          </button>
-        </div>
-
-        {/* UI Overlay Labels */}
-        <div className="absolute top-3 left-3 z-30 pointer-events-none">
-          <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md rounded text-white font-bold text-[8px] border border-white/10 uppercase tracking-tighter">
-            {video.tool}
-          </span>
-        </div>
-
-        <button 
-          onClick={(e) => { e.stopPropagation(); onToggleMute(); }} 
-          className="absolute top-3 right-3 z-30 w-7 h-7 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white pointer-events-auto"
-        >
-          {isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
-        </button>
-
-        {!isPlaying && isActive && !hasError && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/20">
-              <Play className="w-5 h-5 text-white fill-white ml-0.5" />
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* 📄 Info Area (30% height - Dark theme) */}
-      <div className="h-[30%] p-2.5 flex flex-col justify-between bg-[#0f0f0f]">
-        <div>
-          <div className="flex justify-between items-center bg-white/5 p-1 rounded-md border border-white/10">
-            <h3 className="text-xs font-bold text-white leading-tight line-clamp-1 flex-1 px-1">{video.title}</h3>
-            <div className="flex items-center gap-1 ml-2 shrink-0 pr-1">
-              <div className="w-3 h-3 rounded-full bg-[#6366f1]/30 flex items-center justify-center text-[6px] font-bold text-[#8b5cf6]">AI</div>
-              <span className="text-[9px] font-semibold text-white/50">{video.creator}</span>
-            </div>
+      {/* 클릭 재생/정지 */}
+      <div
+        className="absolute inset-0 z-20 cursor-pointer pointer-events-auto"
+        onClick={() => {
+          if (playerRef.current) {
+            if (!isActive) return;
+            if (playerRef.current.paused()) playerRef.current.play();
+            else playerRef.current.pause();
+          }
+        }}
+      />
+
+      {/* 상단 레이블 + 음소거 버튼 */}
+      <div className="absolute top-3 left-3 z-30 pointer-events-none">
+        <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md rounded text-white font-bold text-[8px] border border-white/10 uppercase tracking-tighter">
+          {video.tool}
+        </span>
+      </div>
+      <button
+        onClick={(e) => { e.stopPropagation(); onToggleMute(); }}
+        className="absolute top-3 right-3 z-30 w-7 h-7 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white pointer-events-auto"
+      >
+        {isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+      </button>
+
+      {/* 재생 아이콘 */}
+      {!isPlaying && isActive && !hasError && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-25">
+          <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/20">
+            <Play className="w-5 h-5 text-white fill-white ml-0.5" />
           </div>
-          <p className="text-[9px] text-white/30 line-clamp-1 mt-1.5 px-1 font-medium italic">🎬 AI Cinematic Film Series</p>
         </div>
+      )}
 
-        <div className="flex items-center justify-between px-1 pb-1">
-          <div className="flex items-center gap-2">
-            <div className="flex flex-col">
-              <span className="text-[7px] text-white/40 font-bold uppercase tracking-tight leading-none mb-0.5">PREMIUM</span>
-              <span className="text-xs font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>
-            </div>
-            <div className="h-4 w-[1px] bg-white/10 ml-1" />
-            <div className="flex items-center gap-2 ml-1">
-              <Share2 className="w-3.5 h-3.5 text-white/30 hover:text-white transition-colors" />
-              <ShoppingCart className="w-3.5 h-3.5 text-white/30 hover:text-white transition-colors" />
-            </div>
+      {/* 우측 액션 버튼 */}
+      <div className="absolute right-3 bottom-[88px] z-30 flex flex-col gap-3 items-center pointer-events-auto">
+        <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }} className="flex flex-col items-center">
+          <div className={`w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md border transition-all ${isLiked ? 'bg-red-500/20 border-red-500' : 'bg-black/20 border-white/20'}`}>
+            <Heart className={`w-[18px] h-[18px] ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
           </div>
+          <span className="text-[8px] font-bold text-white mt-0.5 drop-shadow-md">{video.likes.toLocaleString()}</span>
+        </button>
+        <button className="flex flex-col items-center">
+          <div className="w-9 h-9 rounded-full bg-black/20 backdrop-blur-md border border-white/20 flex items-center justify-center">
+            <MessageSquare className="w-[18px] h-[18px] text-white" />
+          </div>
+          <span className="text-[8px] font-bold text-white mt-0.5 drop-shadow-md">0</span>
+        </button>
+      </div>
 
-          <Button
-            onClick={(e) => { e.stopPropagation(); onVideoClick(video); }}
-            className="h-7 px-3 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white font-bold rounded-md text-[10px] transition-all shadow-md border border-white/10"
-          >
-            영화 상세 <ChevronRight className="w-2.5 h-2.5 ml-0.5" />
-          </Button>
+      {/* 🔻 하단 그라디언트 오버레이 + 정보 */}
+      <div className="absolute bottom-0 left-0 right-0 z-30 pointer-events-none"
+        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 50%, transparent 100%)" }}
+      >
+        <div className="px-3 pt-8 pb-3 pointer-events-auto">
+          {/* 제목 + 크리에이터 */}
+          <div className="flex items-center gap-1.5 mb-1">
+            <div className="w-4 h-4 rounded-full bg-[#6366f1]/40 flex items-center justify-center text-[6px] font-bold text-[#a5b4fc] shrink-0">AI</div>
+            <span className="text-[10px] font-semibold text-white/60">{video.creator}</span>
+          </div>
+          <h3 className="text-sm font-bold text-white leading-tight line-clamp-1 mb-2">{video.title}</h3>
+
+          {/* 가격 + 버튼 */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex flex-col">
+                <span className="text-[7px] text-white/40 font-bold uppercase tracking-tight leading-none mb-0.5">PREMIUM</span>
+                <span className="text-sm font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>
+              </div>
+              <div className="h-4 w-[1px] bg-white/20 mx-1" />
+              <div className="flex items-center gap-2">
+                <Share2 className="w-3.5 h-3.5 text-white/40 hover:text-white transition-colors" />
+                <ShoppingCart className="w-3.5 h-3.5 text-white/40 hover:text-white transition-colors" />
+              </div>
+            </div>
+            <Button
+              onClick={(e) => { e.stopPropagation(); onVideoClick(video); }}
+              className="h-7 px-3 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white font-bold rounded-full text-[10px] transition-all shadow-lg border border-white/10"
+            >
+              영화 상세 <ChevronRight className="w-2.5 h-2.5 ml-0.5" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>
