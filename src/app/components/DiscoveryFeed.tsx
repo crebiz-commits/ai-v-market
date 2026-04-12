@@ -297,35 +297,35 @@ const MovieSection = memo(({
         )}
       </div>
 
-      {/* 📄 Info Area (30% height - Slim and clean) */}
-      <div className="h-[30%] p-2.5 flex flex-col justify-between bg-white">
+      {/* 📄 Info Area (30% height - Dark theme) */}
+      <div className="h-[30%] p-2.5 flex flex-col justify-between bg-[#0f0f0f]">
         <div>
-          <div className="flex justify-between items-center bg-gray-50/50 p-1 rounded-md border border-gray-100/50">
-            <h3 className="text-xs font-bold text-gray-900 leading-tight line-clamp-1 flex-1 px-1">{video.title}</h3>
+          <div className="flex justify-between items-center bg-white/5 p-1 rounded-md border border-white/10">
+            <h3 className="text-xs font-bold text-white leading-tight line-clamp-1 flex-1 px-1">{video.title}</h3>
             <div className="flex items-center gap-1 ml-2 shrink-0 pr-1">
-               <div className="w-3 h-3 rounded-full bg-indigo-100 flex items-center justify-center text-[6px] font-bold text-indigo-600">AI</div>
-               <span className="text-[9px] font-semibold text-gray-400">{video.creator}</span>
+              <div className="w-3 h-3 rounded-full bg-[#6366f1]/30 flex items-center justify-center text-[6px] font-bold text-[#8b5cf6]">AI</div>
+              <span className="text-[9px] font-semibold text-white/50">{video.creator}</span>
             </div>
           </div>
-          <p className="text-[9px] text-gray-400 line-clamp-1 mt-1.5 px-1 font-medium italic opacity-80">🎬 AI Cinematic Film Series</p>
+          <p className="text-[9px] text-white/30 line-clamp-1 mt-1.5 px-1 font-medium italic">🎬 AI Cinematic Film Series</p>
         </div>
 
         <div className="flex items-center justify-between px-1 pb-1">
           <div className="flex items-center gap-2">
             <div className="flex flex-col">
-              <span className="text-[7px] text-gray-400 font-bold uppercase tracking-tight leading-none mb-0.5">PREMIUM</span>
-              <span className="text-xs font-black text-red-600">₩{video.price.toLocaleString()}</span>
+              <span className="text-[7px] text-white/40 font-bold uppercase tracking-tight leading-none mb-0.5">PREMIUM</span>
+              <span className="text-xs font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>
             </div>
-            <div className="h-4 w-[1px] bg-gray-100 ml-1" />
+            <div className="h-4 w-[1px] bg-white/10 ml-1" />
             <div className="flex items-center gap-2 ml-1">
-              <Share2 className="w-3.5 h-3.5 text-gray-300 hover:text-gray-700 transition-colors" />
-              <ShoppingCart className="w-3.5 h-3.5 text-gray-300 hover:text-gray-700 transition-colors" />
+              <Share2 className="w-3.5 h-3.5 text-white/30 hover:text-white transition-colors" />
+              <ShoppingCart className="w-3.5 h-3.5 text-white/30 hover:text-white transition-colors" />
             </div>
           </div>
-          
-          <Button 
-            onClick={(e) => { e.stopPropagation(); onVideoClick(video); }} 
-            className="h-7 px-3 bg-gray-900 hover:bg-black text-white font-bold rounded-md text-[10px] transition-all shadow-sm"
+
+          <Button
+            onClick={(e) => { e.stopPropagation(); onVideoClick(video); }}
+            className="h-7 px-3 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white font-bold rounded-md text-[10px] transition-all shadow-md border border-white/10"
           >
             영화 상세 <ChevronRight className="w-2.5 h-2.5 ml-0.5" />
           </Button>
@@ -498,7 +498,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
   if (videos.length === 0) return <div className="h-full flex items-center justify-center bg-background text-muted-foreground">표시할 영상이 없습니다.</div>;
 
   return (
-    <div className="discovery-feed-wrapper h-full w-full bg-gray-50 overflow-hidden flex flex-col">
+    <div className="discovery-feed-wrapper h-full w-full bg-[#0a0a0a] overflow-hidden flex flex-col">
       <div
         ref={containerRef}
         className="mobile-feed-container h-full overflow-y-auto snap-y snap-mandatory custom-scrollbar"
@@ -553,14 +553,14 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
           overflow-y: auto;
           scroll-snap-type: y mandatory;
           -webkit-overflow-scrolling: touch;
-          background: #f3f4f6; /* bg-gray-100 */
+          background: #0a0a0a; /* bg-gray-100 */
         }
         .discovery-section-wrapper {
           height: calc(50% - 6px) !important;
           scroll-snap-align: start;
           padding: 6px 0; /* 위아래 6px씩 합쳐서 12px 여백 생성 */
           box-sizing: border-box;
-          background: #f3f4f6;
+          background: #0a0a0a;
         }
         .discovery-section {
           height: 100%;
