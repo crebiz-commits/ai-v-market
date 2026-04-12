@@ -497,7 +497,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
       container.removeEventListener("scroll", onScroll);
       if (debounceTimer) clearTimeout(debounceTimer);
     };
-  }, [videos]);
+  }, [videos, loading]); // loading 포함: setVideos와 setLoading(false)가 다른 배치로 커밋돼
+                         // loading=false 시점에 container가 생기므로 재실행 필요
 
   const toggleLike = async (videoId: string, currentlyLiked: boolean) => {
     if (!user) {
