@@ -84,8 +84,8 @@ const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) 
           className="absolute inset-0 w-full h-full object-cover"
         />
       )}
-      {/* 그라디언트 오버레이 */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
+      {/* 그라디언트 오버레이 — 하단 텍스트 영역만 */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
 
       {/* 광고 배지 */}
       <div className="absolute top-3 left-3 z-10 px-2 py-0.5 bg-black/50 backdrop-blur-sm border border-white/20 rounded-full text-[10px] font-bold text-white/70 tracking-widest">
