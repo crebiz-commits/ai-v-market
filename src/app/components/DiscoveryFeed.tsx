@@ -427,12 +427,10 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
     return result;
   })();
 
-  // Scroll-based active video detection — finds the card whose top is closest to container top
+  // 스크롤 스냅 완료 후 상단 영상 감지 및 활성화
   useEffect(() => {
     const container = containerRef.current;
     if (!container || videos.length === 0) return;
-
-    let rafId: number | null = null;
 
     const detectActive = () => {
       const sections = container.querySelectorAll<HTMLElement>(".discovery-section");
@@ -457,21 +455,24 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
       }
     };
 
-    const onScroll = () => {
-      if (rafId !== null) return;
-      rafId = requestAnimationFrame(() => {
-        detectActive();
-        rafId = null;
-      });
-    };
+    // scrollend: 스냅 애니메이션 완전히 멈춘 후 발생 (Chrome 114+, Firefox 109+)
+    container.addEventListener("scrollend", detectActive, { passive: true });
 
-    container.addEventListener("scroll", onScroll, { passive: true });
-    // Set initial active on mount
+    // 구형 브라우저 fallback: 스크롤 멈춘 뒤 150ms 후 감지
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    const onScrollFallback = () => {
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+      fallbackTimer = setTimeout(detectActive, 150);
+    };
+    container.addEventListener("scroll", onScrollFallback, { passive: true });
+
+    // 초기 로드 시 첫 번째 영상 활성화
     detectActive();
 
     return () => {
-      container.removeEventListener("scroll", onScroll);
-      if (rafId !== null) cancelAnimationFrame(rafId);
+      container.removeEventListener("scrollend", detectActive);
+      container.removeEventListener("scroll", onScrollFallback);
+      if (fallbackTimer) clearTimeout(fallbackTimer);
     };
   }, [videos]);
 
