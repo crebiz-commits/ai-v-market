@@ -51,20 +51,20 @@
 /* Admin form input base style */
 .input-base {
   width: 100%;
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
+  background: #1a1a1a;
+  border: 1.5px solid rgba(255,255,255,0.15);
   border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.6rem 0.85rem;
   font-size: 0.875rem;
-  color: hsl(var(--foreground));
+  color: #ffffff;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 .input-base:focus {
   border-color: #6366f1;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
 }
 .input-base::placeholder {
-  color: hsl(var(--muted-foreground));
+  color: rgba(255,255,255,0.3);
 }
 
