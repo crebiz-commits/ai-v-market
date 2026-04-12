@@ -176,14 +176,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    // WebView 감지: 카카오톡/인스타/네이버 앱 내 브라우저 또는 Android WebView
+    const ua = navigator.userAgent;
+    const isWebView =
+      /KAKAOTALK|NAVER|FBAN|FBAV|Instagram|Line|Twitter/i.test(ua) ||
+      (/Android/i.test(ua) && /wv\b/i.test(ua));
+
+    if (isWebView) {
+      // Android: Chrome Intent로 외부 브라우저 열기 시도
+      const currentHref = window.location.href;
+      const chromeIntent = `intent://${currentHref.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
+      try {
+        window.location.href = chromeIntent;
+      } catch {
+        // fallback: 그냥 주소를 클립보드에 안내
+      }
+      throw new Error(
+        'Google 로그인은 앱 내 브라우저에서 지원되지 않습니다.\n\nChrome 또는 Safari 브라우저에서 사이트를 열어 로그인해 주세요.'
+      );
+    }
+
     try {
-      const currentUrl = window.location.origin;
-      console.log('Google OAuth - Redirect URL:', currentUrl);
-      
+      const redirectTo = `${window.location.origin}`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: currentUrl,
+          redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         }
       });
 

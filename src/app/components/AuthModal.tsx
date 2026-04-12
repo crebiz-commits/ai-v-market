@@ -47,7 +47,10 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
       setLoading(true);
       await signInWithGoogle();
     } catch (err: any) {
-      toast.error(err.message || "Google 로그인에 실패했습니다.");
+      const msg: string = err.message || "Google 로그인에 실패했습니다.";
+      // WebView 안내는 duration을 길게
+      const isWebViewError = msg.includes("앱 내 브라우저");
+      toast.error(msg, { duration: isWebViewError ? 8000 : 4000 });
       setLoading(false);
     }
   };
