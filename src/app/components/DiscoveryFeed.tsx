@@ -207,24 +207,37 @@ const MovieSection = memo(({
       return;
     }
 
-    // 활성 → 플레이어 준비 대기 후 재생 (최대 1초 재시도)
-    const tryPlay = () => {
+    // 활성 → player.ready()로 정확히 한 번만 재생 (이미 준비됐으면 즉시, 아니면 준비 완료 시)
+    let cancelled = false;
+
+    const doPlay = () => {
+      if (cancelled) return;
       const player = playerRef.current;
       if (!player || player.isDisposed()) return;
-      setIsPlaying(false);
       player.currentTime(video.highlightStart || 0);
       player.muted(isMuted);
-      player.play().catch(() => {
+      player.play()?.catch(() => {
+        if (cancelled) return;
         player.muted(true);
-        player.play().catch(() => {});
+        player.play()?.catch(() => {});
       });
     };
 
-    tryPlay();
-    // 플레이어가 아직 준비 안 됐을 경우 재시도
-    const t1 = setTimeout(tryPlay, 300);
-    const t2 = setTimeout(tryPlay, 800);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    const player = playerRef.current;
+    if (player && !player.isDisposed()) {
+      // ready()는 이미 준비됐으면 즉시 실행, 아직이면 준비 완료 후 실행
+      player.ready(doPlay);
+    } else {
+      // 플레이어가 아직 생성 중 — 짧게 대기 후 재시도
+      const t = setTimeout(() => {
+        if (cancelled) return;
+        const p = playerRef.current;
+        if (p && !p.isDisposed()) p.ready(doPlay);
+      }, 150);
+      return () => { cancelled = true; clearTimeout(t); };
+    }
+
+    return () => { cancelled = true; };
   }, [isActive]);
 
   // Effect 3: 뮤트 상태 반영
@@ -469,19 +482,15 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
       }
     };
 
-    // scrollend: 스냅 완전히 멈춘 후 (Chrome 114+, Firefox 109+)
+    // scrollend: 스냅 완전히 멈춘 후 정확하게 감지 (Chrome 114+, Firefox 109+)
     container.addEventListener("scrollend", detectActive, { passive: true });
 
-    // scroll + 300ms 디바운스: iOS Safari 등 scrollend 미지원 fallback
+    // scroll + 디바운스: iOS Safari 등 scrollend 미지원 fallback
+    // rAF 실시간 감지는 스냅 애니메이션 중간에 틀린 섹션을 잡을 수 있으므로 제거
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    let rafId: number | null = null;
     const onScroll = () => {
-      // rAF으로 스크롤 중에도 실시간 감지
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(detectActive);
-      // 스크롤 멈춘 후 300ms 뒤 재감지 (스냅 완료 보장)
       if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(detectActive, 300);
+      debounceTimer = setTimeout(detectActive, 250);
     };
     container.addEventListener("scroll", onScroll, { passive: true });
 
@@ -492,7 +501,6 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
       container.removeEventListener("scrollend", detectActive);
       container.removeEventListener("scroll", onScroll);
       if (debounceTimer) clearTimeout(debounceTimer);
-      if (rafId) cancelAnimationFrame(rafId);
     };
   }, [videos]);
 
