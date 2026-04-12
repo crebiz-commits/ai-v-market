@@ -439,19 +439,21 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
       if (sections.length === 0) return;
 
       const containerTop = container.getBoundingClientRect().top;
-      let bestId: string | null = null;
+      let bestEl: HTMLElement | null = null;
       let bestDist = Infinity;
 
       sections.forEach(el => {
         const dist = Math.abs(el.getBoundingClientRect().top - containerTop);
         if (dist < bestDist) {
           bestDist = dist;
-          bestId = el.getAttribute("data-video-id");
+          bestEl = el;
         }
       });
 
-      if (bestId) {
-        setActiveId(prev => (prev !== bestId ? bestId : prev));
+      if (bestEl) {
+        // 광고 카드는 data-video-id 없음 → null → 모든 영상 정지
+        const videoId = bestEl.getAttribute("data-video-id");
+        setActiveId(prev => (prev !== videoId ? videoId : prev));
       }
     };
 
