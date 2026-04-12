@@ -48,3 +48,23 @@
   height: 100% !important;
 }
 
+/* Admin form input base style */
+.input-base {
+  width: 100%;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+  outline: none;
+  transition: border-color 0.15s;
+}
+.input-base:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+.input-base::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+

@@ -13,13 +13,14 @@
 import './init';
 
 import { useState, useEffect } from "react";
-import { Sparkles, Store, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell } from "lucide-react";
+import { Sparkles, Store, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
 import { DiscoveryFeed } from "./components/DiscoveryFeed";
 import { Market } from "./components/Market";
 import { Upload } from "./components/Upload";
 import { Community } from "./components/Community";
 import { MyPage } from "./components/MyPage";
+import { AdminDashboard } from "./components/AdminDashboard";
 import { ProductDetail } from "./components/ProductDetail";
 import { SplashScreen } from "./components/SplashScreen";
 import { AuthModal } from "./components/AuthModal";
@@ -29,7 +30,7 @@ import { handleBunnyError } from "./utils/bunnyErrorHandler";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Toaster } from "./components/ui/sonner";
 
-type Tab = "discovery" | "market" | "upload" | "community" | "mypage";
+type Tab = "discovery" | "market" | "upload" | "community" | "mypage" | "admin";
 
 interface VideoProduct {
   id: string;
@@ -125,18 +126,24 @@ function AppContent() {
         return <Community />;
       case "mypage":
         return <MyPage onSignInClick={() => setShowAuthModal(true)} />;
+      case "admin":
+        return <AdminDashboard />;
       default:
         return <Market onProductClick={setSelectedProduct} />;
     }
   };
 
-  const desktopTabs = [
+  const ADMIN_EMAILS = ["crebizlogistics@gmail.com"];
+  const isAdmin = user && ADMIN_EMAILS.includes(user.email);
+
+  const desktopTabs: { id: Tab; label: string; icon: any }[] = [
     { id: "discovery", label: "탐색", icon: Sparkles },
     { id: "market", label: "마켓", icon: Store },
     { id: "upload", label: "업로드", icon: UploadIcon },
     { id: "community", label: "커뮤니티", icon: MessageSquare },
     { id: "mypage", label: "마이페이지", icon: User },
-  ] as const;
+    ...(isAdmin ? [{ id: "admin" as Tab, label: "광고관리", icon: ShieldCheck }] : []),
+  ];
 
   const springTransition: any = { type: "spring", stiffness: 500, damping: 30 };
 
@@ -168,7 +175,17 @@ function AppContent() {
             <motion.button whileTap={{ scale: 0.9 }} className="p-2 text-muted-foreground hover:text-foreground transition-colors">
               <Bell className="w-[22px] h-[22px]" />
             </motion.button>
-            <motion.button 
+            {isAdmin && (
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setActiveTab("admin")}
+                className="p-2 transition-colors"
+                title="광고관리"
+              >
+                <ShieldCheck className={`w-[22px] h-[22px] ${activeTab === "admin" ? "text-[#8b5cf6]" : "text-muted-foreground"}`} />
+              </motion.button>
+            )}
+            <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={() => isAuthenticated ? setActiveTab("mypage") : setShowAuthModal(true)}
               className="p-2 text-muted-foreground hover:text-foreground transition-colors"

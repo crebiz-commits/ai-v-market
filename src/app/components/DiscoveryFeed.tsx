@@ -1,11 +1,27 @@
-import { useState, useRef, useEffect, memo } from "react";
-import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageSquare, ChevronRight } from "lucide-react";
+import { useState, useRef, useEffect, memo, useCallback } from "react";
+import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageSquare, ChevronRight, ExternalLink } from "lucide-react";
 import { motion } from "motion/react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
+
+interface Ad {
+  id: string;
+  title: string;
+  advertiser: string;
+  image_url: string | null;
+  video_url: string | null;
+  thumbnail_url: string | null;
+  link_url: string;
+  cta_text: string;
+  interval_count: number;
+}
+
+type FeedItem =
+  | ({ kind: "video" } & Video)
+  | ({ kind: "ad" } & Ad);
 
 interface Video {
   id: string;
@@ -25,6 +41,74 @@ interface DiscoveryFeedProps {
   onVideoClick: (video: Video) => void;
   onSignInClick?: () => void;
 }
+
+// 📢 Ad Card Component
+const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) => void }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const impressionTracked = useRef(false);
+
+  useEffect(() => {
+    if (!cardRef.current || impressionTracked.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !impressionTracked.current) {
+          impressionTracked.current = true;
+          onImpression(ad.id);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    observer.observe(cardRef.current);
+    return () => observer.disconnect();
+  }, [ad.id, onImpression]);
+
+  const handleClick = async () => {
+    try {
+      await supabase.rpc("increment_ad_clicks", { ad_id: ad.id }).catch(() => {});
+    } catch {}
+    window.open(ad.link_url, "_blank", "noopener,noreferrer");
+  };
+
+  return (
+    <div
+      ref={cardRef}
+      className="discovery-section relative overflow-hidden cursor-pointer group"
+      onClick={handleClick}
+    >
+      {/* 배경 이미지 */}
+      {ad.image_url && (
+        <img
+          src={ad.image_url}
+          alt={ad.title}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      )}
+      {/* 그라디언트 오버레이 */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
+
+      {/* 광고 배지 */}
+      <div className="absolute top-3 left-3 z-10 px-2 py-0.5 bg-black/50 backdrop-blur-sm border border-white/20 rounded-full text-[10px] font-bold text-white/70 tracking-widest">
+        AD
+      </div>
+
+      {/* 콘텐츠 */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 p-4">
+        {ad.advertiser && (
+          <p className="text-xs text-white/60 font-medium mb-1">{ad.advertiser}</p>
+        )}
+        <p className="text-white font-bold text-base leading-snug mb-3">{ad.title}</p>
+        <button
+          className="flex items-center gap-1.5 px-4 py-2 bg-white text-black text-xs font-bold rounded-full hover:bg-white/90 transition-colors"
+          onClick={handleClick}
+        >
+          {ad.cta_text}
+          <ExternalLink className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
+  );
+});
 
 // 🎬 Movie Section Component (2 per screen)
 const MovieSection = memo(({ 
@@ -49,19 +133,22 @@ const MovieSection = memo(({
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState(false);
 
+  // Effect 1: 플레이어 생성/삭제 — video 소스가 바뀔 때만 (isActive 제외!)
+  // isActive를 deps에 넣으면 dispose()가 <video> DOM을 제거해 videoRef가 죽은 요소를 참조하게 됨
   useEffect(() => {
     if (!videoRef.current || !video.videoUrl) return;
 
-    // 1. 플레이어 생성
+    setIsPlaying(false);
+
     const player = videojs(videoRef.current, {
       autoplay: false,
       controls: false,
       loop: true,
-      muted: true, // 자동 재생을 위해 무조건 뮤트 시작
+      muted: true,
       fill: true,
       responsive: true,
       playsinline: true,
-      preload: "auto",
+      preload: "metadata",
       crossOrigin: 'anonymous',
       sources: [{
         src: video.videoUrl,
@@ -70,14 +157,14 @@ const MovieSection = memo(({
     });
 
     playerRef.current = player;
-
-    // 2. 초기 뮤트 상태 적용
     player.muted(isMuted);
 
-    // 3. 상태 리스너
-    player.on('play', () => setIsPlaying(true));
-    player.on('pause', () => setIsPlaying(false));
-    player.on('error', () => {
+    player.on('playing', () => setIsPlaying(true));
+    player.on('pause',   () => setIsPlaying(false));
+    player.on('waiting', () => setIsPlaying(false));
+    player.on('ended',   () => setIsPlaying(false));
+    player.on('error',   () => {
+      setIsPlaying(false);
       const err = player.error();
       if (err && (err.code === 4 || err.code === 2)) setHasError(true);
     });
@@ -87,28 +174,12 @@ const MovieSection = memo(({
       let e = video.highlightEnd || 15;
       const d = player.duration();
       if (typeof d === 'number' && d > 0 && e > d) e = d;
-      const currentTime = player.currentTime();
-      if (typeof currentTime === 'number' && currentTime >= e) {
+      const t = player.currentTime();
+      if (typeof t === 'number' && t >= e) {
         player.currentTime(s);
         player.play()?.catch(() => {});
       }
     });
-
-    // 4. 활성화 상태 보장 (이전 영상은 중지, 현재 영상은 재생)
-    if (isActive) {
-      player.ready(() => {
-        player.muted(isMuted);
-        player.currentTime(video.highlightStart || 0);
-        player.play().catch(err => {
-          console.warn("Autoplay blocked or failed:", err);
-          // 브라우저 정책으로 차단된 경우 뮤트 강제 후 재시도
-          player.muted(true);
-          player.play().catch(() => {});
-        });
-      });
-    } else {
-      player.pause();
-    }
 
     return () => {
       if (playerRef.current) {
@@ -116,11 +187,32 @@ const MovieSection = memo(({
         playerRef.current = null;
       }
     };
-  }, [video.id, video.videoUrl, isActive]); // video.id와 isActive가 바뀔 때마다 완전히 새로 관리
+  }, [video.id, video.videoUrl]); // ← isActive 없음
 
-  // 뮤트 상태만 따로 빠르게 반영
+  // Effect 2: 활성/비활성 전환 — 플레이어 재생성 없이 재생/정지만
   useEffect(() => {
-    if (playerRef.current) playerRef.current.muted(isMuted);
+    const player = playerRef.current;
+    if (!player || player.isDisposed()) return;
+
+    if (isActive) {
+      setIsPlaying(false); // 버퍼링 중 썸네일 표시
+      player.currentTime(video.highlightStart || 0);
+      player.muted(isMuted);
+      player.play().catch(() => {
+        player.muted(true);
+        player.play().catch(() => {});
+      });
+    } else {
+      player.pause();
+      player.currentTime(video.highlightStart || 0);
+    }
+  }, [isActive]);
+
+  // Effect 3: 뮤트 상태 반영
+  useEffect(() => {
+    if (playerRef.current && !playerRef.current.isDisposed()) {
+      playerRef.current.muted(isMuted);
+    }
   }, [isMuted]);
 
   return (
@@ -130,12 +222,12 @@ const MovieSection = memo(({
     >
       {/* 🎬 Video Area (70% height for maximum impact) */}
       <div className="relative w-full h-[70%] bg-black overflow-hidden group border-b border-white/10">
-        <img 
-          src={video.thumbnail} 
-          alt="" 
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 z-0 ${isPlaying ? 'opacity-0' : 'opacity-100'}`}
+        <img
+          src={video.thumbnail}
+          alt=""
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 z-[15] pointer-events-none ${isPlaying ? 'opacity-0' : 'opacity-100'}`}
         />
-        
+
         <div className="relative w-full h-full z-10 pointer-events-none">
           <video 
             ref={videoRef} 
@@ -247,6 +339,7 @@ MovieSection.displayName = "MovieSection";
 
 export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProps) {
   const [videos, setVideos] = useState<Video[]>([]);
+  const [ads, setAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [likedVideos, setLikedVideos] = useState<Set<string>>(new Set());
@@ -254,21 +347,23 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Fetch initial data
+  // Fetch initial data (videos + ads in parallel)
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       try {
-        const { data: videoData, error: videoError } = await supabase
-          .from("videos")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(20);
+        const [videoResult, adResult] = await Promise.all([
+          supabase.from("videos").select("*").order("created_at", { ascending: false }).limit(20),
+          supabase.from("ads").select("id,title,advertiser,image_url,video_url,thumbnail_url,link_url,cta_text,interval_count")
+            .eq("is_active", true)
+            .or("starts_at.is.null,starts_at.lte." + new Date().toISOString())
+            .or("ends_at.is.null,ends_at.gte." + new Date().toISOString()),
+        ]);
 
-        if (videoError) throw videoError;
+        if (videoResult.error) throw videoResult.error;
 
-        if (videoData) {
-          const formatted = videoData.map((item: any) => ({
+        if (videoResult.data) {
+          const formatted = videoResult.data.map((item: any) => ({
             id: item.id,
             thumbnail: item.thumbnail,
             title: item.title,
@@ -292,6 +387,10 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
             if (likesData) setLikedVideos(new Set(likesData.map(l => l.video_id)));
           }
         }
+
+        if (adResult.data && adResult.data.length > 0) {
+          setAds(adResult.data as Ad[]);
+        }
       } catch (error) {
         console.error("Error fetching discovery data:", error);
       } finally {
@@ -301,35 +400,71 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
     fetchData();
   }, [user?.id]);
 
-  // Intersection Observer to detect the most prominent top video
+  // 노출 트래킹
+  const handleAdImpression = useCallback(async (adId: string) => {
+    await supabase.rpc("increment_ad_impressions", { ad_id: adId }).catch(() => {});
+  }, []);
+
+  // 영상 목록에 광고를 interval_count마다 삽입하여 피드 아이템 배열 생성
+  const feedItems = (() => {
+    if (ads.length === 0) return videos.map(v => ({ kind: "video" as const, ...v }));
+    const interval = ads[0].interval_count || 4;
+    const result: FeedItem[] = [];
+    let adIdx = 0;
+    videos.forEach((v, i) => {
+      result.push({ kind: "video", ...v });
+      if ((i + 1) % interval === 0 && ads.length > 0) {
+        result.push({ kind: "ad", ...ads[adIdx % ads.length] });
+        adIdx++;
+      }
+    });
+    return result;
+  })();
+
+  // Scroll-based active video detection — finds the card whose top is closest to container top
   useEffect(() => {
-    if (!containerRef.current || videos.length === 0) return;
+    const container = containerRef.current;
+    if (!container || videos.length === 0) return;
 
-    const observer = new IntersectionObserver((entries) => {
-      let targetId: string | null = null;
-      let maxRatio = 0;
+    let rafId: number | null = null;
 
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          if (entry.intersectionRatio > maxRatio) {
-            maxRatio = entry.intersectionRatio;
-            targetId = entry.target.getAttribute("data-video-id");
-          }
+    const detectActive = () => {
+      const sections = container.querySelectorAll<HTMLElement>(".discovery-section");
+      if (sections.length === 0) return;
+
+      const containerTop = container.getBoundingClientRect().top;
+      let bestId: string | null = null;
+      let bestDist = Infinity;
+
+      sections.forEach(el => {
+        const dist = Math.abs(el.getBoundingClientRect().top - containerTop);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestId = el.getAttribute("data-video-id");
         }
       });
 
-      if (targetId) {
-        setActiveId(prev => (prev !== targetId ? targetId : prev));
+      if (bestId) {
+        setActiveId(prev => (prev !== bestId ? bestId : prev));
       }
-    }, { 
-      threshold: [0.1, 0.2, 0.3, 0.5, 0.7, 0.9],
-      rootMargin: "-25% 0px -25% 0px" // 2분할 레이아웃을 위해 중앙 50% 영역 집중 감지
-    });
+    };
 
-    const elements = containerRef.current.querySelectorAll(".discovery-section");
-    elements.forEach(el => observer.observe(el));
+    const onScroll = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        detectActive();
+        rafId = null;
+      });
+    };
 
-    return () => observer.disconnect();
+    container.addEventListener("scroll", onScroll, { passive: true });
+    // Set initial active on mount
+    detectActive();
+
+    return () => {
+      container.removeEventListener("scroll", onScroll);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, [videos]);
 
   const toggleLike = async (videoId: string, currentlyLiked: boolean) => {
@@ -364,21 +499,28 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
 
   return (
     <div className="discovery-feed-wrapper h-full w-full bg-gray-50 overflow-hidden flex flex-col">
-      <div 
+      <div
         ref={containerRef}
         className="mobile-feed-container h-full overflow-y-auto snap-y snap-mandatory custom-scrollbar"
       >
-        {videos.map((video) => (
-          <div key={video.id} className="discovery-section-wrapper">
-             <MovieSection 
-                video={video} 
-                isActive={video.id === activeId}
+        {feedItems.map((item) => (
+          <div
+            key={item.kind === "video" ? item.id : `ad-${item.id}`}
+            className="discovery-section-wrapper"
+          >
+            {item.kind === "ad" ? (
+              <AdCard ad={item} onImpression={handleAdImpression} />
+            ) : (
+              <MovieSection
+                video={item}
+                isActive={item.id === activeId}
                 isMuted={isMuted}
                 onToggleMute={() => setIsMuted(!isMuted)}
                 onVideoClick={onVideoClick}
-                isLiked={likedVideos.has(video.id)}
+                isLiked={likedVideos.has(item.id)}
                 onToggleLike={toggleLike}
               />
+            )}
           </div>
         ))}
         <div className="py-20 text-center text-gray-300 text-[10px] font-bold">END OF FEED</div>
