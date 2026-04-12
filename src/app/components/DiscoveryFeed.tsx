@@ -473,12 +473,16 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
       setActiveId(prev => (prev !== videoId ? videoId : prev));
     };
 
+    // 컨테이너 스크롤 가능 여부 확인
+    console.log(`[DF] SETUP scrollH=${container.scrollHeight} clientH=${container.clientHeight} overflow=${getComputedStyle(container).overflowY}`);
+
     // scrollend: 스냅 완전히 멈춘 후 (Chrome 114+, Firefox 109+)
     container.addEventListener("scrollend", detectActive, { passive: true });
 
     // scroll + 디바운스: iOS Safari / 데스크탑 마우스 휠 fallback
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const onScroll = () => {
+      console.log(`[DF] SCROLL scrollTop=${container.scrollTop.toFixed(0)}`);
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(detectActive, 350);
     };
