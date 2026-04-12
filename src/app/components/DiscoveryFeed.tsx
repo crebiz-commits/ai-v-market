@@ -576,7 +576,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
             transparent 100%
           );
           background-size: 250% 100%;
-          animation: divider-sweep 3s linear infinite;
+          animation: divider-sweep 6s linear infinite;
           box-shadow: 0 0 10px rgba(139, 92, 246, 0.7), 0 0 20px rgba(6, 182, 212, 0.3);
           z-index: 50;
         }
