@@ -65,7 +65,7 @@ const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) 
 
   const handleClick = async () => {
     try {
-      await supabase.rpc("increment_ad_clicks", { ad_id: ad.id }).catch(() => {});
+      try { await supabase.rpc("increment_ad_clicks", { ad_id: ad.id }); } catch {}
     } catch {}
     window.open(ad.link_url, "_blank", "noopener,noreferrer");
   };
@@ -216,15 +216,20 @@ const MovieSection = memo(({
 
     player.currentTime(video.highlightStart || 0);
     player.muted(isMuted);
-    player.play()?.then(() => {
-      console.log(`[DF] ✅ playing: ${video.title}`);
-    }).catch((e: any) => {
-      console.log(`[DF] play() failed (${e?.message}), retrying muted`);
-      if (!player.isDisposed()) {
-        player.muted(true);
-        player.play()?.catch(() => {});
-      }
-    });
+    const playPromise = player.play();
+    if (playPromise) {
+      playPromise.then(() => {
+        console.log(`[DF] ✅ playing: ${video.title}`);
+      }).catch((e: any) => {
+        console.log(`[DF] play() failed (${e?.message}), retrying muted`);
+        if (!player.isDisposed()) {
+          player.muted(true);
+          player.play()?.catch(() => {});
+        }
+      });
+    } else {
+      console.log(`[DF] ✅ play() called (no promise): ${video.title}`);
+    }
   }, [isActive, playerReady]);
 
   // Effect 3: 뮤트 상태 반영
@@ -422,7 +427,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
 
   // 노출 트래킹
   const handleAdImpression = useCallback(async (adId: string) => {
-    await supabase.rpc("increment_ad_impressions", { ad_id: adId }).catch(() => {});
+    try { await supabase.rpc("increment_ad_impressions", { ad_id: adId }); } catch {}
   }, []);
 
   // 영상 목록에 광고를 interval_count마다 삽입하여 피드 아이템 배열 생성
