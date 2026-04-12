@@ -522,20 +522,20 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
         <div className="py-20 text-center text-gray-300 text-[10px] font-bold">END OF FEED</div>
       </div>
 
-      <div className="desktop-feed-container min-h-screen p-8 lg:p-12 overflow-y-auto">
+      <div className="desktop-feed-container min-h-screen p-8 lg:p-12 overflow-y-auto bg-[#0a0a0a]">
         <div className="desktop-grid-wrapper max-w-[1600px] mx-auto">
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-3xl font-black text-gray-900 tracking-tighter uppercase">DISCOVERY <span className="text-indigo-600">FILMS</span></h2>
-            <span className="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-500 uppercase">{videos.length} VIDEOS</span>
+            <h2 className="text-3xl font-black text-white tracking-tighter uppercase">DISCOVERY <span className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">FILMS</span></h2>
+            <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold text-white/40 uppercase">{videos.length} VIDEOS</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
             {videos.map(v => (
-              <DesktopMovieCard 
-                key={v.id} 
-                video={v} 
-                onVideoClick={onVideoClick} 
-                isLiked={likedVideos.has(v.id)} 
-                onToggleLike={toggleLike} 
+              <DesktopMovieCard
+                key={v.id}
+                video={v}
+                onVideoClick={onVideoClick}
+                isLiked={likedVideos.has(v.id)}
+                onToggleLike={toggleLike}
               />
             ))}
           </div>
@@ -589,7 +589,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
           background: black;
           overflow: hidden;
         }
-        .desktop-feed-container { display: none; background: #fff; }
+        .desktop-feed-container { display: none; background: #0a0a0a; }
         @media (min-width: 1024px) { 
           .mobile-feed-container { display: none; } 
           .desktop-feed-container { display: block; } 
@@ -624,11 +624,11 @@ function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike }: { vide
   }, [isHovered, video.videoUrl, video.highlightStart]);
 
   return (
-    <motion.div 
-      onMouseEnter={() => setIsHovered(true)} 
-      onMouseLeave={() => setIsHovered(false)} 
-      onClick={() => onVideoClick(video)} 
-      className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group"
+    <motion.div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={() => onVideoClick(video)}
+      className="bg-[#141414] rounded-2xl overflow-hidden border border-white/8 hover:border-[#6366f1]/50 shadow-lg hover:shadow-[0_0_30px_rgba(99,102,241,0.15)] transition-all duration-300 cursor-pointer group"
     >
       <div className="relative aspect-video bg-black overflow-hidden">
         <img src={video.thumbnail} className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isHovered ? 'opacity-0' : 'opacity-100'}`} />
@@ -638,21 +638,23 @@ function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike }: { vide
             {video.tool}
           </span>
         </div>
+        {/* 호버 시 하단 그라디언트 */}
+        <div className={`absolute inset-0 bg-gradient-to-t from-black/60 to-transparent transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`} />
       </div>
       <div className="p-5">
         <div className="flex justify-between items-start mb-2">
-          <h3 className="font-extrabold text-lg text-gray-900 line-clamp-1 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{video.title}</h3>
+          <h3 className="font-extrabold text-lg text-white line-clamp-1 group-hover:bg-gradient-to-r group-hover:from-[#6366f1] group-hover:to-[#8b5cf6] group-hover:bg-clip-text group-hover:text-transparent transition-all uppercase tracking-tight">{video.title}</h3>
         </div>
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-xs font-bold text-gray-400">{video.creator}</span>
+          <span className="text-xs font-bold text-white/40">{video.creator}</span>
         </div>
-        <div className="flex items-center justify-between pt-4 border-t border-gray-50">
-          <span className="text-lg font-black text-red-600">₩{video.price.toLocaleString()}</span>
+        <div className="flex items-center justify-between pt-4 border-t border-white/8">
+          <span className="text-lg font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>
           <div className="flex items-center gap-4">
-             <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }} className="p-2 hover:bg-red-50 rounded-full transition-colors">
-              <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-300'}`} />
+            <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }} className="p-2 hover:bg-red-500/10 rounded-full transition-colors">
+              <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white/30'}`} />
             </button>
-            <ShoppingCart className="w-5 h-5 text-gray-300 hover:text-gray-900 transition-colors" />
+            <ShoppingCart className="w-5 h-5 text-white/30 hover:text-white transition-colors" />
           </div>
         </div>
       </div>
