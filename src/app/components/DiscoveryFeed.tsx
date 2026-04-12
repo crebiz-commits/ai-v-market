@@ -615,35 +615,60 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
 
 function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike }: { video: Video; onVideoClick: (video: Video) => void; isLiked: boolean; onToggleLike: (id: string, currentlyLiked: boolean) => void }) {
   const [isHovered, setIsHovered] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
 
+  // Video.js를 React 외부에서 생성 — removeChild 충돌 방지
   useEffect(() => {
-    let p: any = null;
-    if (isHovered && videoRef.current) {
-      p = videojs(videoRef.current, { 
-        autoplay: true, controls: false, loop: true, muted: true, fill: true, responsive: true, playsinline: true, crossOrigin: 'anonymous' 
-      });
-      p.ready(() => {
-        if (!p) return;
-        p.src({ src: video.videoUrl, type: video.videoUrl?.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4' });
-        p.one('loadedmetadata', () => { if (!p) return; p.currentTime(video.highlightStart || 0); p.play().catch(() => {}); });
-      });
-      playerRef.current = p;
-    }
-    return () => { if (p) { p.dispose(); if (playerRef.current === p) playerRef.current = null; } };
+    const container = containerRef.current;
+    if (!container || !isHovered || playerRef.current) return;
+
+    // React가 소유하지 않는 video 엘리먼트를 직접 생성
+    const videoEl = document.createElement('video');
+    videoEl.className = 'video-js vjs-fill';
+    videoEl.setAttribute('playsinline', '');
+    container.appendChild(videoEl);
+
+    const p = videojs(videoEl, {
+      autoplay: false, controls: false, loop: true, muted: true,
+      fill: true, responsive: true, playsinline: true, crossOrigin: 'anonymous',
+      sources: [{ src: video.videoUrl, type: video.videoUrl?.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4' }]
+    });
+    playerRef.current = p;
+    p.ready(() => {
+      p.currentTime(video.highlightStart || 0);
+      p.play().catch(() => {});
+    });
   }, [isHovered, video.videoUrl, video.highlightStart]);
+
+  // 호버 해제 시 일시정지
+  useEffect(() => {
+    if (!isHovered && playerRef.current && !playerRef.current.isDisposed()) {
+      playerRef.current.pause();
+    }
+  }, [isHovered]);
+
+  // 언마운트 시에만 dispose (React DOM 정리 후 안전)
+  useEffect(() => {
+    return () => {
+      if (playerRef.current && !playerRef.current.isDisposed()) {
+        playerRef.current.dispose();
+        playerRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <motion.div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onVideoClick(video)}
-      className="bg-[#141414] rounded-2xl overflow-hidden border border-white/8 hover:border-[#6366f1]/50 shadow-lg hover:shadow-[0_0_30px_rgba(99,102,241,0.15)] transition-all duration-300 cursor-pointer group"
+      className="bg-[#141414] rounded-2xl overflow-hidden border border-white/[0.08] hover:border-[#6366f1]/50 shadow-lg hover:shadow-[0_0_30px_rgba(99,102,241,0.15)] transition-all duration-300 cursor-pointer group"
     >
       <div className="relative aspect-video bg-black overflow-hidden">
-        <img src={video.thumbnail} className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isHovered ? 'opacity-0' : 'opacity-100'}`} />
-        {isHovered && <video ref={videoRef} className="video-js vjs-fill" />}
+        <img src={video.thumbnail} className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 z-10 ${isHovered ? 'opacity-0' : 'opacity-100'}`} />
+        {/* React가 아닌 Video.js가 직접 관리하는 컨테이너 */}
+        <div ref={containerRef} className="absolute inset-0 z-0" />
         <div className="absolute top-3 left-3 z-10">
           <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md rounded text-white font-bold text-[8px] border border-white/10 uppercase tracking-tighter">
             {video.tool}
@@ -659,7 +684,7 @@ function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike }: { vide
         <div className="flex items-center gap-2 mb-4">
           <span className="text-xs font-bold text-white/40">{video.creator}</span>
         </div>
-        <div className="flex items-center justify-between pt-4 border-t border-white/8">
+        <div className="flex items-center justify-between pt-4 border-t border-white/10">
           <span className="text-lg font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>
           <div className="flex items-center gap-4">
             <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }} className="p-2 hover:bg-red-500/10 rounded-full transition-colors">
