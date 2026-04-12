@@ -194,12 +194,23 @@ const MovieSection = memo(({
     };
   }, [video.id, video.videoUrl]); // ← isActive 없음
 
-  // Effect 2: 활성/비활성 전환 — playerReady 후에만 실행
+  // Effect 2: 활성/비활성 전환
   useEffect(() => {
-    const player = playerRef.current;
-    if (!player || player.isDisposed() || !playerReady) return;
+    if (!isActive) {
+      // 비활성 → 즉시 정지
+      const player = playerRef.current;
+      if (player && !player.isDisposed()) {
+        player.pause();
+        player.currentTime(video.highlightStart || 0);
+      }
+      setIsPlaying(false);
+      return;
+    }
 
-    if (isActive) {
+    // 활성 → 플레이어 준비 대기 후 재생 (최대 1초 재시도)
+    const tryPlay = () => {
+      const player = playerRef.current;
+      if (!player || player.isDisposed()) return;
       setIsPlaying(false);
       player.currentTime(video.highlightStart || 0);
       player.muted(isMuted);
@@ -207,11 +218,14 @@ const MovieSection = memo(({
         player.muted(true);
         player.play().catch(() => {});
       });
-    } else {
-      player.pause();
-      player.currentTime(video.highlightStart || 0);
-    }
-  }, [isActive, playerReady]);
+    };
+
+    tryPlay();
+    // 플레이어가 아직 준비 안 됐을 경우 재시도
+    const t1 = setTimeout(tryPlay, 300);
+    const t2 = setTimeout(tryPlay, 800);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [isActive]);
 
   // Effect 3: 뮤트 상태 반영
   useEffect(() => {
@@ -455,24 +469,30 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
       }
     };
 
-    // scrollend: 스냅 애니메이션 완전히 멈춘 후 발생 (Chrome 114+, Firefox 109+)
+    // scrollend: 스냅 완전히 멈춘 후 (Chrome 114+, Firefox 109+)
     container.addEventListener("scrollend", detectActive, { passive: true });
 
-    // 구형 브라우저 fallback: 스크롤 멈춘 뒤 150ms 후 감지
-    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
-    const onScrollFallback = () => {
-      if (fallbackTimer) clearTimeout(fallbackTimer);
-      fallbackTimer = setTimeout(detectActive, 150);
+    // scroll + 300ms 디바운스: iOS Safari 등 scrollend 미지원 fallback
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let rafId: number | null = null;
+    const onScroll = () => {
+      // rAF으로 스크롤 중에도 실시간 감지
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(detectActive);
+      // 스크롤 멈춘 후 300ms 뒤 재감지 (스냅 완료 보장)
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(detectActive, 300);
     };
-    container.addEventListener("scroll", onScrollFallback, { passive: true });
+    container.addEventListener("scroll", onScroll, { passive: true });
 
     // 초기 로드 시 첫 번째 영상 활성화
     detectActive();
 
     return () => {
       container.removeEventListener("scrollend", detectActive);
-      container.removeEventListener("scroll", onScrollFallback);
-      if (fallbackTimer) clearTimeout(fallbackTimer);
+      container.removeEventListener("scroll", onScroll);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (rafId) cancelAnimationFrame(rafId);
     };
   }, [videos]);
 
