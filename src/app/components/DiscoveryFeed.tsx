@@ -444,41 +444,38 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
     if (!container || videos.length === 0) return;
 
     const detectActive = () => {
-      const sections = container.querySelectorAll<HTMLElement>(".discovery-section");
-      if (sections.length === 0) return;
+      // scrollTop + offsetHeight 기반: 뷰포트 좌표 무관, 마우스 휠/터치 모두 정확
+      const wrappers = Array.from(
+        container.querySelectorAll<HTMLElement>(".discovery-section-wrapper")
+      );
+      if (wrappers.length === 0) return;
 
-      const containerTop = container.getBoundingClientRect().top;
-      let bestEl: HTMLElement | null = null;
-      let bestDist = Infinity;
+      const sectionHeight = wrappers[0].offsetHeight;
+      if (sectionHeight === 0) return;
 
-      sections.forEach(el => {
-        const dist = Math.abs(el.getBoundingClientRect().top - containerTop);
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestEl = el;
-        }
-      });
+      const scrollTop = container.scrollTop;
+      const idx = Math.round(scrollTop / sectionHeight);
+      const targetWrapper = wrappers[Math.min(idx, wrappers.length - 1)];
+      if (!targetWrapper) return;
 
-      if (bestEl) {
-        // 광고 카드는 data-video-id 없음 → null → 모든 영상 정지
-        const videoId = bestEl.getAttribute("data-video-id");
-        setActiveId(prev => (prev !== videoId ? videoId : prev));
-      }
+      // 광고 카드는 data-video-id 없음 → null → 모든 영상 정지
+      const section = targetWrapper.querySelector<HTMLElement>("[data-video-id]");
+      const videoId = section ? section.getAttribute("data-video-id") : null;
+      setActiveId(prev => (prev !== videoId ? videoId : prev));
     };
 
-    // scrollend: 스냅 완전히 멈춘 후 정확하게 감지 (Chrome 114+, Firefox 109+)
+    // scrollend: 스냅 완전히 멈춘 후 (Chrome 114+, Firefox 109+)
     container.addEventListener("scrollend", detectActive, { passive: true });
 
-    // scroll + 디바운스: iOS Safari 등 scrollend 미지원 fallback
-    // rAF 실시간 감지는 스냅 애니메이션 중간에 틀린 섹션을 잡을 수 있으므로 제거
+    // scroll + 디바운스: iOS Safari / 데스크탑 마우스 휠 fallback
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const onScroll = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(detectActive, 400);
+      debounceTimer = setTimeout(detectActive, 350);
     };
     container.addEventListener("scroll", onScroll, { passive: true });
 
-    // 초기 로드 시 첫 번째 영상 활성화
+    // 초기 로드
     detectActive();
 
     return () => {
