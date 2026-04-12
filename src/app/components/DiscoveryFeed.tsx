@@ -195,9 +195,10 @@ const MovieSection = memo(({
   }, [video.id, video.videoUrl]); // ← isActive 없음
 
   // Effect 2: 활성/비활성 전환
+  // playerReady를 deps에 포함 → isActive=true일 때 플레이어가 아직 준비 안 됐으면
+  // playerReady가 true로 바뀌는 순간 자동으로 이 effect가 재실행돼 재생됨
   useEffect(() => {
     if (!isActive) {
-      // 비활성 → 즉시 정지
       const player = playerRef.current;
       if (player && !player.isDisposed()) {
         player.pause();
@@ -207,38 +208,21 @@ const MovieSection = memo(({
       return;
     }
 
-    // 활성 → player.ready()로 정확히 한 번만 재생 (이미 준비됐으면 즉시, 아니면 준비 완료 시)
-    let cancelled = false;
-
-    const doPlay = () => {
-      if (cancelled) return;
-      const player = playerRef.current;
-      if (!player || player.isDisposed()) return;
-      player.currentTime(video.highlightStart || 0);
-      player.muted(isMuted);
-      player.play()?.catch(() => {
-        if (cancelled) return;
-        player.muted(true);
-        player.play()?.catch(() => {});
-      });
-    };
+    // 활성 상태지만 플레이어가 아직 준비 안 됨 → playerReady가 true가 되면 자동 재실행
+    if (!playerReady) return;
 
     const player = playerRef.current;
-    if (player && !player.isDisposed()) {
-      // ready()는 이미 준비됐으면 즉시 실행, 아직이면 준비 완료 후 실행
-      player.ready(doPlay);
-    } else {
-      // 플레이어가 아직 생성 중 — 짧게 대기 후 재시도
-      const t = setTimeout(() => {
-        if (cancelled) return;
-        const p = playerRef.current;
-        if (p && !p.isDisposed()) p.ready(doPlay);
-      }, 150);
-      return () => { cancelled = true; clearTimeout(t); };
-    }
+    if (!player || player.isDisposed()) return;
 
-    return () => { cancelled = true; };
-  }, [isActive]);
+    player.currentTime(video.highlightStart || 0);
+    player.muted(isMuted);
+    player.play()?.catch(() => {
+      if (!player.isDisposed()) {
+        player.muted(true);
+        player.play()?.catch(() => {});
+      }
+    });
+  }, [isActive, playerReady]);
 
   // Effect 3: 뮤트 상태 반영
   useEffect(() => {
@@ -490,7 +474,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const onScroll = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(detectActive, 250);
+      debounceTimer = setTimeout(detectActive, 400);
     };
     container.addEventListener("scroll", onScroll, { passive: true });
 
