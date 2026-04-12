@@ -448,6 +448,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
 
   // 스크롤 스냅 완료 후 상단 영상 감지 및 활성화
   useEffect(() => {
+    console.log(`[DF] EFFECT videos=${videos.length} container=${!!containerRef.current}`);
     const container = containerRef.current;
     if (!container || videos.length === 0) return;
 
