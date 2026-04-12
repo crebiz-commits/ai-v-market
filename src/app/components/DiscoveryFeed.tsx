@@ -111,27 +111,30 @@ const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) 
 });
 
 // 🎬 Movie Section Component (2 per screen)
-const MovieSection = memo(({ 
-  video, 
-  isActive, 
-  isMuted, 
-  onToggleMute, 
-  onVideoClick, 
-  isLiked, 
-  onToggleLike 
-}: { 
-  video: Video; 
-  isActive: boolean; 
-  isMuted: boolean; 
+const MovieSection = memo(({
+  video,
+  isActive,
+  isMuted,
+  onToggleMute,
+  onVideoClick,
+  isLiked,
+  onToggleLike,
+  onSetActive,
+}: {
+  video: Video;
+  isActive: boolean;
+  isMuted: boolean;
   onToggleMute: () => void;
   onVideoClick: (video: Video) => void;
   isLiked: boolean;
   onToggleLike: (id: string, currentlyLiked: boolean) => void;
+  onSetActive: (id: string) => void;
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [playerReady, setPlayerReady] = useState(false);
 
   // Effect 1: 플레이어 생성/삭제 — video 소스가 바뀔 때만 (isActive 제외!)
   // isActive를 deps에 넣으면 dispose()가 <video> DOM을 제거해 videoRef가 죽은 요소를 참조하게 됨
@@ -158,6 +161,7 @@ const MovieSection = memo(({
 
     playerRef.current = player;
     player.muted(isMuted);
+    player.ready(() => setPlayerReady(true));
 
     player.on('playing', () => setIsPlaying(true));
     player.on('pause',   () => setIsPlaying(false));
@@ -182,6 +186,7 @@ const MovieSection = memo(({
     });
 
     return () => {
+      setPlayerReady(false);
       if (playerRef.current) {
         playerRef.current.dispose();
         playerRef.current = null;
@@ -189,13 +194,13 @@ const MovieSection = memo(({
     };
   }, [video.id, video.videoUrl]); // ← isActive 없음
 
-  // Effect 2: 활성/비활성 전환 — 플레이어 재생성 없이 재생/정지만
+  // Effect 2: 활성/비활성 전환 — playerReady 후에만 실행
   useEffect(() => {
     const player = playerRef.current;
-    if (!player || player.isDisposed()) return;
+    if (!player || player.isDisposed() || !playerReady) return;
 
     if (isActive) {
-      setIsPlaying(false); // 버퍼링 중 썸네일 표시
+      setIsPlaying(false);
       player.currentTime(video.highlightStart || 0);
       player.muted(isMuted);
       player.play().catch(() => {
@@ -206,7 +211,7 @@ const MovieSection = memo(({
       player.pause();
       player.currentTime(video.highlightStart || 0);
     }
-  }, [isActive]);
+  }, [isActive, playerReady]);
 
   // Effect 3: 뮤트 상태 반영
   useEffect(() => {
@@ -247,9 +252,14 @@ const MovieSection = memo(({
       <div
         className="absolute inset-0 z-20 cursor-pointer pointer-events-auto"
         onClick={() => {
-          if (playerRef.current) {
-            if (!isActive) return;
-            if (playerRef.current.paused()) playerRef.current.play();
+          if (!isActive) {
+            // 비활성 카드 탭 → 이 카드를 활성화 (스크롤과 동일한 효과)
+            onSetActive(video.id);
+            return;
+          }
+          // 활성 카드 탭 → 재생/정지 토글
+          if (playerRef.current && !playerRef.current.isDisposed()) {
+            if (playerRef.current.paused()) playerRef.current.play().catch(() => {});
             else playerRef.current.pause();
           }
         }}
@@ -515,6 +525,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
                 onVideoClick={onVideoClick}
                 isLiked={likedVideos.has(item.id)}
                 onToggleLike={toggleLike}
+                onSetActive={(id) => setActiveId(id)}
               />
             )}
           </div>
