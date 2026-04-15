@@ -1,11 +1,12 @@
-import { X, Play, Heart, Share2, Download, ShoppingCart, Check, Volume2, VolumeX, Maximize, Loader2 } from "lucide-react";
+import { X, Play, Heart, Share2, Download, ShoppingCart, Check, Volume2, VolumeX, Loader2, MessageCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
-import { Label } from "./ui/label";
 import { useState, useRef, useEffect } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
+import { toast } from "sonner";
+import { CommentPanel } from "./CommentPanel";
 
 interface ProductDetailProps {
   product: {
@@ -22,6 +23,7 @@ interface ProductDetailProps {
     highlightEnd?: number;
   };
   onClose: () => void;
+  onAddToCart?: (product: any, licenseType: "standard" | "commercial" | "extended") => void;
 }
 
 const licenseOptions = [
@@ -63,13 +65,14 @@ const licenseOptions = [
   }
 ];
 
-export function ProductDetail({ product, onClose }: ProductDetailProps) {
+export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailProps) {
   const [selectedLicense, setSelectedLicense] = useState("standard");
   const [isLiked, setIsLiked] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [showComments, setShowComments] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playerRef = useRef<any>(null);
@@ -98,7 +101,10 @@ export function ProductDetail({ product, onClose }: ProductDetailProps) {
           type: product.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
         });
         player.one('loadedmetadata', () => {
-          if (player) player.play().catch(() => {});
+          if (player) {
+            const p = player.play();
+            if (p) p.catch(() => {});
+          }
           setHasError(false);
         });
       });
@@ -163,8 +169,38 @@ export function ProductDetail({ product, onClose }: ProductDetailProps) {
   const selectedOption = licenseOptions.find(opt => opt.id === selectedLicense);
 
   const handleAddToCart = () => {
+    const licenseType = selectedLicense as "standard" | "commercial" | "extended";
+    if (onAddToCart) {
+      onAddToCart(product, licenseType);
+    }
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2000);
+  };
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}?video=${product.id}`;
+    const shareData = {
+      title: product.title,
+      text: `AI-V-Market: ${product.title} by ${product.creator}`,
+      url,
+    };
+    try {
+      if (navigator.share && navigator.canShare?.(shareData)) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success("링크가 클립보드에 복사됐습니다!");
+      }
+    } catch (err: any) {
+      if (err.name !== "AbortError") {
+        try {
+          await navigator.clipboard.writeText(url);
+          toast.success("링크가 클립보드에 복사됐습니다!");
+        } catch {
+          toast.error("공유 링크 복사에 실패했습니다.");
+        }
+      }
+    }
   };
 
   return (
@@ -180,9 +216,13 @@ export function ProductDetail({ product, onClose }: ProductDetailProps) {
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 25 }}
-        className="bg-background w-full md:max-w-4xl md:rounded-xl overflow-hidden max-h-[90vh] flex flex-col"
+        className={`bg-background w-full md:rounded-xl overflow-hidden max-h-[90vh] flex ${
+          showComments ? "md:max-w-5xl" : "md:max-w-4xl"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
+      {/* Main column */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         {/* Header */}
         <div className="relative bg-black aspect-video md:aspect-video max-h-[40vh] md:max-h-none flex items-center justify-center overflow-hidden shrink-0">
           {product.videoUrl ? (
@@ -381,8 +421,19 @@ export function ProductDetail({ product, onClose }: ProductDetailProps) {
             >
               <Heart className={`w-5 h-5 ${isLiked ? 'fill-[#ef4444] text-[#ef4444]' : ''}`} />
             </button>
-            <button className="w-12 h-12 rounded-full border border-border flex items-center justify-center hover:border-[#6366f1] transition-colors">
+            <button
+              onClick={handleShare}
+              className="w-12 h-12 rounded-full border border-border flex items-center justify-center hover:border-[#6366f1] transition-colors"
+            >
               <Share2 className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setShowComments(!showComments)}
+              className={`w-12 h-12 rounded-full border flex items-center justify-center transition-colors ${
+                showComments ? 'border-[#6366f1] text-[#8b5cf6]' : 'border-border hover:border-[#6366f1]'
+              }`}
+            >
+              <MessageCircle className="w-5 h-5" />
             </button>
             <div className="flex-1" />
             <div className="text-right">
@@ -409,12 +460,68 @@ export function ProductDetail({ product, onClose }: ProductDetailProps) {
                 </>
               )}
             </Button>
-            <Button className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]">
+            <Button
+              onClick={() => toast.info("결제 기능은 준비 중입니다.", { duration: 3000 })}
+              className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
+            >
               <Download className="w-5 h-5" />
               구매하기
             </Button>
           </div>
         </div>
+        </div>{/* end main column */}
+
+        {/* Desktop Comment Side Panel */}
+        <AnimatePresence>
+          {showComments && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 320, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="hidden md:flex flex-col border-l border-white/10 overflow-hidden flex-shrink-0"
+              style={{ width: 320 }}
+            >
+              <CommentPanel
+                videoId={product.id}
+                title={product.title}
+                onClose={() => setShowComments(false)}
+                mode="panel"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Mobile Comment Bottom Sheet */}
+        <AnimatePresence>
+          {showComments && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowComments(false)}
+                className="md:hidden fixed inset-0 bg-black/60 z-10"
+              />
+              <motion.div
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="md:hidden fixed bottom-0 left-0 right-0 z-20 rounded-t-2xl overflow-hidden"
+                style={{ maxHeight: "75vh" }}
+              >
+                <CommentPanel
+                  videoId={product.id}
+                  title={product.title}
+                  onClose={() => setShowComments(false)}
+                  mode="sheet"
+                />
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
       </motion.div>
     </motion.div>
   );

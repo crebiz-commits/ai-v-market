@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
-import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Package, BarChart3, LogIn, Loader2, ChevronRight, Bell } from "lucide-react";
+import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
@@ -44,7 +44,7 @@ const containerVariants = {
 
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+  show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
 };
 
 export function MyPage({ onSignInClick }: MyPageProps) {
@@ -54,6 +54,20 @@ export function MyPage({ onSignInClick }: MyPageProps) {
   const [myProducts, setMyProducts] = useState<MyProduct[]>([]);
   const [monthlySales, setMonthlySales] = useState<{month: string, sales: number}[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 프로필 편집 모달
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // 비밀번호 변경 모달
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [pwCurrent, setPwCurrent] = useState("");
+  const [pwNew, setPwNew] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [showPwCurrent, setShowPwCurrent] = useState(false);
+  const [showPwNew, setShowPwNew] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
 
   const fetchMyData = async () => {
     if (!user) return;
@@ -146,6 +160,39 @@ export function MyPage({ onSignInClick }: MyPageProps) {
   const platformFee = totalRevenue * 0.15;
   const expectedPayout = totalRevenue - platformFee;
 
+  const handleSaveProfile = async () => {
+    if (!editName.trim()) { toast.error("이름을 입력해주세요."); return; }
+    setSavingProfile(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ data: { name: editName.trim() } });
+      if (error) throw error;
+      toast.success("프로필이 업데이트됐습니다!");
+      setShowProfileEdit(false);
+    } catch (err: any) {
+      toast.error(err.message || "저장에 실패했습니다.");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!pwNew.trim()) { toast.error("새 비밀번호를 입력해주세요."); return; }
+    if (pwNew.length < 6) { toast.error("비밀번호는 6자 이상이어야 합니다."); return; }
+    if (pwNew !== pwConfirm) { toast.error("새 비밀번호가 일치하지 않습니다."); return; }
+    setSavingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pwNew });
+      if (error) throw error;
+      toast.success("비밀번호가 변경됐습니다!");
+      setPwCurrent(""); setPwNew(""); setPwConfirm("");
+      setShowPasswordChange(false);
+    } catch (err: any) {
+      toast.error(err.message || "비밀번호 변경에 실패했습니다.");
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="h-full flex items-center justify-center bg-background p-6">
@@ -222,7 +269,12 @@ export function MyPage({ onSignInClick }: MyPageProps) {
               <User className="w-12 h-12 text-gray-400" />
             </motion.div>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-semibold rounded-lg mb-2 shadow-sm">
+              <Button
+                variant="outline"
+                onClick={() => { setEditName(user?.name || ""); setShowProfileEdit(true); }}
+                className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-semibold rounded-lg mb-2 shadow-sm gap-2"
+              >
+                <Pencil className="w-4 h-4" />
                 프로필 편집
               </Button>
             </motion.div>
@@ -530,13 +582,23 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                   <h3 className="font-bold text-white mb-5">계정 보안</h3>
                   <div className="space-y-3">
                     <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-                      <Button variant="outline" className="w-full justify-start bg-[#1c1c1e] text-gray-300 border-white/5 hover:bg-white/5 hover:text-white font-medium rounded-xl h-12 shadow-sm">
-                        비밀번호 변경
+                      <Button
+                        variant="outline"
+                        onClick={() => { setPwCurrent(""); setPwNew(""); setPwConfirm(""); setShowPasswordChange(true); }}
+                        className="w-full justify-between bg-[#1c1c1e] text-gray-300 border-white/5 hover:bg-white/5 hover:text-white font-medium rounded-xl h-12 shadow-sm"
+                      >
+                        <span className="flex items-center gap-2"><Lock className="w-4 h-4" />비밀번호 변경</span>
+                        <ChevronRight className="w-4 h-4" />
                       </Button>
                     </motion.div>
                     <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-                      <Button variant="outline" className="w-full justify-start bg-[#1c1c1e] text-gray-300 border-white/5 hover:bg-white/5 hover:text-white font-medium rounded-xl h-12 shadow-sm">
-                        2단계 인증 설정
+                      <Button
+                        variant="outline"
+                        onClick={() => toast.info("2단계 인증은 준비 중입니다.")}
+                        className="w-full justify-between bg-[#1c1c1e] text-gray-300 border-white/5 hover:bg-white/5 hover:text-white font-medium rounded-xl h-12 shadow-sm"
+                      >
+                        <span>2단계 인증 설정</span>
+                        <ChevronRight className="w-4 h-4" />
                       </Button>
                     </motion.div>
                   </div>
@@ -563,6 +625,103 @@ export function MyPage({ onSignInClick }: MyPageProps) {
         </Tabs>
       </div>
     </div>
+
+      {/* 프로필 편집 모달 */}
+      <AnimatePresence>
+        {showProfileEdit && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowProfileEdit(false)}
+              className="fixed inset-0 bg-black/70 z-50 backdrop-blur-sm" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring" as const, stiffness: 300, damping: 30 }}
+              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-[#1a1a1c] rounded-2xl border border-white/10 p-5 max-w-sm mx-auto shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2"><Pencil className="w-5 h-5 text-[#8b5cf6]" />프로필 편집</h3>
+                <button onClick={() => setShowProfileEdit(false)} className="p-1.5 hover:bg-white/10 rounded-full text-gray-400"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="mb-4">
+                <label className="block text-xs font-semibold text-gray-400 mb-1.5">이메일</label>
+                <p className="px-4 py-3 bg-white/5 rounded-xl text-sm text-gray-500 border border-white/5">{user?.email}</p>
+              </div>
+              <div className="mb-5">
+                <label className="block text-xs font-semibold text-gray-400 mb-1.5">표시 이름</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  maxLength={30}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors"
+                  placeholder="이름을 입력하세요"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowProfileEdit(false)} className="flex-1 border-white/10">취소</Button>
+                <Button size="sm" onClick={handleSaveProfile} disabled={savingProfile || !editName.trim()}
+                  className="flex-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]">
+                  {savingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : "저장"}
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* 비밀번호 변경 모달 */}
+      <AnimatePresence>
+        {showPasswordChange && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowPasswordChange(false)}
+              className="fixed inset-0 bg-black/70 z-50 backdrop-blur-sm" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring" as const, stiffness: 300, damping: 30 }}
+              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-[#1a1a1c] rounded-2xl border border-white/10 p-5 max-w-sm mx-auto shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2"><Lock className="w-5 h-5 text-[#8b5cf6]" />비밀번호 변경</h3>
+                <button onClick={() => setShowPasswordChange(false)} className="p-1.5 hover:bg-white/10 rounded-full text-gray-400"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="space-y-3 mb-5">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">새 비밀번호</label>
+                  <div className="relative">
+                    <input type={showPwNew ? "text" : "password"} value={pwNew} onChange={e => setPwNew(e.target.value)}
+                      placeholder="6자 이상"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors" />
+                    <button onClick={() => setShowPwNew(!showPwNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                      {showPwNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">새 비밀번호 확인</label>
+                  <input type="password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)}
+                    placeholder="비밀번호 재입력"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors" />
+                </div>
+              </div>
+              <p className="text-xs text-gray-600 mb-4">* 소셜 로그인 계정은 비밀번호 변경이 제한될 수 있습니다.</p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowPasswordChange(false)} className="flex-1 border-white/10">취소</Button>
+                <Button size="sm" onClick={handleChangePassword} disabled={savingPassword || !pwNew || !pwConfirm}
+                  className="flex-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]">
+                  {savingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : "변경"}
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
   </div>
   );
 }

@@ -1,7 +1,11 @@
 import { useState } from "react";
-import { Lightbulb, Trophy, MessageCircle, Heart, Bookmark, TrendingUp } from "lucide-react";
+import { Lightbulb, Trophy, MessageCircle, Heart, Bookmark, TrendingUp, Plus, X, Send, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
+import { motion, AnimatePresence } from "motion/react";
+import { CommentPanel } from "./CommentPanel";
+import { useAuth } from "../contexts/AuthContext";
+import { toast } from "sonner";
 
 interface Post {
   id: string;
@@ -16,7 +20,7 @@ interface Post {
   image?: string;
 }
 
-const mockPosts: Post[] = [
+const INITIAL_POSTS: Post[] = [
   {
     id: "1",
     author: "AI Creator Pro",
@@ -84,44 +88,41 @@ const getNextDeadline = (offsetDays: number) => {
 };
 
 const challenges = [
-  {
-    id: "1",
-    title: "미래 도시 챌린지",
-    prize: "500만원",
-    participants: 342,
-    deadline: getNextDeadline(15),
-    image: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=400&h=200&fit=crop"
-  },
-  {
-    id: "2",
-    title: "자연 다큐멘터리",
-    prize: "300만원",
-    participants: 189,
-    deadline: getNextDeadline(20),
-    image: "https://images.unsplash.com/photo-1551728715-88730314d185?w=400&h=200&fit=crop"
-  },
-  {
-    id: "3",
-    title: "추상 아트 비주얼",
-    prize: "200만원",
-    participants: 267,
-    deadline: getNextDeadline(25),
-    image: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=400&h=200&fit=crop"
-  }
+  { id: "1", title: "미래 도시 챌린지", prize: "500만원", participants: 342, deadline: getNextDeadline(15), image: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=400&h=200&fit=crop" },
+  { id: "2", title: "자연 다큐멘터리", prize: "300만원", participants: 189, deadline: getNextDeadline(20), image: "https://images.unsplash.com/photo-1551728715-88730314d185?w=400&h=200&fit=crop" },
+  { id: "3", title: "추상 아트 비주얼", prize: "200만원", participants: 267, deadline: getNextDeadline(25), image: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=400&h=200&fit=crop" }
 ];
 
+const CATEGORIES = ["팁", "챌린지", "비교", "프롬프트", "튜토리얼", "일반", "질문"];
+
+const CATEGORY_COLOR: Record<string, string> = {
+  "챌린지": "bg-[#8b5cf6]/20 text-[#8b5cf6]",
+  "팁": "bg-[#3b82f6]/20 text-[#3b82f6]",
+  "프롬프트": "bg-[#10b981]/20 text-[#10b981]",
+  "튜토리얼": "bg-[#f59e0b]/20 text-[#f59e0b]",
+  "비교": "bg-[#ef4444]/20 text-[#ef4444]",
+  "일반": "bg-[#6366f1]/20 text-[#6366f1]",
+  "질문": "bg-[#06b6d4]/20 text-[#06b6d4]",
+};
+
 export function Community() {
+  const { user, isAuthenticated } = useAuth();
+  const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [bookmarkedPosts, setBookmarkedPosts] = useState<Set<string>>(new Set());
+  const [commentPostId, setCommentPostId] = useState<string | null>(null);
+  const [showWriteModal, setShowWriteModal] = useState(false);
+
+  // Write modal state
+  const [writeTitle, setWriteTitle] = useState("");
+  const [writeContent, setWriteContent] = useState("");
+  const [writeCategory, setWriteCategory] = useState("일반");
+  const [submitting, setSubmitting] = useState(false);
 
   const toggleLike = (postId: string) => {
     setLikedPosts(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(postId)) {
-        newSet.delete(postId);
-      } else {
-        newSet.add(postId);
-      }
+      newSet.has(postId) ? newSet.delete(postId) : newSet.add(postId);
       return newSet;
     });
   };
@@ -129,20 +130,66 @@ export function Community() {
   const toggleBookmark = (postId: string) => {
     setBookmarkedPosts(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(postId)) {
-        newSet.delete(postId);
-      } else {
-        newSet.add(postId);
-      }
+      newSet.has(postId) ? newSet.delete(postId) : newSet.add(postId);
       return newSet;
     });
   };
 
+  const handleWritePost = async () => {
+    if (!writeTitle.trim() || !writeContent.trim()) {
+      toast.error("제목과 내용을 모두 입력해주세요.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      // 로컬 상태에 추가 (Supabase community_posts 테이블 연동은 테이블 생성 후 활성화)
+      const newPost: Post = {
+        id: `local-${Date.now()}`,
+        author: user?.name || "익명",
+        avatar: "",
+        title: writeTitle.trim(),
+        content: writeContent.trim(),
+        category: writeCategory,
+        likes: 0,
+        comments: 0,
+        timestamp: "방금 전",
+      };
+      setPosts(prev => [newPost, ...prev]);
+      setWriteTitle("");
+      setWriteContent("");
+      setWriteCategory("일반");
+      setShowWriteModal(false);
+      toast.success("게시글이 등록됐습니다!");
+    } catch {
+      toast.error("게시글 등록에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const commentPost = commentPostId ? posts.find(p => p.id === commentPostId) : null;
+
   return (
-    <div className="h-full overflow-y-auto bg-background">
+    <div className="h-full overflow-y-auto bg-background relative">
       <div className="max-w-4xl mx-auto p-4 md:p-6">
-        <h2 className="text-2xl md:text-3xl font-bold mb-6">커뮤니티</h2>
-        
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl md:text-3xl font-bold">커뮤니티</h2>
+          <Button
+            onClick={() => {
+              if (!isAuthenticated) {
+                toast.error("게시글을 작성하려면 로그인이 필요합니다.");
+                return;
+              }
+              setShowWriteModal(true);
+            }}
+            className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 font-bold"
+            size="sm"
+          >
+            <Plus className="w-4 h-4" />
+            글쓰기
+          </Button>
+        </div>
+
         <Tabs defaultValue="posts" className="w-full">
           <TabsList className="grid w-full grid-cols-3 bg-card mb-6">
             <TabsTrigger value="posts">게시글</TabsTrigger>
@@ -152,77 +199,74 @@ export function Community() {
 
           <TabsContent value="posts" className="mt-0">
             <div className="space-y-4 pb-6 md:pb-8">
-              {mockPosts.map((post) => (
-                <div key={post.id} className="bg-card rounded-lg border border-border overflow-hidden">
-                  <div className="p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] overflow-hidden">
-                        <img src={post.avatar} alt={post.author} className="w-full h-full object-cover" />
+              <AnimatePresence initial={false}>
+                {posts.map((post) => (
+                  <motion.div
+                    key={post.id}
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="bg-card rounded-lg border border-border overflow-hidden"
+                  >
+                    <div className="p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          {post.avatar ? (
+                            <img src={post.avatar} alt={post.author} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-white font-bold text-sm">{post.author.charAt(0)}</span>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium">{post.author}</p>
+                          <p className="text-xs text-muted-foreground">{post.timestamp}</p>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${CATEGORY_COLOR[post.category] || "bg-[#6366f1]/20 text-[#6366f1]"}`}>
+                          {post.category}
+                        </span>
                       </div>
-                      <div className="flex-1">
-                        <p className="font-medium">{post.author}</p>
-                        <p className="text-xs text-muted-foreground">{post.timestamp}</p>
-                      </div>
-                      <span className={`px-3 py-1 rounded-full text-xs ${
-                        post.category === "챌린지" 
-                          ? "bg-[#8b5cf6]/20 text-[#8b5cf6]" 
-                          : post.category === "팁"
-                          ? "bg-[#3b82f6]/20 text-[#3b82f6]"
-                          : "bg-[#6366f1]/20 text-[#6366f1]"
-                      }`}>
-                        {post.category}
-                      </span>
-                    </div>
 
-                    <h3 className="mb-2">{post.title}</h3>
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
-                      {post.content}
-                    </p>
+                      <h3 className="mb-2 font-semibold">{post.title}</h3>
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-3 whitespace-pre-line">
+                        {post.content}
+                      </p>
 
-                    {post.image && (
-                      <img 
-                        src={post.image} 
-                        alt={post.title}
-                        className="w-full h-48 object-cover rounded-lg mb-3"
-                      />
-                    )}
-
-                    <div className="flex items-center justify-between pt-3 border-t border-border">
-                      <div className="flex items-center gap-4">
-                        <button 
-                          onClick={() => toggleLike(post.id)}
-                          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <Heart 
-                            className={`w-5 h-5 ${
-                              likedPosts.has(post.id) 
-                                ? 'fill-[#ef4444] text-[#ef4444]' 
-                                : ''
-                            }`}
-                          />
-                          <span>{post.likes + (likedPosts.has(post.id) ? 1 : 0)}</span>
-                        </button>
-                        <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                          <MessageCircle className="w-5 h-5" />
-                          <span>{post.comments}</span>
-                        </button>
-                      </div>
-                      <button 
-                        onClick={() => toggleBookmark(post.id)}
-                        className="text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <Bookmark 
-                          className={`w-5 h-5 ${
-                            bookmarkedPosts.has(post.id) 
-                              ? 'fill-[#6366f1] text-[#6366f1]' 
-                              : ''
-                          }`}
+                      {post.image && (
+                        <img
+                          src={post.image}
+                          alt={post.title}
+                          className="w-full h-48 object-cover rounded-lg mb-3"
                         />
-                      </button>
+                      )}
+
+                      <div className="flex items-center justify-between pt-3 border-t border-border">
+                        <div className="flex items-center gap-4">
+                          <button
+                            onClick={() => toggleLike(post.id)}
+                            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <Heart className={`w-5 h-5 ${likedPosts.has(post.id) ? 'fill-[#ef4444] text-[#ef4444]' : ''}`} />
+                            <span>{post.likes + (likedPosts.has(post.id) ? 1 : 0)}</span>
+                          </button>
+                          <button
+                            onClick={() => setCommentPostId(post.id)}
+                            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <MessageCircle className="w-5 h-5" />
+                            <span>{post.comments}</span>
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => toggleBookmark(post.id)}
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Bookmark className={`w-5 h-5 ${bookmarkedPosts.has(post.id) ? 'fill-[#6366f1] text-[#6366f1]' : ''}`} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           </TabsContent>
 
@@ -231,11 +275,7 @@ export function Community() {
               {challenges.map((challenge) => (
                 <div key={challenge.id} className="bg-card rounded-lg border border-border overflow-hidden group cursor-pointer">
                   <div className="relative h-32 overflow-hidden">
-                    <img 
-                      src={challenge.image} 
-                      alt={challenge.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                    />
+                    <img src={challenge.image} alt={challenge.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                     <div className="absolute bottom-3 left-3 right-3">
                       <h3 className="text-white mb-1">{challenge.title}</h3>
@@ -249,15 +289,9 @@ export function Community() {
                       </div>
                     </div>
                   </div>
-                  <div className="p-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">
-                        마감: {challenge.deadline}
-                      </span>
-                      <Button size="sm" className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]">
-                        참여하기
-                      </Button>
-                    </div>
+                  <div className="p-4 flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">마감: {challenge.deadline}</span>
+                    <Button size="sm" className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]">참여하기</Button>
                   </div>
                 </div>
               ))}
@@ -272,11 +306,8 @@ export function Community() {
                   <h3>인기 프롬프트 키워드</h3>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {["cyberpunk", "cinematic", "8k", "neon lights", "futuristic", "nature", "abstract", "portrait", "anime style", "realistic"].map((tag, idx) => (
-                    <span 
-                      key={tag}
-                      className="px-3 py-1.5 bg-gradient-to-r from-[#6366f1]/10 to-[#8b5cf6]/10 border border-[#6366f1]/30 rounded-full text-sm cursor-pointer hover:border-[#6366f1] transition-colors"
-                    >
+                  {["cyberpunk", "cinematic", "8k", "neon lights", "futuristic", "nature", "abstract", "portrait", "anime style", "realistic"].map((tag) => (
+                    <span key={tag} className="px-3 py-1.5 bg-gradient-to-r from-[#6366f1]/10 to-[#8b5cf6]/10 border border-[#6366f1]/30 rounded-full text-sm cursor-pointer hover:border-[#6366f1] transition-colors">
                       #{tag}
                     </span>
                   ))}
@@ -286,16 +317,14 @@ export function Community() {
               <div className="bg-card rounded-lg border border-border p-4">
                 <h3 className="mb-4">이번 주 인기 게시글</h3>
                 <div className="space-y-3">
-                  {mockPosts.slice(0, 3).map((post, idx) => (
+                  {posts.slice(0, 3).map((post, i) => (
                     <div key={post.id} className="flex items-start gap-3 pb-3 border-b border-border last:border-0 last:pb-0">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-white font-medium">
-                        {idx + 1}
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-white font-medium text-sm">
+                        {i + 1}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{post.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {post.likes} likes • {post.comments} comments
-                        </p>
+                        <p className="text-xs text-muted-foreground">{post.likes} likes • {post.comments} comments</p>
                       </div>
                     </div>
                   ))}
@@ -322,6 +351,119 @@ export function Community() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* 댓글 바텀시트 */}
+      <AnimatePresence>
+        {commentPostId && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setCommentPostId(null)}
+              className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl overflow-hidden"
+              style={{ maxHeight: "75vh" }}
+            >
+              <CommentPanel
+                postId={commentPostId}
+                title={commentPost?.title}
+                onClose={() => setCommentPostId(null)}
+                mode="sheet"
+              />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* 글쓰기 모달 */}
+      <AnimatePresence>
+        {showWriteModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowWriteModal(false)}
+              className="fixed inset-0 bg-black/70 z-50 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-[#1a1a1c] rounded-2xl border border-white/10 p-5 max-w-lg mx-auto shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-white">게시글 작성</h3>
+                <button onClick={() => setShowWriteModal(false)} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-gray-400">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* 카테고리 선택 */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {CATEGORIES.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setWriteCategory(cat)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      writeCategory === cat
+                        ? "bg-[#6366f1] text-white"
+                        : "bg-white/5 text-gray-400 hover:bg-white/10"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              <input
+                type="text"
+                placeholder="제목을 입력하세요"
+                value={writeTitle}
+                onChange={e => setWriteTitle(e.target.value)}
+                maxLength={100}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#6366f1] transition-colors mb-3"
+              />
+
+              <textarea
+                placeholder="내용을 입력하세요 (최소 10자)"
+                value={writeContent}
+                onChange={e => setWriteContent(e.target.value)}
+                maxLength={2000}
+                rows={5}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#6366f1] transition-colors resize-none mb-4"
+              />
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-600">{writeContent.length}/2000</span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setShowWriteModal(false)} className="border-white/10">
+                    취소
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleWritePost}
+                    disabled={submitting || !writeTitle.trim() || writeContent.trim().length < 10}
+                    className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] gap-2"
+                  >
+                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    등록
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

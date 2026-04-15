@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect, memo, useCallback } from "react";
 import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageSquare, ChevronRight, ExternalLink } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
+import { CommentPanel } from "./CommentPanel";
+import { toast } from "sonner";
 
 interface Ad {
   id: string;
@@ -120,6 +122,8 @@ const MovieSection = memo(({
   isLiked,
   onToggleLike,
   onSetActive,
+  onComment,
+  onShare,
 }: {
   video: Video;
   isActive: boolean;
@@ -129,6 +133,8 @@ const MovieSection = memo(({
   isLiked: boolean;
   onToggleLike: (id: string, currentlyLiked: boolean) => void;
   onSetActive: (id: string) => void;
+  onComment: (video: Video) => void;
+  onShare: (video: Video) => void;
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<any>(null);
@@ -308,11 +314,11 @@ const MovieSection = memo(({
           </div>
           <span className="text-[8px] font-bold text-white mt-0.5 drop-shadow-md">{video.likes.toLocaleString()}</span>
         </button>
-        <button className="flex flex-col items-center">
+        <button onClick={(e) => { e.stopPropagation(); onComment(video); }} className="flex flex-col items-center">
           <div className="w-9 h-9 rounded-full bg-black/20 backdrop-blur-md border border-white/20 flex items-center justify-center">
             <MessageSquare className="w-[18px] h-[18px] text-white" />
           </div>
-          <span className="text-[8px] font-bold text-white mt-0.5 drop-shadow-md">0</span>
+          <span className="text-[8px] font-bold text-white mt-0.5 drop-shadow-md">댓글</span>
         </button>
       </div>
 
@@ -337,8 +343,12 @@ const MovieSection = memo(({
               </div>
               <div className="h-4 w-[1px] bg-white/20 mx-1" />
               <div className="flex items-center gap-2">
-                <Share2 className="w-3.5 h-3.5 text-white/40 hover:text-white transition-colors" />
-                <ShoppingCart className="w-3.5 h-3.5 text-white/40 hover:text-white transition-colors" />
+                <button onClick={(e) => { e.stopPropagation(); onShare(video); }} className="p-0">
+                  <Share2 className="w-3.5 h-3.5 text-white/40 hover:text-white transition-colors" />
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); onVideoClick(video); }} className="p-0">
+                  <ShoppingCart className="w-3.5 h-3.5 text-white/40 hover:text-white transition-colors" />
+                </button>
               </div>
             </div>
             <Button
@@ -363,6 +373,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
   const [activeId, setActiveId] = useState<string | null>(null);
   const [likedVideos, setLikedVideos] = useState<Set<string>>(new Set());
   const [isMuted, setIsMuted] = useState(true);
+  const [commentVideo, setCommentVideo] = useState<Video | null>(null);
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -515,6 +526,23 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
     }
   };
 
+  const handleShare = useCallback(async (video: Video) => {
+    const url = `${window.location.origin}?video=${video.id}`;
+    const shareData = { title: video.title, text: `AI-V-Market: ${video.title}`, url };
+    try {
+      if (navigator.share && navigator.canShare?.(shareData)) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success("링크가 클립보드에 복사됐습니다!");
+      }
+    } catch (err: any) {
+      if (err.name !== "AbortError") {
+        try { await navigator.clipboard.writeText(url); toast.success("링크 복사됐습니다!"); } catch {}
+      }
+    }
+  }, []);
+
   if (loading) return <div className="h-full flex items-center justify-center bg-background"><Loader2 className="w-10 h-10 text-[#6366f1] animate-spin" /></div>;
   if (videos.length === 0) return <div className="h-full flex items-center justify-center bg-background text-muted-foreground">표시할 영상이 없습니다.</div>;
 
@@ -541,6 +569,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
                 isLiked={likedVideos.has(item.id)}
                 onToggleLike={toggleLike}
                 onSetActive={(id) => setActiveId(id)}
+                onComment={(v) => setCommentVideo(v)}
+                onShare={handleShare}
               />
             )}
           </div>
@@ -562,6 +592,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
                 onVideoClick={onVideoClick}
                 isLiked={likedVideos.has(v.id)}
                 onToggleLike={toggleLike}
+                onComment={(vid) => setCommentVideo(vid)}
+                onShare={handleShare}
               />
             ))}
           </div>
@@ -622,13 +654,43 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
         }
         .custom-scrollbar::-webkit-scrollbar { width: 0px; }
         .video-js.vjs-fill { width: 100% !important; height: 100% !important; }
-        .vjs-tech { object-fit: contain !important; } 
+        .vjs-tech { object-fit: contain !important; }
       `}</style>
+
+      {/* 댓글 바텀시트 */}
+      <AnimatePresence>
+        {commentVideo && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setCommentVideo(null)}
+              className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl overflow-hidden"
+              style={{ maxHeight: "75vh" }}
+            >
+              <CommentPanel
+                videoId={commentVideo.id}
+                title={commentVideo.title}
+                onClose={() => setCommentVideo(null)}
+                mode="sheet"
+              />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike }: { video: Video; onVideoClick: (video: Video) => void; isLiked: boolean; onToggleLike: (id: string, currentlyLiked: boolean) => void }) {
+function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onComment, onShare }: { video: Video; onVideoClick: (video: Video) => void; isLiked: boolean; onToggleLike: (id: string, currentlyLiked: boolean) => void; onComment: (video: Video) => void; onShare: (video: Video) => void }) {
   const [isHovered, setIsHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -651,8 +713,10 @@ function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike }: { vide
     });
     playerRef.current = p;
     p.ready(() => {
+      if (!p || p.isDisposed()) return;
       p.currentTime(video.highlightStart || 0);
-      p.play().catch(() => {});
+      const pp = p.play();
+      if (pp) pp.catch(() => {});
     });
   }, [isHovered, video.videoUrl, video.highlightStart]);
 
@@ -705,7 +769,15 @@ function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike }: { vide
             <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }} className="p-2 hover:bg-red-500/10 rounded-full transition-colors">
               <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white/30'}`} />
             </button>
-            <ShoppingCart className="w-5 h-5 text-white/30 hover:text-white transition-colors" />
+            <button onClick={(e) => { e.stopPropagation(); onComment(video); }} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+              <MessageSquare className="w-5 h-5 text-white/30 hover:text-white transition-colors" />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); onShare(video); }} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+              <Share2 className="w-5 h-5 text-white/30 hover:text-white transition-colors" />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); onVideoClick(video); }} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+              <ShoppingCart className="w-5 h-5 text-white/30 hover:text-white transition-colors" />
+            </button>
           </div>
         </div>
       </div>
