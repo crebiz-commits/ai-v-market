@@ -7,7 +7,7 @@
 CREATE TABLE IF NOT EXISTS public.comments (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  video_id uuid REFERENCES public.videos(id) ON DELETE CASCADE,
+  video_id text REFERENCES public.videos(id) ON DELETE CASCADE,
   post_id text, -- community posts (text id for mock data compatibility)
   parent_id uuid REFERENCES public.comments(id) ON DELETE CASCADE, -- 대댓글
   content text NOT NULL CHECK (char_length(content) BETWEEN 1 AND 500),
@@ -44,7 +44,7 @@ CREATE POLICY "comments_delete" ON public.comments
 CREATE TABLE IF NOT EXISTS public.cart_items (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  video_id uuid NOT NULL REFERENCES public.videos(id) ON DELETE CASCADE,
+  video_id text NOT NULL REFERENCES public.videos(id) ON DELETE CASCADE,
   license_type text NOT NULL DEFAULT 'standard' CHECK (license_type IN ('standard', 'commercial', 'extended')),
   price integer NOT NULL,
   added_at timestamptz DEFAULT now(),

@@ -13,7 +13,7 @@
 import './init';
 
 import { useState, useEffect, useCallback } from "react";
-import { Sparkles, Store, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, X } from "lucide-react";
+import { Sparkles, Store, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { DiscoveryFeed } from "./components/DiscoveryFeed";
 import { Market } from "./components/Market";

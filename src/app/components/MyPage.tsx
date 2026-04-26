@@ -62,10 +62,8 @@ export function MyPage({ onSignInClick }: MyPageProps) {
 
   // 비밀번호 변경 모달
   const [showPasswordChange, setShowPasswordChange] = useState(false);
-  const [pwCurrent, setPwCurrent] = useState("");
   const [pwNew, setPwNew] = useState("");
   const [pwConfirm, setPwConfirm] = useState("");
-  const [showPwCurrent, setShowPwCurrent] = useState(false);
   const [showPwNew, setShowPwNew] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
@@ -184,7 +182,7 @@ export function MyPage({ onSignInClick }: MyPageProps) {
       const { error } = await supabase.auth.updateUser({ password: pwNew });
       if (error) throw error;
       toast.success("비밀번호가 변경됐습니다!");
-      setPwCurrent(""); setPwNew(""); setPwConfirm("");
+      setPwNew(""); setPwConfirm("");
       setShowPasswordChange(false);
     } catch (err: any) {
       toast.error(err.message || "비밀번호 변경에 실패했습니다.");
@@ -584,7 +582,7 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                     <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
                       <Button
                         variant="outline"
-                        onClick={() => { setPwCurrent(""); setPwNew(""); setPwConfirm(""); setShowPasswordChange(true); }}
+                        onClick={() => { setPwNew(""); setPwConfirm(""); setShowPasswordChange(true); }}
                         className="w-full justify-between bg-[#1c1c1e] text-gray-300 border-white/5 hover:bg-white/5 hover:text-white font-medium rounded-xl h-12 shadow-sm"
                       >
                         <span className="flex items-center gap-2"><Lock className="w-4 h-4" />비밀번호 변경</span>

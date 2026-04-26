@@ -26,44 +26,47 @@ interface ProductDetailProps {
   onAddToCart?: (product: any, licenseType: "standard" | "commercial" | "extended") => void;
 }
 
-const licenseOptions = [
-  {
-    id: "standard",
-    name: "Standard",
-    price: 29000,
-    description: "유튜브, 개인 SNS 용도",
-    features: [
-      "개인 유튜브 채널 사용 가능",
-      "SNS 게시물 사용 가능",
-      "최대 100만 뷰까지"
-    ]
-  },
-  {
-    id: "commercial",
-    name: "Commercial",
-    price: 89000,
-    description: "기업 광고, 마케팅 용도",
-    features: [
-      "상업적 광고 사용 가능",
-      "기업 마케팅 용도",
-      "무제한 뷰",
-      "재배포 가능"
-    ]
-  },
-  {
-    id: "exclusive",
-    name: "Exclusive",
-    price: 299000,
-    description: "독점 사용권",
-    features: [
-      "완전한 독점 사용권",
-      "구매 후 마켓에서 즉시 삭제",
-      "타인 사용 불가",
-      "무제한 용도",
-      "원본 프로젝트 파일 제공"
-    ]
-  }
-];
+// 라이선스 옵션을 product.price 기준으로 동적 생성
+function getLicenseOptions(basePrice: number) {
+  return [
+    {
+      id: "standard",
+      name: "Standard",
+      price: basePrice,
+      description: "유튜브, 개인 SNS 용도",
+      features: [
+        "개인 유튜브 채널 사용 가능",
+        "SNS 게시물 사용 가능",
+        "최대 100만 뷰까지"
+      ]
+    },
+    {
+      id: "commercial",
+      name: "Commercial",
+      price: basePrice * 2,
+      description: "기업 광고, 마케팅 용도",
+      features: [
+        "상업적 광고 사용 가능",
+        "기업 마케팅 용도",
+        "무제한 뷰",
+        "재배포 가능"
+      ]
+    },
+    {
+      id: "extended",
+      name: "Exclusive",
+      price: basePrice * 5,
+      description: "독점 사용권",
+      features: [
+        "완전한 독점 사용권",
+        "구매 후 마켓에서 즉시 삭제",
+        "타인 사용 불가",
+        "무제한 용도",
+        "원본 프로젝트 파일 제공"
+      ]
+    }
+  ];
+}
 
 export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailProps) {
   const [selectedLicense, setSelectedLicense] = useState("standard");
@@ -149,7 +152,8 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
   useEffect(() => {
     if (playerRef.current) {
       if (isPlaying) {
-        playerRef.current.play().catch(() => {});
+        const pp = playerRef.current.play();
+        if (pp) pp.catch(() => {});
       } else {
         playerRef.current.pause();
       }
@@ -166,7 +170,8 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
     setIsMuted(!isMuted);
   };
 
-  const selectedOption = licenseOptions.find(opt => opt.id === selectedLicense);
+  const licenseOptions = getLicenseOptions(product.price);
+  const selectedOption = licenseOptions.find((opt) => opt.id === selectedLicense);
 
   const handleAddToCart = () => {
     const licenseType = selectedLicense as "standard" | "commercial" | "extended";
@@ -335,7 +340,7 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
               <h3 className="mb-4">라이선스 선택</h3>
               <RadioGroup value={selectedLicense} onValueChange={setSelectedLicense}>
                 <div className="space-y-3">
-                  {licenseOptions.map((option) => (
+                  {licenseOptions.map((option: ReturnType<typeof getLicenseOptions>[0]) => (
                     <label
                       key={option.id}
                       className={`flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
