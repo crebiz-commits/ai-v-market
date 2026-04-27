@@ -25,6 +25,7 @@ interface CommentPanelProps {
   postId?: string;
   title?: string;
   onClose: () => void;
+  onCommentPosted?: () => void;
   // 모바일: 바텀시트, 데스크탑: 사이드패널
   mode?: "sheet" | "panel";
 }
@@ -66,7 +67,7 @@ function Avatar({ name, src, size = 36 }: { name: string; src?: string; size?: n
   );
 }
 
-export function CommentPanel({ videoId, postId, title, onClose, mode = "sheet" }: CommentPanelProps) {
+export function CommentPanel({ videoId, postId, title, onClose, onCommentPosted, mode = "sheet" }: CommentPanelProps) {
   const { user, isAuthenticated } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -184,6 +185,7 @@ export function CommentPanel({ videoId, postId, title, onClose, mode = "sheet" }
         setComments((prev) => [newComment, ...prev]);
       }
 
+      onCommentPosted?.();
       setText("");
       setReplyTo(null);
     } catch (err: any) {

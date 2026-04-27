@@ -124,6 +124,7 @@ const MovieSection = memo(({
   onSetActive,
   onComment,
   onShare,
+  commentCount = 0,
 }: {
   video: Video;
   isActive: boolean;
@@ -135,6 +136,7 @@ const MovieSection = memo(({
   onSetActive: (id: string) => void;
   onComment: (video: Video) => void;
   onShare: (video: Video) => void;
+  commentCount?: number;
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<any>(null);
@@ -318,7 +320,7 @@ const MovieSection = memo(({
           <div className="w-9 h-9 rounded-full bg-black/20 backdrop-blur-md border border-white/20 flex items-center justify-center">
             <MessageSquare className="w-[18px] h-[18px] text-white" />
           </div>
-          <span className="text-[8px] font-bold text-white mt-0.5 drop-shadow-md">댓글</span>
+          <span className="text-[8px] font-bold text-white mt-0.5 drop-shadow-md">{commentCount > 0 ? commentCount.toLocaleString() : "댓글"}</span>
         </button>
       </div>
 
@@ -374,6 +376,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
   const [likedVideos, setLikedVideos] = useState<Set<string>>(new Set());
   const [isMuted, setIsMuted] = useState(true);
   const [commentVideo, setCommentVideo] = useState<Video | null>(null);
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -408,6 +411,23 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
           }));
           setVideos(formatted);
           if (formatted.length > 0) setActiveId(formatted[0].id);
+
+          // 댓글 수 fetch
+          const videoIds = formatted.map((v: Video) => v.id);
+          if (videoIds.length > 0) {
+            const { data: countData } = await supabase
+              .from("comments")
+              .select("video_id")
+              .in("video_id", videoIds)
+              .is("parent_id", null);
+            if (countData) {
+              const counts: Record<string, number> = {};
+              countData.forEach((c: any) => {
+                counts[c.video_id] = (counts[c.video_id] || 0) + 1;
+              });
+              setCommentCounts(counts);
+            }
+          }
 
           if (user) {
             const { data: likesData } = await supabase
@@ -571,6 +591,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
                 onSetActive={(id) => setActiveId(id)}
                 onComment={(v) => setCommentVideo(v)}
                 onShare={handleShare}
+                commentCount={commentCounts[item.id] || 0}
               />
             )}
           </div>
@@ -594,6 +615,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
                 onToggleLike={toggleLike}
                 onComment={(vid) => setCommentVideo(vid)}
                 onShare={handleShare}
+                commentCount={commentCounts[v.id] || 0}
               />
             ))}
           </div>
@@ -680,6 +702,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
                 videoId={commentVideo.id}
                 title={commentVideo.title}
                 onClose={() => setCommentVideo(null)}
+                onCommentPosted={() => setCommentCounts(prev => ({ ...prev, [commentVideo.id]: (prev[commentVideo.id] || 0) + 1 }))}
                 mode="sheet"
               />
             </motion.div>
@@ -690,7 +713,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
   );
 }
 
-function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onComment, onShare }: { video: Video; onVideoClick: (video: Video) => void; isLiked: boolean; onToggleLike: (id: string, currentlyLiked: boolean) => void; onComment: (video: Video) => void; onShare: (video: Video) => void }) {
+function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onComment, onShare, commentCount = 0 }: { video: Video; onVideoClick: (video: Video) => void; isLiked: boolean; onToggleLike: (id: string, currentlyLiked: boolean) => void; onComment: (video: Video) => void; onShare: (video: Video) => void; commentCount?: number }) {
   const [isHovered, setIsHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -769,8 +792,9 @@ function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onCommen
             <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }} className="p-2 hover:bg-red-500/10 rounded-full transition-colors">
               <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white/30'}`} />
             </button>
-            <button onClick={(e) => { e.stopPropagation(); onComment(video); }} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+            <button onClick={(e) => { e.stopPropagation(); onComment(video); }} className="flex items-center gap-1 p-2 hover:bg-white/10 rounded-full transition-colors">
               <MessageSquare className="w-5 h-5 text-white/30 hover:text-white transition-colors" />
+              {commentCount > 0 && <span className="text-xs text-white/40">{commentCount}</span>}
             </button>
             <button onClick={(e) => { e.stopPropagation(); onShare(video); }} className="p-2 hover:bg-white/10 rounded-full transition-colors">
               <Share2 className="w-5 h-5 text-white/30 hover:text-white transition-colors" />
