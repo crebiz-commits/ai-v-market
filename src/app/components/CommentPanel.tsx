@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { X, Send, Heart, ChevronDown, ChevronUp, Loader2, MessageCircle } from "lucide-react";
+import { X, Send, Heart, ChevronDown, ChevronUp, Loader2, MessageCircle, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -197,6 +197,24 @@ export function CommentPanel({ videoId, postId, title, onClose, onCommentPosted,
     }
   };
 
+  const handleDelete = async (commentId: string, parentId?: string) => {
+    try {
+      const { error } = await supabase.from("comments").delete().eq("id", commentId);
+      if (error) throw error;
+      if (parentId) {
+        setComments(prev => prev.map(c =>
+          c.id === parentId
+            ? { ...c, replies: (c.replies || []).filter(r => r.id !== commentId) }
+            : c
+        ));
+      } else {
+        setComments(prev => prev.filter(c => c.id !== commentId));
+      }
+    } catch {
+      toast.error("삭제에 실패했습니다.");
+    }
+  };
+
   const handleLike = async (commentId: string) => {
     if (!isAuthenticated) {
       toast.error("로그인이 필요합니다.");
@@ -233,7 +251,7 @@ export function CommentPanel({ videoId, postId, title, onClose, onCommentPosted,
 
   const totalCount = comments.reduce((acc, c) => acc + 1 + (c.replies?.length || 0), 0);
 
-  const CommentItem = ({ comment, isReply = false }: { comment: Comment; isReply?: boolean }) => (
+  const CommentItem = ({ comment, isReply = false, parentId }: { comment: Comment; isReply?: boolean; parentId?: string }) => (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -265,6 +283,15 @@ export function CommentPanel({ videoId, postId, title, onClose, onCommentPosted,
               className="text-xs text-gray-500 hover:text-[#8b5cf6] transition-colors"
             >
               답글
+            </button>
+          )}
+          {user?.id === comment.user_id && (
+            <button
+              onClick={() => handleDelete(comment.id, parentId)}
+              className="text-xs text-gray-600 hover:text-red-400 transition-colors flex items-center gap-0.5"
+            >
+              <Trash2 className="w-3 h-3" />
+              삭제
             </button>
           )}
         </div>
@@ -335,7 +362,7 @@ export function CommentPanel({ videoId, postId, title, onClose, onCommentPosted,
                     <AnimatePresence>
                       {expandedReplies.has(comment.id) &&
                         comment.replies.map((reply) => (
-                          <CommentItem key={reply.id} comment={reply} isReply />
+                          <CommentItem key={reply.id} comment={reply} isReply parentId={comment.id} />
                         ))}
                     </AnimatePresence>
                   </div>
