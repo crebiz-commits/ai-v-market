@@ -696,7 +696,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
               exit={{ y: "100%" }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl overflow-hidden"
-              style={{ maxHeight: "75vh" }}
+              style={{ height: "75vh" }}
             >
               <CommentPanel
                 videoId={commentVideo.id}

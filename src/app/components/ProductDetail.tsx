@@ -514,7 +514,7 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
                 exit={{ y: "100%" }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 className="md:hidden fixed bottom-0 left-0 right-0 z-20 rounded-t-2xl overflow-hidden"
-                style={{ maxHeight: "75vh" }}
+                style={{ height: "75vh" }}
               >
                 <CommentPanel
                   videoId={product.id}

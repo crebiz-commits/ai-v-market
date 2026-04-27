@@ -422,7 +422,7 @@ function AppContent() {
                 exit={{ y: "100%" }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 className="md:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl overflow-hidden"
-                style={{ maxHeight: "85vh" }}
+                style={{ height: "85vh" }}
               >
                 {activePanel === "cart" && (
                   <CartPanel
