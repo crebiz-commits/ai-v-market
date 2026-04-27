@@ -86,7 +86,7 @@ export function CommentPanel({ videoId, postId, title, onClose, onCommentPosted,
         .from("comments")
         .select(`
           id, user_id, video_id, post_id, parent_id,
-          content, likes_count, created_at
+          content, likes_count, created_at, author_name
         `)
         .is("parent_id", null)
         .order("created_at", { ascending: false })
@@ -110,7 +110,7 @@ export function CommentPanel({ videoId, postId, title, onClose, onCommentPosted,
       if (parentIds.length > 0) {
         let repQuery = supabase
           .from("comments")
-          .select("id, user_id, parent_id, content, likes_count, created_at")
+          .select("id, user_id, parent_id, content, likes_count, created_at, author_name")
           .in("parent_id", parentIds)
           .order("created_at", { ascending: true });
 
@@ -119,7 +119,7 @@ export function CommentPanel({ videoId, postId, title, onClose, onCommentPosted,
           const repMap: Record<string, Comment[]> = {};
           repData.forEach((r: any) => {
             if (!repMap[r.parent_id]) repMap[r.parent_id] = [];
-            repMap[r.parent_id].push({ ...r, author_name: "익명" });
+            repMap[r.parent_id].push({ ...r, author_name: r.author_name || "익명" });
           });
           enriched.forEach((c) => {
             c.replies = repMap[c.id] || [];
@@ -151,6 +151,7 @@ export function CommentPanel({ videoId, postId, title, onClose, onCommentPosted,
     try {
       const payload: any = {
         user_id: user!.id,
+        author_name: user!.name || "익명",
         content: text.trim(),
         likes_count: 0,
       };
