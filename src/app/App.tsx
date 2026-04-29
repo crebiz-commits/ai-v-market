@@ -28,6 +28,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CartPanel, CartItem } from "./components/CartPanel";
 import { NotificationPanel } from "./components/NotificationPanel";
 import { LogoPreview } from "./components/LogoPreview";
+import { NewLogoPreview } from "./components/NewLogoPreview";
 import { CreaiteText } from "./components/CreaiteText";
 import { Button } from "./components/ui/button";
 import { handleBunnyError } from "./utils/bunnyErrorHandler";
@@ -55,6 +56,10 @@ function AppContent() {
   // 로고 프리뷰 모드 (URL ?preview=logo)
   if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "logo") {
     return <LogoPreview />;
+  }
+  // 새 로고 프리뷰 (URL ?preview=newlogo)
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "newlogo") {
+    return <NewLogoPreview />;
   }
 
   const [showSplash, setShowSplash] = useState(() => {
