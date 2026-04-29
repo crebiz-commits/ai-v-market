@@ -94,7 +94,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
           {!showEmailForm && <div className="w-10 h-10" />}
           
           <h2 className="text-[19px] font-bold text-black text-center absolute left-1/2 -translate-x-1/2">
-            {mode === "signin" ? "AI-V-MARKET 로그인" : "AI-V-MARKET 가입하기"}
+            {mode === "signin" ? "CREAITE 로그인" : "CREAITE 가입하기"}
           </h2>
 
           <button
