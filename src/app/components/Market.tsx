@@ -17,6 +17,7 @@ import { Label } from "./ui/label";
 import { Slider } from "./ui/slider";
 import { CoverFlow } from "./CoverFlow";
 import { supabase } from "../utils/supabaseClient";
+import { useBackButton } from "../hooks/useBackButton";
 
 interface Product {
   id: string;
@@ -53,6 +54,9 @@ export function Market({ onProductClick }: MarketProps) {
   const [selectedResolutions, setSelectedResolutions] = useState<string[]>([]);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  // 뒤로가기로 필터 패널 닫기
+  useBackButton(isFilterOpen, () => setIsFilterOpen(false));
 
   // Supabase에서 상품 데이터 가져오기
   useEffect(() => {
