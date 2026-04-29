@@ -72,10 +72,10 @@ function D2_Drop() {
 }
 
 // =============================================
-// 3. Wave Bars — 음/영상 신호 (이퀄라이저)
+// 3. Wave Bars + Play — 이퀄라이저 + 플레이 (오른쪽 끝)
 // =============================================
 function D3_Wave() {
-  const bars = [30, 60, 80, 50, 70, 40];
+  const bars = [30, 60, 80, 50, 70];
   return (
     <svg viewBox="0 0 100 100" className="w-full h-full">
       <GradientDefs />
@@ -90,6 +90,14 @@ function D3_Wave() {
           transition={{ duration: 1.2 + i * 0.15, repeat: Infinity, ease: "easeInOut", delay: i * 0.1 }}
         />
       ))}
+      {/* 마지막 위치 — 플레이 삼각형 */}
+      <motion.polygon
+        points="82,28 82,72 96,50"
+        fill="url(#aurora2)"
+        animate={{ scale: [1, 1.08, 1], opacity: [0.85, 1, 0.85] }}
+        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+        style={{ transformOrigin: "89px 50px" }}
+      />
     </svg>
   );
 }
@@ -279,7 +287,7 @@ export function LogoDesignsV2() {
     { name: "방금 추가한 logo-new.png", desc: "무지개 톱니 C", Component: DesignNew },
     { name: "★ 디자인 1: Aurora Orb", desc: "Apple Intelligence 풍 발광 구체", Component: D1_Orb },
     { name: "★ 디자인 2: Liquid Drop", desc: "살아 움직이는 액체 방울", Component: D2_Drop },
-    { name: "★ 디자인 3: Wave Bars", desc: "리듬에 맞춰 움직이는 영상 시그널", Component: D3_Wave },
+    { name: "★ 디자인 3: Wave Bars + Play", desc: "이퀄라이저 5개 막대 + 오른쪽 끝 플레이 ▶", Component: D3_Wave },
     { name: "★ 디자인 4: Sparkle Star", desc: "회전하는 4꼭지 별 (Gemini 풍)", Component: D4_Sparkle },
     { name: "★ 디자인 5: Aperture", desc: "카메라 조리개 (영상 컨셉)", Component: D5_Aperture },
     { name: "★ 디자인 6: Letter C", desc: "Vercel 같은 미니멀 타이포 마크", Component: D6_LetterC },
