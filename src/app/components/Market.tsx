@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Search, Filter, SlidersHorizontal, Loader2, Play, Eye, ShoppingCart, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, SlidersHorizontal, Loader2, Eye, ShoppingCart, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
@@ -35,7 +35,7 @@ interface Product {
 }
 
 const aiTools = ["전체", "Sora", "Runway Gen-3", "Pika Labs", "Luma Dream Machine"];
-const categories = ["전체", "인기급상승", "AI영화", "AI드라마", "AI애니메이션", "AI다큐멘터리", "AI뮤직비디오", "SF", "액션", "로맨스", "공포", "판타지", "드라마", "코미디", "자연/풍경", "추상", "기타"];
+const categories = ["전체", "AI영화", "AI드라마", "AI애니메이션", "AI다큐멘터리", "AI뮤직비디오", "SF", "액션", "로맨스", "공포", "판타지", "드라마", "코미디", "자연/풍경", "추상", "기타"];
 const resolutions = ["전체", "1080p", "4K", "8K"];
 const genres = ["전체", "SF", "액션", "로맨스", "공포", "판타지", "드라마", "코미디", "자연/풍경", "추상", "기타"];
 
@@ -54,6 +54,8 @@ export function Market({ onProductClick }: MarketProps) {
   const [selectedResolutions, setSelectedResolutions] = useState<string[]>([]);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  // 큐레이션 → 그리드 뷰 강제 전환 플래그 (인기/신작 "더보기"용)
+  const [forceGrid, setForceGrid] = useState(false);
 
   // 뒤로가기로 필터 패널 닫기
   useBackButton(isFilterOpen, () => setIsFilterOpen(false));
@@ -162,9 +164,10 @@ export function Market({ onProductClick }: MarketProps) {
     }));
   }, [products]);
 
-  // 검색/필터 활성 여부
+  // 검색/필터 활성 여부 (활성 시 그리드, 비활성 시 큐레이션)
   const hasActiveFilter = useMemo(() => {
     return (
+      forceGrid ||
       searchQuery !== "" ||
       selectedCategory !== "전체" ||
       priceRange[0] !== 0 ||
@@ -172,15 +175,44 @@ export function Market({ onProductClick }: MarketProps) {
       selectedTools.length > 0 ||
       selectedResolutions.length > 0
     );
-  }, [searchQuery, selectedCategory, priceRange, selectedTools, selectedResolutions]);
+  }, [forceGrid, searchQuery, selectedCategory, priceRange, selectedTools, selectedResolutions]);
 
-  // 큐레이션 섹션 (필터 비활성 시 노출)
+  // "큐레이션으로 돌아가기" — 모든 필터 초기화
+  const resetToCuration = () => {
+    setForceGrid(false);
+    setSearchQuery("");
+    setSelectedCategory("전체");
+    setPriceRange([0, 200000]);
+    setSelectedTools([]);
+    setSelectedResolutions([]);
+    setSelectedGenres([]);
+    setSortBy("latest");
+  };
+
+  // 큐레이션 섹션 (필터 비활성 시 노출) — 활성 시에는 빈 배열로 계산 비용 절감
   const curationSections = useMemo(() => {
-    if (products.length === 0) return [];
-    const sections: { id: string; title: string; subtitle: string; videos: Product[] }[] = [];
+    if (hasActiveFilter || products.length === 0) return [];
+    type Section = {
+      id: string;
+      title: string;
+      subtitle: string;
+      videos: Product[];
+      onShowAll?: () => void;
+    };
+    const sections: Section[] = [];
 
-    // 1. 에디터 추천 — 가격 기준 상위 (프리미엄 프록시)
-    const editorPicks = [...products].sort((a, b) => b.price - a.price).slice(0, 10);
+    // 1. 인기급상승 — 가격 기준 (프록시)
+    const popular = [...products].sort((a, b) => b.price - a.price).slice(0, 10);
+    if (popular.length > 0) sections.push({
+      id: "popular",
+      title: "🔥 인기급상승",
+      subtitle: "지금 가장 사랑받는 영상",
+      videos: popular,
+      onShowAll: () => { setSortBy("popular"); setForceGrid(true); },
+    });
+
+    // 2. 에디터 추천 — 큐레이션만 (더보기 없음)
+    const editorPicks = [...products].slice(0, 10);
     if (editorPicks.length > 0) sections.push({
       id: "editor",
       title: "🎬 에디터 추천",
@@ -188,16 +220,17 @@ export function Market({ onProductClick }: MarketProps) {
       videos: editorPicks,
     });
 
-    // 2. 신작 — created_at desc (이미 정렬된 products)
+    // 3. 신작
     const newest = products.slice(0, 10);
     if (newest.length > 0) sections.push({
       id: "new",
       title: "✨ 신작",
       subtitle: "방금 도착한 따끈따끈한 신작",
       videos: newest,
+      onShowAll: () => { setSortBy("latest"); setForceGrid(true); },
     });
 
-    // 3. 시네마틱 컬렉션
+    // 4. 시네마틱 컬렉션
     const cinematic = products.filter(p =>
       ["AI영화", "AI드라마", "AI애니메이션", "AI다큐멘터리"].includes(p.category)
     ).slice(0, 10);
@@ -206,37 +239,41 @@ export function Market({ onProductClick }: MarketProps) {
       title: "🎭 시네마틱 컬렉션",
       subtitle: "영화 같은 비주얼, 깊이 있는 스토리텔링",
       videos: cinematic,
+      onShowAll: () => setSelectedCategory("AI영화"),
     });
 
-    // 4. SF/판타지
+    // 5. SF/판타지
     const scifi = products.filter(p => ["SF", "판타지", "공포"].includes(p.category)).slice(0, 10);
     if (scifi.length > 0) sections.push({
       id: "scifi",
       title: "🚀 SF · 판타지",
       subtitle: "현실을 벗어난 상상력",
       videos: scifi,
+      onShowAll: () => setSelectedCategory("SF"),
     });
 
-    // 5. AI 툴별 — Sora
+    // 6. AI 툴별 — Sora
     const sora = products.filter(p => p.tool === "Sora").slice(0, 10);
     if (sora.length > 0) sections.push({
       id: "sora",
       title: "🤖 Sora 베스트",
       subtitle: "OpenAI Sora로 제작된 인기 영상",
       videos: sora,
+      onShowAll: () => setSelectedTools(["Sora"]),
     });
 
-    // 6. 4K 고화질
+    // 7. 4K 고화질
     const hires = products.filter(p => p.resolution === "4K" || p.resolution === "8K").slice(0, 10);
     if (hires.length > 0) sections.push({
       id: "hires",
       title: "💎 4K · 8K 고화질",
       subtitle: "선명한 화질로 즐기는 프리미엄 영상",
       videos: hires,
+      onShowAll: () => setSelectedResolutions(["4K", "8K"]),
     });
 
     return sections;
-  }, [products]);
+  }, [products, hasActiveFilter]);
 
   if (loading) {
     return (
@@ -497,14 +534,32 @@ export function Market({ onProductClick }: MarketProps) {
           </div>
         )}
 
-        {/* 큐레이션 섹션 (필터 비활성 시) */}
+        {/* 큐레이션 ↔ 그리드 전환 (트랜지션 적용) */}
+        <AnimatePresence mode="wait" initial={false}>
         {!hasActiveFilter && curationSections.length > 0 && (
-          <div className="pt-2 pb-20 md:max-w-7xl md:mx-auto">
+          <motion.div
+            key="curation"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25 }}
+            className="pt-2 pb-20 md:max-w-7xl md:mx-auto"
+          >
             {curationSections.map((section) => (
               <section key={section.id} className="mb-10">
-                <div className="px-4 md:px-6 mb-3">
-                  <h2 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">{section.title}</h2>
-                  <p className="text-sm text-gray-400 mt-0.5">{section.subtitle}</p>
+                <div className="flex items-end justify-between px-4 md:px-6 mb-3">
+                  <div>
+                    <h2 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">{section.title}</h2>
+                    <p className="text-sm text-gray-400 mt-0.5">{section.subtitle}</p>
+                  </div>
+                  {section.onShowAll && (
+                    <button
+                      onClick={section.onShowAll}
+                      className="flex-shrink-0 text-xs font-bold text-[#a78bfa] hover:text-white transition-colors flex items-center gap-1"
+                    >
+                      모두 보기 <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
                 <div className="flex gap-3 overflow-x-auto px-4 md:px-6 pb-2 scrollbar-hide snap-x">
                   {section.videos.map((video) => (
@@ -534,12 +589,26 @@ export function Market({ onProductClick }: MarketProps) {
                 </div>
               </section>
             ))}
-          </div>
+          </motion.div>
         )}
 
         {/* 검색 결과 그리드 (필터 활성 시) */}
         {hasActiveFilter && (
-        <div className="p-4 md:px-6 pb-20">
+        <motion.div
+          key="grid"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.25 }}
+          className="p-4 md:px-6 pb-20"
+        >
+          {/* 큐레이션으로 돌아가기 */}
+          <button
+            onClick={resetToCuration}
+            className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-[#a78bfa] hover:text-white transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" /> 큐레이션으로 돌아가기
+          </button>
           <motion.div
             layout
             className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 md:max-w-7xl md:mx-auto"
@@ -646,8 +715,9 @@ export function Market({ onProductClick }: MarketProps) {
               <p className="text-gray-400">다른 키워드나 필터 조건으로 다시 시도해 보세요.</p>
             </motion.div>
           )}
-        </div>
+        </motion.div>
         )}
+        </AnimatePresence>
       </div>
     </div>
   );
