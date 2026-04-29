@@ -27,6 +27,7 @@ import { AuthModal } from "./components/AuthModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CartPanel, CartItem } from "./components/CartPanel";
 import { NotificationPanel } from "./components/NotificationPanel";
+import { ButtonPreview } from "./components/ButtonPreview";
 import { Button } from "./components/ui/button";
 import { handleBunnyError } from "./utils/bunnyErrorHandler";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -50,6 +51,11 @@ interface VideoProduct {
 }
 
 function AppContent() {
+  // 버튼 프리뷰 모드 (URL ?preview=button)
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "button") {
+    return <ButtonPreview />;
+  }
+
   const [showSplash, setShowSplash] = useState(() => {
     const lastVisitDate = localStorage.getItem('aivm_last_visit');
     const today = new Date().toDateString();
