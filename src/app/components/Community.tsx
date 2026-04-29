@@ -4,22 +4,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
 import { motion, AnimatePresence } from "motion/react";
 import { CommentPanel } from "./CommentPanel";
+import { CommunityPostDetail, Post } from "./CommunityPostDetail";
+import { CommunityChallengeDetail, Challenge } from "./CommunityChallengeDetail";
 import { useAuth } from "../contexts/AuthContext";
 import { useBackButton } from "../hooks/useBackButton";
 import { toast } from "sonner";
-
-interface Post {
-  id: string;
-  author: string;
-  avatar: string;
-  title: string;
-  content: string;
-  category: string;
-  likes: number;
-  comments: number;
-  timestamp: string;
-  image?: string;
-}
 
 const INITIAL_POSTS: Post[] = [
   {
@@ -88,10 +77,34 @@ const getNextDeadline = (offsetDays: number) => {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 };
 
-const challenges = [
-  { id: "1", title: "미래 도시 챌린지", prize: "500만원", participants: 342, deadline: getNextDeadline(15), image: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=400&h=200&fit=crop" },
-  { id: "2", title: "자연 다큐멘터리", prize: "300만원", participants: 189, deadline: getNextDeadline(20), image: "https://images.unsplash.com/photo-1551728715-88730314d185?w=400&h=200&fit=crop" },
-  { id: "3", title: "추상 아트 비주얼", prize: "200만원", participants: 267, deadline: getNextDeadline(25), image: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=400&h=200&fit=crop" }
+const challenges: Challenge[] = [
+  {
+    id: "1",
+    title: "미래 도시 챌린지",
+    prize: "500만원",
+    participants: 342,
+    deadline: getNextDeadline(15),
+    image: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=400&h=200&fit=crop",
+    description: "Cyberpunk, 네온, 미래 도시를 주제로 한 15초 이내 AI 영상을 제작해주세요.\n\nBlade Runner, 사이버펑크 2077, 고스트 인 더 셸 같은 작품들에서 영감을 받아 자신만의 미래 도시 비전을 표현해 보세요. 디스토피아든 유토피아든, 어떤 미래를 그리느냐는 자유입니다.\n\n우수작은 CREAITE 메인 피드에 1주일 동안 무료 노출됩니다.",
+  },
+  {
+    id: "2",
+    title: "자연 다큐멘터리",
+    prize: "300만원",
+    participants: 189,
+    deadline: getNextDeadline(20),
+    image: "https://images.unsplash.com/photo-1551728715-88730314d185?w=400&h=200&fit=crop",
+    description: "BBC Earth 같은 시네마틱 자연 다큐 스타일 영상을 만들어주세요.\n\n광활한 자연의 경이로움, 야생 동물의 생동감 넘치는 순간, 또는 작은 곤충의 미시 세계까지 — 어떤 자연이든 좋습니다. 시네마틱 연출과 감정적 임팩트가 핵심 평가 요소입니다.",
+  },
+  {
+    id: "3",
+    title: "추상 아트 비주얼",
+    prize: "200만원",
+    participants: 267,
+    deadline: getNextDeadline(25),
+    image: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=400&h=200&fit=crop",
+    description: "추상적 비주얼, 컬러, 모션, 패턴을 활용한 실험적인 영상을 제작하세요.\n\n구체적인 주제 없이도 OK. 음악 시각화, 추상 표현주의, 사이키델릭 아트 등 자유롭게 표현해 주세요. 영상미와 독창성이 평가 기준입니다.",
+  },
 ];
 
 const CATEGORIES = ["팁", "챌린지", "비교", "프롬프트", "튜토리얼", "일반", "질문"];
@@ -114,15 +127,21 @@ export function Community() {
   const [commentPostId, setCommentPostId] = useState<string | null>(null);
   const [showWriteModal, setShowWriteModal] = useState(false);
 
+  // 상세 페이지 state
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
+
   // Write modal state
   const [writeTitle, setWriteTitle] = useState("");
   const [writeContent, setWriteContent] = useState("");
   const [writeCategory, setWriteCategory] = useState("일반");
   const [submitting, setSubmitting] = useState(false);
 
-  // 뒤로가기로 글쓰기 모달 / 댓글 패널 닫기
+  // 뒤로가기로 모든 모달/패널 닫기 (LIFO)
   useBackButton(showWriteModal, () => setShowWriteModal(false));
   useBackButton(!!commentPostId, () => setCommentPostId(null));
+  useBackButton(!!selectedPost, () => setSelectedPost(null));
+  useBackButton(!!selectedChallenge, () => setSelectedChallenge(null));
 
   const toggleLike = (postId: string) => {
     setLikedPosts(prev => {
@@ -211,7 +230,8 @@ export function Community() {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="bg-card rounded-lg border border-border overflow-hidden"
+                    onClick={() => setSelectedPost(post)}
+                    className="bg-card rounded-lg border border-border overflow-hidden cursor-pointer hover:border-[#6366f1]/50 transition-colors"
                   >
                     <div className="p-4">
                       <div className="flex items-center gap-3 mb-3">
@@ -247,14 +267,14 @@ export function Community() {
                       <div className="flex items-center justify-between pt-3 border-t border-border">
                         <div className="flex items-center gap-4">
                           <button
-                            onClick={() => toggleLike(post.id)}
+                            onClick={(e) => { e.stopPropagation(); toggleLike(post.id); }}
                             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                           >
                             <Heart className={`w-5 h-5 ${likedPosts.has(post.id) ? 'fill-[#ef4444] text-[#ef4444]' : ''}`} />
                             <span>{post.likes + (likedPosts.has(post.id) ? 1 : 0)}</span>
                           </button>
                           <button
-                            onClick={() => setCommentPostId(post.id)}
+                            onClick={(e) => { e.stopPropagation(); setCommentPostId(post.id); }}
                             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                           >
                             <MessageCircle className="w-5 h-5" />
@@ -262,7 +282,7 @@ export function Community() {
                           </button>
                         </div>
                         <button
-                          onClick={() => toggleBookmark(post.id)}
+                          onClick={(e) => { e.stopPropagation(); toggleBookmark(post.id); }}
                           className="text-muted-foreground hover:text-foreground transition-colors"
                         >
                           <Bookmark className={`w-5 h-5 ${bookmarkedPosts.has(post.id) ? 'fill-[#6366f1] text-[#6366f1]' : ''}`} />
@@ -278,7 +298,11 @@ export function Community() {
           <TabsContent value="challenges" className="mt-0">
             <div className="space-y-4 pb-6 md:pb-8">
               {challenges.map((challenge) => (
-                <div key={challenge.id} className="bg-card rounded-lg border border-border overflow-hidden group cursor-pointer">
+                <div
+                  key={challenge.id}
+                  onClick={() => setSelectedChallenge(challenge)}
+                  className="bg-card rounded-lg border border-border overflow-hidden group cursor-pointer hover:border-[#6366f1]/50 transition-colors"
+                >
                   <div className="relative h-32 overflow-hidden">
                     <img src={challenge.image} alt={challenge.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
@@ -296,7 +320,13 @@ export function Community() {
                   </div>
                   <div className="p-4 flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">마감: {challenge.deadline}</span>
-                    <Button size="sm" className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]">참여하기</Button>
+                    <Button
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); setSelectedChallenge(challenge); }}
+                      className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
+                    >
+                      자세히 보기
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -384,6 +414,30 @@ export function Community() {
               />
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* 게시글 상세 페이지 */}
+      <AnimatePresence>
+        {selectedPost && (
+          <CommunityPostDetail
+            post={selectedPost}
+            isLiked={likedPosts.has(selectedPost.id)}
+            isBookmarked={bookmarkedPosts.has(selectedPost.id)}
+            onLike={() => toggleLike(selectedPost.id)}
+            onBookmark={() => toggleBookmark(selectedPost.id)}
+            onClose={() => setSelectedPost(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* 챌린지 상세 페이지 */}
+      <AnimatePresence>
+        {selectedChallenge && (
+          <CommunityChallengeDetail
+            challenge={selectedChallenge}
+            onClose={() => setSelectedChallenge(null)}
+          />
         )}
       </AnimatePresence>
 
