@@ -1,4 +1,4 @@
-import { X, Play, Heart, Share2, Download, ShoppingCart, Check, Volume2, VolumeX, Loader2, MessageCircle } from "lucide-react";
+import { X, Play, Heart, Send, Download, ShoppingCart, Check, Volume2, VolumeX, Loader2, MessageCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -375,26 +375,58 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
         {/* Bottom Actions */}
         <div className="border-t border-border p-4 pb-8 md:pb-4 bg-card shrink-0">
           <div className="flex items-center gap-3 mb-3">
-            <button
+            {/* 좋아요 — 글래스 + 글로우 */}
+            <motion.button
+              whileTap={{ scale: 0.85 }}
               onClick={() => setIsLiked(!isLiked)}
-              className="w-12 h-12 rounded-full border border-border flex items-center justify-center hover:border-[#6366f1] transition-colors"
+              className="flex flex-col items-center"
+              aria-label="좋아요"
             >
-              <Heart className={`w-5 h-5 ${isLiked ? 'fill-[#ef4444] text-[#ef4444]' : ''}`} />
-            </button>
-            <button
-              onClick={handleShare}
-              className="w-12 h-12 rounded-full border border-border flex items-center justify-center hover:border-[#6366f1] transition-colors"
-            >
-              <Share2 className="w-5 h-5" />
-            </button>
-            <button
+              <div
+                className={`w-10 h-10 rounded-full backdrop-blur-xl flex items-center justify-center border-2 transition-all ${
+                  isLiked
+                    ? "bg-red-500/30 border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.6)]"
+                    : "bg-white/10 border-white/30"
+                }`}
+              >
+                <Heart
+                  className={`w-[18px] h-[18px] ${isLiked ? "fill-red-400 text-red-400" : "text-foreground"}`}
+                  strokeWidth={1.8}
+                />
+              </div>
+            </motion.button>
+
+            {/* 댓글 — pulse + purple glow */}
+            <motion.button
+              whileTap={{ scale: 0.85 }}
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
               onClick={() => setShowComments(!showComments)}
-              className={`w-12 h-12 rounded-full border flex items-center justify-center transition-colors ${
-                showComments ? 'border-[#6366f1] text-[#8b5cf6]' : 'border-border hover:border-[#6366f1]'
-              }`}
+              className="flex flex-col items-center"
+              aria-label="댓글"
             >
-              <MessageCircle className="w-5 h-5" />
-            </button>
+              <div className={`w-10 h-10 rounded-full backdrop-blur-xl border-2 flex items-center justify-center transition-all ${
+                showComments
+                  ? "bg-[#6366f1]/30 border-[#8b5cf6] shadow-[0_0_20px_rgba(139,92,246,0.6)]"
+                  : "bg-white/10 border-white/30 shadow-[0_0_15px_rgba(139,92,246,0.4)]"
+              }`}>
+                <MessageCircle className="w-[18px] h-[18px] text-foreground" strokeWidth={1.8} />
+              </div>
+            </motion.button>
+
+            {/* 공유 — hover 회전 + cyan glow */}
+            <motion.button
+              whileTap={{ scale: 0.85 }}
+              whileHover={{ rotate: 15 }}
+              onClick={handleShare}
+              className="flex flex-col items-center"
+              aria-label="공유"
+            >
+              <div className="w-10 h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.4)]">
+                <Send className="w-[18px] h-[18px] text-foreground -rotate-12" strokeWidth={1.8} />
+              </div>
+            </motion.button>
+
             <div className="flex-1" />
             <div className="text-right">
               <p className="text-xs text-muted-foreground">All-in-One 라이선스</p>
@@ -452,33 +484,24 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
           )}
         </AnimatePresence>
 
-        {/* Mobile Comment Bottom Sheet */}
+        {/* Mobile Comment Sheet — TikTok 스타일 (영상 위에 유지, 댓글이 하단을 채움) */}
         <AnimatePresence>
           {showComments && (
-            <>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setShowComments(false)}
-                className="md:hidden fixed inset-0 bg-black/60 z-10"
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="md:hidden absolute left-0 right-0 z-20 rounded-t-2xl overflow-hidden"
+              style={{ top: "40vh", bottom: 0 }}
+            >
+              <CommentPanel
+                videoId={product.id}
+                title={product.title}
+                onClose={() => setShowComments(false)}
+                mode="sheet"
               />
-              <motion.div
-                initial={{ y: "100%" }}
-                animate={{ y: 0 }}
-                exit={{ y: "100%" }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="md:hidden fixed bottom-0 left-0 right-0 z-20 rounded-t-2xl overflow-hidden"
-                style={{ height: "75vh" }}
-              >
-                <CommentPanel
-                  videoId={product.id}
-                  title={product.title}
-                  onClose={() => setShowComments(false)}
-                  mode="sheet"
-                />
-              </motion.div>
-            </>
+            </motion.div>
           )}
         </AnimatePresence>
 
