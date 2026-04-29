@@ -396,8 +396,15 @@ const MovieSection = memo(({
             e.stopPropagation();
             const player = playerRef.current;
             if (!player || player.isDisposed()) return;
-            // 비활성 영상에서 클릭 시 먼저 활성화 (그래야 재생되며 전체화면)
+            // 비활성 영상에서 클릭 시 먼저 활성화
             if (!isActive) onSetActive(video.id);
+            // 다른 모든 영상을 즉시 일시정지 + 음소거 (DOM 레벨 강제)
+            document.querySelectorAll<HTMLVideoElement>("video").forEach((v) => {
+              if (v !== videoRef.current) {
+                v.pause();
+                v.muted = true;
+              }
+            });
             if (player.isFullscreen()) {
               player.exitFullscreen();
             } else {
