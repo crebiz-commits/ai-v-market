@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, memo, useCallback } from "react";
-import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageCircle, MessageSquare, Send, ChevronRight, ExternalLink } from "lucide-react";
+import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageCircle, MessageSquare, Send, ChevronRight, ExternalLink, Maximize2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
@@ -378,7 +378,7 @@ const MovieSection = memo(({
         }}
       />
 
-      {/* 상단 레이블 + 음소거 버튼 (좌상단 세로 정렬) */}
+      {/* 상단 레이블 + 음소거 + 전체화면 (좌상단 세로 정렬) */}
       <div className="absolute top-3 left-3 z-30 flex flex-col gap-2 items-start">
         <span className="px-2.5 py-1 bg-black/60 backdrop-blur-md rounded-md text-white font-bold text-[10px] border border-white/10 uppercase tracking-tight pointer-events-none">
           {video.tool}
@@ -389,6 +389,19 @@ const MovieSection = memo(({
           aria-label={isMuted ? "음소거 해제" : "음소거"}
         >
           {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const player = playerRef.current;
+            if (!player || player.isDisposed()) return;
+            if (player.isFullscreen()) player.exitFullscreen();
+            else player.requestFullscreen();
+          }}
+          className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white pointer-events-auto"
+          aria-label="전체화면"
+        >
+          <Maximize2 className="w-4 h-4" />
         </button>
       </div>
 

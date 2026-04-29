@@ -1,4 +1,4 @@
-import { X, Play, Heart, Send, Download, ShoppingCart, Check, Volume2, VolumeX, Loader2, MessageCircle } from "lucide-react";
+import { X, Play, Heart, Send, Download, ShoppingCart, Check, Volume2, VolumeX, Loader2, MessageCircle, Maximize2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -218,13 +218,27 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
                 </button>
               </div>
 
-              {/* Volume Control */}
+              {/* Volume + Fullscreen Control */}
               <div className="absolute bottom-4 right-4 flex gap-2">
                 <button
                   onClick={toggleMute}
                   className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-black/60 transition-colors"
+                  aria-label={isMuted ? "음소거 해제" : "음소거"}
                 >
                   {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const player = playerRef.current;
+                    if (!player) return;
+                    if (player.isFullscreen()) player.exitFullscreen();
+                    else player.requestFullscreen();
+                  }}
+                  className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-black/60 transition-colors"
+                  aria-label="전체화면"
+                >
+                  <Maximize2 className="w-5 h-5" />
                 </button>
               </div>
             </div>
