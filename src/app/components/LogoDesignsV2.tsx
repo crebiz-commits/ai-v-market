@@ -172,15 +172,33 @@ function D7_Prism() {
 }
 
 // =============================================
-// 8. Triangle Stack — 추상적 ▶ 무한
+// 8. Triangle Stack — ▶▶▶ 순차 펄스 (이퀄라이저 풍)
 // =============================================
 function D8_TriStack() {
   return (
     <svg viewBox="0 0 100 100" className="w-full h-full">
       <GradientDefs />
-      <polygon points="20,30 20,70 50,50" fill="url(#cool2)" opacity="0.5" />
-      <polygon points="35,25 35,75 70,50" fill="url(#aurora2)" opacity="0.8" />
-      <polygon points="50,20 50,80 90,50" fill="url(#warm2)" />
+      <motion.polygon
+        points="20,30 20,70 50,50"
+        fill="url(#cool2)"
+        animate={{ scale: [1, 1.12, 1], opacity: [0.4, 0.7, 0.4] }}
+        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0 }}
+        style={{ transformOrigin: "35px 50px" }}
+      />
+      <motion.polygon
+        points="35,25 35,75 70,50"
+        fill="url(#aurora2)"
+        animate={{ scale: [1, 1.12, 1], opacity: [0.6, 0.95, 0.6] }}
+        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
+        style={{ transformOrigin: "52px 50px" }}
+      />
+      <motion.polygon
+        points="50,20 50,80 90,50"
+        fill="url(#warm2)"
+        animate={{ scale: [1, 1.12, 1], opacity: [0.85, 1, 0.85] }}
+        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
+        style={{ transformOrigin: "70px 50px" }}
+      />
     </svg>
   );
 }
@@ -292,7 +310,7 @@ export function LogoDesignsV2() {
     { name: "★ 디자인 5: Aperture", desc: "카메라 조리개 (영상 컨셉)", Component: D5_Aperture },
     { name: "★ 디자인 6: Letter C", desc: "Vercel 같은 미니멀 타이포 마크", Component: D6_LetterC },
     { name: "★ 디자인 7: Hexagon Prism", desc: "3D 입체 다이아몬드 굴절", Component: D7_Prism },
-    { name: "★ 디자인 8: Triangle Stack", desc: "겹쳐진 3개 ▶ (반복/무한)", Component: D8_TriStack },
+    { name: "★ 디자인 8: Triangle Stack + Pulse", desc: "▶▶▶ 순차 펄스 (왼쪽→오른쪽 흐름)", Component: D8_TriStack },
     { name: "★ 디자인 9: AI Eye", desc: "AI의 시각 — 동공이 오로라", Component: D9_Eye },
     { name: "★ 디자인 10: Spiral", desc: "회전하는 나선 (생성/진화)", Component: D10_Spiral },
     { name: "★ 디자인 11: Plus Star", desc: "Gemini/Apple Sparkle 풍 4갈래 별", Component: D11_Plus },
