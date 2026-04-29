@@ -162,6 +162,82 @@ export function Market({ onProductClick }: MarketProps) {
     }));
   }, [products]);
 
+  // 검색/필터 활성 여부
+  const hasActiveFilter = useMemo(() => {
+    return (
+      searchQuery !== "" ||
+      selectedCategory !== "전체" ||
+      priceRange[0] !== 0 ||
+      priceRange[1] !== 200000 ||
+      selectedTools.length > 0 ||
+      selectedResolutions.length > 0
+    );
+  }, [searchQuery, selectedCategory, priceRange, selectedTools, selectedResolutions]);
+
+  // 큐레이션 섹션 (필터 비활성 시 노출)
+  const curationSections = useMemo(() => {
+    if (products.length === 0) return [];
+    const sections: { id: string; title: string; subtitle: string; videos: Product[] }[] = [];
+
+    // 1. 에디터 추천 — 가격 기준 상위 (프리미엄 프록시)
+    const editorPicks = [...products].sort((a, b) => b.price - a.price).slice(0, 10);
+    if (editorPicks.length > 0) sections.push({
+      id: "editor",
+      title: "🎬 에디터 추천",
+      subtitle: "큐레이터가 직접 선정한 프리미엄 영상",
+      videos: editorPicks,
+    });
+
+    // 2. 신작 — created_at desc (이미 정렬된 products)
+    const newest = products.slice(0, 10);
+    if (newest.length > 0) sections.push({
+      id: "new",
+      title: "✨ 신작",
+      subtitle: "방금 도착한 따끈따끈한 신작",
+      videos: newest,
+    });
+
+    // 3. 시네마틱 컬렉션
+    const cinematic = products.filter(p =>
+      ["AI영화", "AI드라마", "AI애니메이션", "AI다큐멘터리"].includes(p.category)
+    ).slice(0, 10);
+    if (cinematic.length > 0) sections.push({
+      id: "cinematic",
+      title: "🎭 시네마틱 컬렉션",
+      subtitle: "영화 같은 비주얼, 깊이 있는 스토리텔링",
+      videos: cinematic,
+    });
+
+    // 4. SF/판타지
+    const scifi = products.filter(p => ["SF", "판타지", "공포"].includes(p.category)).slice(0, 10);
+    if (scifi.length > 0) sections.push({
+      id: "scifi",
+      title: "🚀 SF · 판타지",
+      subtitle: "현실을 벗어난 상상력",
+      videos: scifi,
+    });
+
+    // 5. AI 툴별 — Sora
+    const sora = products.filter(p => p.tool === "Sora").slice(0, 10);
+    if (sora.length > 0) sections.push({
+      id: "sora",
+      title: "🤖 Sora 베스트",
+      subtitle: "OpenAI Sora로 제작된 인기 영상",
+      videos: sora,
+    });
+
+    // 6. 4K 고화질
+    const hires = products.filter(p => p.resolution === "4K" || p.resolution === "8K").slice(0, 10);
+    if (hires.length > 0) sections.push({
+      id: "hires",
+      title: "💎 4K · 8K 고화질",
+      subtitle: "선명한 화질로 즐기는 프리미엄 영상",
+      videos: hires,
+    });
+
+    return sections;
+  }, [products]);
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background">
@@ -421,9 +497,50 @@ export function Market({ onProductClick }: MarketProps) {
           </div>
         )}
 
-        {/* Product Grid */}
+        {/* 큐레이션 섹션 (필터 비활성 시) */}
+        {!hasActiveFilter && curationSections.length > 0 && (
+          <div className="pt-2 pb-20 md:max-w-7xl md:mx-auto">
+            {curationSections.map((section) => (
+              <section key={section.id} className="mb-10">
+                <div className="px-4 md:px-6 mb-3">
+                  <h2 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">{section.title}</h2>
+                  <p className="text-sm text-gray-400 mt-0.5">{section.subtitle}</p>
+                </div>
+                <div className="flex gap-3 overflow-x-auto px-4 md:px-6 pb-2 scrollbar-hide snap-x">
+                  {section.videos.map((video) => (
+                    <motion.button
+                      key={`${section.id}-${video.id}`}
+                      whileHover={{ y: -4 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => onProductClick(video)}
+                      className="flex-shrink-0 w-40 md:w-44 snap-start text-left group"
+                    >
+                      <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-black border border-white/10 group-hover:border-[#6366f1]/50 transition-colors">
+                        <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md rounded text-[9px] text-white font-bold uppercase tracking-tight">
+                          {video.tool}
+                        </div>
+                        <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] rounded text-[9px] text-white font-bold">
+                          {video.duration}
+                        </div>
+                      </div>
+                      <div className="mt-2 px-0.5">
+                        <p className="text-sm font-bold text-white truncate">{video.title}</p>
+                        <p className="text-xs text-gray-500 truncate">{video.creator}</p>
+                        <p className="text-sm font-extrabold text-[#f87171] mt-1">₩{video.price.toLocaleString()}</p>
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+
+        {/* 검색 결과 그리드 (필터 활성 시) */}
+        {hasActiveFilter && (
         <div className="p-4 md:px-6 pb-20">
-          <motion.div 
+          <motion.div
             layout
             className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 md:max-w-7xl md:mx-auto"
           >
@@ -530,6 +647,7 @@ export function Market({ onProductClick }: MarketProps) {
             </motion.div>
           )}
         </div>
+        )}
       </div>
     </div>
   );
