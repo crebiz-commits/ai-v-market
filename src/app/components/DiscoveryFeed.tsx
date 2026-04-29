@@ -480,6 +480,28 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // 전체화면 모달 열렸을 때: 피드 영상 자동재생 차단 (회전/리사이즈 대응)
+  useEffect(() => {
+    if (!fullscreenVideo || !containerRef.current) return;
+    const feedVideos = Array.from(
+      containerRef.current.querySelectorAll<HTMLVideoElement>("video")
+    );
+    // 1) 즉시 모두 일시정지 + 음소거
+    feedVideos.forEach((v) => { v.pause(); v.muted = true; });
+    // 2) play 이벤트 발생 즉시 다시 pause (autoplay 재발동 차단)
+    const onPlay = (e: Event) => (e.target as HTMLVideoElement).pause();
+    feedVideos.forEach((v) => v.addEventListener("play", onPlay));
+    // 3) 회전/리사이즈 백업 — 이벤트 시 다시 일시정지
+    const pauseAll = () => feedVideos.forEach((v) => v.pause());
+    window.addEventListener("resize", pauseAll);
+    window.addEventListener("orientationchange", pauseAll);
+    return () => {
+      feedVideos.forEach((v) => v.removeEventListener("play", onPlay));
+      window.removeEventListener("resize", pauseAll);
+      window.removeEventListener("orientationchange", pauseAll);
+    };
+  }, [fullscreenVideo]);
+
   // Fetch initial data (videos + ads in parallel)
   useEffect(() => {
     async function fetchData() {
