@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
+import { useBackButton } from "../hooks/useBackButton";
 import { toast } from "sonner";
 import { supabase } from "../utils/supabaseClient";
 
@@ -66,6 +67,10 @@ export function MyPage({ onSignInClick }: MyPageProps) {
   const [pwConfirm, setPwConfirm] = useState("");
   const [showPwNew, setShowPwNew] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+
+  // 뒤로가기로 프로필/비밀번호 모달 닫기
+  useBackButton(showProfileEdit, () => setShowProfileEdit(false));
+  useBackButton(showPasswordChange, () => setShowPasswordChange(false));
 
   const fetchMyData = async () => {
     if (!user) return;

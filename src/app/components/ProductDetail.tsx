@@ -6,6 +6,7 @@ import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import { toast } from "sonner";
 import { CommentPanel } from "./CommentPanel";
+import { useBackButton } from "../hooks/useBackButton";
 
 interface ProductDetailProps {
   product: {
@@ -125,6 +126,9 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
     e.stopPropagation();
     setIsMuted(!isMuted);
   };
+
+  // 뒤로가기로 댓글 패널 닫기
+  useBackButton(showComments, () => setShowComments(false));
 
   const handleAddToCart = () => {
     if (onAddToCart) {

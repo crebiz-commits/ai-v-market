@@ -8,6 +8,7 @@ import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { CommentPanel } from "./CommentPanel";
 import { VideoFullscreen } from "./VideoFullscreen";
+import { useBackButton } from "../hooks/useBackButton";
 import { toast } from "sonner";
 
 interface Ad {
@@ -479,6 +480,10 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // 모바일 뒤로가기로 전체화면 / 댓글 패널 닫기
+  useBackButton(!!fullscreenVideo, () => setFullscreenVideo(null));
+  useBackButton(!!commentVideo, () => setCommentVideo(null));
 
   // 전체화면 모달 열렸을 때: 피드 영상 자동재생 차단 (회전/리사이즈 대응)
   useEffect(() => {

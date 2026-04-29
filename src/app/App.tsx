@@ -35,6 +35,7 @@ import { LogoFish } from "./components/LogoFish";
 import { LogoFishPlay } from "./components/LogoFishPlay";
 import { CreaiteText } from "./components/CreaiteText";
 import { CreaiteLogo } from "./components/CreaiteLogo";
+import { useBackButton } from "./hooks/useBackButton";
 import { Button } from "./components/ui/button";
 import { handleBunnyError } from "./utils/bunnyErrorHandler";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -177,6 +178,11 @@ function AppContent() {
   const togglePanel = (panel: Panel) => {
     setActivePanel(prev => prev === panel ? null : panel);
   };
+
+  // 모바일 뒤로가기로 모달 닫기
+  useBackButton(!!selectedProduct, () => setSelectedProduct(null));
+  useBackButton(!!activePanel, () => setActivePanel(null));
+  useBackButton(showAuthModal, () => setShowAuthModal(false));
 
   if (loading) {
     return (

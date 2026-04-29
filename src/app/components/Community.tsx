@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { motion, AnimatePresence } from "motion/react";
 import { CommentPanel } from "./CommentPanel";
 import { useAuth } from "../contexts/AuthContext";
+import { useBackButton } from "../hooks/useBackButton";
 import { toast } from "sonner";
 
 interface Post {
@@ -118,6 +119,10 @@ export function Community() {
   const [writeContent, setWriteContent] = useState("");
   const [writeCategory, setWriteCategory] = useState("일반");
   const [submitting, setSubmitting] = useState(false);
+
+  // 뒤로가기로 글쓰기 모달 / 댓글 패널 닫기
+  useBackButton(showWriteModal, () => setShowWriteModal(false));
+  useBackButton(!!commentPostId, () => setCommentPostId(null));
 
   const toggleLike = (postId: string) => {
     setLikedPosts(prev => {
