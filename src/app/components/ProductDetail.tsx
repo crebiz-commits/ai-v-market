@@ -186,7 +186,7 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
     const url = `${window.location.origin}?video=${product.id}`;
     const shareData = {
       title: product.title,
-      text: `AI-V-Market: ${product.title} by ${product.creator}`,
+      text: `CREAITE: ${product.title} by ${product.creator}`,
       url,
     };
     try {

@@ -1,4 +1,4 @@
-# 🚀 AI-V-Market 배포 가이드 (GitHub & Vercel)
+# 🚀 CREAITE 배포 가이드 (GitHub & Vercel)
 
 현재 로컬에서 작업한 내용을 전 세계 어디서든 (모바일 포함) 접속 가능하게 만드는 과정입니다.
 

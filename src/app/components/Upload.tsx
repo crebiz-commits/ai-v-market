@@ -569,7 +569,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
 
               <div className="bg-card p-4 rounded-lg border border-border">
                 <p className="text-sm text-muted-foreground">
-                  ℹ️ 업로드된 영상에는 자동으로 AI-V-Market 워터마크가 삽입됩니다. 
+                  ℹ️ 업로드된 영상에는 자동으로 CREAITE 워터마크가 삽입됩니다. 
                   구매자는 결제 후 워터마크가 제거된 원본을  다운로드할 수 있습니다.
                 </p>
               </div>

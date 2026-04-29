@@ -26,12 +26,12 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
           <div className="w-32 h-32 mx-auto mb-4 flex items-center justify-center">
             <img 
               src="/logo.png" 
-              alt="AI-V-Market Logo" 
+              alt="CREAITE Logo" 
               className="w-full h-full object-contain"
             />
           </div>
           <h1 className="text-4xl mb-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">
-            AI-V-Market
+            CREAITE
           </h1>
           <p className="text-muted-foreground">AI 영상 특화 오픈마켓</p>
         </motion.div>

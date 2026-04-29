@@ -51,7 +51,7 @@ Authentication → Email Templates → SMTP Settings
 - SMTP Host: smtp.gmail.com
 - SMTP Port: 587
 - Sender Email: your-email@gmail.com
-- Sender Name: AI-V-Market
+- Sender Name: CREAITE
 - Username: your-email@gmail.com
 - Password: [16자리 앱 비밀번호]
 ```

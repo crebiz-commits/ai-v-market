@@ -1,5 +1,5 @@
 /**
- * AI-V-Market (AI 영상 특화 오픈마켓 플랫폼)
+ * CREAITE (AI 영상 특화 오픈마켓 플랫폼)
  *
  * 주요 기능:
  * - 탐색: AI 추천 알고리즘 기반 숏폼 피드
@@ -27,6 +27,7 @@ import { AuthModal } from "./components/AuthModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CartPanel, CartItem } from "./components/CartPanel";
 import { NotificationPanel } from "./components/NotificationPanel";
+import { LogoPreview } from "./components/LogoPreview";
 import { Button } from "./components/ui/button";
 import { handleBunnyError } from "./utils/bunnyErrorHandler";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -50,6 +51,11 @@ interface VideoProduct {
 }
 
 function AppContent() {
+  // 로고 프리뷰 모드 (URL ?preview=logo)
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "logo") {
+    return <LogoPreview />;
+  }
+
   const [showSplash, setShowSplash] = useState(() => {
     const lastVisitDate = localStorage.getItem('aivm_last_visit');
     const today = new Date().toDateString();
@@ -68,7 +74,7 @@ function AppContent() {
   const { user, signOut, isAuthenticated, loading } = useAuth();
 
   useEffect(() => {
-    document.title = "AI-V-Market | AI 영상 특화 오픈마켓";
+    document.title = "CREAITE | AI 영상 특화 오픈마켓";
     const handleError = (event: ErrorEvent) => {
       if (event.error) handleBunnyError(event.error);
       else if (event.message) handleBunnyError({ message: event.message });
@@ -196,11 +202,11 @@ function AppContent() {
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab("market")}>
             <img
               src="/logo.png"
-              alt="AI-V-Market Logo"
+              alt="CREAITE Logo"
               className="h-9 w-auto object-contain drop-shadow-sm"
             />
             <span className="text-[17px] font-extrabold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent tracking-tight">
-              AI-V-Market
+              CREAITE
             </span>
           </div>
           <div className="flex items-center gap-1">
@@ -273,11 +279,11 @@ function AppContent() {
           >
             <img
               src="/logo.png"
-              alt="AI-V-Market Logo"
+              alt="CREAITE Logo"
               className="h-10 w-auto object-contain drop-shadow-md"
             />
             <span className="text-xl font-extrabold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent hidden lg:block tracking-tight drop-shadow-sm">
-              AI-V-Market
+              CREAITE
             </span>
           </motion.div>
 

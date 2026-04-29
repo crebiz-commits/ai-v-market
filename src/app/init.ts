@@ -10,7 +10,7 @@ installConsoleFilter();
 
 // 초기화 완료 메시지
 console.log(
-  '%c🚀 AI-V-Market 초기화',
+  '%c🚀 CREAITE 초기화',
   'color: #6366f1; font-weight: bold; font-size: 14px;'
 );
 

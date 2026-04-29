@@ -31,7 +31,7 @@ https://console.cloud.google.com
 ```
 
 1. **새 프로젝트 만들기** 또는 기존 프로젝트 선택
-2. 프로젝트 이름: `AI-V-Market` (원하는 이름)
+2. 프로젝트 이름: `CREAITE` (원하는 이름)
 
 ### 2단계: OAuth 동의 화면 구성
 
@@ -42,7 +42,7 @@ https://console.cloud.google.com
 
 **앱 정보 입력:**
 ```
-- App name: AI-V-Market
+- App name: CREAITE
 - User support email: your-email@gmail.com
 - Developer contact email: your-email@gmail.com
 ```
@@ -62,7 +62,7 @@ https://console.cloud.google.com
 **웹 클라이언트 구성:**
 
 ```
-이름: AI-V-Market Web Client
+이름: CREAITE Web Client
 
 승인된 JavaScript 원본 (Authorized JavaScript origins):
 - https://tvbpiuwmvrccfnplhwer.supabase.co

@@ -18,7 +18,7 @@ const SAMPLE_NOTIFICATIONS: Notification[] = [
   {
     id: "s1",
     type: "system",
-    title: "AI-V-Market에 오신 것을 환영합니다!",
+    title: "CREAITE에 오신 것을 환영합니다!",
     body: "로그인하면 맞춤 알림을 받을 수 있습니다.",
     read: false,
     created_at: new Date(Date.now() - 60000).toISOString(),

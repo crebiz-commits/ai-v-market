@@ -628,7 +628,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
 
   const handleShare = useCallback(async (video: Video) => {
     const url = `${window.location.origin}?video=${video.id}`;
-    const shareData = { title: video.title, text: `AI-V-Market: ${video.title}`, url };
+    const shareData = { title: video.title, text: `CREAITE: ${video.title}`, url };
     try {
       if (navigator.share && navigator.canShare?.(shareData)) {
         await navigator.share(shareData);
