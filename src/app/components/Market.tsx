@@ -745,7 +745,7 @@ function CurationRow({
           <button
             onClick={() => scroll("left")}
             aria-label="이전"
-            className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-20 w-12 h-24 items-center justify-center bg-gradient-to-r from-black/90 via-black/70 to-transparent text-white opacity-0 group-hover/row:opacity-100 hover:from-black hover:via-black/90 transition-opacity"
+            className="hidden [@media(hover:hover)]:flex absolute left-0 top-1/2 -translate-y-1/2 z-20 w-12 h-24 items-center justify-center bg-gradient-to-r from-black/90 via-black/70 to-transparent text-white opacity-0 group-hover/row:opacity-100 hover:from-black hover:via-black/90 transition-opacity"
           >
             <ChevronLeft className="w-7 h-7 drop-shadow-lg" />
           </button>
@@ -756,7 +756,7 @@ function CurationRow({
           <button
             onClick={() => scroll("right")}
             aria-label="다음"
-            className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-20 w-12 h-24 items-center justify-center bg-gradient-to-l from-black/90 via-black/70 to-transparent text-white opacity-0 group-hover/row:opacity-100 hover:from-black hover:via-black/90 transition-opacity"
+            className="hidden [@media(hover:hover)]:flex absolute right-0 top-1/2 -translate-y-1/2 z-20 w-12 h-24 items-center justify-center bg-gradient-to-l from-black/90 via-black/70 to-transparent text-white opacity-0 group-hover/row:opacity-100 hover:from-black hover:via-black/90 transition-opacity"
           >
             <ChevronRight className="w-7 h-7 drop-shadow-lg" />
           </button>
