@@ -90,6 +90,21 @@ function AppContent() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const { user, signOut, isAuthenticated, loading } = useAuth();
 
+  // YouTube 패턴: 어떤 영상이든 재생되면 다른 모든 영상을 즉시 일시정지
+  // 단일 활성 플레이어 보장 (피드/모달/전체화면 어디든 적용)
+  useEffect(() => {
+    const handleVideoPlay = (e: Event) => {
+      const target = e.target;
+      if (!(target instanceof HTMLVideoElement)) return;
+      document.querySelectorAll<HTMLVideoElement>("video").forEach((v) => {
+        if (v !== target && !v.paused) v.pause();
+      });
+    };
+    // capture phase로 등록 — play 이벤트는 bubble 안 되므로 필수
+    document.addEventListener("play", handleVideoPlay, true);
+    return () => document.removeEventListener("play", handleVideoPlay, true);
+  }, []);
+
   useEffect(() => {
     document.title = "CREAITE | AI 영상 특화 오픈마켓";
     const handleError = (event: ErrorEvent) => {
