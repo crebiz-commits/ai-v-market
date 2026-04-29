@@ -870,7 +870,20 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
             video={fullscreenVideo}
             isLiked={likedVideos.has(fullscreenVideo.id)}
             commentCount={commentCounts[fullscreenVideo.id] || 0}
-            onClose={() => setFullscreenVideo(null)}
+            onClose={() => {
+              setFullscreenVideo(null);
+              // 모달 unmount 후 활성 영상 재개
+              requestAnimationFrame(() => {
+                if (!containerRef.current || !activeId) return;
+                const v = containerRef.current.querySelector<HTMLVideoElement>(
+                  `[data-video-id="${activeId}"] video`
+                );
+                if (v) {
+                  v.muted = isMuted;
+                  v.play().catch(() => {});
+                }
+              });
+            }}
             onToggleLike={() => toggleLike(fullscreenVideo.id, likedVideos.has(fullscreenVideo.id))}
             onComment={() => {
               setCommentVideo(fullscreenVideo);

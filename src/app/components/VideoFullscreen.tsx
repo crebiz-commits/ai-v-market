@@ -63,13 +63,25 @@ export function VideoFullscreen({
       type: video.videoUrl.includes(".m3u8") ? "application/x-mpegURL" : "video/mp4",
     });
 
-    player.on("loadedmetadata", () => setDuration(player.duration() || 0));
+    player.on("loadedmetadata", () => {
+      setDuration(player.duration() || 0);
+      // 자동재생 시도 — 차단되면 muted로 폴백
+      const p = player.play();
+      if (p) {
+        p.catch(() => {
+          if (!player.isDisposed()) {
+            player.muted(true);
+            player.play()?.catch(() => {});
+          }
+        });
+      }
+    });
     player.on("timeupdate", () => {
       if (!isSeeking) setCurrentTime(player.currentTime() || 0);
     });
     player.on("play", () => setIsPlaying(true));
     player.on("pause", () => setIsPlaying(false));
-    player.on("volumechange", () => setIsMuted(player.muted()));
+    player.on("volumechange", () => setIsMuted(!!player.muted()));
 
     playerRef.current = player;
     return () => {
