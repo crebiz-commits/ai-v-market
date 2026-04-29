@@ -31,6 +31,7 @@ import { LogoPreview } from "./components/LogoPreview";
 import { NewLogoPreview } from "./components/NewLogoPreview";
 import { LogoDesigns } from "./components/LogoDesigns";
 import { LogoDesignsV2 } from "./components/LogoDesignsV2";
+import { LogoFish } from "./components/LogoFish";
 import { CreaiteText } from "./components/CreaiteText";
 import { CreaiteLogo } from "./components/CreaiteLogo";
 import { Button } from "./components/ui/button";
@@ -71,6 +72,10 @@ function AppContent() {
   // SVG 로고 디자인 V2 — 새로운 컨셉 (URL ?preview=designs2)
   if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "designs2") {
     return <LogoDesignsV2 />;
+  }
+  // 물고기 컨셉 로고 (URL ?preview=fish)
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "fish") {
+    return <LogoFish />;
   }
 
   const [showSplash, setShowSplash] = useState(() => {
