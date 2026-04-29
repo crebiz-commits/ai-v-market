@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import { Sparkles, Play, ShoppingBag, Zap } from "lucide-react";
 import { Button } from "./ui/button";
+import { CreaiteText } from "./CreaiteText";
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -30,8 +31,8 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               className="w-full h-full object-contain"
             />
           </div>
-          <h1 className="text-4xl mb-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">
-            CREAITE
+          <h1 className="mb-2">
+            <CreaiteText className="text-4xl font-extrabold" />
           </h1>
           <p className="text-muted-foreground">AI 영상 특화 오픈마켓</p>
         </motion.div>

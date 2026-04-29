@@ -28,6 +28,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CartPanel, CartItem } from "./components/CartPanel";
 import { NotificationPanel } from "./components/NotificationPanel";
 import { LogoPreview } from "./components/LogoPreview";
+import { CreaiteText } from "./components/CreaiteText";
 import { Button } from "./components/ui/button";
 import { handleBunnyError } from "./utils/bunnyErrorHandler";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -205,9 +206,7 @@ function AppContent() {
               alt="CREAITE Logo"
               className="h-9 w-auto object-contain drop-shadow-sm"
             />
-            <span className="text-[17px] font-extrabold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent tracking-tight">
-              CREAITE
-            </span>
+            <CreaiteText className="text-[17px] font-extrabold" />
           </div>
           <div className="flex items-center gap-1">
             <motion.button
@@ -282,8 +281,8 @@ function AppContent() {
               alt="CREAITE Logo"
               className="h-10 w-auto object-contain drop-shadow-md"
             />
-            <span className="text-xl font-extrabold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent hidden lg:block tracking-tight drop-shadow-sm">
-              CREAITE
+            <span className="hidden lg:block">
+              <CreaiteText className="text-xl font-extrabold" />
             </span>
           </motion.div>
 
