@@ -309,39 +309,39 @@ const MovieSection = memo(({
       )}
 
       {/* 우측 액션 버튼 (TikTok 스타일) */}
-      <div className="absolute right-2 bottom-[100px] z-40 flex flex-col items-center pointer-events-auto">
+      <div className="absolute right-2 bottom-[60px] z-40 flex flex-col items-center pointer-events-auto">
         <button
           onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }}
-          className="flex flex-col items-center py-1.5 active:scale-90 transition-transform"
+          className="flex flex-col items-center py-1 active:scale-90 transition-transform"
           aria-label="좋아요"
         >
           <Heart
-            className={`w-8 h-8 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${isLiked ? 'fill-red-500 text-red-500' : 'text-white fill-white/10'}`}
+            className={`w-7 h-7 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${isLiked ? 'fill-red-500 text-red-500' : 'text-white fill-white/10'}`}
             strokeWidth={1.5}
           />
-          <span className="text-[11px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">{video.likes.toLocaleString()}</span>
+          <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">{video.likes.toLocaleString()}</span>
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onComment(video); }}
-          className="flex flex-col items-center py-1.5 active:scale-90 transition-transform"
+          className="flex flex-col items-center py-1 active:scale-90 transition-transform"
           aria-label="댓글"
         >
           <MessageSquare
-            className="w-8 h-8 text-white fill-white/10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
+            className="w-7 h-7 text-white fill-white/10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
             strokeWidth={1.5}
           />
-          <span className="text-[11px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">{commentCount > 0 ? commentCount.toLocaleString() : "댓글"}</span>
+          <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">{commentCount > 0 ? commentCount.toLocaleString() : "댓글"}</span>
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onShare(video); }}
-          className="flex flex-col items-center py-1.5 active:scale-90 transition-transform"
+          className="flex flex-col items-center py-1 active:scale-90 transition-transform"
           aria-label="공유"
         >
           <Share2
-            className="w-8 h-8 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
+            className="w-7 h-7 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
             strokeWidth={1.5}
           />
-          <span className="text-[11px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">공유</span>
+          <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">공유</span>
         </button>
       </div>
 
