@@ -378,18 +378,19 @@ const MovieSection = memo(({
         }}
       />
 
-      {/* 상단 레이블 + 음소거 버튼 */}
-      <div className="absolute top-3 left-3 z-30 pointer-events-none">
-        <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md rounded text-white font-bold text-[8px] border border-white/10 uppercase tracking-tighter">
+      {/* 상단 레이블 + 음소거 버튼 (좌상단 세로 정렬) */}
+      <div className="absolute top-3 left-3 z-30 flex flex-col gap-2 items-start">
+        <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md rounded text-white font-bold text-[8px] border border-white/10 uppercase tracking-tighter pointer-events-none">
           {video.tool}
         </span>
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleMute(); }}
+          className="w-7 h-7 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white pointer-events-auto"
+          aria-label={isMuted ? "음소거 해제" : "음소거"}
+        >
+          {isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+        </button>
       </div>
-      <button
-        onClick={(e) => { e.stopPropagation(); onToggleMute(); }}
-        className="absolute top-3 right-3 z-30 w-7 h-7 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white pointer-events-auto"
-      >
-        {isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
-      </button>
 
       {/* 재생 아이콘 */}
       {!isPlaying && isActive && !hasError && (
