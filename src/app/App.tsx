@@ -32,6 +32,7 @@ import { NewLogoPreview } from "./components/NewLogoPreview";
 import { LogoDesigns } from "./components/LogoDesigns";
 import { LogoDesignsV2 } from "./components/LogoDesignsV2";
 import { LogoFish } from "./components/LogoFish";
+import { LogoFishPlay } from "./components/LogoFishPlay";
 import { CreaiteText } from "./components/CreaiteText";
 import { CreaiteLogo } from "./components/CreaiteLogo";
 import { Button } from "./components/ui/button";
@@ -76,6 +77,10 @@ function AppContent() {
   // 물고기 컨셉 로고 (URL ?preview=fish)
   if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "fish") {
     return <LogoFish />;
+  }
+  // 물고기 + 플레이 버튼 변형 (URL ?preview=fishplay)
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "fishplay") {
+    return <LogoFishPlay />;
   }
 
   const [showSplash, setShowSplash] = useState(() => {
