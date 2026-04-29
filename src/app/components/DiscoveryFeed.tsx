@@ -148,19 +148,19 @@ const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, 
               animate={{ scale: 2.2, opacity: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.6 }}
-              className="absolute top-0 left-0 right-0 mx-auto w-11 h-11 rounded-full bg-red-500 pointer-events-none"
+              className="absolute top-0 left-0 right-0 mx-auto w-10 h-10 rounded-full bg-red-500 pointer-events-none"
             />
           )}
         </AnimatePresence>
         <div
-          className={`relative w-11 h-11 rounded-full backdrop-blur-xl flex items-center justify-center border-2 transition-all ${
+          className={`relative w-10 h-10 rounded-full backdrop-blur-xl flex items-center justify-center border-2 transition-all ${
             isLiked
               ? "bg-red-500/30 border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.6)]"
               : "bg-white/10 border-white/30"
           }`}
         >
           <Heart
-            className={`w-5 h-5 ${isLiked ? "fill-red-400 text-red-400" : "text-white"}`}
+            className={`w-[18px] h-[18px] ${isLiked ? "fill-red-400 text-red-400" : "text-white"}`}
             strokeWidth={1.8}
           />
         </div>
@@ -178,8 +178,8 @@ const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, 
         className="flex flex-col items-center"
         aria-label="댓글"
       >
-        <div className="w-11 h-11 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.4)]">
-          <MessageCircle className="w-5 h-5 text-white" strokeWidth={1.8} />
+        <div className="w-10 h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.4)]">
+          <MessageCircle className="w-[18px] h-[18px] text-white" strokeWidth={1.8} />
         </div>
         <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">
           {commentCount > 0 ? commentCount.toLocaleString() : "댓글"}
@@ -194,8 +194,8 @@ const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, 
         className="flex flex-col items-center"
         aria-label="공유"
       >
-        <div className="w-11 h-11 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.4)]">
-          <Send className="w-5 h-5 text-white -rotate-12" strokeWidth={1.8} />
+        <div className="w-10 h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.4)]">
+          <Send className="w-[18px] h-[18px] text-white -rotate-12" strokeWidth={1.8} />
         </div>
         <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">공유</span>
       </motion.button>
