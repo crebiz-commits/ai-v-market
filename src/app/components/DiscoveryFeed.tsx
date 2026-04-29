@@ -308,27 +308,40 @@ const MovieSection = memo(({
         </div>
       )}
 
-      {/* 우측 액션 버튼 */}
-      <div className="absolute right-2 bottom-[88px] z-40 flex flex-col gap-2 items-center pointer-events-auto">
+      {/* 우측 액션 버튼 (TikTok 스타일) */}
+      <div className="absolute right-2 bottom-[100px] z-40 flex flex-col items-center pointer-events-auto">
         <button
           onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }}
-          className="flex flex-col items-center p-1.5 active:scale-95 transition-transform"
+          className="flex flex-col items-center py-1.5 active:scale-90 transition-transform"
           aria-label="좋아요"
         >
-          <div className={`w-11 h-11 rounded-full flex items-center justify-center backdrop-blur-md border transition-all ${isLiked ? 'bg-red-500/20 border-red-500' : 'bg-black/40 border-white/20'}`}>
-            <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
-          </div>
-          <span className="text-[9px] font-bold text-white mt-0.5 drop-shadow-md">{video.likes.toLocaleString()}</span>
+          <Heart
+            className={`w-8 h-8 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${isLiked ? 'fill-red-500 text-red-500' : 'text-white fill-white/10'}`}
+            strokeWidth={1.5}
+          />
+          <span className="text-[11px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">{video.likes.toLocaleString()}</span>
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onComment(video); }}
-          className="flex flex-col items-center p-1.5 active:scale-95 transition-transform"
+          className="flex flex-col items-center py-1.5 active:scale-90 transition-transform"
           aria-label="댓글"
         >
-          <div className="w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center">
-            <MessageSquare className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-[9px] font-bold text-white mt-0.5 drop-shadow-md">{commentCount > 0 ? commentCount.toLocaleString() : "댓글"}</span>
+          <MessageSquare
+            className="w-8 h-8 text-white fill-white/10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
+            strokeWidth={1.5}
+          />
+          <span className="text-[11px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">{commentCount > 0 ? commentCount.toLocaleString() : "댓글"}</span>
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onShare(video); }}
+          className="flex flex-col items-center py-1.5 active:scale-90 transition-transform"
+          aria-label="공유"
+        >
+          <Share2
+            className="w-8 h-8 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
+            strokeWidth={1.5}
+          />
+          <span className="text-[11px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">공유</span>
         </button>
       </div>
 
@@ -350,15 +363,6 @@ const MovieSection = memo(({
               <div className="flex flex-col">
                 <span className="text-[7px] text-white/40 font-bold uppercase tracking-tight leading-none mb-0.5">PREMIUM</span>
                 <span className="text-sm font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>
-              </div>
-              <div className="h-4 w-[1px] bg-white/20 mx-1" />
-              <div className="flex items-center gap-2">
-                <button onClick={(e) => { e.stopPropagation(); onShare(video); }} className="p-0">
-                  <Share2 className="w-3.5 h-3.5 text-white/40 hover:text-white transition-colors" />
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); onVideoClick(video); }} className="p-0">
-                  <ShoppingCart className="w-3.5 h-3.5 text-white/40 hover:text-white transition-colors" />
-                </button>
               </div>
             </div>
             <Button
@@ -574,16 +578,18 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
   if (loading) return <div className="h-full flex items-center justify-center bg-background"><Loader2 className="w-10 h-10 text-[#6366f1] animate-spin" /></div>;
   if (videos.length === 0) return <div className="h-full flex items-center justify-center bg-background text-muted-foreground">표시할 영상이 없습니다.</div>;
 
+  const isCommentOpen = commentVideo !== null;
+
   return (
     <div className="discovery-feed-wrapper h-full w-full bg-[#0a0a0a] overflow-hidden flex flex-col">
       <div
         ref={containerRef}
-        className="mobile-feed-container h-full overflow-y-auto snap-y snap-mandatory custom-scrollbar"
+        className={`mobile-feed-container h-full overflow-y-auto snap-y snap-mandatory custom-scrollbar ${isCommentOpen ? 'comments-open' : ''}`}
       >
         {feedItems.map((item) => (
           <div
             key={item.kind === "video" ? item.id : `ad-${item.id}`}
-            className="discovery-section-wrapper"
+            className={`discovery-section-wrapper ${isCommentOpen && item.kind === "video" && item.id === commentVideo?.id ? 'is-comment-active' : ''}`}
           >
             {item.kind === "ad" ? (
               <AdCard ad={item} onImpression={handleAdImpression} />
@@ -677,6 +683,19 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
           background: black;
           overflow: hidden;
         }
+        /* TikTok 스타일: 댓글 열린 상태 */
+        .mobile-feed-container.comments-open {
+          height: 40dvh !important;
+          overflow: hidden !important;
+          scroll-snap-type: none !important;
+        }
+        .mobile-feed-container.comments-open .discovery-section-wrapper {
+          display: none;
+          height: 100% !important;
+        }
+        .mobile-feed-container.comments-open .discovery-section-wrapper.is-comment-active {
+          display: block;
+        }
         .desktop-feed-container { display: none; background: #0a0a0a; }
         @media (min-width: 1024px) { 
           .mobile-feed-container { display: none; } 
@@ -687,24 +706,44 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
         .vjs-tech { object-fit: contain !important; }
       `}</style>
 
-      {/* 댓글 바텀시트 */}
+      {/* 모바일 댓글 패널 (TikTok 스타일: 영상 아래 영역) */}
       <AnimatePresence>
         {commentVideo && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setCommentVideo(null)}
-              className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
+          <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="fixed left-0 right-0 z-40 rounded-t-2xl overflow-hidden lg:hidden"
+            style={{ top: "calc(56px + 40dvh)", bottom: "80px" }}
+          >
+            <CommentPanel
+              videoId={commentVideo.id}
+              title={commentVideo.title}
+              onClose={() => setCommentVideo(null)}
+              onCommentPosted={() => setCommentCounts(prev => ({ ...prev, [commentVideo.id]: (prev[commentVideo.id] || 0) + 1 }))}
+              mode="sheet"
             />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 데스크탑 댓글 모달 */}
+      <AnimatePresence>
+        {commentVideo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setCommentVideo(null)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden lg:flex items-center justify-center p-4"
+          >
             <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl overflow-hidden"
-              style={{ height: "75vh" }}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md h-[80vh] rounded-2xl overflow-hidden"
             >
               <CommentPanel
                 videoId={commentVideo.id}
@@ -714,7 +753,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
                 mode="sheet"
               />
             </motion.div>
-          </>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
