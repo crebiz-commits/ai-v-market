@@ -23,7 +23,7 @@ interface ProductDetailProps {
     highlightEnd?: number;
   };
   onClose: () => void;
-  onAddToCart?: (product: any, licenseType: "standard" | "commercial" | "extended") => boolean | void;
+  onAddToCart?: (product: any, licenseType: "standard" | "commercial" | "extended") => Promise<boolean> | boolean | void;
 }
 
 export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailProps) {
@@ -130,11 +130,11 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
   // 뒤로가기로 댓글 패널 닫기
   useBackButton(showComments, () => setShowComments(false));
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!onAddToCart) return;
-    const result = onAddToCart(product, "standard");
-    // 인증 통과 시에만 "담김" 표시 (미로그인 시 로그인 모달이 뜨므로 UI 변경 없음)
-    if (result !== false) {
+    const result = await onAddToCart(product, "standard");
+    // 인증 통과 + 추가 성공 시에만 "담김" 표시
+    if (result === true) {
       setAddedToCart(true);
       setTimeout(() => setAddedToCart(false), 2000);
     }

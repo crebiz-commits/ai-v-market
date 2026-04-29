@@ -38,6 +38,7 @@ import { CreaiteLogo } from "./components/CreaiteLogo";
 import { useBackButton } from "./hooks/useBackButton";
 import { Button } from "./components/ui/button";
 import { handleBunnyError } from "./utils/bunnyErrorHandler";
+import { supabase } from "./utils/supabaseClient";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
@@ -98,6 +99,7 @@ function AppContent() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [activePanel, setActivePanel] = useState<Panel>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [pendingCartAdd, setPendingCartAdd] = useState<{ product: VideoProduct; licenseType: "standard" | "commercial" | "extended" } | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const { user, signOut, isAuthenticated, loading } = useAuth();
 
@@ -140,11 +142,12 @@ function AppContent() {
     };
   }, []);
 
-  // 장바구니 추가 (ProductDetail에서 호출) — 인증 통과 시 true, 미로그인 시 false 반환
-  const addToCart = useCallback((product: VideoProduct, licenseType: "standard" | "commercial" | "extended" = "standard"): boolean => {
-    // 비로그인 시 로그인 모달 표시
-    if (!isAuthenticated) {
-      toast.info("장바구니 사용을 위해 로그인이 필요합니다.");
+  // 장바구니 추가 (Supabase 영구 저장) — 인증 통과 시 true, 미로그인 시 false 반환
+  const addToCart = useCallback(async (product: VideoProduct, licenseType: "standard" | "commercial" | "extended" = "standard"): Promise<boolean> => {
+    // 비로그인 시: 로그인 모달 띄우고 항목을 보류 → 로그인 후 자동 추가
+    if (!isAuthenticated || !user) {
+      setPendingCartAdd({ product, licenseType });
+      toast.info("로그인 후 자동으로 장바구니에 담깁니다.");
       setShowAuthModal(true);
       return false;
     }
@@ -153,42 +156,92 @@ function AppContent() {
       : licenseType === "commercial" ? product.price * 2
       : product.price * 5;
 
-    setCartItems(prev => {
-      const exists = prev.some(item => item.videoId === product.id && item.licenseType === licenseType);
-      if (exists) {
-        toast.info("이미 장바구니에 담겨 있습니다.");
-        return prev;
-      }
-      const newItem: CartItem = {
-        id: `${product.id}_${licenseType}`,
-        videoId: product.id,
-        thumbnail: product.thumbnail,
-        title: product.title,
-        creator: product.creator,
-        licenseType,
+    const { data, error } = await supabase
+      .from("cart_items")
+      .insert({
+        user_id: user.id,
+        video_id: product.id,
+        license_type: licenseType,
         price,
-      };
-      toast.success("장바구니에 담았습니다!", {
-        action: {
-          label: "장바구니 보기",
-          onClick: () => setActivePanel("cart"),
-        },
-      });
-      return [...prev, newItem];
+      })
+      .select()
+      .single();
+
+    if (error) {
+      // 23505 = unique constraint (이미 담긴 항목)
+      if ((error as any).code === "23505") {
+        toast.info("이미 장바구니에 담겨 있습니다.");
+      } else {
+        console.error("[addToCart]", error);
+        toast.error("장바구니 추가에 실패했습니다.");
+      }
+      return false;
+    }
+
+    const newItem: CartItem = {
+      id: (data as any).id,
+      videoId: product.id,
+      thumbnail: product.thumbnail,
+      title: product.title,
+      creator: product.creator,
+      licenseType,
+      price,
+    };
+    setCartItems(prev => [...prev, newItem]);
+    toast.success("장바구니에 담았습니다!", {
+      action: {
+        label: "장바구니 보기",
+        onClick: () => setActivePanel("cart"),
+      },
     });
     return true;
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user]);
 
-  const removeFromCart = useCallback((itemId: string) => {
+  const removeFromCart = useCallback(async (itemId: string) => {
+    const { error } = await supabase.from("cart_items").delete().eq("id", itemId);
+    if (error) {
+      toast.error("삭제에 실패했습니다.");
+      return;
+    }
     setCartItems(prev => prev.filter(item => item.id !== itemId));
   }, []);
 
-  // 로그아웃 시 장바구니 비우기
+  // 로그인 시 Supabase에서 장바구니 로드, 로그아웃 시 로컬 state 비우기
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user) {
       setCartItems([]);
+      return;
     }
-  }, [isAuthenticated]);
+    (async () => {
+      const { data, error } = await supabase
+        .from("cart_items")
+        .select("id, video_id, license_type, price, videos(title, creator, thumbnail)")
+        .eq("user_id", user.id);
+      if (error) {
+        console.error("[loadCart]", error);
+        return;
+      }
+      const items: CartItem[] = (data || []).map((row: any) => ({
+        id: row.id,
+        videoId: row.video_id,
+        thumbnail: row.videos?.thumbnail || "",
+        title: row.videos?.title || "",
+        creator: row.videos?.creator || "",
+        licenseType: row.license_type,
+        price: row.price,
+      }));
+      setCartItems(items);
+    })();
+  }, [isAuthenticated, user?.id]);
+
+  // 로그인 후 보류된 장바구니 항목 자동 추가
+  useEffect(() => {
+    if (isAuthenticated && pendingCartAdd) {
+      const { product, licenseType } = pendingCartAdd;
+      setPendingCartAdd(null);
+      addToCart(product, licenseType);
+    }
+  }, [isAuthenticated, pendingCartAdd, addToCart]);
 
   const togglePanel = (panel: Panel) => {
     setActivePanel(prev => prev === panel ? null : panel);
