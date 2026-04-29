@@ -583,6 +583,9 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
     if (!container || videos.length === 0) return;
 
     const detectActive = () => {
+      // 전체화면 중에는 active 자동 변경 금지 (전체화면 영상 유지)
+      const fsEl = document.fullscreenElement || (document as any).webkitFullscreenElement;
+      if (fsEl) return;
       // scrollTop + offsetHeight 기반: 뷰포트 좌표 무관, 마우스 휠/터치 모두 정확
       const wrappers = Array.from(
         container.querySelectorAll<HTMLElement>(".discovery-section-wrapper")
