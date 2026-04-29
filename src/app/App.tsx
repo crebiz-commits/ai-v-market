@@ -13,7 +13,7 @@
 import './init';
 
 import { useState, useEffect, useCallback } from "react";
-import { Sparkles, Store, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart } from "lucide-react";
+import { Sparkles, Store, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { DiscoveryFeed } from "./components/DiscoveryFeed";
 import { Market } from "./components/Market";
@@ -247,6 +247,28 @@ function AppContent() {
     setActivePanel(prev => prev === panel ? null : panel);
   };
 
+  // PWA standalone 모드 감지 — 브라우저 뒤로가기 버튼 없음 → 앱에서 제공 필요
+  const [isStandalone, setIsStandalone] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(display-mode: standalone)");
+    const handler = (e: MediaQueryListEvent) => setIsStandalone(e.matches);
+    mq.addEventListener?.("change", handler);
+    return () => mq.removeEventListener?.("change", handler);
+  }, []);
+
+  // ESC 키로 뒤로가기 (어떤 모달이든 닫힘 — useBackButton이 popstate를 처리)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        window.history.back();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   // 모바일 뒤로가기로 모달 닫기
   useBackButton(!!selectedProduct, () => setSelectedProduct(null));
   useBackButton(!!activePanel, () => setActivePanel(null));
@@ -322,9 +344,21 @@ function AppContent() {
         className="md:hidden border-b border-white/5 bg-background/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm"
       >
         <div className="flex items-center justify-between h-14 px-4">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab("market")}>
-            <CreaiteLogo className="w-9 h-9" />
-            <CreaiteText className="text-[17px] font-extrabold" />
+          <div className="flex items-center gap-1">
+            {isStandalone && (
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => window.history.back()}
+                className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="뒤로가기"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </motion.button>
+            )}
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab("market")}>
+              <CreaiteLogo className="w-9 h-9" />
+              <CreaiteText className="text-[17px] font-extrabold" />
+            </div>
           </div>
           <div className="flex items-center gap-1">
             <motion.button
@@ -386,19 +420,32 @@ function AppContent() {
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="hidden md:block border-b border-white/5 bg-background/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm"
       >
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          {/* Logo */}
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex items-center gap-3 cursor-pointer select-none"
-            onClick={() => setActiveTab("market")}
-          >
-            <CreaiteLogo className="w-10 h-10" />
-            <span className="hidden lg:block">
-              <CreaiteText className="text-xl font-extrabold" />
-            </span>
-          </motion.div>
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
+          {/* PWA 뒤로가기 (브라우저 chrome 없을 때만) + Logo */}
+          <div className="flex items-center gap-2">
+            {isStandalone && (
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => window.history.back()}
+                className="p-2 -ml-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-white/5 transition-colors"
+                aria-label="뒤로가기"
+                title="뒤로가기 (Esc)"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </motion.button>
+            )}
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex items-center gap-3 cursor-pointer select-none"
+              onClick={() => setActiveTab("market")}
+            >
+              <CreaiteLogo className="w-10 h-10" />
+              <span className="hidden lg:block">
+                <CreaiteText className="text-xl font-extrabold" />
+              </span>
+            </motion.div>
+          </div>
 
           {/* Desktop Navigation */}
           <nav className="flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-white/5">
