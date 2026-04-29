@@ -309,18 +309,26 @@ const MovieSection = memo(({
       )}
 
       {/* 우측 액션 버튼 */}
-      <div className="absolute right-3 bottom-[88px] z-30 flex flex-col gap-3 items-center pointer-events-auto">
-        <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }} className="flex flex-col items-center">
-          <div className={`w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md border transition-all ${isLiked ? 'bg-red-500/20 border-red-500' : 'bg-black/20 border-white/20'}`}>
-            <Heart className={`w-[18px] h-[18px] ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
+      <div className="absolute right-2 bottom-[88px] z-40 flex flex-col gap-2 items-center pointer-events-auto">
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }}
+          className="flex flex-col items-center p-1.5 active:scale-95 transition-transform"
+          aria-label="좋아요"
+        >
+          <div className={`w-11 h-11 rounded-full flex items-center justify-center backdrop-blur-md border transition-all ${isLiked ? 'bg-red-500/20 border-red-500' : 'bg-black/40 border-white/20'}`}>
+            <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
           </div>
-          <span className="text-[8px] font-bold text-white mt-0.5 drop-shadow-md">{video.likes.toLocaleString()}</span>
+          <span className="text-[9px] font-bold text-white mt-0.5 drop-shadow-md">{video.likes.toLocaleString()}</span>
         </button>
-        <button onClick={(e) => { e.stopPropagation(); onComment(video); }} className="flex flex-col items-center">
-          <div className="w-9 h-9 rounded-full bg-black/20 backdrop-blur-md border border-white/20 flex items-center justify-center">
-            <MessageSquare className="w-[18px] h-[18px] text-white" />
+        <button
+          onClick={(e) => { e.stopPropagation(); onComment(video); }}
+          className="flex flex-col items-center p-1.5 active:scale-95 transition-transform"
+          aria-label="댓글"
+        >
+          <div className="w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center">
+            <MessageSquare className="w-5 h-5 text-white" />
           </div>
-          <span className="text-[8px] font-bold text-white mt-0.5 drop-shadow-md">{commentCount > 0 ? commentCount.toLocaleString() : "댓글"}</span>
+          <span className="text-[9px] font-bold text-white mt-0.5 drop-shadow-md">{commentCount > 0 ? commentCount.toLocaleString() : "댓글"}</span>
         </button>
       </div>
 
