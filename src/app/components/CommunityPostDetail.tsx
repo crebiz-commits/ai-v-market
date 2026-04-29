@@ -78,10 +78,10 @@ export function CommunityPostDetail({
       animate={{ x: 0 }}
       exit={{ x: "100%" }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="fixed inset-0 bg-background z-40 overflow-y-auto"
+      className="fixed inset-0 bg-background z-[60] overflow-y-auto"
     >
       {/* 헤더 */}
-      <header className="sticky top-0 bg-background/90 backdrop-blur-xl z-20 border-b border-white/10">
+      <header className="sticky top-0 bg-background/90 backdrop-blur-xl z-10 border-b border-white/10">
         <div className="max-w-2xl mx-auto flex items-center gap-3 px-4 py-3">
           <button
             onClick={onClose}
