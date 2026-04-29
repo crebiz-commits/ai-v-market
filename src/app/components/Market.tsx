@@ -546,48 +546,7 @@ export function Market({ onProductClick }: MarketProps) {
             className="pt-2 pb-20 md:max-w-7xl md:mx-auto"
           >
             {curationSections.map((section) => (
-              <section key={section.id} className="mb-10">
-                <div className="flex items-end justify-between px-4 md:px-6 mb-3">
-                  <div>
-                    <h2 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">{section.title}</h2>
-                    <p className="text-sm text-gray-400 mt-0.5">{section.subtitle}</p>
-                  </div>
-                  {section.onShowAll && (
-                    <button
-                      onClick={section.onShowAll}
-                      className="flex-shrink-0 text-xs font-bold text-[#a78bfa] hover:text-white transition-colors flex items-center gap-1"
-                    >
-                      모두 보기 <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-                <div className="flex gap-3 overflow-x-auto px-4 md:px-6 pb-2 scrollbar-hide snap-x">
-                  {section.videos.map((video) => (
-                    <motion.button
-                      key={`${section.id}-${video.id}`}
-                      whileHover={{ y: -4 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => onProductClick(video)}
-                      className="flex-shrink-0 w-40 md:w-44 snap-start text-left group"
-                    >
-                      <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-black border border-white/10 group-hover:border-[#6366f1]/50 transition-colors">
-                        <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                        <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md rounded text-[9px] text-white font-bold uppercase tracking-tight">
-                          {video.tool}
-                        </div>
-                        <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] rounded text-[9px] text-white font-bold">
-                          {video.duration}
-                        </div>
-                      </div>
-                      <div className="mt-2 px-0.5">
-                        <p className="text-sm font-bold text-white truncate">{video.title}</p>
-                        <p className="text-xs text-gray-500 truncate">{video.creator}</p>
-                        <p className="text-sm font-extrabold text-[#f87171] mt-1">₩{video.price.toLocaleString()}</p>
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
-              </section>
+              <CurationRow key={section.id} section={section} onProductClick={onProductClick} />
             ))}
           </motion.div>
         )}
@@ -720,5 +679,119 @@ export function Market({ onProductClick }: MarketProps) {
         </AnimatePresence>
       </div>
     </div>
+  );
+}
+
+// =============================================
+// CurationRow: 데스크탑 좌우 스크롤 버튼이 있는 큐레이션 행
+// =============================================
+function CurationRow({
+  section,
+  onProductClick,
+}: {
+  section: { id: string; title: string; subtitle: string; videos: Product[]; onShowAll?: () => void };
+  onProductClick: (p: Product) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(true);
+
+  const updateButtons = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanLeft(el.scrollLeft > 4);
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateButtons();
+    el.addEventListener("scroll", updateButtons, { passive: true });
+    window.addEventListener("resize", updateButtons);
+    return () => {
+      el.removeEventListener("scroll", updateButtons);
+      window.removeEventListener("resize", updateButtons);
+    };
+  }, [section.videos.length]);
+
+  const scroll = (dir: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const amount = el.clientWidth * 0.85;
+    el.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
+  };
+
+  return (
+    <section className="mb-10 group/row">
+      <div className="flex items-end justify-between px-4 md:px-6 mb-3">
+        <div>
+          <h2 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">{section.title}</h2>
+          <p className="text-sm text-gray-400 mt-0.5">{section.subtitle}</p>
+        </div>
+        {section.onShowAll && (
+          <button
+            onClick={section.onShowAll}
+            className="flex-shrink-0 text-xs font-bold text-[#a78bfa] hover:text-white transition-colors flex items-center gap-1"
+          >
+            모두 보기 <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
+      <div className="relative">
+        {/* 좌측 스크롤 버튼 (데스크탑 hover 시 노출) */}
+        {canLeft && (
+          <button
+            onClick={() => scroll("left")}
+            aria-label="이전"
+            className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-20 w-12 h-24 items-center justify-center bg-gradient-to-r from-black/90 via-black/70 to-transparent text-white opacity-0 group-hover/row:opacity-100 hover:from-black hover:via-black/90 transition-opacity"
+          >
+            <ChevronLeft className="w-7 h-7 drop-shadow-lg" />
+          </button>
+        )}
+
+        {/* 우측 스크롤 버튼 */}
+        {canRight && (
+          <button
+            onClick={() => scroll("right")}
+            aria-label="다음"
+            className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-20 w-12 h-24 items-center justify-center bg-gradient-to-l from-black/90 via-black/70 to-transparent text-white opacity-0 group-hover/row:opacity-100 hover:from-black hover:via-black/90 transition-opacity"
+          >
+            <ChevronRight className="w-7 h-7 drop-shadow-lg" />
+          </button>
+        )}
+
+        <div
+          ref={scrollRef}
+          className="flex gap-3 overflow-x-auto px-4 md:px-6 pb-2 scrollbar-hide snap-x scroll-smooth"
+        >
+          {section.videos.map((video) => (
+            <motion.button
+              key={`${section.id}-${video.id}`}
+              whileHover={{ y: -4 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => onProductClick(video)}
+              className="flex-shrink-0 w-40 md:w-44 snap-start text-left group"
+            >
+              <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-black border border-white/10 group-hover:border-[#6366f1]/50 transition-colors">
+                <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md rounded text-[9px] text-white font-bold uppercase tracking-tight">
+                  {video.tool}
+                </div>
+                <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] rounded text-[9px] text-white font-bold">
+                  {video.duration}
+                </div>
+              </div>
+              <div className="mt-2 px-0.5">
+                <p className="text-sm font-bold text-white truncate">{video.title}</p>
+                <p className="text-xs text-gray-500 truncate">{video.creator}</p>
+                <p className="text-sm font-extrabold text-[#f87171] mt-1">₩{video.price.toLocaleString()}</p>
+              </div>
+            </motion.button>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
