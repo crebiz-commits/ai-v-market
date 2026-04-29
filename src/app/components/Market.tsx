@@ -570,7 +570,7 @@ export function Market({ onProductClick }: MarketProps) {
           </button>
           <motion.div
             layout
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 md:max-w-7xl md:mx-auto"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 md:max-w-7xl md:mx-auto"
           >
             <AnimatePresence mode="popLayout">
               {filteredProducts.map((product, index) => (
@@ -591,8 +591,8 @@ export function Market({ onProductClick }: MarketProps) {
                   onClick={() => onProductClick(product)}
                   className="group relative flex flex-col bg-[#1a1a1c] border border-white/10 hover:border-[#6366f1]/50 rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer hover:shadow-[0_15px_35px_-10px_rgba(99,102,241,0.5)]"
                 >
-                  {/* Image Container with aspect ratio */}
-                  <div className="relative aspect-[9/16] overflow-hidden bg-black">
+                  {/* Image Container — 16:9 시네마 비율 */}
+                  <div className="relative aspect-video overflow-hidden bg-black">
                     <motion.img
                       src={product.thumbnail}
                       alt={product.title}
@@ -802,9 +802,9 @@ function CurationRow({
               whileHover={{ y: -4 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => onProductClick(video)}
-              className="flex-shrink-0 w-40 md:w-44 snap-start text-left group"
+              className="flex-shrink-0 w-64 md:w-72 snap-start text-left group"
             >
-              <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-black border border-white/10 group-hover:border-[#6366f1]/50 transition-colors">
+              <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-white/10 group-hover:border-[#6366f1]/50 transition-colors">
                 <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md rounded text-[9px] text-white font-bold uppercase tracking-tight">
                   {video.tool}
