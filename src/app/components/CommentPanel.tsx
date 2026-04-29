@@ -329,8 +329,8 @@ export function CommentPanel({ videoId, postId, title, onClose, onCommentPosted,
             <Loader2 className="w-6 h-6 animate-spin text-[#8b5cf6]" />
           </div>
         ) : comments.length === 0 ? (
-          <div className="text-center py-12">
-            <MessageCircle className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+          <div className="flex flex-col items-center justify-center h-full min-h-[200px]">
+            <MessageCircle className="w-10 h-10 text-gray-600 mb-3" />
             <p className="text-gray-500 text-sm">첫 번째 댓글을 남겨보세요!</p>
           </div>
         ) : (

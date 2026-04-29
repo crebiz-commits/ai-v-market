@@ -755,12 +755,13 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
           overflow: hidden !important;
           scroll-snap-type: none !important;
         }
-        .mobile-feed-container.comments-open .discovery-section-wrapper {
-          display: none;
-          height: 100% !important;
+        .mobile-feed-container.comments-open > * {
+          display: none !important;
         }
         .mobile-feed-container.comments-open .discovery-section-wrapper.is-comment-active {
-          display: block;
+          display: block !important;
+          height: 40dvh !important;
+          width: 100% !important;
         }
         .desktop-feed-container { display: none; background: #0a0a0a; }
         @media (min-width: 1024px) { 
