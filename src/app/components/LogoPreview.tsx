@@ -294,35 +294,39 @@ function ComboC() {
 // 조합 D: 전체 오로라 + AI 위에 작은 점 액센트
 // =============================================
 function ComboD() {
+  const auroraStyle = {
+    background: "linear-gradient(110deg, #6366f1 0%, #ec4899 50%, #06b6d4 100%)",
+    backgroundSize: "200% 200%",
+    backgroundClip: "text" as const,
+    WebkitBackgroundClip: "text" as const,
+    WebkitTextFillColor: "transparent" as const,
+    animation: "aurora-text 4s ease infinite",
+  };
   return (
-    <div className="relative inline-flex items-baseline">
-      <span
-        className="text-2xl font-black tracking-tight"
-        style={{
-          background: "linear-gradient(110deg, #6366f1 0%, #ec4899 50%, #06b6d4 100%)",
-          backgroundSize: "200% 200%",
-          backgroundClip: "text",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          animation: "aurora-text 4s ease infinite",
-        }}
-      >
-        CREAITE
+    <span className="text-2xl font-black tracking-tight" style={auroraStyle}>
+      CRE
+      {/* A 위에 점 */}
+      <span className="relative inline-block">
+        A
+        <motion.span
+          className="absolute w-[3px] h-[3px] rounded-full bg-[#06b6d4] left-1/2 -translate-x-1/2"
+          style={{ top: "-4px" }}
+          animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.5, 1] }}
+          transition={{ duration: 1.8, repeat: Infinity }}
+        />
       </span>
-      {/* AI 글자 위 작은 점 (CRE = 약 36px, A I = 약 13px씩) */}
-      <motion.span
-        className="absolute top-0 w-1 h-1 rounded-full bg-[#06b6d4]"
-        style={{ left: "calc(50% - 7px)", marginTop: "-2px" }}
-        animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.4, 1] }}
-        transition={{ duration: 1.8, repeat: Infinity }}
-      />
-      <motion.span
-        className="absolute top-0 w-1 h-1 rounded-full bg-[#ec4899]"
-        style={{ left: "calc(50% + 1px)", marginTop: "-2px" }}
-        animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.4, 1] }}
-        transition={{ duration: 1.8, repeat: Infinity, delay: 0.4 }}
-      />
-    </div>
+      {/* I 위에 점 */}
+      <span className="relative inline-block">
+        I
+        <motion.span
+          className="absolute w-[3px] h-[3px] rounded-full bg-[#ec4899] left-1/2 -translate-x-1/2"
+          style={{ top: "-4px" }}
+          animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.5, 1] }}
+          transition={{ duration: 1.8, repeat: Infinity, delay: 0.4 }}
+        />
+      </span>
+      TE
+    </span>
   );
 }
 
