@@ -417,9 +417,11 @@ const MovieSection = memo(({
       >
         <div className="px-3 pt-8 pb-3 pointer-events-auto">
           {/* 제목 + 크리에이터 */}
-          <div className="flex items-center gap-1.5 mb-1">
-            <div className="w-4 h-4 rounded-full bg-[#6366f1]/40 flex items-center justify-center text-[6px] font-bold text-[#a5b4fc] shrink-0">AI</div>
-            <span className="text-[10px] font-semibold text-white/60">{video.creator}</span>
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-[11px] font-bold text-white shrink-0">
+              {(video.creator?.[0] || "?").toUpperCase()}
+            </div>
+            <span className="text-[13px] font-semibold text-white/80">{video.creator}</span>
           </div>
           <h3 className="text-sm font-bold text-white leading-tight line-clamp-1 mb-2">{video.title}</h3>
 
@@ -427,7 +429,7 @@ const MovieSection = memo(({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="flex flex-col">
-                <span className="text-[7px] text-white/40 font-bold uppercase tracking-tight leading-none mb-0.5">PREMIUM</span>
+                <span className="text-[10px] text-white/50 font-medium leading-none mb-1">다운로드 (소장 · 상업적 사용)</span>
                 <span className="text-sm font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>
               </div>
             </div>
