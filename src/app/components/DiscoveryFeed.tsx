@@ -300,11 +300,12 @@ const MovieSection = memo(({
   useEffect(() => {
     if (!isActive) {
       const player = playerRef.current;
-      if (player && !player.isDisposed()) {
+      // 전체화면 중인 영상은 일시정지/리셋하지 않음
+      if (player && !player.isDisposed() && !player.isFullscreen()) {
         player.pause();
         player.currentTime(video.highlightStart || 0);
+        setIsPlaying(false);
       }
-      setIsPlaying(false);
       return;
     }
 
@@ -395,8 +396,13 @@ const MovieSection = memo(({
             e.stopPropagation();
             const player = playerRef.current;
             if (!player || player.isDisposed()) return;
-            if (player.isFullscreen()) player.exitFullscreen();
-            else player.requestFullscreen();
+            // 비활성 영상에서 클릭 시 먼저 활성화 (그래야 재생되며 전체화면)
+            if (!isActive) onSetActive(video.id);
+            if (player.isFullscreen()) {
+              player.exitFullscreen();
+            } else {
+              player.requestFullscreen();
+            }
           }}
           className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white pointer-events-auto"
           aria-label="전체화면"
