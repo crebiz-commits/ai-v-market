@@ -303,29 +303,32 @@ function ComboD() {
     animation: "aurora-text 4s ease infinite",
   };
   return (
-    <span className="text-2xl font-black tracking-tight" style={auroraStyle}>
-      CRE
-      {/* A 위에 점 */}
-      <span className="relative inline-block">
-        A
-        <motion.span
-          className="absolute w-[3px] h-[3px] rounded-full bg-[#06b6d4] left-1/2 -translate-x-1/2"
-          style={{ top: "-4px" }}
-          animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.5, 1] }}
-          transition={{ duration: 1.8, repeat: Infinity }}
-        />
+    <span className="relative inline-block text-2xl font-black tracking-tight leading-none">
+      {/* 본 텍스트 (연속된 그라디언트 유지) */}
+      <span style={auroraStyle}>CREAITE</span>
+      {/* 점 레이어 (보이지 않는 글자로 위치 정렬) */}
+      <span className="absolute top-0 left-0 flex pointer-events-none" aria-hidden="true">
+        <span className="invisible">CRE</span>
+        <span className="relative">
+          <span className="invisible">A</span>
+          <motion.span
+            className="absolute w-[3px] h-[3px] rounded-full bg-[#06b6d4] left-1/2 -translate-x-1/2"
+            style={{ top: "-5px" }}
+            animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.5, 1] }}
+            transition={{ duration: 1.8, repeat: Infinity }}
+          />
+        </span>
+        <span className="relative">
+          <span className="invisible">I</span>
+          <motion.span
+            className="absolute w-[3px] h-[3px] rounded-full bg-[#ec4899] left-1/2 -translate-x-1/2"
+            style={{ top: "-5px" }}
+            animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.5, 1] }}
+            transition={{ duration: 1.8, repeat: Infinity, delay: 0.4 }}
+          />
+        </span>
+        <span className="invisible">TE</span>
       </span>
-      {/* I 위에 점 */}
-      <span className="relative inline-block">
-        I
-        <motion.span
-          className="absolute w-[3px] h-[3px] rounded-full bg-[#ec4899] left-1/2 -translate-x-1/2"
-          style={{ top: "-4px" }}
-          animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.5, 1] }}
-          transition={{ duration: 1.8, repeat: Infinity, delay: 0.4 }}
-        />
-      </span>
-      TE
     </span>
   );
 }
