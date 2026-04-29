@@ -91,11 +91,18 @@ function AppContent() {
   const { user, signOut, isAuthenticated, loading } = useAuth();
 
   // YouTube 패턴: 어떤 영상이든 재생되면 다른 모든 영상을 즉시 일시정지
-  // 단일 활성 플레이어 보장 (피드/모달/전체화면 어디든 적용)
+  // + 우선순위 영상(data-priority-video) 보호: 모달/전체화면 영상은 백그라운드 autoplay에 의해 멈추지 않음
   useEffect(() => {
     const handleVideoPlay = (e: Event) => {
       const target = e.target;
       if (!(target instanceof HTMLVideoElement)) return;
+      // 우선순위 영상이 존재하면 그것만 재생 가능
+      const priority = document.querySelector<HTMLVideoElement>("video[data-priority-video]");
+      if (priority && target !== priority) {
+        target.pause();
+        return;
+      }
+      // 일반 모드: 다른 모든 영상 pause
       document.querySelectorAll<HTMLVideoElement>("video").forEach((v) => {
         if (v !== target && !v.paused) v.pause();
       });

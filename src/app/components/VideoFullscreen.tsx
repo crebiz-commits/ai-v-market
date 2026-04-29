@@ -154,6 +154,7 @@ export function VideoFullscreen({
           className="video-js w-full h-full object-contain"
           playsInline
           poster={video.thumbnail}
+          data-priority-video=""
         />
       </div>
 

@@ -188,6 +188,7 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
                 ref={videoRef}
                 className="video-js vjs-big-play-centered w-full h-full object-contain"
                 playsInline
+                data-priority-video=""
               />
               
               {/* Error/Processing Overlay */}
