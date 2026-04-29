@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512">
+  <defs>
+    <linearGradient id="aurora" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="50%" stop-color="#ec4899"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+  <!-- 이퀄라이저 5개 막대 (정지 상태 — 평균 높이) -->
+  <rect x="12" y="35" width="8" height="30" rx="4" fill="url(#aurora)"/>
+  <rect x="26" y="20" width="8" height="60" rx="4" fill="url(#aurora)"/>
+  <rect x="40" y="10" width="8" height="80" rx="4" fill="url(#aurora)"/>
+  <rect x="54" y="25" width="8" height="50" rx="4" fill="url(#aurora)"/>
+  <rect x="68" y="15" width="8" height="70" rx="4" fill="url(#aurora)"/>
+  <!-- 플레이 ▶ 삼각형 -->
+  <polygon points="82,28 82,72 96,50" fill="url(#aurora)"/>
+</svg>

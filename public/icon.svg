@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0a0a"/>
+      <stop offset="100%" stop-color="#1a1a2e"/>
+    </linearGradient>
+    <linearGradient id="aurora" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="50%" stop-color="#ec4899"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background (둥근 사각형, maskable safe zone 고려) -->
+  <rect x="0" y="0" width="512" height="512" rx="96" fill="url(#bg)"/>
+
+  <!-- 5 bars + play (가운데 정렬, safe zone 80% 안쪽) -->
+  <!-- viewBox 100x100 → 512x512 매핑 시 5.12배 -->
+  <!-- 안전 영역: 양옆 10% 여백 = x: 51~461 -->
+  <g transform="translate(102.4, 102.4) scale(3.072)">
+    <rect x="12" y="35" width="8" height="30" rx="4" fill="url(#aurora)"/>
+    <rect x="26" y="20" width="8" height="60" rx="4" fill="url(#aurora)"/>
+    <rect x="40" y="10" width="8" height="80" rx="4" fill="url(#aurora)"/>
+    <rect x="54" y="25" width="8" height="50" rx="4" fill="url(#aurora)"/>
+    <rect x="68" y="15" width="8" height="70" rx="4" fill="url(#aurora)"/>
+    <polygon points="82,28 82,72 96,50" fill="url(#aurora)"/>
+  </g>
+</svg>
