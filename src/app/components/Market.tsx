@@ -683,7 +683,7 @@ export function Market({ onProductClick }: MarketProps) {
 }
 
 // =============================================
-// CurationRow: 데스크탑 좌우 스크롤 버튼이 있는 큐레이션 행
+// CurationRow: 데스크탑 좌우 스크롤 버튼 + 키보드 + 페이드 마스크
 // =============================================
 function CurationRow({
   section,
@@ -706,7 +706,8 @@ function CurationRow({
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    updateButtons();
+    // 개선 4: requestAnimationFrame으로 다음 프레임에 한 번 더 — 초기 dimensions 확정 후 정확
+    requestAnimationFrame(updateButtons);
     el.addEventListener("scroll", updateButtons, { passive: true });
     window.addEventListener("resize", updateButtons);
     return () => {
@@ -721,6 +722,30 @@ function CurationRow({
     const amount = el.clientWidth * 0.85;
     el.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
   };
+
+  // 개선 3: 키보드 ← → 로 스크롤 (포커스됐을 때)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      scroll("left");
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      scroll("right");
+    }
+  };
+
+  // 개선 2: 양쪽 페이드 마스크 (스크롤 가능 시 fade-out으로 시각 단서)
+  const maskStyle: React.CSSProperties = {};
+  if (canLeft && canRight) {
+    maskStyle.maskImage = "linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%)";
+    maskStyle.WebkitMaskImage = "linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%)";
+  } else if (canRight) {
+    maskStyle.maskImage = "linear-gradient(to right, black 0%, black 96%, transparent 100%)";
+    maskStyle.WebkitMaskImage = "linear-gradient(to right, black 0%, black 96%, transparent 100%)";
+  } else if (canLeft) {
+    maskStyle.maskImage = "linear-gradient(to right, transparent 0%, black 4%, black 100%)";
+    maskStyle.WebkitMaskImage = "linear-gradient(to right, transparent 0%, black 4%, black 100%)";
+  }
 
   return (
     <section className="mb-10 group/row">
@@ -740,12 +765,12 @@ function CurationRow({
       </div>
 
       <div className="relative">
-        {/* 좌측 스크롤 버튼 (데스크탑 hover 시 노출) */}
+        {/* 좌측 스크롤 버튼 — 개선 1: 항상 살짝 보이게 (opacity 50% → hover 100%) */}
         {canLeft && (
           <button
             onClick={() => scroll("left")}
             aria-label="이전"
-            className="hidden [@media(hover:hover)]:flex absolute left-0 top-1/2 -translate-y-1/2 z-20 w-12 h-24 items-center justify-center bg-gradient-to-r from-black/90 via-black/70 to-transparent text-white opacity-0 group-hover/row:opacity-100 hover:from-black hover:via-black/90 transition-opacity"
+            className="hidden [@media(hover:hover)]:flex absolute left-0 top-1/2 -translate-y-1/2 z-20 w-12 h-24 items-center justify-center bg-gradient-to-r from-black/90 via-black/70 to-transparent text-white opacity-50 group-hover/row:opacity-100 transition-opacity"
           >
             <ChevronLeft className="w-7 h-7 drop-shadow-lg" />
           </button>
@@ -756,7 +781,7 @@ function CurationRow({
           <button
             onClick={() => scroll("right")}
             aria-label="다음"
-            className="hidden [@media(hover:hover)]:flex absolute right-0 top-1/2 -translate-y-1/2 z-20 w-12 h-24 items-center justify-center bg-gradient-to-l from-black/90 via-black/70 to-transparent text-white opacity-0 group-hover/row:opacity-100 hover:from-black hover:via-black/90 transition-opacity"
+            className="hidden [@media(hover:hover)]:flex absolute right-0 top-1/2 -translate-y-1/2 z-20 w-12 h-24 items-center justify-center bg-gradient-to-l from-black/90 via-black/70 to-transparent text-white opacity-50 group-hover/row:opacity-100 transition-opacity"
           >
             <ChevronRight className="w-7 h-7 drop-shadow-lg" />
           </button>
@@ -764,7 +789,12 @@ function CurationRow({
 
         <div
           ref={scrollRef}
-          className="flex gap-3 overflow-x-auto px-4 md:px-6 pb-2 scrollbar-hide snap-x scroll-smooth"
+          tabIndex={0}
+          onKeyDown={handleKeyDown}
+          role="region"
+          aria-label={`${section.title} 캐러셀`}
+          style={maskStyle}
+          className="flex gap-3 overflow-x-auto px-4 md:px-6 pb-2 scrollbar-hide snap-x scroll-smooth focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6366f1]/50 rounded-lg"
         >
           {section.videos.map((video) => (
             <motion.button
