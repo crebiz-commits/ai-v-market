@@ -433,12 +433,12 @@ const MovieSection = memo(({
                 <span className="text-sm font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>
               </div>
             </div>
-            <Button
+            <button
               onClick={(e) => { e.stopPropagation(); onVideoClick(video); }}
-              className="h-7 px-3 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white font-bold rounded-full text-[10px] transition-all shadow-lg border border-white/10"
+              className="aurora-btn h-7 px-3 text-white font-bold rounded-full text-[10px] flex items-center gap-1 border border-white/20 shadow-lg"
             >
-              영화 상세 <ChevronRight className="w-2.5 h-2.5 ml-0.5" />
-            </Button>
+              영화 상세 <ChevronRight className="w-2.5 h-2.5" />
+            </button>
           </div>
         </div>
       </div>
@@ -773,6 +773,19 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
         .custom-scrollbar::-webkit-scrollbar { width: 0px; }
         .video-js.vjs-fill { width: 100% !important; height: 100% !important; }
         .vjs-tech { object-fit: contain !important; }
+        .aurora-btn {
+          background: linear-gradient(110deg, #6366f1 0%, #ec4899 50%, #06b6d4 100%);
+          background-size: 200% 200%;
+          animation: aurora-shift 4s ease infinite;
+          transition: transform 0.2s ease;
+        }
+        .aurora-btn:hover { transform: scale(1.04); }
+        .aurora-btn:active { transform: scale(0.96); }
+        @keyframes aurora-shift {
+          0%   { background-position: 0% 50%; }
+          50%  { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
       `}</style>
 
       {/* 모바일 댓글 패널 (TikTok 스타일: 영상 아래 영역) */}
