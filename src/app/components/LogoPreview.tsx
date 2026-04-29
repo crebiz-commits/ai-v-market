@@ -218,6 +218,115 @@ function Option12() {
 }
 
 // =============================================
+// 조합 A: CRE + AI(오로라) + TE — AI만 살아 움직임
+// =============================================
+function ComboA() {
+  return (
+    <div className="flex items-baseline gap-0">
+      <span className="text-2xl font-black text-white tracking-tight">CRE</span>
+      <span
+        className="text-2xl font-black tracking-tight"
+        style={{
+          background: "linear-gradient(110deg, #6366f1 0%, #ec4899 50%, #06b6d4 100%)",
+          backgroundSize: "200% 200%",
+          backgroundClip: "text",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          animation: "aurora-text 4s ease infinite",
+        }}
+      >
+        AI
+      </span>
+      <span className="text-2xl font-black text-white tracking-tight">TE</span>
+    </div>
+  );
+}
+
+// =============================================
+// 조합 B: 전체 오로라 + AI 강조 (자간 띄움 + bold)
+// =============================================
+function ComboB() {
+  return (
+    <span
+      className="text-2xl font-black tracking-tight"
+      style={{
+        background: "linear-gradient(110deg, #6366f1 0%, #ec4899 50%, #06b6d4 100%)",
+        backgroundSize: "200% 200%",
+        backgroundClip: "text",
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        animation: "aurora-text 4s ease infinite",
+      }}
+    >
+      CRE<span style={{ letterSpacing: "0.05em", filter: "brightness(1.3)" }}>AI</span>TE
+    </span>
+  );
+}
+
+// =============================================
+// 조합 C: CRE+TE 흰색, AI는 오로라 + 미세 펄스
+// =============================================
+function ComboC() {
+  return (
+    <div className="flex items-baseline gap-0">
+      <span className="text-2xl font-black text-white/95 tracking-tight">CRE</span>
+      <motion.span
+        animate={{ scale: [1, 1.05, 1] }}
+        transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+        className="text-2xl font-black tracking-tight inline-block"
+        style={{
+          background: "linear-gradient(110deg, #6366f1 0%, #ec4899 50%, #06b6d4 100%)",
+          backgroundSize: "200% 200%",
+          backgroundClip: "text",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          animation: "aurora-text 4s ease infinite",
+        }}
+      >
+        AI
+      </motion.span>
+      <span className="text-2xl font-black text-white/95 tracking-tight">TE</span>
+    </div>
+  );
+}
+
+// =============================================
+// 조합 D: 전체 오로라 + AI 위에 작은 점 액센트
+// =============================================
+function ComboD() {
+  return (
+    <div className="relative inline-flex items-baseline">
+      <span
+        className="text-2xl font-black tracking-tight"
+        style={{
+          background: "linear-gradient(110deg, #6366f1 0%, #ec4899 50%, #06b6d4 100%)",
+          backgroundSize: "200% 200%",
+          backgroundClip: "text",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          animation: "aurora-text 4s ease infinite",
+        }}
+      >
+        CREAITE
+      </span>
+      {/* AI 글자 위 작은 점 (CRE = 약 36px, A I = 약 13px씩) */}
+      <motion.span
+        className="absolute top-0 w-1 h-1 rounded-full bg-[#06b6d4]"
+        style={{ left: "calc(50% - 7px)", marginTop: "-2px" }}
+        animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.4, 1] }}
+        transition={{ duration: 1.8, repeat: Infinity }}
+      />
+      <motion.span
+        className="absolute top-0 w-1 h-1 rounded-full bg-[#ec4899]"
+        style={{ left: "calc(50% + 1px)", marginTop: "-2px" }}
+        animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.4, 1] }}
+        transition={{ duration: 1.8, repeat: Infinity, delay: 0.4 }}
+      />
+    </div>
+  );
+}
+
+// =============================================
 // 옵션 0: 현재 (비교용)
 // =============================================
 function OptionCurrent() {
@@ -233,6 +342,10 @@ function OptionCurrent() {
 
 export function LogoPreview() {
   const options = [
+    { name: "★ 조합 A: AI만 오로라", desc: "CRE/TE 흰색 + AI만 살아 움직이는 그라디언트", Component: ComboA },
+    { name: "★ 조합 B: 전체 오로라 + AI 강조", desc: "전체 오로라 + AI만 자간 띄우고 밝게", Component: ComboB },
+    { name: "★ 조합 C: AI 미세 펄스", desc: "AI만 오로라 + 부드럽게 숨쉬는 펄스", Component: ComboC },
+    { name: "★ 조합 D: AI 위에 점 액센트", desc: "전체 오로라 + AI 위에 깜박이는 두 점", Component: ComboD },
     { name: "현재 (Before)", desc: "logo.png + 보라 그라디언트 텍스트", Component: OptionCurrent },
     { name: "옵션 1: Modern Gradient", desc: "C 뱃지 + 그라디언트 텍스트", Component: Option1 },
     { name: "옵션 2: Liquid Aurora", desc: "텍스트 자체가 살아있는 그라디언트", Component: Option2 },
