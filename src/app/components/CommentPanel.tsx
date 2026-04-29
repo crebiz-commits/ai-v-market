@@ -383,8 +383,8 @@ export function CommentPanel({ videoId, postId, title, onClose, onCommentPosted,
             </button>
           </div>
         )}
-        <div className="flex gap-2 items-end">
-          {user && <Avatar name={user.name} size={32} />}
+        <div className="flex gap-2 items-center">
+          {user && <Avatar name={user.name} size={36} />}
           <div className="flex-1 relative">
             <textarea
               ref={inputRef}
@@ -399,14 +399,14 @@ export function CommentPanel({ videoId, postId, title, onClose, onCommentPosted,
               placeholder={isAuthenticated ? "댓글 추가..." : "로그인하여 댓글을 작성하세요"}
               disabled={!isAuthenticated || submitting}
               rows={1}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-[#6366f1] transition-colors disabled:opacity-50"
-              style={{ minHeight: 36, maxHeight: 100 }}
+              className="w-full bg-white/5 border border-white/10 rounded-full px-4 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-[#6366f1] transition-colors disabled:opacity-50 leading-9"
+              style={{ height: 36, maxHeight: 100 }}
             />
           </div>
           <button
             onClick={handleSubmit}
             disabled={!text.trim() || submitting || !isAuthenticated}
-            className="p-2 rounded-xl bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white disabled:opacity-40 transition-opacity flex-shrink-0"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white disabled:opacity-40 transition-opacity flex-shrink-0"
           >
             {submitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
