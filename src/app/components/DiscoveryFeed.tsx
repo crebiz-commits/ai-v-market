@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, memo, useCallback } from "react";
-import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageSquare, ChevronRight, ExternalLink } from "lucide-react";
+import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageCircle, MessageSquare, Send, ChevronRight, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
@@ -111,6 +111,98 @@ const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) 
     </div>
   );
 });
+
+// ✨ 액션 버튼 (글래스 + 글로우 스타일)
+const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, commentCount = 0 }: {
+  video: Video;
+  isLiked: boolean;
+  onToggleLike: (id: string, currentlyLiked: boolean) => void;
+  onComment: (video: Video) => void;
+  onShare: (video: Video) => void;
+  commentCount?: number;
+}) => {
+  const [showRipple, setShowRipple] = useState(false);
+
+  const handleLike = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isLiked) {
+      setShowRipple(true);
+      setTimeout(() => setShowRipple(false), 600);
+    }
+    onToggleLike(video.id, isLiked);
+  };
+
+  return (
+    <div className="absolute right-2 bottom-[60px] z-40 flex flex-col gap-2.5 items-center pointer-events-auto">
+      {/* 좋아요 — ripple + glow */}
+      <motion.button
+        whileTap={{ scale: 0.85 }}
+        onClick={handleLike}
+        className="flex flex-col items-center relative"
+        aria-label="좋아요"
+      >
+        <AnimatePresence>
+          {showRipple && (
+            <motion.div
+              initial={{ scale: 1, opacity: 0.7 }}
+              animate={{ scale: 2.2, opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.6 }}
+              className="absolute top-0 left-0 right-0 mx-auto w-11 h-11 rounded-full bg-red-500 pointer-events-none"
+            />
+          )}
+        </AnimatePresence>
+        <div
+          className={`relative w-11 h-11 rounded-full backdrop-blur-xl flex items-center justify-center border-2 transition-all ${
+            isLiked
+              ? "bg-red-500/30 border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.6)]"
+              : "bg-white/10 border-white/30"
+          }`}
+        >
+          <Heart
+            className={`w-5 h-5 ${isLiked ? "fill-red-400 text-red-400" : "text-white"}`}
+            strokeWidth={1.8}
+          />
+        </div>
+        <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">
+          {video.likes.toLocaleString()}
+        </span>
+      </motion.button>
+
+      {/* 댓글 — 부드러운 pulse + purple glow */}
+      <motion.button
+        whileTap={{ scale: 0.85 }}
+        animate={{ scale: [1, 1.05, 1] }}
+        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        onClick={(e) => { e.stopPropagation(); onComment(video); }}
+        className="flex flex-col items-center"
+        aria-label="댓글"
+      >
+        <div className="w-11 h-11 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.4)]">
+          <MessageCircle className="w-5 h-5 text-white" strokeWidth={1.8} />
+        </div>
+        <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">
+          {commentCount > 0 ? commentCount.toLocaleString() : "댓글"}
+        </span>
+      </motion.button>
+
+      {/* 공유 — hover 회전 + cyan glow */}
+      <motion.button
+        whileTap={{ scale: 0.85 }}
+        whileHover={{ rotate: 15 }}
+        onClick={(e) => { e.stopPropagation(); onShare(video); }}
+        className="flex flex-col items-center"
+        aria-label="공유"
+      >
+        <div className="w-11 h-11 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.4)]">
+          <Send className="w-5 h-5 text-white -rotate-12" strokeWidth={1.8} />
+        </div>
+        <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">공유</span>
+      </motion.button>
+    </div>
+  );
+});
+ActionButtons.displayName = "ActionButtons";
 
 // 🎬 Movie Section Component (2 per screen)
 const MovieSection = memo(({
@@ -308,42 +400,15 @@ const MovieSection = memo(({
         </div>
       )}
 
-      {/* 우측 액션 버튼 (TikTok 스타일) */}
-      <div className="absolute right-2 bottom-[60px] z-40 flex flex-col items-center pointer-events-auto">
-        <button
-          onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }}
-          className="flex flex-col items-center py-1 active:scale-90 transition-transform"
-          aria-label="좋아요"
-        >
-          <Heart
-            className={`w-7 h-7 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] ${isLiked ? 'fill-red-500 text-red-500' : 'text-white fill-white/10'}`}
-            strokeWidth={1.5}
-          />
-          <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">{video.likes.toLocaleString()}</span>
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); onComment(video); }}
-          className="flex flex-col items-center py-1 active:scale-90 transition-transform"
-          aria-label="댓글"
-        >
-          <MessageSquare
-            className="w-7 h-7 text-white fill-white/10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
-            strokeWidth={1.5}
-          />
-          <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">{commentCount > 0 ? commentCount.toLocaleString() : "댓글"}</span>
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); onShare(video); }}
-          className="flex flex-col items-center py-1 active:scale-90 transition-transform"
-          aria-label="공유"
-        >
-          <Share2
-            className="w-7 h-7 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
-            strokeWidth={1.5}
-          />
-          <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">공유</span>
-        </button>
-      </div>
+      {/* 우측 액션 버튼 (글래스 + 글로우 스타일) */}
+      <ActionButtons
+        video={video}
+        isLiked={isLiked}
+        onToggleLike={onToggleLike}
+        onComment={onComment}
+        onShare={onShare}
+        commentCount={commentCount}
+      />
 
       {/* 🔻 하단 그라디언트 오버레이 + 정보 */}
       <div className="absolute bottom-0 left-0 right-0 z-30 pointer-events-none"
