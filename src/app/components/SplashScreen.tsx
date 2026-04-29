@@ -2,6 +2,7 @@ import { motion } from "motion/react";
 import { Sparkles, Play, ShoppingBag, Zap } from "lucide-react";
 import { Button } from "./ui/button";
 import { CreaiteText } from "./CreaiteText";
+import { CreaiteLogo } from "./CreaiteLogo";
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -25,11 +26,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
           className="mb-8"
         >
           <div className="w-32 h-32 mx-auto mb-4 flex items-center justify-center">
-            <img 
-              src="/logo.png" 
-              alt="CREAITE Logo" 
-              className="w-full h-full object-contain"
-            />
+            <CreaiteLogo className="w-full h-full" />
           </div>
           <h1 className="mb-2">
             <CreaiteText className="text-4xl font-extrabold" />

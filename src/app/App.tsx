@@ -32,6 +32,7 @@ import { NewLogoPreview } from "./components/NewLogoPreview";
 import { LogoDesigns } from "./components/LogoDesigns";
 import { LogoDesignsV2 } from "./components/LogoDesignsV2";
 import { CreaiteText } from "./components/CreaiteText";
+import { CreaiteLogo } from "./components/CreaiteLogo";
 import { Button } from "./components/ui/button";
 import { handleBunnyError } from "./utils/bunnyErrorHandler";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -216,11 +217,7 @@ function AppContent() {
       >
         <div className="flex items-center justify-between h-14 px-4">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab("market")}>
-            <img
-              src="/logo.png"
-              alt="CREAITE Logo"
-              className="h-9 w-auto object-contain drop-shadow-sm"
-            />
+            <CreaiteLogo className="w-9 h-9" />
             <CreaiteText className="text-[17px] font-extrabold" />
           </div>
           <div className="flex items-center gap-1">
@@ -291,11 +288,7 @@ function AppContent() {
             className="flex items-center gap-3 cursor-pointer select-none"
             onClick={() => setActiveTab("market")}
           >
-            <img
-              src="/logo.png"
-              alt="CREAITE Logo"
-              className="h-10 w-auto object-contain drop-shadow-md"
-            />
+            <CreaiteLogo className="w-10 h-10" />
             <span className="hidden lg:block">
               <CreaiteText className="text-xl font-extrabold" />
             </span>
