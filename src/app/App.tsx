@@ -140,13 +140,13 @@ function AppContent() {
     };
   }, []);
 
-  // 장바구니 추가 (ProductDetail에서 호출)
-  const addToCart = useCallback((product: VideoProduct, licenseType: "standard" | "commercial" | "extended" = "standard") => {
+  // 장바구니 추가 (ProductDetail에서 호출) — 인증 통과 시 true, 미로그인 시 false 반환
+  const addToCart = useCallback((product: VideoProduct, licenseType: "standard" | "commercial" | "extended" = "standard"): boolean => {
     // 비로그인 시 로그인 모달 표시
     if (!isAuthenticated) {
       toast.info("장바구니 사용을 위해 로그인이 필요합니다.");
       setShowAuthModal(true);
-      return;
+      return false;
     }
 
     const price = licenseType === "standard" ? product.price
@@ -176,6 +176,7 @@ function AppContent() {
       });
       return [...prev, newItem];
     });
+    return true;
   }, [isAuthenticated]);
 
   const removeFromCart = useCallback((itemId: string) => {
