@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512">
+  <defs>
+    <linearGradient id="cool" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="aurora" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="50%" stop-color="#ec4899"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="warm" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+  </defs>
+  <!-- 3개의 ▶ 삼각형 (왼쪽: 차가운 / 중앙: 오로라 / 오른쪽: 따뜻한) -->
+  <polygon points="20,30 20,70 50,50" fill="url(#cool)" opacity="0.55"/>
+  <polygon points="35,25 35,75 70,50" fill="url(#aurora)" opacity="0.78"/>
+  <polygon points="50,20 50,80 90,50" fill="url(#warm)"/>
+</svg>

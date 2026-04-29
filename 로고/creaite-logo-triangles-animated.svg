@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512">
+  <defs>
+    <linearGradient id="cool" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="aurora" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="50%" stop-color="#ec4899"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="warm" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 삼각형 1 (왼쪽, 가장 작음) -->
+  <polygon points="20,30 20,70 50,50" fill="url(#cool)" transform-origin="35 50">
+    <animate attributeName="opacity" values="0.4;0.7;0.4" dur="1.5s" repeatCount="indefinite" begin="0s"/>
+    <animateTransform attributeName="transform" type="scale" values="1;1.12;1" dur="1.5s" repeatCount="indefinite" begin="0s"/>
+  </polygon>
+
+  <!-- 삼각형 2 (중앙) -->
+  <polygon points="35,25 35,75 70,50" fill="url(#aurora)" transform-origin="52 50">
+    <animate attributeName="opacity" values="0.6;0.95;0.6" dur="1.5s" repeatCount="indefinite" begin="0.2s"/>
+    <animateTransform attributeName="transform" type="scale" values="1;1.12;1" dur="1.5s" repeatCount="indefinite" begin="0.2s"/>
+  </polygon>
+
+  <!-- 삼각형 3 (오른쪽, 가장 큼) -->
+  <polygon points="50,20 50,80 90,50" fill="url(#warm)" transform-origin="70 50">
+    <animate attributeName="opacity" values="0.85;1;0.85" dur="1.5s" repeatCount="indefinite" begin="0.4s"/>
+    <animateTransform attributeName="transform" type="scale" values="1;1.12;1" dur="1.5s" repeatCount="indefinite" begin="0.4s"/>
+  </polygon>
+</svg>

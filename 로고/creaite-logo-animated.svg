@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512">
+  <defs>
+    <linearGradient id="aurora" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="50%" stop-color="#ec4899"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 막대 1 (가장 짧은 시작) -->
+  <rect x="12" width="8" rx="4" fill="url(#aurora)">
+    <animate attributeName="y" values="35;27.5;35" dur="1.2s" repeatCount="indefinite" begin="0s"/>
+    <animate attributeName="height" values="30;45;30" dur="1.2s" repeatCount="indefinite" begin="0s"/>
+  </rect>
+
+  <!-- 막대 2 -->
+  <rect x="26" width="8" rx="4" fill="url(#aurora)">
+    <animate attributeName="y" values="20;12.5;20" dur="1.35s" repeatCount="indefinite" begin="0.1s"/>
+    <animate attributeName="height" values="60;75;60" dur="1.35s" repeatCount="indefinite" begin="0.1s"/>
+  </rect>
+
+  <!-- 막대 3 (가장 긴) -->
+  <rect x="40" width="8" rx="4" fill="url(#aurora)">
+    <animate attributeName="y" values="10;2.5;10" dur="1.5s" repeatCount="indefinite" begin="0.2s"/>
+    <animate attributeName="height" values="80;95;80" dur="1.5s" repeatCount="indefinite" begin="0.2s"/>
+  </rect>
+
+  <!-- 막대 4 -->
+  <rect x="54" width="8" rx="4" fill="url(#aurora)">
+    <animate attributeName="y" values="25;17.5;25" dur="1.65s" repeatCount="indefinite" begin="0.3s"/>
+    <animate attributeName="height" values="50;65;50" dur="1.65s" repeatCount="indefinite" begin="0.3s"/>
+  </rect>
+
+  <!-- 막대 5 -->
+  <rect x="68" width="8" rx="4" fill="url(#aurora)">
+    <animate attributeName="y" values="15;7.5;15" dur="1.8s" repeatCount="indefinite" begin="0.4s"/>
+    <animate attributeName="height" values="70;85;70" dur="1.8s" repeatCount="indefinite" begin="0.4s"/>
+  </rect>
+
+  <!-- 플레이 ▶ 삼각형 (펄스) -->
+  <polygon points="82,28 82,72 96,50" fill="url(#aurora)" transform-origin="89 50">
+    <animateTransform attributeName="transform" type="scale" values="1;1.08;1" dur="1.5s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.85;1;0.85" dur="1.5s" repeatCount="indefinite"/>
+  </polygon>
+</svg>
