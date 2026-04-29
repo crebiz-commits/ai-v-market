@@ -7,6 +7,7 @@ import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { CommentPanel } from "./CommentPanel";
+import { VideoFullscreen } from "./VideoFullscreen";
 import { toast } from "sonner";
 
 interface Ad {
@@ -216,6 +217,7 @@ const MovieSection = memo(({
   onSetActive,
   onComment,
   onShare,
+  onFullscreen,
   commentCount = 0,
 }: {
   video: Video;
@@ -228,6 +230,7 @@ const MovieSection = memo(({
   onSetActive: (id: string) => void;
   onComment: (video: Video) => void;
   onShare: (video: Video) => void;
+  onFullscreen: (video: Video) => void;
   commentCount?: number;
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -394,22 +397,12 @@ const MovieSection = memo(({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            const player = playerRef.current;
-            if (!player || player.isDisposed()) return;
-            // 비활성 영상에서 클릭 시 먼저 활성화
-            if (!isActive) onSetActive(video.id);
-            // 다른 모든 영상을 즉시 일시정지 + 음소거 (DOM 레벨 강제)
+            // 모든 영상 즉시 일시정지 (다중 소리 방지)
             document.querySelectorAll<HTMLVideoElement>("video").forEach((v) => {
-              if (v !== videoRef.current) {
-                v.pause();
-                v.muted = true;
-              }
+              v.pause();
+              v.muted = true;
             });
-            if (player.isFullscreen()) {
-              player.exitFullscreen();
-            } else {
-              player.requestFullscreen();
-            }
+            onFullscreen(video);
           }}
           className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white pointer-events-auto"
           aria-label="전체화면"
@@ -482,6 +475,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
   const [likedVideos, setLikedVideos] = useState<Set<string>>(new Set());
   const [isMuted, setIsMuted] = useState(true);
   const [commentVideo, setCommentVideo] = useState<Video | null>(null);
+  const [fullscreenVideo, setFullscreenVideo] = useState<Video | null>(null);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -702,6 +696,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
                 onSetActive={(id) => setActiveId(id)}
                 onComment={(v) => setCommentVideo(v)}
                 onShare={handleShare}
+                onFullscreen={(v) => setFullscreenVideo(v)}
                 commentCount={commentCounts[item.id] || 0}
               />
             )}
@@ -865,6 +860,24 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
               />
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 전체화면 모드 (커스텀 — YouTube 스타일) */}
+      <AnimatePresence>
+        {fullscreenVideo && (
+          <VideoFullscreen
+            video={fullscreenVideo}
+            isLiked={likedVideos.has(fullscreenVideo.id)}
+            commentCount={commentCounts[fullscreenVideo.id] || 0}
+            onClose={() => setFullscreenVideo(null)}
+            onToggleLike={() => toggleLike(fullscreenVideo.id, likedVideos.has(fullscreenVideo.id))}
+            onComment={() => {
+              setCommentVideo(fullscreenVideo);
+              setFullscreenVideo(null);
+            }}
+            onShare={() => handleShare(fullscreenVideo)}
+          />
         )}
       </AnimatePresence>
     </div>
