@@ -29,6 +29,7 @@ import { CartPanel, CartItem } from "./components/CartPanel";
 import { NotificationPanel } from "./components/NotificationPanel";
 import { LogoPreview } from "./components/LogoPreview";
 import { NewLogoPreview } from "./components/NewLogoPreview";
+import { LogoDesigns } from "./components/LogoDesigns";
 import { CreaiteText } from "./components/CreaiteText";
 import { Button } from "./components/ui/button";
 import { handleBunnyError } from "./utils/bunnyErrorHandler";
@@ -60,6 +61,10 @@ function AppContent() {
   // 새 로고 프리뷰 (URL ?preview=newlogo)
   if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "newlogo") {
     return <NewLogoPreview />;
+  }
+  // SVG 로고 디자인 비교 (URL ?preview=designs)
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "designs") {
+    return <LogoDesigns />;
   }
 
   const [showSplash, setShowSplash] = useState(() => {
