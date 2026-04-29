@@ -30,6 +30,7 @@ import { NotificationPanel } from "./components/NotificationPanel";
 import { LogoPreview } from "./components/LogoPreview";
 import { NewLogoPreview } from "./components/NewLogoPreview";
 import { LogoDesigns } from "./components/LogoDesigns";
+import { LogoDesignsV2 } from "./components/LogoDesignsV2";
 import { CreaiteText } from "./components/CreaiteText";
 import { Button } from "./components/ui/button";
 import { handleBunnyError } from "./utils/bunnyErrorHandler";
@@ -65,6 +66,10 @@ function AppContent() {
   // SVG 로고 디자인 비교 (URL ?preview=designs)
   if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "designs") {
     return <LogoDesigns />;
+  }
+  // SVG 로고 디자인 V2 — 새로운 컨셉 (URL ?preview=designs2)
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "designs2") {
+    return <LogoDesignsV2 />;
   }
 
   const [showSplash, setShowSplash] = useState(() => {
