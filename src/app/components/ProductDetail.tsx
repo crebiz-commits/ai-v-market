@@ -1,6 +1,5 @@
 import { X, Play, Heart, Share2, Download, ShoppingCart, Check, Volume2, VolumeX, Loader2, MessageCircle } from "lucide-react";
 import { Button } from "./ui/button";
-import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import videojs from "video.js";
@@ -26,50 +25,7 @@ interface ProductDetailProps {
   onAddToCart?: (product: any, licenseType: "standard" | "commercial" | "extended") => void;
 }
 
-// 라이선스 옵션을 product.price 기준으로 동적 생성
-function getLicenseOptions(basePrice: number) {
-  return [
-    {
-      id: "standard",
-      name: "Standard",
-      price: basePrice,
-      description: "유튜브, 개인 SNS 용도",
-      features: [
-        "개인 유튜브 채널 사용 가능",
-        "SNS 게시물 사용 가능",
-        "최대 100만 뷰까지"
-      ]
-    },
-    {
-      id: "commercial",
-      name: "Commercial",
-      price: basePrice * 2,
-      description: "기업 광고, 마케팅 용도",
-      features: [
-        "상업적 광고 사용 가능",
-        "기업 마케팅 용도",
-        "무제한 뷰",
-        "재배포 가능"
-      ]
-    },
-    {
-      id: "extended",
-      name: "Exclusive",
-      price: basePrice * 5,
-      description: "독점 사용권",
-      features: [
-        "완전한 독점 사용권",
-        "구매 후 마켓에서 즉시 삭제",
-        "타인 사용 불가",
-        "무제한 용도",
-        "원본 프로젝트 파일 제공"
-      ]
-    }
-  ];
-}
-
 export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailProps) {
-  const [selectedLicense, setSelectedLicense] = useState("standard");
   const [isLiked, setIsLiked] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -170,13 +126,9 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
     setIsMuted(!isMuted);
   };
 
-  const licenseOptions = getLicenseOptions(product.price);
-  const selectedOption = licenseOptions.find((opt) => opt.id === selectedLicense);
-
   const handleAddToCart = () => {
-    const licenseType = selectedLicense as "standard" | "commercial" | "extended";
     if (onAddToCart) {
-      onAddToCart(product, licenseType);
+      onAddToCart(product, "standard");
     }
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2000);
@@ -335,42 +287,46 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
               </div>
             </div>
 
-            {/* License Selection */}
+            {/* License (단일 통합) */}
             <div className="mb-6">
-              <h3 className="mb-4">라이선스 선택</h3>
-              <RadioGroup value={selectedLicense} onValueChange={setSelectedLicense}>
-                <div className="space-y-3">
-                  {licenseOptions.map((option: ReturnType<typeof getLicenseOptions>[0]) => (
-                    <label
-                      key={option.id}
-                      className={`flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                        selectedLicense === option.id
-                          ? 'border-[#6366f1] bg-[#6366f1]/5'
-                          : 'border-border hover:border-[#6366f1]/50'
-                      }`}
-                    >
-                      <RadioGroupItem value={option.id} id={option.id} className="mt-1" />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <div>
-                            <p className="font-medium">{option.name}</p>
-                            <p className="text-sm text-muted-foreground">{option.description}</p>
-                          </div>
-                          <p className="font-medium text-[#6366f1]">₩{option.price.toLocaleString()}</p>
-                        </div>
-                        <ul className="mt-2 space-y-1">
-                          {option.features.map((feature, idx) => (
-                            <li key={idx} className="text-xs text-muted-foreground flex items-center gap-2">
-                              <Check className="w-3 h-3 text-[#10b981]" />
-                              {feature}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </label>
-                  ))}
+              <h3 className="mb-4">영상 라이선스 구매</h3>
+              <div className="p-5 rounded-lg border-2 border-[#6366f1] bg-[#6366f1]/5">
+                <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
+                  <div>
+                    <p className="font-bold">All-in-One License</p>
+                    <p className="text-sm text-muted-foreground">유튜브·SNS·기업 마케팅·독점 사용권 모두 포함</p>
+                  </div>
+                  <p className="text-xl font-black text-[#6366f1]">₩{product.price.toLocaleString()}</p>
                 </div>
-              </RadioGroup>
+                <ul className="space-y-2">
+                  {[
+                    "유튜브·인스타그램 등 개인 채널 사용 가능",
+                    "모든 SNS 게시물 사용 가능",
+                    "상업·기업 마케팅 용도 사용 가능",
+                    "독점 사용권 부여 (구매 시 마켓에서 즉시 판매 종료)",
+                    "구매자 명의의 팀·조직 내 자유 사용",
+                    "편집·변형 후 재배포 가능",
+                    "구매 완료 시 모든 라이선스 및 사용권이 구매자에게 영구 양도",
+                    "원본 프로젝트 파일 제공 (AI 프롬프트 포함)",
+                    "라이선스 영구 유효 (사용 기간 제한 없음)",
+                    "표시 가격은 부가세(VAT) 포함",
+                  ].map((feature, idx) => (
+                    <li key={idx} className="text-sm text-foreground/80 flex items-start gap-2">
+                      <Check className="w-4 h-4 text-[#10b981] mt-0.5 flex-shrink-0" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* 주의 사항 */}
+              <div className="mt-4 p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <p className="text-sm font-bold text-amber-200 mb-2">⚠️ 구매 전 안내</p>
+                <ul className="space-y-1 text-xs text-amber-100/80 leading-relaxed">
+                  <li>• 영상 콘텐츠 특성상 구매 후 환불·반품이 불가능합니다</li>
+                  <li>• 결제 전 미리보기를 통해 충분히 확인해 주시기 바랍니다</li>
+                </ul>
+              </div>
             </div>
 
             {/* Product Description */}
@@ -442,8 +398,8 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
             </button>
             <div className="flex-1" />
             <div className="text-right">
-              <p className="text-xs text-muted-foreground">{selectedOption?.name} 라이선스</p>
-              <p className="text-2xl font-medium text-[#6366f1]">₩{selectedOption?.price.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">All-in-One 라이선스</p>
+              <p className="text-2xl font-medium text-[#6366f1]">₩{product.price.toLocaleString()}</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
