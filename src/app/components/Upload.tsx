@@ -1313,7 +1313,9 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="seed" className="mb-2 block text-sm">시드값 (재현용)</Label>
+                    <Label htmlFor="seed" className="mb-2 block text-sm">
+                      시드값 <span className="text-xs text-muted-foreground font-normal">(모르면 비워두세요)</span>
+                    </Label>
                     <Input
                       id="seed"
                       value={formData.seed}
@@ -1322,6 +1324,10 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                       className="bg-background"
                       maxLength={50}
                     />
+                    <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
+                      AI 툴이 알려준 고유 번호. 같은 영상을 다시 만들거나, 저작권 분쟁 시
+                      "내가 원작자"임을 증명하는 강력한 증거가 됩니다.
+                    </p>
                   </div>
                 </div>
               </details>
