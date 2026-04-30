@@ -31,7 +31,10 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
           <h1 className="mb-2">
             <CreaiteText className="text-4xl font-extrabold" />
           </h1>
-          <p className="text-muted-foreground">AI 시네마 × 크리에이터 마켓</p>
+          <p className="text-base font-bold bg-gradient-to-r from-[#6366f1] via-[#ec4899] to-[#06b6d4] bg-clip-text text-transparent mb-1">
+            세계 최초 AI 시네마 OTT 서비스
+          </p>
+          <p className="text-sm text-muted-foreground">AI 시네마 × 크리에이터 마켓</p>
         </motion.div>
 
         {/* Features */}
