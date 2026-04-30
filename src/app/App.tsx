@@ -99,7 +99,7 @@ function AppContent() {
     }
     return false;
   });
-  const [activeTab, setActiveTab] = useState<Tab>("market");
+  const [activeTab, setActiveTab] = useState<Tab>("discovery");
   const [selectedProduct, setSelectedProduct] = useState<VideoProduct | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [activePanel, setActivePanel] = useState<Panel>(null);
@@ -309,7 +309,7 @@ function AppContent() {
       case "admin":
         return <AdminDashboard />;
       default:
-        return <Market onProductClick={setSelectedProduct} />;
+        return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} />;
     }
   };
 
@@ -338,7 +338,7 @@ function AppContent() {
         className="md:hidden border-b border-white/5 bg-background/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm"
       >
         <div className="flex items-center justify-between h-14 px-4">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab("market")}>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab("discovery")}>
             <CreaiteLogo className="w-9 h-9" />
             <CreaiteText className="text-[17px] font-extrabold" />
           </div>
@@ -407,7 +407,7 @@ function AppContent() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="flex items-center gap-3 cursor-pointer select-none"
-            onClick={() => setActiveTab("market")}
+            onClick={() => setActiveTab("discovery")}
           >
             <CreaiteLogo className="w-10 h-10" />
             <span className="hidden lg:block">
