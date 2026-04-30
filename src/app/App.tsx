@@ -89,6 +89,10 @@ function AppContent() {
   if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "cinema") {
     return <CinemaIconPreview />;
   }
+  // 인트로 스플래시 미리보기 (URL ?preview=splash)
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "splash") {
+    return <SplashScreen onComplete={() => { window.location.search = ""; }} />;
+  }
 
   const [showSplash, setShowSplash] = useState(() => {
     const lastVisitDate = localStorage.getItem('aivm_last_visit');
