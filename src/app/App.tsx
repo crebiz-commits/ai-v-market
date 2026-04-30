@@ -2,7 +2,7 @@
  * CREAITE (AI 영상 특화 오픈마켓 플랫폼)
  *
  * 주요 기능:
- * - 탐색: AI 추천 알고리즘 기반 숏폼 피드
+ * - 홈: AI 추천 알고리즘 기반 숏폼 피드
  * - 마켓: 검색, 필터링, 다중 라이선스 옵션
  * - 업로드: 단건/대량 업로드, AI 제작 증빙, 저작권 서약
  * - 커뮤니티: 팁 공유, 챌린지, 프롬프트 공유
@@ -13,7 +13,7 @@
 import './init';
 
 import { useState, useEffect, useCallback } from "react";
-import { Sparkles, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart } from "lucide-react";
+import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { DiscoveryFeed } from "./components/DiscoveryFeed";
 import { Market } from "./components/Market";
@@ -317,7 +317,7 @@ function AppContent() {
   const isAdmin = user && ADMIN_EMAILS.includes(user.email);
 
   const desktopTabs: { id: Tab; label: string; icon: any }[] = [
-    { id: "discovery", label: "탐색", icon: Sparkles },
+    { id: "discovery", label: "홈", icon: Home },
     { id: "market", label: "시네마", icon: Film },
     { id: "upload", label: "업로드", icon: UploadIcon },
     { id: "community", label: "커뮤니티", icon: MessageSquare },
@@ -587,8 +587,8 @@ function AppContent() {
         <div className="flex items-center justify-around h-20 px-2 pb-safe">
           {["discovery", "market"].map((tabId) => {
             const isDiscovery = tabId === "discovery";
-            const Icon = isDiscovery ? Sparkles : Film;
-            const label = isDiscovery ? "탐색" : "시네마";
+            const Icon = isDiscovery ? Home : Film;
+            const label = isDiscovery ? "홈" : "시네마";
             const isActive = activeTab === tabId && !activePanel;
             return (
               <button
