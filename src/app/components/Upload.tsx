@@ -358,6 +358,56 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
   // 가격 포맷팅 제거 (쉼표 제거)
   const stripCommas = (value: string) => value.replace(/,/g, "");
 
+  // 이미지 다운스케일 + JPEG 재인코딩 (썸네일 업로드 페이로드 최소화)
+  const downscaleToJpegBlob = (dataUrl: string, maxW = 1280, maxH = 720, quality = 0.85): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
+        const w = Math.round(img.width * ratio);
+        const h = Math.round(img.height * ratio);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("Canvas context unavailable"));
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error("toBlob failed"))),
+          "image/jpeg",
+          quality
+        );
+      };
+      img.onerror = () => reject(new Error("Image load failed"));
+      img.src = dataUrl;
+    });
+  };
+
+  // Bunny Stream에 커스텀 썸네일 업로드 (POST /thumbnail)
+  // - 자동 추출 프레임 또는 사용자 업로드 이미지를 Bunny에 직접 전송
+  // - Supabase Storage 사용 안 함 (영상과 같은 Bunny CDN에서 서빙)
+  const setBunnyThumbnail = async (
+    videoId: string,
+    libraryId: string,
+    apiKey: string,
+    thumbnailDataUrl: string
+  ): Promise<void> => {
+    const blob = await downscaleToJpegBlob(thumbnailDataUrl, 1280, 720, 0.85);
+    const url = `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}/thumbnail`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        AccessKey: apiKey,
+        "Content-Type": blob.type || "image/jpeg",
+      },
+      body: blob,
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`Bunny thumbnail upload failed: ${response.status} ${text}`);
+    }
+  };
+
   // Bunny.net에 직접 업로드
   const uploadToBunny = async (file: File, videoId: string, libraryId: string, apiKey: string) => {
     if (!apiKey) {
@@ -489,6 +539,21 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
       console.log('Uploading file to Bunny.net...');
       await uploadToBunny(selectedFile, videoId, libraryId, serverApiKey);
       console.log('File uploaded successfully');
+
+      // 2.5. 커스텀 썸네일 Bunny에 업로드 (선택된 경우)
+      // 자동 추출 프레임 또는 사용자 업로드 이미지를 Bunny Stream에 직접 전송
+      // 실패해도 Bunny 자동 썸네일이 폴백되므로 치명적이지 않음
+      if (selectedThumbnail) {
+        console.log('Setting custom thumbnail on Bunny...');
+        toast.info('썸네일 처리 중...');
+        try {
+          await setBunnyThumbnail(videoId, libraryId, serverApiKey, selectedThumbnail);
+          console.log('Custom thumbnail set successfully');
+        } catch (thumbErr) {
+          console.warn('Thumbnail upload failed, falling back to Bunny default:', thumbErr);
+          toast.warning('썸네일 업로드 실패 — 자동 생성 썸네일이 사용됩니다.');
+        }
+      }
 
       // 3. 메타데이터 저장 (Edge Function 호출로 변경 - KV 및 DB 동시 저장)
       console.log('Saving metadata via Edge Function...');
