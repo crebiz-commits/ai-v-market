@@ -34,6 +34,7 @@ import { LogoDesignsV2 } from "./components/LogoDesignsV2";
 import { LogoFish } from "./components/LogoFish";
 import { LogoFishPlay } from "./components/LogoFishPlay";
 import { CinemaIconPreview } from "./components/CinemaIconPreview";
+import { UploadButtonPreview } from "./components/UploadButtonPreview";
 import { CreaiteText } from "./components/CreaiteText";
 import { CreaiteLogo } from "./components/CreaiteLogo";
 import { useBackButton } from "./hooks/useBackButton";
@@ -92,6 +93,10 @@ function AppContent() {
   // 인트로 스플래시 미리보기 (URL ?preview=splash)
   if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "splash") {
     return <SplashScreen onComplete={() => { window.location.search = ""; }} />;
+  }
+  // 하단 업로드 버튼 디자인 비교 (URL ?preview=uploadbtn)
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "uploadbtn") {
+    return <UploadButtonPreview />;
   }
 
   const [showSplash, setShowSplash] = useState(() => {
@@ -616,20 +621,28 @@ function AppContent() {
             );
           })}
 
-          {/* Upload Button */}
+          {/* Upload Button — CREAITE 로고를 시그니처 액션 버튼으로 사용 */}
           <div className="flex items-center justify-center flex-1 h-full">
             <motion.button
               whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.9 }}
+              whileTap={{ scale: 0.92 }}
               onClick={() => { setActivePanel(null); setActiveTab("upload"); }}
               className="relative -mt-8 outline-none group"
+              aria-label="업로드"
             >
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 border-[3px] border-background
+              <div className={`w-14 h-14 rounded-full transition-all duration-300 border-[3px] border-background flex items-center justify-center
                 ${activeTab === "upload"
-                  ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] shadow-[0_0_25px_rgba(99,102,241,0.6)]"
-                  : "bg-[#222] hover:bg-[#333] shadow-lg"}
+                  ? "bg-gradient-to-tr from-[#6366f1] via-[#ec4899] to-[#06b6d4] shadow-[0_0_25px_rgba(139,92,246,0.6)] p-[2px]"
+                  : "bg-[#1a1a1c] hover:bg-[#2a2a2c] shadow-lg"}
               `}>
-                <UploadIcon className={`w-6 h-6 ${activeTab === "upload" ? "text-white" : "text-gray-300 group-hover:text-white"}`} />
+                <div className={`w-full h-full rounded-full flex items-center justify-center transition-colors duration-300
+                  ${activeTab === "upload" ? "bg-[#0a0a0a]" : "bg-transparent"}
+                `}>
+                  <CreaiteLogo
+                    className="w-7 h-7 -rotate-90"
+                    still={activeTab !== "upload"}
+                  />
+                </div>
               </div>
             </motion.button>
           </div>
