@@ -31,7 +31,7 @@ app.use(
 );
 
 // Health check endpoint
-app.get("/make-server-f4aeac42/health", (c) => {
+app.get("/health", (c) => {
   return c.json({ status: "ok" });
 });
 
@@ -40,7 +40,7 @@ app.get("/make-server-f4aeac42/health", (c) => {
 // ============================================
 
 // 회원가입
-app.post("/make-server-f4aeac42/auth/signup", async (c) => {
+app.post("/auth/signup", async (c) => {
   try {
     const { email, password, name } = await c.req.json();
 
@@ -81,7 +81,7 @@ app.post("/make-server-f4aeac42/auth/signup", async (c) => {
 });
 
 // 로그인
-app.post("/make-server-f4aeac42/auth/signin", async (c) => {
+app.post("/auth/signin", async (c) => {
   try {
     const { email, password } = await c.req.json();
 
@@ -117,7 +117,7 @@ app.post("/make-server-f4aeac42/auth/signin", async (c) => {
 });
 
 // 사용자 정보 조회 (인증 필요)
-app.get("/make-server-f4aeac42/auth/user", async (c) => {
+app.get("/auth/user", async (c) => {
   try {
     const authHeader = c.req.header('Authorization');
     const accessToken = authHeader?.split(' ')[1];
@@ -152,7 +152,7 @@ app.get("/make-server-f4aeac42/auth/user", async (c) => {
 // ============================================
 
 // Bunny.net에 비디오 생성 및 업로드 URL 생성
-app.post("/make-server-f4aeac42/videos/create-upload", async (c) => {
+app.post("/videos/create-upload", async (c) => {
   try {
     const authHeader = c.req.header('Authorization');
     const accessToken = authHeader?.split(' ')[1];
@@ -226,7 +226,7 @@ app.post("/make-server-f4aeac42/videos/create-upload", async (c) => {
 });
 
 // 비디오 메타데이터 저장
-app.post("/make-server-f4aeac42/videos/save-metadata", async (c) => {
+app.post("/videos/save-metadata", async (c) => {
   try {
     const authHeader = c.req.header('Authorization');
     const accessToken = authHeader?.split(' ')[1];
@@ -339,7 +339,7 @@ app.post("/make-server-f4aeac42/videos/save-metadata", async (c) => {
 });
 
 // 비디오 상태 업데이트
-app.put("/make-server-f4aeac42/videos/:videoId/status", async (c) => {
+app.put("/videos/:videoId/status", async (c) => {
   try {
     const authHeader = c.req.header('Authorization');
     const accessToken = authHeader?.split(' ')[1];
@@ -385,7 +385,7 @@ app.put("/make-server-f4aeac42/videos/:videoId/status", async (c) => {
 });
 
 // 사용자의 비디오 목록 조회
-app.get("/make-server-f4aeac42/videos/my-videos", async (c) => {
+app.get("/videos/my-videos", async (c) => {
   try {
     const authHeader = c.req.header('Authorization');
     const accessToken = authHeader?.split(' ')[1];
