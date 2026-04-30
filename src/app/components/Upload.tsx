@@ -17,6 +17,7 @@ const aiTools = ["Sora", "Runway Gen-3", "Runway Gen-2", "Pika Labs", "Luma Drea
 const categories = ["AI영화", "AI드라마", "AI애니메이션", "AI다큐멘터리", "AI뮤직비디오", "SF", "액션", "로맨스", "공포", "판타지", "드라마", "코미디", "자연/풍경", "추상", "기타"];
 const resolutions = ["720p", "1080p", "4K", "8K"];
 const genres = ["SF", "액션", "로맨스", "공포", "판타지", "드라마", "코미디", "다큐멘터리", "자연/풍경", "추상", "기타"];
+const languages = ["한국어", "영어", "일본어", "중국어", "스페인어", "프랑스어", "독일어", "무음/instrumental", "기타"];
 
 interface UploadProps {
   onSignInClick?: () => void;
@@ -40,10 +41,23 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     category: "",
     genre: "",
     aiTool: "",
+    aiModelVersion: "", // 모델 버전 (예: "Sora v2.1")
     resolution: "",
     duration: "",
     prompt: "",
+    seed: "", // AI 시드값 (재현용)
     creativityDescription: "",
+    // 시네마 메타데이터
+    director: "",
+    writer: "",
+    composer: "",
+    cast: "",
+    productionYear: "",
+    language: "",
+    subtitleLanguage: "",
+    // 공개 설정
+    visibility: "public" as "public" | "unlisted" | "private",
+    // 가격
     standardPrice: "",
     commercialPrice: "",
     exclusivePrice: "",
@@ -574,10 +588,22 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
         commercialPrice: stripCommas(formData.commercialPrice) || "0",
         exclusivePrice: stripCommas(formData.exclusivePrice) || "0",
         aiTool: formData.aiTool || '',
+        aiModelVersion: formData.aiModelVersion || '',
         category: formData.category || '',
         genre: formData.genre || '',
         prompt: formData.prompt || '',
+        seed: formData.seed || '',
         resolution: formData.resolution || '',
+        // 시네마 메타데이터
+        director: formData.director || '',
+        writer: formData.writer || '',
+        composer: formData.composer || '',
+        cast: formData.cast || '',
+        productionYear: formData.productionYear || '',
+        language: formData.language || '',
+        subtitleLanguage: formData.subtitleLanguage || '',
+        // 공개 설정
+        visibility: formData.visibility || 'public',
         status: 'ready'
       };
 
@@ -632,10 +658,20 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
       category: "",
       genre: "",
       aiTool: "",
+      aiModelVersion: "",
       resolution: "",
       duration: "",
       prompt: "",
+      seed: "",
       creativityDescription: "",
+      director: "",
+      writer: "",
+      composer: "",
+      cast: "",
+      productionYear: "",
+      language: "",
+      subtitleLanguage: "",
+      visibility: "public",
       standardPrice: "",
       commercialPrice: "",
       exclusivePrice: "",
@@ -1019,20 +1055,35 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="aiTool" className="mb-2 block">사용 AI 툴 *</Label>
-                <select
-                  id="aiTool"
-                  value={formData.aiTool}
-                  onChange={(e) => setFormData({...formData, aiTool: e.target.value})}
-                  className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm"
-                  required
-                >
-                  <option value="">선택</option>
-                  {aiTools.map(tool => (
-                    <option key={tool} value={tool}>{tool}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="aiTool" className="mb-2 block">사용 AI 툴 *</Label>
+                  <select
+                    id="aiTool"
+                    value={formData.aiTool}
+                    onChange={(e) => setFormData({...formData, aiTool: e.target.value})}
+                    className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm"
+                    required
+                  >
+                    <option value="">선택</option>
+                    {aiTools.map(tool => (
+                      <option key={tool} value={tool}>{tool}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="aiModelVersion" className="mb-2 block">
+                    모델 버전 <span className="text-xs text-muted-foreground font-normal">(선택)</span>
+                  </Label>
+                  <Input
+                    id="aiModelVersion"
+                    value={formData.aiModelVersion}
+                    onChange={(e) => setFormData({ ...formData, aiModelVersion: e.target.value })}
+                    placeholder="예: v2.1, Turbo"
+                    className="bg-card"
+                    maxLength={30}
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1065,6 +1116,150 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                   />
                 </div>
               </div>
+
+              {/* ━━━ AI 제작 증빙 (선택) ━━━ */}
+              <details className="group rounded-lg border border-border bg-card/50 overflow-hidden" open>
+                <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between hover:bg-card transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🤖</span>
+                    <span className="font-semibold">AI 제작 증빙</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-[#6366f1]/15 text-[#a78bfa]">선택</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground group-open:rotate-180 transition-transform">▾</span>
+                </summary>
+                <div className="px-4 pb-4 space-y-4 border-t border-border">
+                  <p className="text-xs text-muted-foreground pt-3">
+                    AI 제작 증빙은 저작권 분쟁 시 강력한 증거가 되며, 다른 크리에이터에게 영감을 줍니다.
+                  </p>
+                  <div>
+                    <Label htmlFor="prompt" className="mb-2 block text-sm">사용한 프롬프트</Label>
+                    <Textarea
+                      id="prompt"
+                      value={formData.prompt}
+                      onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
+                      placeholder="A cinematic shot of a spacecraft drifting through a nebula, dramatic lighting..."
+                      rows={3}
+                      className="bg-background resize-y"
+                      maxLength={2000}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="seed" className="mb-2 block text-sm">시드값 (재현용)</Label>
+                    <Input
+                      id="seed"
+                      value={formData.seed}
+                      onChange={(e) => setFormData({ ...formData, seed: e.target.value })}
+                      placeholder="예: 1234567890"
+                      className="bg-background"
+                      maxLength={50}
+                    />
+                  </div>
+                </div>
+              </details>
+
+              {/* ━━━ 시네마 메타데이터 (선택) ━━━ */}
+              <details className="group rounded-lg border border-border bg-card/50 overflow-hidden" open>
+                <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between hover:bg-card transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🎬</span>
+                    <span className="font-semibold">시네마 메타데이터</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-[#6366f1]/15 text-[#a78bfa]">선택</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground group-open:rotate-180 transition-transform">▾</span>
+                </summary>
+                <div className="px-4 pb-4 space-y-4 border-t border-border">
+                  <p className="text-xs text-muted-foreground pt-3">
+                    영화 크레딧처럼 작품 정보를 기록하세요. 작품 페이지에 영화 같은 디테일이 추가됩니다.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="director" className="mb-2 block text-sm">감독</Label>
+                      <Input
+                        id="director"
+                        value={formData.director}
+                        onChange={(e) => setFormData({ ...formData, director: e.target.value })}
+                        placeholder="예: 홍길동"
+                        className="bg-background"
+                        maxLength={50}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="writer" className="mb-2 block text-sm">각본</Label>
+                      <Input
+                        id="writer"
+                        value={formData.writer}
+                        onChange={(e) => setFormData({ ...formData, writer: e.target.value })}
+                        placeholder="예: 김작가"
+                        className="bg-background"
+                        maxLength={50}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="composer" className="mb-2 block text-sm">음악</Label>
+                      <Input
+                        id="composer"
+                        value={formData.composer}
+                        onChange={(e) => setFormData({ ...formData, composer: e.target.value })}
+                        placeholder="예: AI Suno v3"
+                        className="bg-background"
+                        maxLength={50}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="productionYear" className="mb-2 block text-sm">제작 연도</Label>
+                      <Input
+                        id="productionYear"
+                        type="number"
+                        value={formData.productionYear}
+                        onChange={(e) => setFormData({ ...formData, productionYear: e.target.value })}
+                        placeholder={new Date().getFullYear().toString()}
+                        className="bg-background"
+                        min={1900}
+                        max={new Date().getFullYear() + 1}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="cast" className="mb-2 block text-sm">출연 / 가상 캐릭터</Label>
+                    <Input
+                      id="cast"
+                      value={formData.cast}
+                      onChange={(e) => setFormData({ ...formData, cast: e.target.value })}
+                      placeholder="예: Aria, Captain Voss (콤마로 구분)"
+                      className="bg-background"
+                      maxLength={200}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="language" className="mb-2 block text-sm">언어</Label>
+                      <select
+                        id="language"
+                        value={formData.language}
+                        onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+                        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="">선택</option>
+                        {languages.map((l) => <option key={l} value={l}>{l}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <Label htmlFor="subtitleLanguage" className="mb-2 block text-sm">자막 언어</Label>
+                      <select
+                        id="subtitleLanguage"
+                        value={formData.subtitleLanguage}
+                        onChange={(e) => setFormData({ ...formData, subtitleLanguage: e.target.value })}
+                        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="">없음</option>
+                        {languages.filter(l => l !== "무음/instrumental").map((l) => <option key={l} value={l}>{l}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </details>
 
               <div>
                 <div className="flex items-baseline justify-between mb-2">
@@ -1169,6 +1364,47 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                   </div>
                 </div>
               )}
+
+              {/* 공개 설정 */}
+              <div className="bg-card p-6 rounded-lg border border-border">
+                <h3 className="mb-1">공개 설정</h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                  영상이 누구에게 노출될지 결정합니다. Exclusive 라이선스 판매 후엔 자동으로 비공개 처리됩니다.
+                </p>
+
+                <div className="space-y-2">
+                  {([
+                    { value: "public", icon: "🌐", label: "전체 공개", desc: "검색·홈 피드·시네마 탭에 모두 노출" },
+                    { value: "unlisted", icon: "🔗", label: "일부 공개", desc: "링크를 받은 사람만 볼 수 있음 (검색 안 됨)" },
+                    { value: "private", icon: "🔒", label: "비공개", desc: "본인과 승인된 구매자만 볼 수 있음" },
+                  ] as const).map((opt) => (
+                    <label
+                      key={opt.value}
+                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                        formData.visibility === opt.value
+                          ? "border-[#6366f1] bg-[#6366f1]/10"
+                          : "border-border hover:border-[#6366f1]/50 bg-background/30"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="visibility"
+                        value={opt.value}
+                        checked={formData.visibility === opt.value}
+                        onChange={() => setFormData({ ...formData, visibility: opt.value })}
+                        className="mt-1 accent-[#6366f1]"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-base">{opt.icon}</span>
+                          <span className="font-semibold text-sm">{opt.label}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
 
               <div className="bg-card p-6 rounded-lg border border-border">
                 <h3 className="mb-4">라이선스별 가격 설정</h3>
