@@ -1,5 +1,5 @@
-import { useState, useRef, useMemo, useCallback } from "react";
-import { Upload as UploadIcon, Video, FileText, CheckCircle2, Loader2 } from "lucide-react";
+import { useState, useRef, useMemo, useEffect } from "react";
+import { Upload as UploadIcon, Video, FileText, CheckCircle2, Loader2, X, ImagePlus } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -53,7 +53,143 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
   const [uploadComplete, setUploadComplete] = useState(false);
   const [showBunnyGuide, setShowBunnyGuide] = useState(false);
 
-  // 파일 선택 핸들러
+  // 업로드 진행률 상세 통계 (속도, 남은 시간 등)
+  const [uploadStats, setUploadStats] = useState<{ loaded: number; total: number; speed: number; eta: number }>({
+    loaded: 0, total: 0, speed: 0, eta: 0,
+  });
+
+  // 썸네일 선택 (자동 추출 프레임 + 커스텀 업로드)
+  const [thumbnailOptions, setThumbnailOptions] = useState<string[]>([]);
+  const [selectedThumbnail, setSelectedThumbnail] = useState<string | null>(null);
+  const [customThumbnail, setCustomThumbnail] = useState<string | null>(null);
+  const customThumbInputRef = useRef<HTMLInputElement>(null);
+
+  // 태그 칩(Pill) 입력
+  const [tagInput, setTagInput] = useState("");
+
+  // 드래프트 자동저장 — 초기 로드 완료 플래그
+  const [draftLoaded, setDraftLoaded] = useState(false);
+
+  // 태그 리스트 (formData.tags를 split)
+  const tagsList = useMemo(
+    () => (formData.tags ? formData.tags.split(",").map((t) => t.trim()).filter(Boolean) : []),
+    [formData.tags]
+  );
+
+  const addTag = (tag: string) => {
+    const trimmed = tag.trim();
+    if (!trimmed) return;
+    if (tagsList.includes(trimmed)) {
+      toast.info("이미 추가된 태그입니다.");
+      return;
+    }
+    if (tagsList.length >= 10) {
+      toast.warning("태그는 최대 10개까지 추가할 수 있습니다.");
+      return;
+    }
+    setFormData((prev) => ({ ...prev, tags: [...tagsList, trimmed].join(",") }));
+    setTagInput("");
+  };
+
+  const removeTag = (idx: number) => {
+    const next = tagsList.filter((_, i) => i !== idx);
+    setFormData((prev) => ({ ...prev, tags: next.join(",") }));
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addTag(tagInput);
+    } else if (e.key === "Backspace" && tagInput === "" && tagsList.length > 0) {
+      removeTag(tagsList.length - 1);
+    }
+  };
+
+  // 드래프트 키 (사용자별)
+  const draftKey = user ? `creaite_upload_draft_${user.id}` : null;
+
+  // 드래프트 로드 (마운트 시 1회)
+  useEffect(() => {
+    if (!user || !draftKey || draftLoaded) return;
+
+    const saved = localStorage.getItem(draftKey);
+    if (!saved) {
+      setDraftLoaded(true);
+      return;
+    }
+
+    try {
+      const draft = JSON.parse(saved);
+      // 빈 드래프트는 무시
+      const hasContent =
+        draft.formData?.title || draft.formData?.description || draft.formData?.tags ||
+        draft.formData?.standardPrice || draft.formData?.commercialPrice;
+      if (!hasContent) {
+        setDraftLoaded(true);
+        return;
+      }
+
+      toast.info("이전에 작성하던 업로드가 있습니다.", {
+        description: `${new Date(draft.savedAt).toLocaleString()} 자동 저장됨`,
+        action: {
+          label: "이어 작성",
+          onClick: () => {
+            setStep(draft.step || 1);
+            setUploadMethod(draft.uploadMethod || null);
+            if (draft.formData) setFormData((prev) => ({ ...prev, ...draft.formData }));
+            setAgreedToTerms(!!draft.agreedToTerms);
+          },
+        },
+        duration: 12000,
+      });
+    } catch (e) {
+      console.warn("Failed to load draft:", e);
+    }
+    setDraftLoaded(true);
+  }, [user, draftKey, draftLoaded]);
+
+  // 드래프트 자동 저장 (변경 시)
+  useEffect(() => {
+    if (!user || !draftKey || !draftLoaded || uploadComplete) return;
+
+    const draft = {
+      step,
+      uploadMethod,
+      formData,
+      agreedToTerms,
+      savedAt: new Date().toISOString(),
+    };
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+    } catch (e) {
+      console.warn("Draft save failed (storage limit?):", e);
+    }
+  }, [step, uploadMethod, formData, agreedToTerms, user, draftKey, draftLoaded, uploadComplete]);
+
+  // 업로드 완료 시 드래프트 삭제
+  useEffect(() => {
+    if (uploadComplete && draftKey) {
+      localStorage.removeItem(draftKey);
+    }
+  }, [uploadComplete, draftKey]);
+
+  // 사이즈/시간 포맷터
+  const formatBytes = (bytes: number): string => {
+    if (!bytes) return "0 B";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+  };
+
+  const formatTime = (seconds: number): string => {
+    if (!seconds || !isFinite(seconds) || seconds < 0) return "계산 중...";
+    if (seconds < 60) return `${Math.round(seconds)}초`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}분 ${Math.round(seconds % 60)}초`;
+    return `${Math.floor(seconds / 3600)}시간 ${Math.floor((seconds % 3600) / 60)}분`;
+  };
+
+  // 파일 선택 핸들러 — 메타데이터 측정 + 썸네일 후보 프레임 3개 자동 추출
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -70,31 +206,37 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     }
 
     // 파일 크기 검증 (5GB)
-    const maxSize = 5 * 1024 * 1024 * 1024; // 5GB in bytes
+    const maxSize = 5 * 1024 * 1024 * 1024;
     if (file.size > maxSize) {
       toast.error('파일 크기가 5GB를 초과합니다.');
       return;
     }
 
     setSelectedFile(file);
+    // 새 파일 선택 시 이전 썸네일 후보 초기화
+    setThumbnailOptions([]);
+    setSelectedThumbnail(null);
+    setCustomThumbnail(null);
 
-    // 영상 정보 자동 측정 (길이, 해상도)
+    // 영상 정보 자동 측정 + 프레임 캡처
     const video = document.createElement('video');
     video.preload = 'metadata';
+    video.muted = true;
+    (video as any).playsInline = true;
+    video.crossOrigin = 'anonymous';
 
-    // 모바일 환경 대응: 10초 후에도 메타데이터가 로드되지 않으면 소스 정리
+    const objectUrl = URL.createObjectURL(file);
+    video.src = objectUrl;
+
     const cleanupTimeout = setTimeout(() => {
       if (video.src) {
-        window.URL.revokeObjectURL(video.src);
+        URL.revokeObjectURL(objectUrl);
         video.src = '';
       }
-    }, 10000);
+    }, 30000); // 프레임 캡처용으로 timeout 연장
 
-    video.onloadedmetadata = () => {
-      clearTimeout(cleanupTimeout);
-      window.URL.revokeObjectURL(video.src);
-
-      // 1. 영상 길이 측정
+    video.onloadedmetadata = async () => {
+      // 1. 길이 측정
       const duration = video.duration;
       const minutes = Math.floor(duration / 60);
       const seconds = Math.floor(duration % 60);
@@ -103,30 +245,86 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
       // 2. 해상도 측정
       const height = video.videoHeight;
       let resolution = '';
-
-      if (height >= 4320) {
-        resolution = '8K';
-      } else if (height >= 2160) {
-        resolution = '4K';
-      } else if (height >= 1080) {
-        resolution = '1080p';
-      } else if (height >= 720) {
-        resolution = '720p';
-      } else {
-        resolution = '1080p'; // 기본값
-      }
+      if (height >= 4320) resolution = '8K';
+      else if (height >= 2160) resolution = '4K';
+      else if (height >= 1080) resolution = '1080p';
+      else if (height >= 720) resolution = '720p';
+      else resolution = '1080p';
 
       setFormData(prev => ({ ...prev, duration: formattedDuration, resolution }));
       setForceUpdate(prev => prev + 1);
       toast.success(`영상 정보: ${resolution}, ${formattedDuration}`);
+
+      // 3. 프레임 캡처 (10%, 50%, 90% 지점)
+      const timestamps = [duration * 0.1, duration * 0.5, duration * 0.9];
+      const frames: string[] = [];
+
+      for (const ts of timestamps) {
+        try {
+          const frame = await new Promise<string>((resolve, reject) => {
+            const onSeeked = () => {
+              video.removeEventListener('seeked', onSeeked);
+              try {
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth || 1280;
+                canvas.height = video.videoHeight || 720;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return reject(new Error('Canvas context unavailable'));
+                ctx.drawImage(video, 0, 0);
+                resolve(canvas.toDataURL('image/jpeg', 0.85));
+              } catch (err) {
+                reject(err);
+              }
+            };
+            video.addEventListener('seeked', onSeeked, { once: true });
+            video.currentTime = ts;
+            setTimeout(() => {
+              video.removeEventListener('seeked', onSeeked);
+              reject(new Error('Frame capture timeout'));
+            }, 5000);
+          });
+          frames.push(frame);
+        } catch (err) {
+          console.warn('Frame capture failed at', ts, err);
+        }
+      }
+
+      if (frames.length > 0) {
+        setThumbnailOptions(frames);
+        // 기본 선택: 중간 프레임
+        setSelectedThumbnail(frames[Math.floor(frames.length / 2)]);
+      }
+
+      clearTimeout(cleanupTimeout);
+      URL.revokeObjectURL(objectUrl);
     };
 
     video.onerror = () => {
       clearTimeout(cleanupTimeout);
+      URL.revokeObjectURL(objectUrl);
       toast.warning('동영상 정보를 자동으로 가져오지 못했습니다. 직접 입력해 주세요.');
     };
+  };
 
-    video.src = URL.createObjectURL(file);
+  // 커스텀 썸네일 업로드
+  const handleCustomThumbnail = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('이미지 파일만 업로드 가능합니다.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('썸네일은 5MB 이하만 가능합니다.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const url = ev.target?.result as string;
+      setCustomThumbnail(url);
+      setSelectedThumbnail(url);
+    };
+    reader.readAsDataURL(file);
   };
 
   if (!user) {
@@ -171,10 +369,31 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     return new Promise<void>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
 
+      const startTime = Date.now();
+      let lastLoaded = 0;
+      let lastTime = startTime;
+      let smoothedSpeed = 0; // 지수 이동 평균으로 속도 안정화
+
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
+          const now = Date.now();
+          const dt = (now - lastTime) / 1000;
+          const dl = e.loaded - lastLoaded;
+
+          if (dt > 0.2) {
+            const instSpeed = dl / dt; // bytes/s
+            // 새 측정치에 70% 가중, 기존 평균에 30% — 안정적인 ETA를 위해
+            smoothedSpeed = smoothedSpeed === 0 ? instSpeed : smoothedSpeed * 0.3 + instSpeed * 0.7;
+            lastLoaded = e.loaded;
+            lastTime = now;
+          }
+
+          const remaining = e.total - e.loaded;
+          const eta = smoothedSpeed > 0 ? remaining / smoothedSpeed : 0;
+
           const percentComplete = Math.round((e.loaded / e.total) * 100);
           setUploadProgress(percentComplete);
+          setUploadStats({ loaded: e.loaded, total: e.total, speed: smoothedSpeed, eta });
         }
       });
 
@@ -337,6 +556,11 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     setSelectedFile(null);
     setBunnyVideoId(null);
     setUploadProgress(0);
+    setUploadStats({ loaded: 0, total: 0, speed: 0, eta: 0 });
+    setThumbnailOptions([]);
+    setSelectedThumbnail(null);
+    setCustomThumbnail(null);
+    setTagInput("");
     setFormData({
       title: "",
       description: "",
@@ -356,6 +580,8 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    // 드래프트 삭제
+    if (draftKey) localStorage.removeItem(draftKey);
   };
 
   if (uploadComplete) {
@@ -567,10 +793,80 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                 </Button>
               </div>
 
+              {/* 썸네일 선택 — 영상 프레임 자동 추출 + 커스텀 업로드 */}
+              {selectedFile && thumbnailOptions.length > 0 && (
+                <div className="bg-card p-4 rounded-lg border border-border">
+                  <Label className="mb-3 block">
+                    썸네일 선택{" "}
+                    <span className="text-xs text-muted-foreground font-normal">
+                      (홈 피드/마켓에 표시될 대표 이미지)
+                    </span>
+                  </Label>
+
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {thumbnailOptions.map((frame, i) => {
+                      const isSelected = selectedThumbnail === frame && !customThumbnail;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            setSelectedThumbnail(frame);
+                            setCustomThumbnail(null);
+                          }}
+                          className={`aspect-video rounded-lg overflow-hidden border-2 transition-all relative ${
+                            isSelected
+                              ? "border-[#6366f1] ring-2 ring-[#6366f1]/40"
+                              : "border-border hover:border-[#6366f1]/50"
+                          }`}
+                        >
+                          <img src={frame} alt={`프레임 ${i + 1}`} className="w-full h-full object-cover" />
+                          <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-white text-[10px] font-medium">
+                            {["시작", "중간", "마지막"][i] || `${i + 1}`}
+                          </span>
+                          {isSelected && (
+                            <span className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-[#6366f1] flex items-center justify-center">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={customThumbInputRef}
+                    onChange={handleCustomThumbnail}
+                    className="hidden"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => customThumbInputRef.current?.click()}
+                    className={`w-full py-2 px-3 rounded-lg border-2 border-dashed text-sm transition-colors flex items-center justify-center gap-2 ${
+                      customThumbnail
+                        ? "border-[#6366f1] bg-[#6366f1]/10 text-[#a78bfa]"
+                        : "border-border hover:border-[#6366f1] text-muted-foreground"
+                    }`}
+                  >
+                    <ImagePlus className="w-4 h-4" />
+                    {customThumbnail ? "커스텀 썸네일 변경" : "커스텀 이미지 업로드"}
+                  </button>
+
+                  {customThumbnail && (
+                    <div className="mt-3 aspect-video rounded-lg overflow-hidden border-2 border-[#6366f1] ring-2 ring-[#6366f1]/40 max-w-xs mx-auto">
+                      <img src={customThumbnail} alt="Custom" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="bg-card p-4 rounded-lg border border-border">
                 <p className="text-sm text-muted-foreground">
-                  ℹ️ 업로드된 영상에는 자동으로 CREAITE 워터마크가 삽입됩니다. 
-                  구매자는 결제 후 워터마크가 제거된 원본을  다운로드할 수 있습니다.
+                  ℹ️ 업로드된 영상에는 자동으로 CREAITE 워터마크가 삽입됩니다.
+                  구매자는 결제 후 워터마크가 제거된 원본을 다운로드할 수 있습니다.
                 </p>
               </div>
 
@@ -588,28 +884,38 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
           {step === 2 && (
             <div className="space-y-6">
               <div>
-                <Label htmlFor="title" className="mb-2 block">영상 제목 * (30자 제한)</Label>
+                <div className="flex items-baseline justify-between mb-2">
+                  <Label htmlFor="title">영상 제목 *</Label>
+                  <span className={`text-xs ${formData.title.length > 50 ? "text-amber-400" : "text-muted-foreground"}`}>
+                    {formData.title.length}/60
+                  </span>
+                </div>
                 <Input
                   id="title"
                   value={formData.title}
-                  onChange={(e) => setFormData({...formData, title: e.target.value})}
-                  placeholder="예: 우주를 여행하는 코스믹 저니"
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="예: 우주를 여행하는 코스믹 저니 — 4K 시네마틱"
                   className="bg-card"
-                  maxLength={30}
+                  maxLength={60}
                   required
                 />
               </div>
 
               <div>
-                <Label htmlFor="description" className="mb-2 block">상품 설명 * (50자 제한)</Label>
+                <div className="flex items-baseline justify-between mb-2">
+                  <Label htmlFor="description">상품 설명 *</Label>
+                  <span className={`text-xs ${formData.description.length > 450 ? "text-amber-400" : "text-muted-foreground"}`}>
+                    {formData.description.length}/500
+                  </span>
+                </div>
                 <Textarea
                   id="description"
                   value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  placeholder="영상의 특징, 활용 가능한 용도 등을 자세히 설명해주세요"
-                  rows={4}
-                  className="bg-card"
-                  maxLength={50}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="영상의 특징, 분위기, 활용 가능한 용도, 사용된 AI 툴/기법 등을 자세히 설명해주세요. 잘 작성된 설명은 검색·추천에 도움이 됩니다."
+                  rows={6}
+                  className="bg-card resize-y"
+                  maxLength={500}
                   required
                 />
               </div>
@@ -696,14 +1002,47 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
               </div>
 
               <div>
-                <Label htmlFor="tags" className="mb-2 block">태그</Label>
-                <Input
-                  id="tags"
-                  value={formData.tags}
-                  onChange={(e) => setFormData({...formData, tags: e.target.value})}
-                  placeholder="쉼표로 구분 (예: 우주, 코스믹, 사이파이, 배경영상)"
-                  className="bg-card"
-                />
+                <div className="flex items-baseline justify-between mb-2">
+                  <Label htmlFor="tags">태그</Label>
+                  <span className="text-xs text-muted-foreground">{tagsList.length}/10</span>
+                </div>
+                <div
+                  className="bg-card border border-input rounded-md px-2 py-2 flex flex-wrap items-center gap-1.5 min-h-[40px] focus-within:ring-2 focus-within:ring-[#6366f1]/40 focus-within:border-[#6366f1] transition-colors"
+                  onClick={() => document.getElementById("tags")?.focus()}
+                >
+                  {tagsList.map((tag, i) => (
+                    <span
+                      key={`${tag}-${i}`}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#6366f1]/15 border border-[#6366f1]/30 text-[#a78bfa] text-xs font-medium"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeTag(i);
+                        }}
+                        className="ml-0.5 hover:text-white transition-colors"
+                        aria-label={`${tag} 삭제`}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    id="tags"
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={handleTagKeyDown}
+                    onBlur={() => tagInput.trim() && addTag(tagInput)}
+                    placeholder={tagsList.length === 0 ? "Enter 또는 쉼표로 추가 (예: 우주, 코스믹)" : ""}
+                    className="flex-1 min-w-[140px] bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Enter나 쉼표로 추가, 빈 칸에서 Backspace로 마지막 태그 삭제
+                </p>
               </div>
 
               <div className="flex gap-3">
@@ -730,19 +1069,39 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
             <div className="space-y-6">
               {isUploading && (
                 <div className="bg-card p-6 rounded-lg border border-border">
-                  <div className="flex items-center gap-3 mb-4">
-                    <Loader2 className="w-5 h-5 animate-spin text-[#6366f1]" />
-                    <span className="font-medium">업로드 중...</span>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <Loader2 className="w-5 h-5 animate-spin text-[#6366f1]" />
+                      <span className="font-medium">업로드 중...</span>
+                    </div>
+                    <span className="text-2xl font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">
+                      {uploadProgress}%
+                    </span>
                   </div>
-                  <div className="w-full bg-border rounded-full h-2 overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] transition-all duration-300"
+
+                  <div className="w-full bg-border rounded-full h-2.5 overflow-hidden mb-4">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#ec4899] transition-all duration-300"
                       style={{ width: `${uploadProgress}%` }}
                     />
                   </div>
-                  <p className="text-sm text-muted-foreground mt-2 text-center">
-                    {uploadProgress}% 완료
-                  </p>
+
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-background/50 rounded-md py-2 px-1">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">진행</p>
+                      <p className="text-xs font-bold text-white">
+                        {formatBytes(uploadStats.loaded)} <span className="text-muted-foreground font-normal">/ {formatBytes(uploadStats.total)}</span>
+                      </p>
+                    </div>
+                    <div className="bg-background/50 rounded-md py-2 px-1">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">속도</p>
+                      <p className="text-xs font-bold text-white">{formatBytes(uploadStats.speed)}/s</p>
+                    </div>
+                    <div className="bg-background/50 rounded-md py-2 px-1">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">남은 시간</p>
+                      <p className="text-xs font-bold text-white">{formatTime(uploadStats.eta)}</p>
+                    </div>
+                  </div>
                 </div>
               )}
 
