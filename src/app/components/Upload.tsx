@@ -372,8 +372,8 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
           <h2 className="text-2xl mb-3">업로드 완료!</h2>
           <p className="text-muted-foreground mb-6">
             영상이 성공적으로 등록되었습니다.<br />
-            현재 AI가 탐색 피드를 위한 <strong>최적의 하이라이트 구간</strong>을 분석하고 있습니다.<br />
-            분석이 완료되면 마켓과 탐색 피드에 자동으로 게시됩니다.
+            현재 AI가 홈 피드를 위한 <strong>최적의 하이라이트 구간</strong>을 분석하고 있습니다.<br />
+            분석이 완료되면 마켓과 홈 피드에 자동으로 게시됩니다.
           </p>
           <div className="flex gap-3">
             <Button 

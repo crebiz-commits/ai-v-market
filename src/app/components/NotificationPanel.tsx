@@ -35,7 +35,7 @@ const SAMPLE_NOTIFICATIONS: Notification[] = [
     id: "s3",
     type: "system",
     title: "신규 AI 영상 15개가 업로드됐습니다",
-    body: "탐색 탭에서 확인해보세요.",
+    body: "홈 탭에서 확인해보세요.",
     read: true,
     created_at: new Date(Date.now() - 86400000).toISOString(),
   },
