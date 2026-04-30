@@ -263,7 +263,12 @@ app.post("/make-server-f4aeac42/videos/save-metadata", async (c) => {
     };
     await kv.set(key, videoData);
 
-    // 2. Supabase DB 'videos' 테이블에 저장
+    // 2. Supabase DB 'videos' 테이블에 저장 (확장 컬럼 포함)
+    // 새 컬럼은 supabase/videos_extended_columns.sql 마이그레이션 적용 후 활성화됨
+    const productionYearNum = metadata.productionYear ? parseInt(metadata.productionYear) : null;
+    const highlightStartNum = metadata.highlightStart != null ? parseFloat(metadata.highlightStart) : 0;
+    const highlightEndNum = metadata.highlightEnd != null ? parseFloat(metadata.highlightEnd) : 15;
+
     const { error: dbError } = await supabaseAdmin
       .from('videos')
       .upsert({
@@ -286,7 +291,24 @@ app.post("/make-server-f4aeac42/videos/save-metadata", async (c) => {
         genre: metadata.genre || '',
         prompt: metadata.prompt || '',
         status: metadata.status || 'ready',
-        resolution: metadata.resolution || ''
+        resolution: metadata.resolution || '',
+        // ━━━ 확장 컬럼 ━━━
+        // AI 제작 증빙
+        ai_model_version: metadata.aiModelVersion || '',
+        seed: metadata.seed || '',
+        // 시네마 메타데이터
+        director: metadata.director || '',
+        writer: metadata.writer || '',
+        composer: metadata.composer || '',
+        cast_credits: metadata.cast || '',
+        production_year: productionYearNum,
+        language: metadata.language || '',
+        subtitle_language: metadata.subtitleLanguage || '',
+        // 공개 설정
+        visibility: ['public', 'unlisted', 'private'].includes(metadata.visibility) ? metadata.visibility : 'public',
+        // 하이라이트 구간
+        highlight_start: highlightStartNum,
+        highlight_end: highlightEndNum,
       });
 
     if (dbError) {

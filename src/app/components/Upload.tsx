@@ -5,7 +5,16 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Slider } from "./ui/slider";
 import { Checkbox } from "./ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { motion } from "motion/react";
 import { BunnySetupGuide } from "./BunnySetupGuide";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
@@ -83,6 +92,15 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
 
   // 드래프트 자동저장 — 초기 로드 완료 플래그
   const [draftLoaded, setDraftLoaded] = useState(false);
+
+  // 하이라이트 구간 (홈 피드/큐레이션 노출용 10~30초)
+  const [videoDurationSec, setVideoDurationSec] = useState(0);
+  const [highlight, setHighlight] = useState<{ start: number; end: number }>({ start: 0, end: 15 });
+  const previewVideoRef = useRef<HTMLVideoElement>(null);
+  const fileObjectUrlRef = useRef<string | null>(null);
+
+  // 미리보기 모달 (게시 전 확인)
+  const [showPreview, setShowPreview] = useState(false);
 
   // 태그 리스트 (formData.tags를 split)
   const tagsList = useMemo(
@@ -203,6 +221,14 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     return `${Math.floor(seconds / 3600)}시간 ${Math.floor((seconds % 3600) / 60)}분`;
   };
 
+  // 영상 타임스탬프 (mm:ss.s) — 하이라이트 구간 표시용
+  const formatSeconds = (seconds: number): string => {
+    if (!isFinite(seconds) || seconds < 0) return "0:00";
+    const m = Math.floor(seconds / 60);
+    const s = seconds - m * 60;
+    return `${m}:${s.toFixed(1).padStart(4, "0")}`;
+  };
+
   // 파일 선택 핸들러 — 메타데이터 측정 + 썸네일 후보 프레임 3개 자동 추출
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -227,10 +253,17 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     }
 
     setSelectedFile(file);
-    // 새 파일 선택 시 이전 썸네일 후보 초기화
+    // 새 파일 선택 시 이전 썸네일·하이라이트 초기화
     setThumbnailOptions([]);
     setSelectedThumbnail(null);
     setCustomThumbnail(null);
+    setVideoDurationSec(0);
+
+    // 이전 ObjectURL 정리 (미리보기 비디오용으로 유지하던 URL)
+    if (fileObjectUrlRef.current) {
+      URL.revokeObjectURL(fileObjectUrlRef.current);
+      fileObjectUrlRef.current = null;
+    }
 
     // 영상 정보 자동 측정 + 프레임 캡처
     const video = document.createElement('video');
@@ -238,6 +271,9 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     video.muted = true;
     (video as any).playsInline = true;
     video.crossOrigin = 'anonymous';
+
+    // 미리보기 비디오용 ObjectURL 별도 생성·유지 (하이라이트 UI에서 사용)
+    fileObjectUrlRef.current = URL.createObjectURL(file);
 
     const objectUrl = URL.createObjectURL(file);
     video.src = objectUrl;
@@ -268,6 +304,17 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
       setFormData(prev => ({ ...prev, duration: formattedDuration, resolution }));
       setForceUpdate(prev => prev + 1);
       toast.success(`영상 정보: ${resolution}, ${formattedDuration}`);
+
+      // 2.5. 하이라이트 기본 구간 설정 (영상 중간 15초)
+      setVideoDurationSec(duration);
+      if (duration <= 15) {
+        // 짧은 영상은 전체를 하이라이트로
+        setHighlight({ start: 0, end: duration });
+      } else {
+        const defaultStart = Math.max(0, duration * 0.4);
+        const defaultEnd = Math.min(duration, defaultStart + 15);
+        setHighlight({ start: defaultStart, end: defaultEnd });
+      }
 
       // 3. 프레임 캡처 (10%, 50%, 90% 지점)
       const timestamps = [duration * 0.1, duration * 0.5, duration * 0.9];
@@ -483,8 +530,23 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // form onSubmit (또는 "업로드 완료" 클릭) → 미리보기 모달 오픈
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!agreedToTerms) {
+      toast.error('저작권 서약에 동의해 주세요.');
+      return;
+    }
+    if (!selectedFile) {
+      toast.error('파일을 선택해주세요.');
+      return;
+    }
+    setShowPreview(true);
+  };
+
+  // 실제 업로드 수행 (미리보기 모달의 "확인하고 업로드" 버튼이 호출)
+  const performUpload = async () => {
+    setShowPreview(false);
 
     if (!user || !accessToken) {
       toast.error('로그인이 필요합니다.');
@@ -604,6 +666,9 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
         subtitleLanguage: formData.subtitleLanguage || '',
         // 공개 설정
         visibility: formData.visibility || 'public',
+        // 하이라이트 구간 (홈 피드/큐레이션 노출용)
+        highlightStart: highlight.start,
+        highlightEnd: highlight.end,
         status: 'ready'
       };
 
@@ -652,6 +717,13 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     setSelectedThumbnail(null);
     setCustomThumbnail(null);
     setTagInput("");
+    setVideoDurationSec(0);
+    setHighlight({ start: 0, end: 15 });
+    setShowPreview(false);
+    if (fileObjectUrlRef.current) {
+      URL.revokeObjectURL(fileObjectUrlRef.current);
+      fileObjectUrlRef.current = null;
+    }
     setFormData({
       title: "",
       description: "",
@@ -961,6 +1033,94 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                       <img src={customThumbnail} alt="Custom" className="w-full h-full object-cover" />
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* 하이라이트 구간 마킹 — 홈 피드/큐레이션 노출용 */}
+              {selectedFile && videoDurationSec > 0 && fileObjectUrlRef.current && (
+                <div className="bg-card p-4 rounded-lg border border-border">
+                  <Label className="mb-1 block">
+                    하이라이트 구간{" "}
+                    <span className="text-xs text-muted-foreground font-normal">
+                      (홈 피드/큐레이션에 노출될 5~30초)
+                    </span>
+                  </Label>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    홈 피드와 큐레이션 행에서 자동 재생되는 미리보기 구간을 직접 정하세요. 영상의 가장 인상적인 부분을 선택하면 클릭률이 올라갑니다.
+                  </p>
+
+                  {/* 미리보기 비디오 (드래그 시 시작 시점 프레임 표시) */}
+                  <video
+                    ref={previewVideoRef}
+                    src={fileObjectUrlRef.current}
+                    className="w-full aspect-video rounded mb-3 bg-black"
+                    muted
+                    playsInline
+                    preload="metadata"
+                  />
+
+                  {/* Dual-thumb slider */}
+                  <div className="px-1 mb-2">
+                    <Slider
+                      min={0}
+                      max={videoDurationSec}
+                      step={0.1}
+                      value={[highlight.start, highlight.end]}
+                      onValueChange={(values) => {
+                        const [s, e] = values as [number, number];
+                        // 제약: 5초 ≤ 구간 ≤ 30초 (영상이 더 짧으면 전체)
+                        const minSpan = Math.min(5, videoDurationSec);
+                        const maxSpan = 30;
+                        let newStart = s;
+                        let newEnd = e;
+                        if (newEnd - newStart < minSpan) {
+                          if (s !== highlight.start) newStart = Math.max(0, newEnd - minSpan);
+                          else newEnd = Math.min(videoDurationSec, newStart + minSpan);
+                        }
+                        if (newEnd - newStart > maxSpan) {
+                          if (s !== highlight.start) newStart = newEnd - maxSpan;
+                          else newEnd = newStart + maxSpan;
+                        }
+                        setHighlight({ start: newStart, end: newEnd });
+                        // 미리보기 비디오를 시작 시점으로 seek
+                        if (previewVideoRef.current) {
+                          previewVideoRef.current.currentTime = s !== highlight.start ? newStart : newEnd;
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">
+                      시작 <span className="text-white font-semibold">{formatSeconds(highlight.start)}</span>
+                    </span>
+                    <span className="px-2 py-1 rounded bg-[#6366f1]/15 text-[#a78bfa] font-bold">
+                      {(highlight.end - highlight.start).toFixed(1)}초
+                    </span>
+                    <span className="text-muted-foreground">
+                      종료 <span className="text-white font-semibold">{formatSeconds(highlight.end)}</span>
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const v = previewVideoRef.current;
+                      if (!v) return;
+                      v.currentTime = highlight.start;
+                      v.play();
+                      const stopAt = () => {
+                        if (v.currentTime >= highlight.end) {
+                          v.pause();
+                          v.removeEventListener("timeupdate", stopAt);
+                        }
+                      };
+                      v.addEventListener("timeupdate", stopAt);
+                    }}
+                    className="mt-3 w-full py-2 px-4 rounded-md border border-[#6366f1]/40 bg-[#6366f1]/10 hover:bg-[#6366f1]/20 text-[#a78bfa] text-sm font-medium transition-colors"
+                  >
+                    ▶ 선택 구간 미리보기 재생
+                  </button>
                 </div>
               )}
 
@@ -1502,6 +1662,152 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
             </div>
           )}
         </form>
+
+        {/* 게시 전 미리보기 모달 — 마켓 카드 시뮬레이션 */}
+        <Dialog open={showPreview} onOpenChange={setShowPreview}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>업로드 전 미리보기</DialogTitle>
+              <DialogDescription>
+                등록 후 마켓에 이렇게 표시됩니다. 모든 정보가 정확한지 확인하세요.
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* 마켓 카드 시뮬레이션 */}
+            <div className="bg-[#1a1a1c] rounded-2xl overflow-hidden border border-white/10">
+              <div className="aspect-video bg-black relative">
+                {selectedThumbnail ? (
+                  <img src={selectedThumbnail} alt="thumbnail" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
+                    썸네일 없음
+                  </div>
+                )}
+                <div className="absolute top-3 left-3">
+                  <span className="px-2.5 py-1 bg-black/50 backdrop-blur-md border border-white/20 rounded-lg text-white text-[10px] font-bold tracking-wider uppercase">
+                    {formData.aiTool || "AI Tool"}
+                  </span>
+                </div>
+                <div className="absolute top-3 right-3">
+                  <span className="px-2 py-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] rounded-lg text-white text-[10px] font-bold">
+                    {formData.duration || "0:00"}
+                  </span>
+                </div>
+              </div>
+              <div className="p-4 bg-gradient-to-b from-transparent to-[#121212]">
+                <h3 className="font-bold text-white text-[15px] mb-1.5 line-clamp-1">
+                  {formData.title || "제목 없음"}
+                </h3>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-[#6366f1] to-[#8b5cf6] flex items-center justify-center">
+                    <span className="text-[8px] font-bold text-white">AI</span>
+                  </div>
+                  <span className="text-xs text-gray-400 font-medium">
+                    {user?.name || user?.email?.split("@")[0] || "Creator"}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-300 mb-3 line-clamp-2">
+                  {formData.description || "설명 없음"}
+                </p>
+                <div className="flex items-center justify-between pt-3 border-t border-white/10">
+                  <div>
+                    <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Price (Standard)</span>
+                    <p className="text-lg font-extrabold text-white">
+                      ₩{formData.standardPrice || "0"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Resolution</span>
+                    <p className="text-xs font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
+                      {formData.resolution || "—"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 추가 정보 요약 */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="bg-card p-3 rounded border border-border">
+                <p className="text-muted-foreground mb-0.5">공개 설정</p>
+                <p className="font-semibold">
+                  {formData.visibility === "public" && "🌐 전체 공개"}
+                  {formData.visibility === "unlisted" && "🔗 일부 공개"}
+                  {formData.visibility === "private" && "🔒 비공개"}
+                </p>
+              </div>
+              <div className="bg-card p-3 rounded border border-border">
+                <p className="text-muted-foreground mb-0.5">하이라이트 구간</p>
+                <p className="font-semibold">
+                  {formatSeconds(highlight.start)} ~ {formatSeconds(highlight.end)}
+                  <span className="text-muted-foreground font-normal ml-1">
+                    ({(highlight.end - highlight.start).toFixed(1)}초)
+                  </span>
+                </p>
+              </div>
+              <div className="bg-card p-3 rounded border border-border">
+                <p className="text-muted-foreground mb-0.5">카테고리 / 장르</p>
+                <p className="font-semibold">
+                  {formData.category || "—"} / {formData.genre || "—"}
+                </p>
+              </div>
+              <div className="bg-card p-3 rounded border border-border">
+                <p className="text-muted-foreground mb-0.5">라이선스 가격</p>
+                <p className="font-semibold text-[11px] leading-relaxed">
+                  S ₩{formData.standardPrice || "0"} · C ₩{formData.commercialPrice || "0"} · E ₩{formData.exclusivePrice || "0"}
+                </p>
+              </div>
+              {(formData.director || formData.writer || formData.composer) && (
+                <div className="bg-card p-3 rounded border border-border col-span-2">
+                  <p className="text-muted-foreground mb-0.5">시네마 크레딧</p>
+                  <p className="font-semibold text-[11px]">
+                    {formData.director && `감독 ${formData.director}`}
+                    {formData.writer && ` · 각본 ${formData.writer}`}
+                    {formData.composer && ` · 음악 ${formData.composer}`}
+                  </p>
+                </div>
+              )}
+              {tagsList.length > 0 && (
+                <div className="bg-card p-3 rounded border border-border col-span-2">
+                  <p className="text-muted-foreground mb-1">태그 ({tagsList.length})</p>
+                  <div className="flex flex-wrap gap-1">
+                    {tagsList.map((tag, i) => (
+                      <span key={i} className="px-2 py-0.5 rounded-full bg-[#6366f1]/15 border border-[#6366f1]/30 text-[#a78bfa] text-[10px]">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowPreview(false)}
+                disabled={isUploading}
+              >
+                돌아가서 수정
+              </Button>
+              <Button
+                type="button"
+                onClick={performUpload}
+                disabled={isUploading}
+                className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    업로드 중...
+                  </>
+                ) : (
+                  "확인하고 업로드"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
