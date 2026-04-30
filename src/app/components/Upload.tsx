@@ -82,8 +82,10 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
   });
 
   // 썸네일 선택 (자동 추출 프레임 + 커스텀 업로드)
+  // 동일한 프레임이 여러 개일 때 모두 선택되는 버그 방지를 위해 index 기반으로 선택 추적
   const [thumbnailOptions, setThumbnailOptions] = useState<string[]>([]);
   const [selectedThumbnail, setSelectedThumbnail] = useState<string | null>(null);
+  const [selectedThumbnailIndex, setSelectedThumbnailIndex] = useState<number>(-1);
   const [customThumbnail, setCustomThumbnail] = useState<string | null>(null);
   const customThumbInputRef = useRef<HTMLInputElement>(null);
 
@@ -256,6 +258,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     // 새 파일 선택 시 이전 썸네일·하이라이트 초기화
     setThumbnailOptions([]);
     setSelectedThumbnail(null);
+    setSelectedThumbnailIndex(-1);
     setCustomThumbnail(null);
     setVideoDurationSec(0);
 
@@ -352,8 +355,10 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
 
       if (frames.length > 0) {
         setThumbnailOptions(frames);
-        // 기본 선택: 중간 프레임
-        setSelectedThumbnail(frames[Math.floor(frames.length / 2)]);
+        // 기본 선택: 중간 프레임 (인덱스 기반)
+        const defaultIdx = Math.floor(frames.length / 2);
+        setSelectedThumbnail(frames[defaultIdx]);
+        setSelectedThumbnailIndex(defaultIdx);
       }
 
       clearTimeout(cleanupTimeout);
@@ -384,6 +389,8 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
       const url = ev.target?.result as string;
       setCustomThumbnail(url);
       setSelectedThumbnail(url);
+      // 커스텀 선택 시 프레임 인덱스 해제
+      setSelectedThumbnailIndex(-1);
     };
     reader.readAsDataURL(file);
   };
@@ -715,6 +722,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     setUploadStats({ loaded: 0, total: 0, speed: 0, eta: 0 });
     setThumbnailOptions([]);
     setSelectedThumbnail(null);
+    setSelectedThumbnailIndex(-1);
     setCustomThumbnail(null);
     setTagInput("");
     setVideoDurationSec(0);
@@ -978,13 +986,14 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
 
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     {thumbnailOptions.map((frame, i) => {
-                      const isSelected = selectedThumbnail === frame && !customThumbnail;
+                      const isSelected = selectedThumbnailIndex === i && !customThumbnail;
                       return (
                         <button
                           key={i}
                           type="button"
                           onClick={() => {
                             setSelectedThumbnail(frame);
+                            setSelectedThumbnailIndex(i);
                             setCustomThumbnail(null);
                           }}
                           className={`aspect-video rounded-lg overflow-hidden border-2 transition-all relative ${
