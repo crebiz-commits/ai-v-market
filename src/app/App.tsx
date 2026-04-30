@@ -13,7 +13,7 @@
 import './init';
 
 import { useState, useEffect, useCallback } from "react";
-import { Sparkles, Store, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, ArrowLeft } from "lucide-react";
+import { Sparkles, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { DiscoveryFeed } from "./components/DiscoveryFeed";
 import { Market } from "./components/Market";
@@ -329,7 +329,7 @@ function AppContent() {
 
   const desktopTabs: { id: Tab; label: string; icon: any }[] = [
     { id: "discovery", label: "탐색", icon: Sparkles },
-    { id: "market", label: "마켓", icon: Store },
+    { id: "market", label: "시네마", icon: Film },
     { id: "upload", label: "업로드", icon: UploadIcon },
     { id: "community", label: "커뮤니티", icon: MessageSquare },
     { id: "mypage", label: "마이페이지", icon: User },
@@ -624,8 +624,8 @@ function AppContent() {
         <div className="flex items-center justify-around h-20 px-2 pb-safe">
           {["discovery", "market"].map((tabId) => {
             const isDiscovery = tabId === "discovery";
-            const Icon = isDiscovery ? Sparkles : Store;
-            const label = isDiscovery ? "탐색" : "마켓";
+            const Icon = isDiscovery ? Sparkles : Film;
+            const label = isDiscovery ? "탐색" : "시네마";
             const isActive = activeTab === tabId && !activePanel;
             return (
               <button
