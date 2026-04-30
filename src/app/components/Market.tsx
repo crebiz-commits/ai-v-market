@@ -20,16 +20,42 @@ import { supabase } from "../utils/supabaseClient";
 import { useBackButton } from "../hooks/useBackButton";
 
 interface Product {
+  // 기본 정보
   id: string;
   thumbnail: string;
   title: string;
   creator: string;
-  price: number;
+  price: number;              // 하위 호환 — priceStandard와 동일
   duration: string;
   resolution: string;
   tool: string;
   category: string;
+  genre?: string;
   videoUrl: string;
+  description?: string;
+  tags?: string[];
+
+  // 라이선스 가격 (3종)
+  priceStandard?: number;
+  priceCommercial?: number;
+  priceExclusive?: number;
+
+  // AI 제작 증빙
+  aiModelVersion?: string;
+  prompt?: string;
+  seed?: string;
+
+  // 시네마 메타데이터
+  director?: string;
+  writer?: string;
+  composer?: string;
+  castCredits?: string;
+  productionYear?: number;
+  language?: string;
+  subtitleLanguage?: string;
+
+  // 공개 설정 + 하이라이트
+  visibility?: "public" | "unlisted" | "private";
   highlightStart?: number;
   highlightEnd?: number;
 }
@@ -84,7 +110,28 @@ export function Market({ onProductClick }: MarketProps) {
             resolution: item.resolution || "1080p",
             tool: item.ai_tool || "AI Tool",
             category: item.category || "General",
+            genre: item.genre || undefined,
             videoUrl: item.video_url || "",
+            description: item.description || undefined,
+            tags: Array.isArray(item.tags) ? item.tags : (typeof item.tags === "string" && item.tags ? item.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : []),
+            // 라이선스 3종
+            priceStandard: item.price_standard || 0,
+            priceCommercial: item.price_commercial || 0,
+            priceExclusive: item.price_exclusive || 0,
+            // AI 제작 증빙
+            aiModelVersion: item.ai_model_version || undefined,
+            prompt: item.prompt || undefined,
+            seed: item.seed || undefined,
+            // 시네마 메타데이터
+            director: item.director || undefined,
+            writer: item.writer || undefined,
+            composer: item.composer || undefined,
+            castCredits: item.cast_credits || undefined,
+            productionYear: item.production_year || undefined,
+            language: item.language || undefined,
+            subtitleLanguage: item.subtitle_language || undefined,
+            // 공개 설정 + 하이라이트
+            visibility: item.visibility || "public",
             highlightStart: item.highlight_start || 0,
             highlightEnd: item.highlight_end || (item.highlight_start || 0) + 15,
           }));

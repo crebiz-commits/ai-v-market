@@ -10,6 +10,7 @@ import { useBackButton } from "../hooks/useBackButton";
 
 interface ProductDetailProps {
   product: {
+    // 기본 정보
     id: string;
     thumbnail: string;
     title: string;
@@ -18,7 +19,33 @@ interface ProductDetailProps {
     duration: string;
     resolution?: string;
     tool: string;
+    category?: string;
+    genre?: string;
     videoUrl: string;
+    description?: string;
+    tags?: string[];
+
+    // 라이선스 3종
+    priceStandard?: number;
+    priceCommercial?: number;
+    priceExclusive?: number;
+
+    // AI 제작 증빙
+    aiModelVersion?: string;
+    prompt?: string;
+    seed?: string;
+
+    // 시네마 메타데이터
+    director?: string;
+    writer?: string;
+    composer?: string;
+    castCredits?: string;
+    productionYear?: number;
+    language?: string;
+    subtitleLanguage?: string;
+
+    // 공개 설정 + 하이라이트
+    visibility?: "public" | "unlisted" | "private";
     highlightStart?: number;
     highlightEnd?: number;
   };
@@ -308,6 +335,22 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
               </div>
             </div>
 
+            {/* 카테고리 / 장르 뱃지 */}
+            {(product.category || product.genre) && (
+              <div className="flex flex-wrap gap-2 mb-6">
+                {product.category && (
+                  <span className="px-3 py-1 bg-[#6366f1]/15 border border-[#6366f1]/30 rounded-full text-xs font-medium text-[#a78bfa]">
+                    {product.category}
+                  </span>
+                )}
+                {product.genre && (
+                  <span className="px-3 py-1 bg-[#8b5cf6]/15 border border-[#8b5cf6]/30 rounded-full text-xs font-medium text-[#a78bfa]">
+                    {product.genre}
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* License (단일 통합) */}
             <div className="mb-6">
               <h3 className="mb-4">영상 라이선스 구매</h3>
@@ -350,17 +393,25 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
             </div>
 
             {/* Product Description */}
-            <div className="mb-6">
-              <h3 className="mb-3">상품 설명</h3>
-              <div className="bg-card p-4 rounded-lg border border-border">
-                <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                  이 영상은 최신 AI 기술을 활용하여 제작된 고품질 콘텐츠입니다. 
-                  전문적인 후반 작업과 색보정을 거쳐 완성되었으며, 다양한 용도로 활용하실 수 있습니다.
-                </p>
+            {product.description && (
+              <div className="mb-6">
+                <h3 className="mb-3">상품 설명</h3>
+                <div className="bg-card p-4 rounded-lg border border-border">
+                  <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line">
+                    {product.description}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Tags */}
+            {product.tags && product.tags.length > 0 && (
+              <div className="mb-6">
+                <h3 className="mb-3">태그</h3>
                 <div className="flex flex-wrap gap-2">
-                  {["우주", "코스믹", "사이파이", "배경영상", "시네마틱"].map((tag) => (
-                    <span 
-                      key={tag}
+                  {product.tags.map((tag, i) => (
+                    <span
+                      key={`${tag}-${i}`}
                       className="px-3 py-1 bg-[#6366f1]/10 border border-[#6366f1]/30 rounded-full text-sm"
                     >
                       #{tag}
@@ -368,23 +419,94 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
                   ))}
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* AI Generation Info */}
+            {/* 시네마 크레딧 */}
+            {(product.director || product.writer || product.composer || product.castCredits || product.productionYear || product.language) && (
+              <div className="mb-6">
+                <h3 className="mb-3">🎬 시네마 크레딧</h3>
+                <div className="bg-card p-4 rounded-lg border border-border space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    {product.director && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">감독</p>
+                        <p className="text-sm font-medium">{product.director}</p>
+                      </div>
+                    )}
+                    {product.writer && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">각본</p>
+                        <p className="text-sm font-medium">{product.writer}</p>
+                      </div>
+                    )}
+                    {product.composer && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">음악</p>
+                        <p className="text-sm font-medium">{product.composer}</p>
+                      </div>
+                    )}
+                    {product.productionYear && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">제작 연도</p>
+                        <p className="text-sm font-medium">{product.productionYear}</p>
+                      </div>
+                    )}
+                    {product.language && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">언어</p>
+                        <p className="text-sm font-medium">{product.language}</p>
+                      </div>
+                    )}
+                    {product.subtitleLanguage && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">자막</p>
+                        <p className="text-sm font-medium">{product.subtitleLanguage}</p>
+                      </div>
+                    )}
+                  </div>
+                  {product.castCredits && (
+                    <div className="pt-3 border-t border-border">
+                      <p className="text-xs text-muted-foreground mb-1">출연 / 가상 캐릭터</p>
+                      <p className="text-sm font-medium">{product.castCredits}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* AI 제작 상세 */}
             <div className="mb-6">
-              <h3 className="mb-3">AI 제작 정보</h3>
+              <h3 className="mb-3">🤖 AI 제작 상세</h3>
               <div className="bg-card p-4 rounded-lg border border-border space-y-3">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">사용된 AI 툴</p>
-                  <p className="text-sm">{product.tool}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">사용된 AI 툴</p>
+                    <p className="text-sm font-medium">{product.tool}</p>
+                  </div>
+                  {product.aiModelVersion && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">모델 버전</p>
+                      <p className="text-sm font-medium">{product.aiModelVersion}</p>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">창작성 부가 내역</p>
-                  <p className="text-sm">
-                    컬러 그레이딩, 시퀀스 배열, 트랜지션 효과 추가, 사운드 디자인, 최종 렌더링 최적화
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-[#10b981]">
+                {product.prompt && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">사용한 프롬프트</p>
+                    <p className="text-xs font-mono bg-background/50 p-2 rounded leading-relaxed text-foreground/80 whitespace-pre-wrap">
+                      {product.prompt}
+                    </p>
+                  </div>
+                )}
+                {product.seed && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">시드값 (재현·저작권 증거)</p>
+                    <p className="text-xs font-mono bg-background/50 p-2 rounded text-foreground/80">
+                      {product.seed}
+                    </p>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 text-xs text-[#10b981] pt-2 border-t border-border">
                   <Check className="w-4 h-4" />
                   <span>저작권 확인 완료 • 상업적 이용 가능</span>
                 </div>

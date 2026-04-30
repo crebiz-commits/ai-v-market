@@ -3,7 +3,7 @@
  *
  * 주요 기능:
  * - 홈: AI 추천 알고리즘 기반 숏폼 피드
- * - 마켓: 검색, 필터링, 다중 라이선스 옵션
+ * - 시네마(마켓): 검색, 필터링, All-in-One 라이선스
  * - 업로드: 단건/대량 업로드, AI 제작 증빙, 저작권 서약
  * - 커뮤니티: 팁 공유, 챌린지, 프롬프트 공유
  * - 마이페이지: 구매/판매 내역, 정산 대시보드
@@ -49,16 +49,44 @@ type Tab = "discovery" | "market" | "upload" | "community" | "mypage" | "admin";
 type Panel = "cart" | "notifications" | null;
 
 interface VideoProduct {
+  // 기본 정보
   id: string;
   thumbnail: string;
   title: string;
   creator: string;
-  price: number;
+  price: number;              // 하위 호환 — priceStandard와 동일
   duration: string;
   resolution?: string;
   tool: string;
   category?: string;
+  genre?: string;
   videoUrl: string;
+  description?: string;
+  tags?: string[];
+
+  // 라이선스 가격 (3종)
+  priceStandard?: number;
+  priceCommercial?: number;
+  priceExclusive?: number;
+
+  // AI 제작 증빙
+  aiModelVersion?: string;
+  prompt?: string;
+  seed?: string;
+
+  // 시네마 메타데이터
+  director?: string;
+  writer?: string;
+  composer?: string;
+  castCredits?: string;
+  productionYear?: number;
+  language?: string;
+  subtitleLanguage?: string;
+
+  // 공개 설정 + 하이라이트
+  visibility?: "public" | "unlisted" | "private";
+  highlightStart?: number;
+  highlightEnd?: number;
 }
 
 function AppContent() {

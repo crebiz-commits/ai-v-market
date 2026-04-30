@@ -73,9 +73,9 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               <ShieldCheck className="w-5 h-5 text-[#3b82f6]" />
             </div>
             <div>
-              <h3 className="font-medium mb-1">안전한 라이선스 거래</h3>
+              <h3 className="font-medium mb-1">올인원 라이선스</h3>
               <p className="text-sm text-muted-foreground">
-                용도별 다중 라이선스 + 저작권 확인·에스크로
+                모든 용도 포함 단일 라이선스 + 저작권 확인·에스크로
               </p>
             </div>
           </div>

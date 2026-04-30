@@ -157,7 +157,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
       // 빈 드래프트는 무시
       const hasContent =
         draft.formData?.title || draft.formData?.description || draft.formData?.tags ||
-        draft.formData?.standardPrice || draft.formData?.commercialPrice;
+        draft.formData?.standardPrice;
       if (!hasContent) {
         setDraftLoaded(true);
         return;
@@ -653,9 +653,10 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
         hlsUrl: `https://${bunnyHostname}/${videoId}/playlist.m3u8`,
         duration: formData.duration || '0:00',
         tags: formData.tags || "",
+        // All-in-One 단일 라이선스 — DB 컬럼 3개에 동일 가격 저장 (호환성)
         standardPrice: stripCommas(formData.standardPrice) || "0",
-        commercialPrice: stripCommas(formData.commercialPrice) || "0",
-        exclusivePrice: stripCommas(formData.exclusivePrice) || "0",
+        commercialPrice: stripCommas(formData.standardPrice) || "0",
+        exclusivePrice: stripCommas(formData.standardPrice) || "0",
         aiTool: formData.aiTool || '',
         aiModelVersion: formData.aiModelVersion || '',
         category: formData.category || '',
@@ -1544,7 +1545,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
               <div className="bg-card p-6 rounded-lg border border-border">
                 <h3 className="mb-1">공개 설정</h3>
                 <p className="text-xs text-muted-foreground mb-4">
-                  영상이 누구에게 노출될지 결정합니다. Exclusive 라이선스 판매 후엔 자동으로 비공개 처리됩니다.
+                  영상이 누구에게 노출될지 결정합니다. 라이선스 판매 후엔 자동으로 비공개 처리됩니다.
                 </p>
 
                 <div className="space-y-2">
@@ -1582,53 +1583,24 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
               </div>
 
               <div className="bg-card p-6 rounded-lg border border-border">
-                <h3 className="mb-4">라이선스별 가격 설정</h3>
-                
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="standard" className="mb-2 block">Standard 라이선스</Label>
-                    <Input
-                      id="standard"
-                      type="text"
-                      value={formData.standardPrice}
-                      onChange={(e) => setFormData({...formData, standardPrice: formatWithCommas(e.target.value)})}
-                      placeholder="19,000"
-                      className="bg-background"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      유튜브, 개인 SNS 용도
-                    </p>
-                  </div>
+                <h3 className="mb-1">All-in-One 라이선스 가격</h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                  유튜브·SNS·기업 마케팅·독점 사용권이 모두 포함된 단일 라이선스입니다. 구매 시 모든 사용권이 구매자에게 영구 양도되고 마켓에서 즉시 판매 종료됩니다.
+                </p>
 
-                  <div>
-                    <Label htmlFor="commercial" className="mb-2 block">Commercial 라이선스</Label>
-                    <Input
-                      id="commercial"
-                      type="text"
-                      value={formData.commercialPrice}
-                      onChange={(e) => setFormData({...formData, commercialPrice: formatWithCommas(e.target.value)})}
-                      placeholder="59,000"
-                      className="bg-background"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      기업 광고, 마케팅 용도
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="exclusive" className="mb-2 block">Exclusive 라이선스</Label>
-                    <Input
-                      id="exclusive"
-                      type="text"
-                      value={formData.exclusivePrice}
-                      onChange={(e) => setFormData({...formData, exclusivePrice: formatWithCommas(e.target.value)})}
-                      placeholder="299,000"
-                      className="bg-background"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      독점 사용권, 구매 후 마켓에서 숨김
-                    </p>
-                  </div>
+                <div>
+                  <Label htmlFor="price" className="mb-2 block">가격 *</Label>
+                  <Input
+                    id="price"
+                    type="text"
+                    value={formData.standardPrice}
+                    onChange={(e) => setFormData({ ...formData, standardPrice: formatWithCommas(e.target.value) })}
+                    placeholder="100,000"
+                    className="bg-background"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    표시 가격은 부가세(VAT) 포함입니다.
+                  </p>
                 </div>
               </div>
 
@@ -1726,7 +1698,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                 </p>
                 <div className="flex items-center justify-between pt-3 border-t border-white/10">
                   <div>
-                    <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Price (Standard)</span>
+                    <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Price</span>
                     <p className="text-lg font-extrabold text-white">
                       ₩{formData.standardPrice || "0"}
                     </p>
@@ -1767,9 +1739,9 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                 </p>
               </div>
               <div className="bg-card p-3 rounded border border-border">
-                <p className="text-muted-foreground mb-0.5">라이선스 가격</p>
-                <p className="font-semibold text-[11px] leading-relaxed">
-                  S ₩{formData.standardPrice || "0"} · C ₩{formData.commercialPrice || "0"} · E ₩{formData.exclusivePrice || "0"}
+                <p className="text-muted-foreground mb-0.5">All-in-One 라이선스</p>
+                <p className="font-semibold">
+                  ₩{formData.standardPrice || "0"}
                 </p>
               </div>
               {(formData.director || formData.writer || formData.composer) && (
