@@ -1,5 +1,5 @@
 /**
- * CREAITE (AI 영상 특화 오픈마켓 플랫폼)
+ * CREAITE (세계 최초 AI 시네마 OTT 플랫폼 — 크리에이터 마켓 기능 포함)
  *
  * 주요 기능:
  * - 홈: AI 추천 알고리즘 기반 숏폼 피드
@@ -140,7 +140,7 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    document.title = "CREAITE | AI 영상 특화 오픈마켓";
+    document.title = "CREAITE | 세계 최초 AI 시네마 OTT";
     const handleError = (event: ErrorEvent) => {
       if (event.error) handleBunnyError(event.error);
       else if (event.message) handleBunnyError({ message: event.message });

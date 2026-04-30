@@ -1,7 +1,7 @@
 {
   "name": "CREAITE",
   "short_name": "CREAITE",
-  "description": "AI 영상 특화 오픈마켓",
+  "description": "세계 최초 AI 시네마 OTT 서비스",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
