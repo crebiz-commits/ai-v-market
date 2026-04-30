@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Sparkles, Play, ShoppingBag, Zap } from "lucide-react";
+import { Film, TrendingUp, ShieldCheck } from "lucide-react";
 import { Button } from "./ui/button";
 import { CreaiteText } from "./CreaiteText";
 import { CreaiteLogo } from "./CreaiteLogo";
@@ -31,7 +31,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
           <h1 className="mb-2">
             <CreaiteText className="text-4xl font-extrabold" />
           </h1>
-          <p className="text-muted-foreground">AI 영상 특화 오픈마켓</p>
+          <p className="text-muted-foreground">AI 시네마 × 크리에이터 마켓</p>
         </motion.div>
 
         {/* Features */}
@@ -43,36 +43,36 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         >
           <div className="flex items-start gap-4 text-left">
             <div className="w-10 h-10 rounded-full bg-[#6366f1]/20 flex items-center justify-center flex-shrink-0">
-              <Play className="w-5 h-5 text-[#6366f1]" />
+              <Film className="w-5 h-5 text-[#6366f1]" />
             </div>
             <div>
-              <h3 className="font-medium mb-1">발견형 커머스</h3>
+              <h3 className="font-medium mb-1">큐레이션 시네마</h3>
               <p className="text-sm text-muted-foreground">
-                틱톡/릴스 스타일로 AI 영상을 탐색하고 구매
+                크리에이터가 만든 AI 영화를 시네마처럼 감상
               </p>
             </div>
           </div>
 
           <div className="flex items-start gap-4 text-left">
             <div className="w-10 h-10 rounded-full bg-[#8b5cf6]/20 flex items-center justify-center flex-shrink-0">
-              <ShoppingBag className="w-5 h-5 text-[#8b5cf6]" />
+              <TrendingUp className="w-5 h-5 text-[#8b5cf6]" />
             </div>
             <div>
-              <h3 className="font-medium mb-1">다중 라이선스</h3>
+              <h3 className="font-medium mb-1">크리에이터 수익</h3>
               <p className="text-sm text-muted-foreground">
-                용도에 맞는 라이선스를 선택하여 구매
+                내 AI 영화로 조회·광고 수익과 작품 판매 수익까지
               </p>
             </div>
           </div>
 
           <div className="flex items-start gap-4 text-left">
             <div className="w-10 h-10 rounded-full bg-[#3b82f6]/20 flex items-center justify-center flex-shrink-0">
-              <Zap className="w-5 h-5 text-[#3b82f6]" />
+              <ShieldCheck className="w-5 h-5 text-[#3b82f6]" />
             </div>
             <div>
-              <h3 className="font-medium mb-1">안전한 거래</h3>
+              <h3 className="font-medium mb-1">안전한 라이선스 거래</h3>
               <p className="text-sm text-muted-foreground">
-                저작권 확인 및 에스크로 시스템 지원
+                용도별 다중 라이선스 + 저작권 확인·에스크로
               </p>
             </div>
           </div>
@@ -91,7 +91,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
             시작하기
           </Button>
           <p className="text-xs text-muted-foreground mt-4">
-            AI 영상 마켓플레이스의 새로운 경험
+            감상하고, 창작하고, 거래하는 AI 시네마
           </p>
         </motion.div>
       </div>
