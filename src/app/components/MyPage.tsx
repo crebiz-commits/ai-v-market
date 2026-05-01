@@ -8,6 +8,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useBackButton } from "../hooks/useBackButton";
 import { toast } from "sonner";
 import { supabase } from "../utils/supabaseClient";
+import { InstallGuideCard } from "./InstallPrompt";
 
 interface Purchase {
   id: string;
@@ -621,6 +622,9 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                       로그아웃
                     </Button>
                   </motion.div>
+
+                  {/* PWA 앱 설치 안내 카드 */}
+                  <InstallGuideCard />
                 </div>
               </TabsContent>
             </motion.div>

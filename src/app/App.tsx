@@ -35,6 +35,7 @@ import { LogoFish } from "./components/LogoFish";
 import { LogoFishPlay } from "./components/LogoFishPlay";
 import { CinemaIconPreview } from "./components/CinemaIconPreview";
 import { UploadButtonPreview } from "./components/UploadButtonPreview";
+import { InstallButtonHeader, InstallBannerMobile } from "./components/InstallPrompt";
 import { CreaiteText } from "./components/CreaiteText";
 import { CreaiteLogo } from "./components/CreaiteLogo";
 import { useBackButton } from "./hooks/useBackButton";
@@ -482,6 +483,9 @@ function AppContent() {
 
           {/* Right Actions */}
           <div className="flex items-center gap-2">
+            {/* PWA 앱 설치 버튼 (설치 가능 + 미설치일 때만 표시) */}
+            <InstallButtonHeader />
+
             {/* Notifications */}
             <motion.button
               whileTap={{ scale: 0.9 }}
@@ -717,6 +721,9 @@ function AppContent() {
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
       )}
+
+      {/* PWA 앱 설치 배너 (모바일, 첫 방문자) */}
+      <InstallBannerMobile />
 
       {/* Toast Notifications */}
       <Toaster />
