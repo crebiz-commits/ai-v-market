@@ -108,13 +108,33 @@ const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) 
       className="discovery-section relative overflow-hidden cursor-pointer group"
       onClick={handleClick}
     >
-      {/* 배경 이미지 */}
-      {ad.image_url && (
+      {/* 배경: 이미지 우선, 없으면 영상, 없으면 썸네일 fallback */}
+      {ad.image_url ? (
         <img
           src={ad.image_url}
           alt={ad.title}
           className="absolute inset-0 w-full h-full object-cover"
         />
+      ) : ad.video_url ? (
+        // 영상 광고: 자동 재생 + 무한 루프 + 음소거 (TikTok 스타일)
+        <video
+          src={ad.video_url}
+          poster={ad.thumbnail_url || undefined}
+          className="absolute inset-0 w-full h-full object-cover"
+          autoPlay
+          loop
+          muted
+          playsInline
+        />
+      ) : ad.thumbnail_url ? (
+        <img
+          src={ad.thumbnail_url}
+          alt={ad.title}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      ) : (
+        // 비주얼 자료가 전혀 없으면 그라디언트 배경
+        <div className="absolute inset-0 bg-gradient-to-br from-[#6366f1] to-[#8b5cf6]" />
       )}
       {/* 그라디언트 오버레이 — 하단 텍스트 영역만 */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
@@ -545,8 +565,11 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
           supabase.from("videos").select("*")
             .or("visibility.eq.public,visibility.is.null")
             .order("created_at", { ascending: false }).limit(20),
-          supabase.from("ads").select("id,title,advertiser,image_url,video_url,thumbnail_url,link_url,cta_text,interval_count")
+          // 홈 피드 광고: feed_display 타입만 (또는 ad_type 컬럼 없는 레거시)
+          // video_preroll은 영상 재생 직전에만 노출되므로 피드에 표시 안 함
+          supabase.from("ads").select("id,title,advertiser,image_url,video_url,thumbnail_url,link_url,cta_text,interval_count,ad_type")
             .eq("is_active", true)
+            .or("ad_type.eq.feed_display,ad_type.is.null")
             .or("starts_at.is.null,starts_at.lte." + new Date().toISOString())
             .or("ends_at.is.null,ends_at.gte." + new Date().toISOString()),
         ]);
