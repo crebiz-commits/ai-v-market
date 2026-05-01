@@ -435,6 +435,19 @@ app.get("/videos/my-videos", async (c) => {
 //   1. ad_type='video_preroll' && is_active=true 광고 중 가중치 랜덤 선택
 //   2. VAST 2.0 표준 XML 응답
 //   3. impression/click 트래킹 URL 포함
+// VAST/IMA SDK CORS 헤더 빌더
+// credentials='include' 요청은 wildcard '*'가 아닌 정확한 origin이 필요함
+function vastCorsHeaders(c: any) {
+  const origin = c.req.header('origin') || c.req.header('Origin') || '*';
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': '*',
+    'Vary': 'Origin',
+  };
+}
+
 app.get("/vast-tag", async (c) => {
   try {
     const sourceVideoId = c.req.query('source_video_id') || '';
@@ -447,7 +460,13 @@ app.get("/vast-tag", async (c) => {
       // 광고 없음 → 빈 VAST 응답 (Bunny가 광고 스킵)
       return new Response(
         `<?xml version="1.0" encoding="UTF-8"?>\n<VAST version="2.0"></VAST>`,
-        { status: 200, headers: { 'Content-Type': 'application/xml; charset=utf-8' } }
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/xml; charset=utf-8',
+            ...vastCorsHeaders(c),
+          }
+        }
       );
     }
 
@@ -503,10 +522,7 @@ app.get("/vast-tag", async (c) => {
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
         'Cache-Control': 'no-cache',
-        // Bunny Player가 Google IMA SDK(imasdk.googleapis.com)로 VAST 호출하므로 CORS 필수
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': '*',
+        ...vastCorsHeaders(c),
       }
     });
   } catch (error: any) {
@@ -517,13 +533,20 @@ app.get("/vast-tag", async (c) => {
         status: 200,
         headers: {
           'Content-Type': 'application/xml; charset=utf-8',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, OPTIONS',
-          'Access-Control-Allow-Headers': '*',
+          ...vastCorsHeaders(c),
         }
       }
     );
   }
+});
+
+// CORS preflight (OPTIONS) for VAST endpoints
+app.options("/vast-tag", (c) => {
+  return new Response(null, { status: 204, headers: vastCorsHeaders(c) });
+});
+
+app.options("/vast-track", (c) => {
+  return new Response(null, { status: 204, headers: vastCorsHeaders(c) });
 });
 
 // VAST 트래킹 픽셀 — 1x1 투명 GIF 응답
@@ -567,9 +590,7 @@ app.get("/vast-track", async (c) => {
     headers: {
       'Content-Type': 'image/gif',
       'Cache-Control': 'no-store, no-cache, must-revalidate',
-      // Google IMA SDK / Bunny Player에서 호출하므로 CORS 허용
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      ...vastCorsHeaders(c),
     }
   });
 });
