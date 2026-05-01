@@ -34,6 +34,29 @@ ALTER TABLE videos ADD COLUMN IF NOT EXISTS visibility TEXT DEFAULT 'public'
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS highlight_start REAL DEFAULT 0;
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS highlight_end REAL DEFAULT 15;
 
+-- 컬럼이 이전에 INTEGER로 만들어졌을 가능성 대비 (IF NOT EXISTS는 타입 변경 안 함)
+-- 이미 REAL이면 NO-OP, INTEGER였다면 REAL로 안전 변환
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'videos'
+      AND column_name = 'highlight_start'
+      AND data_type = 'integer'
+  ) THEN
+    ALTER TABLE videos ALTER COLUMN highlight_start TYPE REAL USING highlight_start::REAL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'videos'
+      AND column_name = 'highlight_end'
+      AND data_type = 'integer'
+  ) THEN
+    ALTER TABLE videos ALTER COLUMN highlight_end TYPE REAL USING highlight_end::REAL;
+  END IF;
+END $$;
+
 -- 인덱스: 공개 설정 필터링 자주 사용
 CREATE INDEX IF NOT EXISTS idx_videos_visibility ON videos(visibility);
 

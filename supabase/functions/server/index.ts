@@ -4,7 +4,8 @@ import { logger } from "npm:hono/logger";
 import * as kv from "./kv_store.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const app = new Hono();
+// Supabase Edge Function 함수 이름이 path prefix로 포함되므로 basePath 설정
+const app = new Hono().basePath('/server');
 
 // Supabase 클라이언트 생성 함수
 const getSupabaseClient = (useServiceRole = false) => {

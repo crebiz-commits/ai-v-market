@@ -94,6 +94,8 @@ export function Market({ onProductClick }: MarketProps) {
         const { data, error } = await supabase
           .from("videos")
           .select("*")
+          // 공개 설정: public 또는 visibility가 null인 레거시 영상만 노출
+          .or("visibility.eq.public,visibility.is.null")
           .order("created_at", { ascending: false })
           .limit(24);
 
