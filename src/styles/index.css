@@ -2,6 +2,39 @@
 @import './tailwind.css';
 @import './theme.css';
 
+/* ───────────────────────────────────────
+   글로벌 viewport 고정 (PWA pull-to-refresh 차단)
+   - 모바일에서 위→아래 스와이프 새로고침 시 발생하는
+     viewport 계산 오류로 하단 nav 잘림 현상 방지
+   - html·body가 정확히 화면 크기로 고정되어 어떤
+     제스처도 viewport를 변경하지 못하도록 함
+   ─────────────────────────────────────── */
+html,
+body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  /* pull-to-refresh / overscroll bounce 비활성화 (핵심 수정) */
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  /* 가로 스크롤 차단 */
+  overflow-x: hidden;
+}
+
+body {
+  /* 세로 스크롤은 내부 컨테이너가 담당, 외부 스크롤 차단 */
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  /* iOS Safari에서 텍스트 선택 시 자동 줌 방지 */
+  -webkit-text-size-adjust: 100%;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+}
+
 /* Custom Scrollbar */
 * {
   scrollbar-width: thin;
