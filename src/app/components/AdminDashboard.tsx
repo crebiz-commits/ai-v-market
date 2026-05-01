@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Plus, Pencil, Trash2, ToggleLeft, ToggleRight,
   BarChart2, Eye, MousePointerClick, Megaphone,
-  ImageIcon, Video, Link, Calendar, Save, X, Loader2, ShieldAlert
+  ImageIcon, Video, Link, Calendar, Save, X, Loader2, ShieldAlert,
+  Upload as UploadIcon
 } from "lucide-react";
 import { Button } from "./ui/button";
-import { supabase } from "../utils/supabaseClient";
+import { supabase, supabaseAnonKey } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -13,6 +14,8 @@ import { toast } from "sonner";
 const ADMIN_EMAILS = [
   "crebizlogistics@gmail.com",
 ];
+
+const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer";
 // ─────────────────────────────────────────────────────────────────
 
 type AdType = "feed_display" | "video_preroll";
@@ -78,7 +81,96 @@ export function AdminDashboard() {
   const [form, setForm] = useState(emptyForm());
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+  // 광고 영상 직접 업로드 (Bunny에만 저장, videos 테이블 미등록)
+  const adVideoFileRef = useRef<HTMLInputElement>(null);
+  const [adUploading, setAdUploading] = useState(false);
+  const [adUploadProgress, setAdUploadProgress] = useState(0);
+
   const isAdmin = user && ADMIN_EMAILS.includes(user.email);
+
+  // 광고 영상 직접 업로드 핸들러
+  // - Bunny Stream에 영상 업로드 (create-upload + PUT)
+  // - videos 테이블엔 저장 안 함 (마켓·홈피드 노출 차단)
+  // - 업로드 완료 후 HLS URL을 폼의 video_url 필드에 자동 입력
+  const handleAdVideoFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 파일 검증
+    const validExts = ['.mp4', '.mov', '.avi'];
+    const fileName = file.name.toLowerCase();
+    if (!validExts.some(ext => fileName.endsWith(ext))) {
+      toast.error("MP4, MOV, AVI 형식만 업로드 가능합니다.");
+      return;
+    }
+    const maxSize = 500 * 1024 * 1024; // 광고는 500MB 제한 (보통 짧음)
+    if (file.size > maxSize) {
+      toast.error("광고 영상은 500MB 이하여야 합니다.");
+      return;
+    }
+
+    setAdUploading(true);
+    setAdUploadProgress(0);
+
+    try {
+      // 1. Bunny에 비디오 셸 생성
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("로그인이 필요합니다.");
+
+      const createUrl = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/server/videos/create-upload`;
+      const createResponse = await fetch(createUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'apikey': supabaseAnonKey,
+        },
+        body: JSON.stringify({ title: form.title || `Ad: ${file.name}` }),
+      });
+
+      if (!createResponse.ok) {
+        const err = await createResponse.json().catch(() => ({}));
+        throw new Error(err.error || `Bunny 비디오 생성 실패 (${createResponse.status})`);
+      }
+
+      const { videoId, libraryId, apiKey } = await createResponse.json();
+
+      // 2. Bunny에 직접 PUT 업로드
+      const uploadUrl = `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}`;
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.upload.addEventListener('progress', (ev) => {
+          if (ev.lengthComputable) {
+            setAdUploadProgress(Math.round((ev.loaded / ev.total) * 100));
+          }
+        });
+        xhr.addEventListener('load', () => {
+          if (xhr.status === 200) resolve();
+          else reject(new Error(`업로드 실패 (status ${xhr.status})`));
+        });
+        xhr.addEventListener('error', () => reject(new Error('네트워크 에러')));
+        xhr.open('PUT', uploadUrl);
+        xhr.setRequestHeader('AccessKey', apiKey);
+        xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+        xhr.send(file);
+      });
+
+      // 3. HLS URL 구성 후 폼에 자동 입력
+      const bunnyHostname = (import.meta as any).env?.VITE_BUNNY_HOSTNAME || `vz-${libraryId}.b-cdn.net`;
+      const hlsUrl = `https://${bunnyHostname}/${videoId}/playlist.m3u8`;
+      setForm(f => ({ ...f, video_url: hlsUrl }));
+
+      toast.success("광고 영상 업로드 완료! Bunny에 저장됐습니다 (마켓 노출 X)");
+    } catch (err: any) {
+      console.error('Ad video upload error:', err);
+      toast.error("업로드 실패: " + (err.message || '알 수 없는 에러'));
+    } finally {
+      setAdUploading(false);
+      setAdUploadProgress(0);
+      if (adVideoFileRef.current) adVideoFileRef.current.value = '';
+    }
+  };
 
   useEffect(() => {
     if (isAdmin) fetchAds();
@@ -439,15 +531,58 @@ export function AdminDashboard() {
                 )}
               </Field>
 
-              {/* Bunny 영상 URL */}
+              {/* Bunny 영상 URL + 직접 업로드 버튼 */}
               <Field label="Bunny 영상 URL (HLS)" icon={<Video className="w-4 h-4 text-muted-foreground" />}>
                 <input
                   className="input-base"
                   placeholder="https://...bunnycdn.com/.../playlist.m3u8"
                   value={form.video_url || ""}
                   onChange={e => setForm(f => ({ ...f, video_url: e.target.value || null }))}
+                  disabled={adUploading}
                 />
-                <p className="text-xs text-muted-foreground mt-1">영상 광고는 Bunny.net에 업로드 후 m3u8 URL을 입력하세요.</p>
+
+                {/* 광고 영상 직접 업로드 */}
+                <input
+                  ref={adVideoFileRef}
+                  type="file"
+                  accept="video/mp4,video/quicktime,video/x-msvideo,.mp4,.mov,.avi"
+                  onChange={handleAdVideoFileSelect}
+                  className="hidden"
+                />
+
+                {!adUploading ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => adVideoFileRef.current?.click()}
+                    className="w-full mt-2 gap-2 border-[#6366f1]/40 hover:bg-[#6366f1]/10"
+                  >
+                    <UploadIcon className="w-4 h-4" />
+                    광고 영상 직접 업로드 (마켓에 노출 안 됨)
+                  </Button>
+                ) : (
+                  <div className="mt-2 bg-card p-3 rounded-lg border border-[#6366f1]/40">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-[#6366f1]" />
+                        <span className="text-sm font-medium">Bunny에 업로드 중...</span>
+                      </div>
+                      <span className="text-sm font-bold text-[#6366f1]">{adUploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-border rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] rounded-full transition-all"
+                        style={{ width: `${adUploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-xs text-muted-foreground mt-2">
+                  💡 직접 업로드 시 자동으로 Bunny에 저장되며, **광고로만 사용**됩니다 (마켓·홈피드 노출 X).
+                  <br />
+                  또는 기존 Bunny URL을 직접 입력해도 됩니다.
+                </p>
               </Field>
 
               {/* 썸네일 URL (영상 광고용) */}
