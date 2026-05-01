@@ -12,29 +12,16 @@
 // 초기화 스크립트를 가장 먼저 import (콘솔 필터 설치)
 import './init';
 
-import { useState, useEffect, useCallback } from "react";
-import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart } from "lucide-react";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { DiscoveryFeed } from "./components/DiscoveryFeed";
-import { Market } from "./components/Market";
-import { Upload } from "./components/Upload";
-import { Community } from "./components/Community";
-import { MyPage } from "./components/MyPage";
-import { AdminDashboard } from "./components/AdminDashboard";
-import { ProductDetail } from "./components/ProductDetail";
+
+// ────────────────────────────────────────────────────
+// Eager imports — 항상 즉시 필요한 코어 컴포넌트
+// ────────────────────────────────────────────────────
 import { SplashScreen } from "./components/SplashScreen";
-import { AuthModal } from "./components/AuthModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { CartPanel, CartItem } from "./components/CartPanel";
-import { NotificationPanel } from "./components/NotificationPanel";
-import { LogoPreview } from "./components/LogoPreview";
-import { NewLogoPreview } from "./components/NewLogoPreview";
-import { LogoDesigns } from "./components/LogoDesigns";
-import { LogoDesignsV2 } from "./components/LogoDesignsV2";
-import { LogoFish } from "./components/LogoFish";
-import { LogoFishPlay } from "./components/LogoFishPlay";
-import { CinemaIconPreview } from "./components/CinemaIconPreview";
-import { UploadButtonPreview } from "./components/UploadButtonPreview";
+import { CartItem } from "./components/CartPanel";
 import { InstallButtonHeader, InstallBannerMobile } from "./components/InstallPrompt";
 import { CreaiteText } from "./components/CreaiteText";
 import { CreaiteLogo } from "./components/CreaiteLogo";
@@ -45,6 +32,46 @@ import { supabase } from "./utils/supabaseClient";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
+
+// ────────────────────────────────────────────────────
+// Lazy imports — 라우트 진입 시점에 동적 로드 (code split)
+// 사용자가 해당 화면을 보지 않으면 다운로드 안 됨
+// ────────────────────────────────────────────────────
+
+// 메인 탭 (각각 별도 chunk로 분리)
+const DiscoveryFeed = lazy(() => import("./components/DiscoveryFeed").then(m => ({ default: m.DiscoveryFeed })));
+const Market = lazy(() => import("./components/Market").then(m => ({ default: m.Market })));
+const Upload = lazy(() => import("./components/Upload").then(m => ({ default: m.Upload })));
+const Community = lazy(() => import("./components/Community").then(m => ({ default: m.Community })));
+const MyPage = lazy(() => import("./components/MyPage").then(m => ({ default: m.MyPage })));
+const AdminDashboard = lazy(() => import("./components/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
+
+// 모달·패널 (열릴 때만 로드)
+const ProductDetail = lazy(() => import("./components/ProductDetail").then(m => ({ default: m.ProductDetail })));
+const AuthModal = lazy(() => import("./components/AuthModal").then(m => ({ default: m.AuthModal })));
+const CartPanel = lazy(() => import("./components/CartPanel").then(m => ({ default: m.CartPanel })));
+const NotificationPanel = lazy(() => import("./components/NotificationPanel").then(m => ({ default: m.NotificationPanel })));
+
+// 개발자 전용 프리뷰 페이지 (URL ?preview=* 진입 시만 로드)
+const LogoPreview = lazy(() => import("./components/LogoPreview").then(m => ({ default: m.LogoPreview })));
+const NewLogoPreview = lazy(() => import("./components/NewLogoPreview").then(m => ({ default: m.NewLogoPreview })));
+const LogoDesigns = lazy(() => import("./components/LogoDesigns").then(m => ({ default: m.LogoDesigns })));
+const LogoDesignsV2 = lazy(() => import("./components/LogoDesignsV2").then(m => ({ default: m.LogoDesignsV2 })));
+const LogoFish = lazy(() => import("./components/LogoFish").then(m => ({ default: m.LogoFish })));
+const LogoFishPlay = lazy(() => import("./components/LogoFishPlay").then(m => ({ default: m.LogoFishPlay })));
+const CinemaIconPreview = lazy(() => import("./components/CinemaIconPreview").then(m => ({ default: m.CinemaIconPreview })));
+const UploadButtonPreview = lazy(() => import("./components/UploadButtonPreview").then(m => ({ default: m.UploadButtonPreview })));
+
+// ────────────────────────────────────────────────────
+// 로딩 fallback (lazy 컴포넌트 다운로드 중 표시)
+// ────────────────────────────────────────────────────
+function PageLoading() {
+  return (
+    <div className="flex-1 flex items-center justify-center bg-background">
+      <Loader2 className="w-10 h-10 animate-spin text-[#6366f1]" />
+    </div>
+  );
+}
 
 type Tab = "discovery" | "market" | "upload" | "community" | "mypage" | "admin";
 type Panel = "cart" | "notifications" | null;
@@ -91,41 +118,23 @@ interface VideoProduct {
 }
 
 function AppContent() {
-  // 로고 프리뷰 모드 (URL ?preview=logo)
-  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "logo") {
-    return <LogoPreview />;
-  }
-  // 새 로고 프리뷰 (URL ?preview=newlogo)
-  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "newlogo") {
-    return <NewLogoPreview />;
-  }
-  // SVG 로고 디자인 비교 (URL ?preview=designs)
-  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "designs") {
-    return <LogoDesigns />;
-  }
-  // SVG 로고 디자인 V2 — 새로운 컨셉 (URL ?preview=designs2)
-  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "designs2") {
-    return <LogoDesignsV2 />;
-  }
-  // 물고기 컨셉 로고 (URL ?preview=fish)
-  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "fish") {
-    return <LogoFish />;
-  }
-  // 물고기 + 플레이 버튼 변형 (URL ?preview=fishplay)
-  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "fishplay") {
-    return <LogoFishPlay />;
-  }
-  // 시네마 탭 아이콘 후보 (URL ?preview=cinema)
-  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "cinema") {
-    return <CinemaIconPreview />;
-  }
-  // 인트로 스플래시 미리보기 (URL ?preview=splash)
-  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "splash") {
-    return <SplashScreen onComplete={() => { window.location.search = ""; }} />;
-  }
-  // 하단 업로드 버튼 디자인 비교 (URL ?preview=uploadbtn)
-  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "uploadbtn") {
-    return <UploadButtonPreview />;
+  // 개발자 전용 프리뷰 모드 (URL ?preview=*) — 모두 lazy load됨
+  const previewParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("preview") : null;
+  if (previewParam) {
+    const previewMap: Record<string, JSX.Element> = {
+      logo: <LogoPreview />,
+      newlogo: <NewLogoPreview />,
+      designs: <LogoDesigns />,
+      designs2: <LogoDesignsV2 />,
+      fish: <LogoFish />,
+      fishplay: <LogoFishPlay />,
+      cinema: <CinemaIconPreview />,
+      splash: <SplashScreen onComplete={() => { window.location.search = ""; }} />,
+      uploadbtn: <UploadButtonPreview />,
+    };
+    if (previewMap[previewParam]) {
+      return <Suspense fallback={<PageLoading />}>{previewMap[previewParam]}</Suspense>;
+    }
   }
 
   const [showSplash, setShowSplash] = useState(() => {
@@ -549,7 +558,9 @@ function AppContent() {
       <div className="flex-1 relative overflow-hidden bg-[#0A0A0A] flex">
         {/* Content */}
         <div className={`flex-1 overflow-hidden transition-all duration-300 ${activePanel ? "md:mr-80" : ""}`}>
-          {renderContent()}
+          <Suspense fallback={<PageLoading />}>
+            {renderContent()}
+          </Suspense>
         </div>
 
         {/* Desktop Side Panel */}
@@ -562,19 +573,21 @@ function AppContent() {
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className="hidden md:flex absolute right-0 top-0 bottom-0 w-80 z-40 flex-col shadow-2xl"
             >
-              {activePanel === "cart" && (
-                <CartPanel
-                  items={cartItems}
-                  onRemove={removeFromCart}
-                  onClose={() => setActivePanel(null)}
-                />
-              )}
-              {activePanel === "notifications" && (
-                <NotificationPanel
-                  onClose={() => setActivePanel(null)}
-                  onUnreadCountChange={setUnreadNotifications}
-                />
-              )}
+              <Suspense fallback={null}>
+                {activePanel === "cart" && (
+                  <CartPanel
+                    items={cartItems}
+                    onRemove={removeFromCart}
+                    onClose={() => setActivePanel(null)}
+                  />
+                )}
+                {activePanel === "notifications" && (
+                  <NotificationPanel
+                    onClose={() => setActivePanel(null)}
+                    onUnreadCountChange={setUnreadNotifications}
+                  />
+                )}
+              </Suspense>
             </motion.div>
           )}
         </AnimatePresence>
@@ -599,19 +612,21 @@ function AppContent() {
                 className="md:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl overflow-hidden"
                 style={{ height: "85vh" }}
               >
-                {activePanel === "cart" && (
-                  <CartPanel
-                    items={cartItems}
-                    onRemove={removeFromCart}
-                    onClose={() => setActivePanel(null)}
-                  />
-                )}
-                {activePanel === "notifications" && (
-                  <NotificationPanel
-                    onClose={() => setActivePanel(null)}
-                    onUnreadCountChange={setUnreadNotifications}
-                  />
-                )}
+                <Suspense fallback={null}>
+                  {activePanel === "cart" && (
+                    <CartPanel
+                      items={cartItems}
+                      onRemove={removeFromCart}
+                      onClose={() => setActivePanel(null)}
+                    />
+                  )}
+                  {activePanel === "notifications" && (
+                    <NotificationPanel
+                      onClose={() => setActivePanel(null)}
+                      onUnreadCountChange={setUnreadNotifications}
+                    />
+                  )}
+                </Suspense>
               </motion.div>
             </>
           )}
@@ -708,18 +723,22 @@ function AppContent() {
         </div>
       </motion.nav>
 
-      {/* Product Detail Modal */}
+      {/* Product Detail Modal (lazy) */}
       {selectedProduct && (
-        <ProductDetail
-          product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-          onAddToCart={addToCart}
-        />
+        <Suspense fallback={null}>
+          <ProductDetail
+            product={selectedProduct}
+            onClose={() => setSelectedProduct(null)}
+            onAddToCart={addToCart}
+          />
+        </Suspense>
       )}
 
-      {/* Auth Modal */}
+      {/* Auth Modal (lazy) */}
       {showAuthModal && (
-        <AuthModal onClose={() => setShowAuthModal(false)} />
+        <Suspense fallback={null}>
+          <AuthModal onClose={() => setShowAuthModal(false)} />
+        </Suspense>
       )}
 
       {/* PWA 앱 설치 배너 (모바일, 첫 방문자) */}
