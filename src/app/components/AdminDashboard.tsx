@@ -15,6 +15,8 @@ const ADMIN_EMAILS = [
 ];
 // ─────────────────────────────────────────────────────────────────
 
+type AdType = "feed_display" | "video_preroll";
+
 interface Ad {
   id: string;
   title: string;
@@ -31,6 +33,11 @@ interface Ad {
   impressions: number;
   clicks: number;
   created_at: string;
+  // 비디오 pre-roll 광고 (Phase 2)
+  ad_type: AdType;
+  skip_offset: number;
+  max_duration: number;
+  weight: number;
 }
 
 const emptyForm = (): Omit<Ad, "id" | "impressions" | "clicks" | "created_at"> => ({
@@ -45,6 +52,10 @@ const emptyForm = (): Omit<Ad, "id" | "impressions" | "clicks" | "created_at"> =
   is_active: true,
   starts_at: null,
   ends_at: null,
+  ad_type: "feed_display",
+  skip_offset: 5,
+  max_duration: 30,
+  weight: 1,
 });
 
 function ctr(impressions: number, clicks: number) {
@@ -109,6 +120,10 @@ export function AdminDashboard() {
       is_active: ad.is_active,
       starts_at: ad.starts_at ? ad.starts_at.slice(0, 16) : null,
       ends_at: ad.ends_at ? ad.ends_at.slice(0, 16) : null,
+      ad_type: ad.ad_type || "feed_display",
+      skip_offset: ad.skip_offset ?? 5,
+      max_duration: ad.max_duration ?? 30,
+      weight: ad.weight ?? 1,
     });
     setShowForm(true);
   };
@@ -116,7 +131,14 @@ export function AdminDashboard() {
   const handleSave = async () => {
     if (!form.title.trim()) { toast.error("광고명을 입력하세요."); return; }
     if (!form.link_url.trim()) { toast.error("랜딩 URL을 입력하세요."); return; }
-    if (!form.image_url && !form.video_url) { toast.error("이미지 URL 또는 Bunny 영상 URL을 입력하세요."); return; }
+    if (form.ad_type === "video_preroll" && !form.video_url?.trim()) {
+      toast.error("Pre-roll 광고는 Bunny 영상 URL이 필수입니다.");
+      return;
+    }
+    if (form.ad_type === "feed_display" && !form.image_url && !form.video_url) {
+      toast.error("이미지 URL 또는 Bunny 영상 URL을 입력하세요.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -354,6 +376,36 @@ export function AdminDashboard() {
 
             <div className="flex-1 p-5 space-y-5">
 
+              {/* 광고 타입 선택 */}
+              <Field label="광고 타입 *">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, ad_type: "feed_display" }))}
+                    className={`p-3 rounded-lg border-2 text-left transition-all ${
+                      form.ad_type === "feed_display"
+                        ? "border-[#6366f1] bg-[#6366f1]/10"
+                        : "border-border hover:border-[#6366f1]/50"
+                    }`}
+                  >
+                    <div className="font-semibold text-sm mb-0.5">📰 홈 피드 카드</div>
+                    <div className="text-[11px] text-muted-foreground">홈 피드 영상 사이에 노출</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, ad_type: "video_preroll" }))}
+                    className={`p-3 rounded-lg border-2 text-left transition-all ${
+                      form.ad_type === "video_preroll"
+                        ? "border-[#6366f1] bg-[#6366f1]/10"
+                        : "border-border hover:border-[#6366f1]/50"
+                    }`}
+                  >
+                    <div className="font-semibold text-sm mb-0.5">▶️ 영상 Pre-roll</div>
+                    <div className="text-[11px] text-muted-foreground">영상 재생 전 자동 광고</div>
+                  </button>
+                </div>
+              </Field>
+
               {/* 광고명 */}
               <Field label="광고명 *">
                 <input
@@ -430,19 +482,64 @@ export function AdminDashboard() {
                 />
               </Field>
 
-              {/* 노출 간격 */}
-              <Field label={`노출 간격: 매 ${form.interval_count}개 영상마다`}>
-                <input
-                  type="range" min={2} max={10} step={1}
-                  value={form.interval_count}
-                  onChange={e => setForm(f => ({ ...f, interval_count: Number(e.target.value) }))}
-                  className="w-full accent-[#6366f1]"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                  <span>2개마다 (고빈도)</span>
-                  <span>10개마다 (저빈도)</span>
-                </div>
-              </Field>
+              {/* 홈피드 광고 — 노출 간격 */}
+              {form.ad_type === "feed_display" && (
+                <Field label={`노출 간격: 매 ${form.interval_count}개 영상마다`}>
+                  <input
+                    type="range" min={2} max={10} step={1}
+                    value={form.interval_count}
+                    onChange={e => setForm(f => ({ ...f, interval_count: Number(e.target.value) }))}
+                    className="w-full accent-[#6366f1]"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>2개마다 (고빈도)</span>
+                    <span>10개마다 (저빈도)</span>
+                  </div>
+                </Field>
+              )}
+
+              {/* 비디오 Pre-roll 전용 옵션 */}
+              {form.ad_type === "video_preroll" && (
+                <>
+                  <Field label={`SKIP 가능 시점: ${form.skip_offset}초 후`}>
+                    <input
+                      type="range" min={0} max={15} step={1}
+                      value={form.skip_offset}
+                      onChange={e => setForm(f => ({ ...f, skip_offset: Number(e.target.value) }))}
+                      className="w-full accent-[#6366f1]"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                      <span>즉시 SKIP</span>
+                      <span>15초 후</span>
+                    </div>
+                  </Field>
+
+                  <Field label={`광고 최대 길이: ${form.max_duration}초`}>
+                    <input
+                      type="range" min={5} max={60} step={5}
+                      value={form.max_duration}
+                      onChange={e => setForm(f => ({ ...f, max_duration: Number(e.target.value) }))}
+                      className="w-full accent-[#6366f1]"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                      <span>5초</span>
+                      <span>60초</span>
+                    </div>
+                  </Field>
+
+                  <Field label={`노출 가중치: ${form.weight}`}>
+                    <input
+                      type="number" min={1} max={100} step={1}
+                      value={form.weight}
+                      onChange={e => setForm(f => ({ ...f, weight: Math.max(1, Number(e.target.value) || 1) }))}
+                      className="input-base"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      여러 비디오 광고 중 랜덤 선택될 확률 가중치 (1~100). 높을수록 자주 노출.
+                    </p>
+                  </Field>
+                </>
+              )}
 
               {/* 기간 */}
               <Field label="노출 기간" icon={<Calendar className="w-4 h-4 text-muted-foreground" />}>

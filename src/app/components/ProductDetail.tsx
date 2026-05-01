@@ -61,9 +61,15 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
 
   // Bunny Stream Player iframe embed URL
   // 진행바·볼륨·전체화면·재생속도·자막·HLS 적응형 비트레이트 등 모두 내장
-  // 광고(VAST/VMAP), DRM, 분석 등 미래 기능 활용 가능
+  // VAST pre-roll 광고는 vastTagUrl 파라미터로 자동 적용
+  // - 자체 광고 서버(/vast-tag)가 가중치 랜덤 선택 후 VAST XML 응답
+  // - Bunny Player가 영상 시작 전 자동 재생, skip 시 본 영상 시작
+  const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer"; // 광고 서버 호스트
+  const vastTagUrl = encodeURIComponent(
+    `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/server/vast-tag?source_video_id=${product.id}`
+  );
   const bunnyEmbedUrl = BUNNY_LIBRARY_ID && product.id
-    ? `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${product.id}?autoplay=true&loop=false&muted=true&preload=true&responsive=true`
+    ? `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${product.id}?autoplay=true&loop=false&muted=true&preload=true&responsive=true&vastTagUrl=${vastTagUrl}`
     : null;
 
   // 뒤로가기로 댓글 패널 닫기

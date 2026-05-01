@@ -421,4 +421,142 @@ app.get("/videos/my-videos", async (c) => {
   }
 });
 
+// ============================================
+// 비디오 광고 (House Ads MVP — Phase 2)
+// ============================================
+
+// VAST 2.0 XML 응답
+// Bunny Player의 vastTagUrl 파라미터에 이 엔드포인트 URL을 넘기면
+// pre-roll 광고로 자동 재생됨
+//
+// 호출 예: GET /vast-tag?source_video_id=abc123
+//
+// 동작:
+//   1. ad_type='video_preroll' && is_active=true 광고 중 가중치 랜덤 선택
+//   2. VAST 2.0 표준 XML 응답
+//   3. impression/click 트래킹 URL 포함
+app.get("/vast-tag", async (c) => {
+  try {
+    const sourceVideoId = c.req.query('source_video_id') || '';
+    const supabaseAdmin = getSupabaseClient(true);
+
+    // 가중치 기반 랜덤 광고 선택
+    const { data: ads, error: pickError } = await supabaseAdmin.rpc('pick_random_video_preroll');
+
+    if (pickError || !ads || ads.length === 0) {
+      // 광고 없음 → 빈 VAST 응답 (Bunny가 광고 스킵)
+      return new Response(
+        `<?xml version="1.0" encoding="UTF-8"?>\n<VAST version="2.0"></VAST>`,
+        { status: 200, headers: { 'Content-Type': 'application/xml; charset=utf-8' } }
+      );
+    }
+
+    const ad = ads[0];
+
+    // 트래킹 URL 베이스 (현재 호스트 기준)
+    const url = new URL(c.req.url);
+    const trackBase = `${url.origin}${url.pathname.replace('/vast-tag', '/vast-track')}`;
+    const trackParams = new URLSearchParams({
+      ad_id: ad.id,
+      source_video_id: sourceVideoId,
+    });
+
+    // VAST 2.0 XML 생성
+    const vastXml = `<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="2.0">
+  <Ad id="${ad.id}">
+    <InLine>
+      <AdSystem>CREAITE House Ads</AdSystem>
+      <AdTitle><![CDATA[${ad.title || 'Advertisement'}]]></AdTitle>
+      <Description><![CDATA[${ad.advertiser || ''}]]></Description>
+      <Impression><![CDATA[${trackBase}?${trackParams}&event=impression]]></Impression>
+      <Creatives>
+        <Creative id="${ad.id}-creative">
+          <Linear skipoffset="00:00:${String(ad.skip_offset || 5).padStart(2, '0')}">
+            <Duration>00:00:${String(ad.max_duration || 30).padStart(2, '0')}</Duration>
+            <TrackingEvents>
+              <Tracking event="start"><![CDATA[${trackBase}?${trackParams}&event=start]]></Tracking>
+              <Tracking event="firstQuartile"><![CDATA[${trackBase}?${trackParams}&event=firstQuartile]]></Tracking>
+              <Tracking event="midpoint"><![CDATA[${trackBase}?${trackParams}&event=midpoint]]></Tracking>
+              <Tracking event="thirdQuartile"><![CDATA[${trackBase}?${trackParams}&event=thirdQuartile]]></Tracking>
+              <Tracking event="complete"><![CDATA[${trackBase}?${trackParams}&event=complete]]></Tracking>
+              <Tracking event="skip"><![CDATA[${trackBase}?${trackParams}&event=skip]]></Tracking>
+            </TrackingEvents>
+            <VideoClicks>
+              <ClickThrough><![CDATA[${ad.link_url || '#'}]]></ClickThrough>
+              <ClickTracking><![CDATA[${trackBase}?${trackParams}&event=click]]></ClickTracking>
+            </VideoClicks>
+            <MediaFiles>
+              <MediaFile delivery="streaming" type="application/x-mpegURL" width="1920" height="1080">
+                <![CDATA[${ad.video_url}]]>
+              </MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>`;
+
+    return new Response(vastXml, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/xml; charset=utf-8',
+        'Cache-Control': 'no-cache',
+      }
+    });
+  } catch (error: any) {
+    console.error('VAST 생성 에러:', error);
+    return new Response(
+      `<?xml version="1.0" encoding="UTF-8"?>\n<VAST version="2.0"></VAST>`,
+      { status: 200, headers: { 'Content-Type': 'application/xml; charset=utf-8' } }
+    );
+  }
+});
+
+// VAST 트래킹 픽셀 — 1x1 투명 GIF 응답
+// Bunny Player가 각 이벤트 시점에 GET 요청으로 호출
+app.get("/vast-track", async (c) => {
+  try {
+    const adId = c.req.query('ad_id');
+    const event = c.req.query('event');
+    const sourceVideoId = c.req.query('source_video_id') || null;
+
+    if (adId && event) {
+      const supabaseAdmin = getSupabaseClient(true);
+      const userAgent = c.req.header('user-agent') || null;
+      const ipAddress = c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || null;
+
+      await supabaseAdmin.rpc('track_video_ad_event', {
+        p_ad_id: adId,
+        p_event_type: event,
+        p_source_video_id: sourceVideoId,
+        p_viewer_user_id: null, // VAST 트래킹은 인증 없이 호출됨
+        p_user_agent: userAgent,
+        p_ip_address: ipAddress,
+      }).then(({ error }: any) => {
+        if (error) console.error('VAST 트래킹 RPC 에러:', error);
+      });
+    }
+  } catch (error) {
+    console.error('VAST 트래킹 에러:', error);
+  }
+
+  // 항상 1x1 투명 GIF 응답 (트래킹 픽셀 표준)
+  const gif = new Uint8Array([
+    0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00,
+    0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x21, 0xf9, 0x04, 0x01, 0x00,
+    0x00, 0x00, 0x00, 0x2c, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00,
+    0x00, 0x02, 0x02, 0x44, 0x01, 0x00, 0x3b
+  ]);
+
+  return new Response(gif, {
+    status: 200,
+    headers: {
+      'Content-Type': 'image/gif',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+    }
+  });
+});
+
 Deno.serve(app.fetch);
