@@ -1,4 +1,4 @@
-import { X, Play, Heart, Send, Download, ShoppingCart, Check, Volume2, VolumeX, Loader2, MessageCircle, Maximize2 } from "lucide-react";
+import { X, Heart, Send, Download, ShoppingCart, Check, Loader2, MessageCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -56,9 +56,7 @@ interface ProductDetailProps {
 export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(true);
   const [showComments, setShowComments] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -68,11 +66,12 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
     if (product.videoUrl && videoRef.current && !playerRef.current) {
       const player = videojs(videoRef.current, {
         autoplay: true,
-        controls: false,
+        controls: true, // 진행바·시간·볼륨·전체화면·재생속도 등 네이티브 컨트롤
         loop: true,
-        muted: isMuted,
+        muted: true, // 자동재생 정책상 처음엔 음소거 (사용자가 컨트롤로 해제)
         fluid: true,
         responsive: true,
+        playbackRates: [0.5, 1, 1.25, 1.5, 2],
         html5: {
           vhs: {
             withCredentials: false
@@ -103,18 +102,8 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
         }
       });
 
-      // 하이라이트 구간 반복 재생 로직 (Video.js)
-      player.on('timeupdate', () => {
-        const p = playerRef.current;
-        const item = product;
-        if (!p || !item) return;
-        
-        const start = item.highlightStart || 0;
-        const end = item.highlightEnd || 15;
-        if (p.currentTime() >= end) {
-          p.currentTime(start);
-        }
-      });
+      // 상세 페이지에선 전체 영상을 자유롭게 시청 가능
+      // (하이라이트 구간 반복 재생은 홈 피드/큐레이션에서만 적용)
 
       playerRef.current = player;
     }
@@ -126,33 +115,6 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
       }
     };
   }, [product]);
-
-  useEffect(() => {
-    if (playerRef.current) {
-      playerRef.current.muted(isMuted);
-    }
-  }, [isMuted]);
-
-  useEffect(() => {
-    if (playerRef.current) {
-      if (isPlaying) {
-        const pp = playerRef.current.play();
-        if (pp) pp.catch(() => {});
-      } else {
-        playerRef.current.pause();
-      }
-    }
-  }, [isPlaying]);
-
-  const togglePlay = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsPlaying(!isPlaying);
-  };
-
-  const toggleMute = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsMuted(!isMuted);
-  };
 
   // 뒤로가기로 댓글 패널 닫기
   useBackButton(showComments, () => setShowComments(false));
@@ -216,7 +178,7 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
         {/* Header */}
         <div className="relative bg-black aspect-video md:aspect-video max-h-[40vh] md:max-h-none flex items-center justify-center overflow-hidden shrink-0">
           {product.videoUrl ? (
-            <div className="w-full h-full" onClick={togglePlay}>
+            <div className="w-full h-full">
               <video
                 ref={videoRef}
                 className="video-js vjs-big-play-centered w-full h-full object-contain"
@@ -235,46 +197,7 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
                 </div>
               )}
 
-              {/* Play/Pause Overlay on Hover or Pause */}
-              <div className={`absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-300 ${isPlaying ? 'opacity-0 hover:opacity-100' : 'opacity-100'}`}>
-                <button 
-                  onClick={togglePlay}
-                  className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white flex items-center justify-center hover:bg-white/30 transition-colors"
-                >
-                  {isPlaying ? (
-                    <div className="flex gap-1.5 items-center justify-center">
-                      <div className="w-2 h-8 bg-white rounded-full"></div>
-                      <div className="w-2 h-8 bg-white rounded-full"></div>
-                    </div>
-                  ) : (
-                    <Play className="w-8 h-8 text-white ml-1" />
-                  )}
-                </button>
-              </div>
-
-              {/* Volume + Fullscreen Control */}
-              <div className="absolute bottom-4 right-4 flex gap-2">
-                <button
-                  onClick={toggleMute}
-                  className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-black/60 transition-colors"
-                  aria-label={isMuted ? "음소거 해제" : "음소거"}
-                >
-                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const player = playerRef.current;
-                    if (!player) return;
-                    if (player.isFullscreen()) player.exitFullscreen();
-                    else player.requestFullscreen();
-                  }}
-                  className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-black/60 transition-colors"
-                  aria-label="전체화면"
-                >
-                  <Maximize2 className="w-5 h-5" />
-                </button>
-              </div>
+              {/* video.js 네이티브 컨트롤(진행바·볼륨·전체화면 등) 사용 — 중복 커스텀 UI 제거 */}
             </div>
           ) : (
             <div className="relative w-full h-full">
