@@ -1,21 +1,18 @@
 {
+  "id": "/?source=pwa",
   "name": "CREAITE",
   "short_name": "CREAITE",
   "description": "세계 최초 AI 시네마 OTT 서비스",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
   "background_color": "#0a0a0a",
   "theme_color": "#0a0a0a",
   "lang": "ko",
+  "prefer_related_applications": false,
   "icons": [
-    {
-      "src": "/icon-64.png",
-      "sizes": "64x64",
-      "type": "image/png",
-      "purpose": "any"
-    },
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
@@ -33,12 +30,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
-    },
-    {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
     }
   ],
   "categories": ["entertainment", "video", "shopping"]

@@ -108,9 +108,15 @@ export function InstallBannerMobile() {
               </div>
               <div className="flex-1">
                 <p className="font-bold text-sm mb-0.5">CREAITE를 앱처럼 사용하기</p>
-                <p className="text-xs text-muted-foreground mb-3">
+                <p className="text-xs text-muted-foreground mb-2">
                   더 빠른 로딩 · 홈 화면 바로가기 · 자동 업데이트
                 </p>
+                {!isIOSSafari && (
+                  <p className="text-[11px] text-amber-300/80 mb-2 leading-relaxed">
+                    💡 Android는 진짜 앱으로 설치되어 1~3분 정도 걸려요.
+                    백그라운드에서 자동 진행됩니다.
+                  </p>
+                )}
                 <div className="flex gap-2">
                   <Button
                     size="sm"
@@ -183,6 +189,18 @@ export function InstallGuideCard() {
               </li>
             </ul>
 
+            {/* Android 사용자에게 설치 시간 안내 */}
+            {isAndroid && canInstallProgrammatic && (
+              <div className="mb-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <p className="text-xs text-amber-100/90 leading-relaxed">
+                  💡 <strong>설치에 1~3분 정도 걸립니다.</strong>
+                  Android Chrome은 진짜 앱(WebAPK)을 생성해서 설치하기 때문에
+                  Google 서버에서 패키지를 만들어 받아오는 시간이 필요해요.
+                  설치 시작 후 다른 앱 사용하셔도 백그라운드에서 자동 진행됩니다.
+                </p>
+              </div>
+            )}
+
             {canInstallProgrammatic ? (
               <Button
                 onClick={() => install()}
@@ -250,7 +268,7 @@ function IOSInstallGuideModal({ open, onClose }: { open: boolean; onClose: () =>
             </button>
             <h3 className="font-bold text-lg mb-1">📱 iOS에서 설치하기</h3>
             <p className="text-xs text-muted-foreground mb-5">
-              Safari 브라우저에서 아래 3단계로 설치하세요.
+              Safari 브라우저에서 아래 3단계로 설치하세요. (즉시 완료)
             </p>
 
             <ol className="space-y-4">
