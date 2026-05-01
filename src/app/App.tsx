@@ -308,7 +308,7 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-background">
+      <div className="h-[100dvh] flex items-center justify-center bg-background">
         <motion.div
           className="text-center"
           initial={{ opacity: 0, scale: 0.9 }}
@@ -366,7 +366,7 @@ function AppContent() {
   const springTransition: any = { type: "spring", stiffness: 500, damping: 30 };
 
   return (
-    <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden selection:bg-[#6366f1]/30">
+    <div className="h-[100dvh] flex flex-col bg-background text-foreground overflow-hidden selection:bg-[#6366f1]/30">
 
       {/* Mobile Top Header */}
       <motion.header

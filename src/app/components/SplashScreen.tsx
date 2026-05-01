@@ -10,7 +10,7 @@ interface SplashScreenProps {
 
 export function SplashScreen({ onComplete }: SplashScreenProps) {
   return (
-    <div className="h-screen bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
+    <div className="h-[100dvh] bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {/* Animated Background */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#6366f1]/20 rounded-full blur-3xl animate-pulse" />
