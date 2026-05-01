@@ -194,6 +194,16 @@ function AppContent() {
     };
   }, []);
 
+  // ProductDetail 모달이 열릴 때 다른 비디오(DiscoveryFeed 등) 일시정지
+  // iframe은 다른 document이므로 'play' 이벤트 리스너가 작동 안 함 → 명시적 처리
+  useEffect(() => {
+    if (selectedProduct) {
+      document.querySelectorAll<HTMLVideoElement>("video").forEach((v) => {
+        if (!v.paused) v.pause();
+      });
+    }
+  }, [selectedProduct]);
+
   // 장바구니 추가 (Supabase 영구 저장) — 인증 통과 시 true, 미로그인 시 false 반환
   const addToCart = useCallback(async (product: VideoProduct, licenseType: "standard" | "commercial" | "extended" = "standard"): Promise<boolean> => {
     // 비로그인 시: 로그인 모달 띄우고 항목을 보류 → 로그인 후 자동 추가

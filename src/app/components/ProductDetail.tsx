@@ -1,12 +1,13 @@
-import { X, Heart, Send, Download, ShoppingCart, Check, Loader2, MessageCircle } from "lucide-react";
+import { X, Heart, Send, Download, ShoppingCart, Check, MessageCircle } from "lucide-react";
 import { Button } from "./ui/button";
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import videojs from "video.js";
-import "video.js/dist/video-js.css";
 import { toast } from "sonner";
 import { CommentPanel } from "./CommentPanel";
 import { useBackButton } from "../hooks/useBackButton";
+
+// Bunny Stream 라이브러리 ID (env 변수). 클라이언트에 노출되어도 안전.
+const BUNNY_LIBRARY_ID = (import.meta as any).env?.VITE_BUNNY_LIBRARY_ID || "";
 
 interface ProductDetailProps {
   product: {
@@ -56,65 +57,14 @@ interface ProductDetailProps {
 export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
-  const [hasError, setHasError] = useState(false);
   const [showComments, setShowComments] = useState(false);
 
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const playerRef = useRef<any>(null);
-
-  useEffect(() => {
-    if (product.videoUrl && videoRef.current && !playerRef.current) {
-      const player = videojs(videoRef.current, {
-        autoplay: true,
-        controls: true, // 진행바·시간·볼륨·전체화면·재생속도 등 네이티브 컨트롤
-        loop: true,
-        muted: true, // 자동재생 정책상 처음엔 음소거 (사용자가 컨트롤로 해제)
-        fluid: true,
-        responsive: true,
-        playbackRates: [0.5, 1, 1.25, 1.5, 2],
-        html5: {
-          vhs: {
-            withCredentials: false
-          }
-        },
-        crossOrigin: 'anonymous'
-      });
-
-      player.ready(() => {
-        if (!player) return;
-        player.src({
-          src: product.videoUrl,
-          type: product.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
-        });
-        player.one('loadedmetadata', () => {
-          if (player) {
-            const p = player.play();
-            if (p) p.catch(() => {});
-          }
-          setHasError(false);
-        });
-      });
-
-      player.on('error', () => {
-        const err = player.error();
-        if (err && (err.code === 4 || err.code === 2)) {
-          setHasError(true);
-        }
-      });
-
-      // 상세 페이지에선 전체 영상을 자유롭게 시청 가능
-      // (하이라이트 구간 반복 재생은 홈 피드/큐레이션에서만 적용)
-
-      playerRef.current = player;
-    }
-
-    return () => {
-      if (playerRef.current) {
-        playerRef.current.dispose();
-        playerRef.current = null;
-      }
-    };
-  }, [product]);
+  // Bunny Stream Player iframe embed URL
+  // 진행바·볼륨·전체화면·재생속도·자막·HLS 적응형 비트레이트 등 모두 내장
+  // 광고(VAST/VMAP), DRM, 분석 등 미래 기능 활용 가능
+  const bunnyEmbedUrl = BUNNY_LIBRARY_ID && product.id
+    ? `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${product.id}?autoplay=true&loop=false&muted=true&preload=true&responsive=true`
+    : null;
 
   // 뒤로가기로 댓글 패널 닫기
   useBackButton(showComments, () => setShowComments(false));
@@ -177,38 +127,30 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         {/* Header */}
         <div className="relative bg-black aspect-video md:aspect-video max-h-[40vh] md:max-h-none flex items-center justify-center overflow-hidden shrink-0">
-          {product.videoUrl ? (
-            <div className="w-full h-full">
-              <video
-                ref={videoRef}
-                className="video-js vjs-big-play-centered w-full h-full object-contain"
-                playsInline
-                data-priority-video=""
-              />
-              
-              {/* Error/Processing Overlay */}
-              {hasError && (
-                <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm p-8 text-center pointer-events-auto">
-                  <Loader2 className="w-12 h-12 text-[#6366f1] animate-spin mb-4" />
-                  <h3 className="text-xl font-bold text-white mb-2">영상이 현재 처리 중입니다</h3>
-                  <p className="text-gray-300 text-sm max-w-[300px]">
-                    고화질 스트리밍을 위해 서버에서 영상을 부드럽게 변환하고 있습니다. 잠시 후 상쾌하게 감상하실 수 있습니다!
-                  </p>
-                </div>
-              )}
-
-              {/* video.js 네이티브 컨트롤(진행바·볼륨·전체화면 등) 사용 — 중복 커스텀 UI 제거 */}
-            </div>
+          {bunnyEmbedUrl ? (
+            // Bunny Stream Player iframe embed
+            // - 진행바·볼륨·전체화면·재생속도·자막 모두 내장
+            // - 적응형 비트레이트 자동 처리
+            // - 광고/DRM/분석 미래 기능 native 지원
+            <iframe
+              src={bunnyEmbedUrl}
+              loading="lazy"
+              className="absolute inset-0 w-full h-full"
+              style={{ border: 0 }}
+              allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+              allowFullScreen
+              title={product.title}
+            />
           ) : (
             <div className="relative w-full h-full">
-              <img 
-                src={product.thumbnail} 
+              <img
+                src={product.thumbnail}
                 alt={product.title}
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="px-4 py-2 bg-black/60 backdrop-blur-md rounded-lg text-white text-sm">
-                  비디오 정보를 불러올 수 없습니다
+                  영상을 재생할 수 없습니다 (라이브러리 설정 누락)
                 </div>
               </div>
             </div>
