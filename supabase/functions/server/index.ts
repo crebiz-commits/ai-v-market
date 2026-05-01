@@ -503,13 +503,25 @@ app.get("/vast-tag", async (c) => {
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
         'Cache-Control': 'no-cache',
+        // Bunny Player가 Google IMA SDK(imasdk.googleapis.com)로 VAST 호출하므로 CORS 필수
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': '*',
       }
     });
   } catch (error: any) {
     console.error('VAST 생성 에러:', error);
     return new Response(
       `<?xml version="1.0" encoding="UTF-8"?>\n<VAST version="2.0"></VAST>`,
-      { status: 200, headers: { 'Content-Type': 'application/xml; charset=utf-8' } }
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/xml; charset=utf-8',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': '*',
+        }
+      }
     );
   }
 });
@@ -555,6 +567,9 @@ app.get("/vast-track", async (c) => {
     headers: {
       'Content-Type': 'image/gif',
       'Cache-Control': 'no-store, no-cache, must-revalidate',
+      // Google IMA SDK / Bunny Player에서 호출하므로 CORS 허용
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
     }
   });
 });
