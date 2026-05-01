@@ -86,7 +86,60 @@ export function AdminDashboard() {
   const [adUploading, setAdUploading] = useState(false);
   const [adUploadProgress, setAdUploadProgress] = useState(0);
 
+  // 광고 이미지 직접 업로드 (Supabase Storage 'ad-images' 버킷)
+  const adImageFileRef = useRef<HTMLInputElement>(null);
+  const [imgUploading, setImgUploading] = useState(false);
+
   const isAdmin = user && ADMIN_EMAILS.includes(user.email);
+
+  // 광고 이미지 직접 업로드 핸들러
+  // Supabase Storage 'ad-images' 버킷에 업로드 후 public URL을 폼에 자동 입력
+  const handleAdImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 파일 검증
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      toast.error("JPG·PNG·WebP·GIF 형식만 업로드 가능합니다.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("이미지는 10MB 이하여야 합니다.");
+      return;
+    }
+
+    setImgUploading(true);
+
+    try {
+      // 파일명: timestamp-원본명 (충돌 방지)
+      const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+
+      // Supabase Storage에 업로드
+      const { data, error } = await supabase.storage
+        .from('ad-images')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (error) throw error;
+
+      // public URL 생성
+      const { data: urlData } = supabase.storage
+        .from('ad-images')
+        .getPublicUrl(data.path);
+
+      setForm(f => ({ ...f, image_url: urlData.publicUrl }));
+      toast.success("이미지가 업로드됐습니다!");
+    } catch (err: any) {
+      console.error('Ad image upload error:', err);
+      toast.error("업로드 실패: " + (err.message || '알 수 없는 에러'));
+    } finally {
+      setImgUploading(false);
+      if (adImageFileRef.current) adImageFileRef.current.value = '';
+    }
+  };
 
   // 광고 영상 직접 업로드 핸들러
   // - Bunny Stream에 영상 업로드 (create-upload + PUT)
@@ -518,17 +571,52 @@ export function AdminDashboard() {
                 />
               </Field>
 
-              {/* 이미지 URL */}
+              {/* 이미지 URL + 직접 업로드 */}
               <Field label="이미지 URL" icon={<ImageIcon className="w-4 h-4 text-muted-foreground" />}>
                 <input
                   className="input-base"
                   placeholder="https://... (배너 이미지)"
                   value={form.image_url || ""}
                   onChange={e => setForm(f => ({ ...f, image_url: e.target.value || null }))}
+                  disabled={imgUploading}
                 />
+
+                {/* 직접 업로드 */}
+                <input
+                  ref={adImageFileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleAdImageFileSelect}
+                  className="hidden"
+                />
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => adImageFileRef.current?.click()}
+                  disabled={imgUploading}
+                  className="w-full mt-2 gap-2 border-[#6366f1]/40 hover:bg-[#6366f1]/10"
+                >
+                  {imgUploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      업로드 중...
+                    </>
+                  ) : (
+                    <>
+                      <UploadIcon className="w-4 h-4" />
+                      이미지 직접 업로드 (JPG·PNG·WebP·GIF)
+                    </>
+                  )}
+                </Button>
+
                 {form.image_url && (
                   <img src={form.image_url} alt="preview" className="mt-2 w-full h-32 object-cover rounded-lg border border-border" />
                 )}
+
+                <p className="text-xs text-muted-foreground mt-1">
+                  💡 이미지 직접 업로드 시 Supabase Storage에 저장됩니다 (10MB 이하).
+                </p>
               </Field>
 
               {/* Bunny 영상 URL + 직접 업로드 버튼 */}
