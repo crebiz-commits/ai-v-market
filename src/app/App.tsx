@@ -13,7 +13,7 @@
 import './init';
 
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
-import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, Loader2 } from "lucide-react";
+import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, Loader2, Crown, Users } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 // ────────────────────────────────────────────────────
@@ -41,8 +41,10 @@ import { toast } from "sonner";
 // 메인 탭 (각각 별도 chunk로 분리)
 const DiscoveryFeed = lazy(() => import("./components/DiscoveryFeed").then(m => ({ default: m.DiscoveryFeed })));
 const Market = lazy(() => import("./components/Market").then(m => ({ default: m.Market })));
+const PremiumOTT = lazy(() => import("./components/PremiumOTT").then(m => ({ default: m.PremiumOTT })));
 const Upload = lazy(() => import("./components/Upload").then(m => ({ default: m.Upload })));
 const Community = lazy(() => import("./components/Community").then(m => ({ default: m.Community })));
+const Channel = lazy(() => import("./components/Channel").then(m => ({ default: m.Channel })));
 const MyPage = lazy(() => import("./components/MyPage").then(m => ({ default: m.MyPage })));
 const AdminDashboard = lazy(() => import("./components/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
 
@@ -73,7 +75,7 @@ function PageLoading() {
   );
 }
 
-type Tab = "discovery" | "market" | "upload" | "community" | "mypage" | "admin";
+type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin";
 type Panel = "cart" | "notifications" | null;
 
 interface VideoProduct {
@@ -357,10 +359,14 @@ function AppContent() {
         return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} />;
       case "market":
         return <Market onProductClick={setSelectedProduct} />;
+      case "ott":
+        return <PremiumOTT onSignInClick={() => setShowAuthModal(true)} />;
       case "upload":
         return <Upload onSignInClick={() => setShowAuthModal(true)} onViewMyProducts={() => setActiveTab("mypage")} />;
       case "community":
         return <Community />;
+      case "channel":
+        return <Channel onSignInClick={() => setShowAuthModal(true)} />;
       case "mypage":
         return <MyPage onSignInClick={() => setShowAuthModal(true)} />;
       case "admin":
@@ -376,9 +382,11 @@ function AppContent() {
   const desktopTabs: { id: Tab; label: string; icon: any }[] = [
     { id: "discovery", label: "홈", icon: Home },
     { id: "market", label: "시네마", icon: Film },
+    { id: "ott", label: "프리미엄 OTT", icon: Crown },
     { id: "upload", label: "업로드", icon: UploadIcon },
     { id: "community", label: "커뮤니티", icon: MessageSquare },
-    { id: "mypage", label: "마이페이지", icon: User },
+    { id: "channel", label: "채널", icon: Users },
+    { id: "mypage", label: "마이", icon: User },
     ...(isAdmin ? [{ id: "admin" as Tab, label: "광고관리", icon: ShieldCheck }] : []),
   ];
 
@@ -643,42 +651,44 @@ function AppContent() {
         </AnimatePresence>
       </div>
 
-      {/* Mobile Bottom Navigation */}
+      {/* Mobile Bottom Navigation — 6탭 + 중앙 업로드 버튼 (좌 3 / 중앙 / 우 3) */}
       <motion.nav
         initial={{ y: 50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
         className="md:hidden border-t border-white/5 bg-background/80 backdrop-blur-xl sticky bottom-0 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]"
       >
-        <div className="flex items-center justify-around h-20 px-2 pb-safe">
-          {["discovery", "market"].map((tabId) => {
-            const isDiscovery = tabId === "discovery";
-            const Icon = isDiscovery ? Home : Film;
-            const label = isDiscovery ? "홈" : "시네마";
-            const isActive = activeTab === tabId && !activePanel;
+        <div className="flex items-center justify-around h-20 px-1 pb-safe">
+          {/* 좌측 3탭: 홈 / 시네마 / OTT */}
+          {([
+            { id: "discovery", label: "홈", icon: Home },
+            { id: "market", label: "시네마", icon: Film },
+            { id: "ott", label: "OTT", icon: Crown },
+          ] as { id: Tab; label: string; icon: any }[]).map(({ id, label, icon: Icon }) => {
+            const isActive = activeTab === id && !activePanel;
             return (
               <button
-                key={tabId}
-                onClick={() => { setActivePanel(null); setActiveTab(tabId as Tab); }}
-                className={`relative flex flex-col items-center justify-center gap-1.5 flex-1 h-full select-none
+                key={id}
+                onClick={() => { setActivePanel(null); setActiveTab(id); }}
+                className={`relative flex flex-col items-center justify-center gap-1 flex-1 h-full select-none
                   ${isActive ? "text-[#8b5cf6]" : "text-muted-foreground hover:text-gray-300"}
                   transition-colors duration-200
                 `}
               >
-                <Icon className={`w-6 h-6 transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} />
-                <span className="text-[11px] font-bold tracking-wide">{label}</span>
+                <Icon className={`w-[20px] h-[20px] transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} />
+                <span className="text-[10px] font-bold tracking-tight">{label}</span>
                 {isActive && (
                   <motion.div
                     layoutId="mobile-active-tab"
                     transition={springTransition}
-                    className="absolute top-1 w-10 h-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] rounded-full shadow-[0_0_8px_rgba(139,92,246,0.8)]"
+                    className="absolute top-1 w-8 h-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] rounded-full shadow-[0_0_8px_rgba(139,92,246,0.8)]"
                   />
                 )}
               </button>
             );
           })}
 
-          {/* Upload Button — CREAITE 로고를 시그니처 액션 버튼으로 사용 */}
+          {/* Upload Button — 중앙 시그니처 액션 버튼 (CREAITE 로고) */}
           <div className="flex items-center justify-center flex-1 h-full">
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -704,27 +714,29 @@ function AppContent() {
             </motion.button>
           </div>
 
-          {["community", "mypage"].map((tabId) => {
-            const isCommunity = tabId === "community";
-            const Icon = isCommunity ? MessageSquare : User;
-            const label = isCommunity ? "커뮤니티" : "마이";
-            const isActive = activeTab === tabId && !activePanel;
+          {/* 우측 3탭: 커뮤니티 / 채널 / 마이 */}
+          {([
+            { id: "community", label: "커뮤", icon: MessageSquare },
+            { id: "channel", label: "채널", icon: Users },
+            { id: "mypage", label: "마이", icon: User },
+          ] as { id: Tab; label: string; icon: any }[]).map(({ id, label, icon: Icon }) => {
+            const isActive = activeTab === id && !activePanel;
             return (
               <button
-                key={tabId}
-                onClick={() => { setActivePanel(null); setActiveTab(tabId as Tab); }}
-                className={`relative flex flex-col items-center justify-center gap-1.5 flex-1 h-full select-none
+                key={id}
+                onClick={() => { setActivePanel(null); setActiveTab(id); }}
+                className={`relative flex flex-col items-center justify-center gap-1 flex-1 h-full select-none
                   ${isActive ? "text-[#8b5cf6]" : "text-muted-foreground hover:text-gray-300"}
                   transition-colors duration-200
                 `}
               >
-                <Icon className={`w-6 h-6 transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} />
-                <span className="text-[11px] font-bold tracking-wide">{label}</span>
+                <Icon className={`w-[20px] h-[20px] transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} />
+                <span className="text-[10px] font-bold tracking-tight">{label}</span>
                 {isActive && (
                   <motion.div
                     layoutId="mobile-active-tab"
                     transition={springTransition}
-                    className="absolute top-1 w-10 h-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] rounded-full shadow-[0_0_8px_rgba(139,92,246,0.8)]"
+                    className="absolute top-1 w-8 h-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] rounded-full shadow-[0_0_8px_rgba(139,92,246,0.8)]"
                   />
                 )}
               </button>
