@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil } from "lucide-react";
+import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -51,10 +51,13 @@ const itemVariants = {
 
 export function MyPage({ onSignInClick }: MyPageProps) {
   const [activeTab, setActiveTab] = useState("profile");
-  const { user, signOut, isAuthenticated } = useAuth();
+  const { user, profile, subscriptionTier, isSubscriber, signOut, isAuthenticated } = useAuth();
   const [purchaseHistory, setPurchaseHistory] = useState<Purchase[]>([]);
   const [myProducts, setMyProducts] = useState<MyProduct[]>([]);
   const [monthlySales, setMonthlySales] = useState<{month: string, sales: number}[]>([]);
+  const [adStats, setAdStats] = useState<{ impressions: number; clicks: number; completes: number; skips: number }>({
+    impressions: 0, clicks: 0, completes: 0, skips: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   // 프로필 편집 모달
@@ -73,18 +76,24 @@ export function MyPage({ onSignInClick }: MyPageProps) {
   useBackButton(showProfileEdit, () => setShowProfileEdit(false));
   useBackButton(showPasswordChange, () => setShowPasswordChange(false));
 
+  // 각 쿼리를 독립적으로 try/catch — 한 쿼리 실패가 다른 쿼리를 막지 않음
+  // 실패한 쿼리는 console.warn만 (사용자 toast 안 띄움) — 빈 화면 대신 부분 데이터 표시
   const fetchMyData = async () => {
     if (!user) return;
     setLoading(true);
+    let unexpectedError = false;
+
+    // ── 1. 구매 내역 (orders 테이블)
     try {
       const { data: purchaseData, error: purchaseError } = await supabase
         .from('orders')
         .select('*, videos(title, thumbnail)')
         .eq('buyer_id', user.id);
 
-      if (purchaseError) throw purchaseError;
-
-      if (purchaseData) {
+      if (purchaseError) {
+        // orders 테이블이 아직 생성 안 됐을 수 있음 (정상 케이스)
+        console.warn('[MyPage] orders 쿼리 실패 (테이블 미생성 가능):', purchaseError.message);
+      } else if (purchaseData) {
         setPurchaseHistory(purchaseData.map((item: any) => ({
           id: item.id,
           thumbnail: item.videos?.thumbnail || '',
@@ -95,62 +104,106 @@ export function MyPage({ onSignInClick }: MyPageProps) {
           status: "다운로드 가능"
         })));
       }
+    } catch (err) {
+      console.warn('[MyPage] 구매 내역 조회 예외:', err);
+      unexpectedError = true;
+    }
 
-      const { data: videoData, error: videoError } = await supabase
+    // ── 2. 내 등록 영상 + 매출 (videos + orders JOIN)
+    let videoData: any[] | null = null;
+    try {
+      // orders 테이블이 없을 수 있으므로 JOIN 없이 먼저 시도
+      const { data, error: videoError } = await supabase
         .from('videos')
         .select('*, orders(amount, created_at)')
         .eq('creator_id', user.id);
 
-      if (videoError) throw videoError;
+      if (videoError) {
+        // orders JOIN 실패 시 → orders 없이 videos만 다시 가져옴
+        console.warn('[MyPage] videos+orders JOIN 실패, videos만 조회:', videoError.message);
+        const { data: videosOnly } = await supabase
+          .from('videos')
+          .select('*')
+          .eq('creator_id', user.id);
+        videoData = (videosOnly || []).map((v: any) => ({ ...v, orders: [] }));
+      } else {
+        videoData = data;
+      }
+    } catch (err) {
+      console.warn('[MyPage] videos 조회 예외:', err);
+      unexpectedError = true;
+    }
 
-      if (videoData) {
-        const products = videoData.map((item: any) => {
-          const salesCount = item.orders?.length || 0;
-          const revenue = (item.orders || []).reduce((sum: number, o: any) => sum + (o.amount || 0), 0);
-          return {
-            id: item.id,
-            thumbnail: item.thumbnail,
-            title: item.title,
-            views: parseInt(item.views || "0"),
-            sales: salesCount,
-            revenue: revenue,
-            status: item.status || "판매중"
-          };
+    if (videoData) {
+      const products = videoData.map((item: any) => {
+        const salesCount = item.orders?.length || 0;
+        const revenue = (item.orders || []).reduce((sum: number, o: any) => sum + (o.amount || 0), 0);
+        return {
+          id: item.id,
+          thumbnail: item.thumbnail,
+          title: item.title,
+          views: parseInt(item.views || "0"),
+          sales: salesCount,
+          revenue: revenue,
+          status: item.status || "판매중"
+        };
+      });
+      setMyProducts(products);
+
+      // 월별 매출 차트 (orders 데이터 기반 — 없으면 0으로 채워진 6개월)
+      const monthMap: Record<string, number> = {};
+      videoData.forEach((video: any) => {
+        (video.orders || []).forEach((order: any) => {
+          const date = new Date(order.created_at);
+          const key = `${date.getMonth() + 1}월`;
+          monthMap[key] = (monthMap[key] || 0) + (order.amount || 0);
         });
-        setMyProducts(products);
+      });
 
-        const monthMap: Record<string, number> = {};
-        videoData.forEach((video: any) => {
-          (video.orders || []).forEach((order: any) => {
-            const date = new Date(order.created_at);
-            const key = `${date.getMonth() + 1}월`;
-            monthMap[key] = (monthMap[key] || 0) + (order.amount || 0);
-          });
-        });
+      const chartData = Object.entries(monthMap).map(([month, sales]) => ({
+        month,
+        sales
+      })).sort((a, b) => parseInt(a.month) - parseInt(b.month));
 
-        const chartData = Object.entries(monthMap).map(([month, sales]) => ({
-          month,
-          sales
-        })).sort((a, b) => parseInt(a.month) - parseInt(b.month));
+      if (chartData.length === 0) {
+        const defaultData = [];
+        const now = new Date();
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          defaultData.push({ month: `${d.getMonth() + 1}월`, sales: 0 });
+        }
+        setMonthlySales(defaultData);
+      } else {
+        setMonthlySales(chartData);
+      }
 
-        if (chartData.length === 0) {
-          const defaultData = [];
-          const now = new Date();
-          for (let i = 5; i >= 0; i--) {
-            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            defaultData.push({ month: `${d.getMonth() + 1}월`, sales: 0 });
+      // ── 3. 광고 수익 통계 (영상 1개 이상 있는 크리에이터만)
+      if (videoData.length > 0) {
+        try {
+          const { data: adStatsData, error: adErr } = await supabase.rpc('get_creator_ad_stats');
+          if (adErr) {
+            console.warn('[MyPage] get_creator_ad_stats RPC 실패 (마이그레이션 미적용 가능):', adErr.message);
+          } else if (adStatsData && adStatsData.length > 0) {
+            const row = adStatsData[0];
+            setAdStats({
+              impressions: Number(row.total_impressions || 0),
+              clicks: Number(row.total_clicks || 0),
+              completes: Number(row.total_completes || 0),
+              skips: Number(row.total_skips || 0),
+            });
           }
-          setMonthlySales(defaultData);
-        } else {
-          setMonthlySales(chartData);
+        } catch (err) {
+          console.warn('[MyPage] 광고 통계 조회 예외:', err);
         }
       }
-    } catch (error) {
-      console.error("Error fetching MyPage data:", error);
-      toast.error("데이터를 불러오는 중 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
     }
+
+    // 예상치 못한 예외만 사용자에게 알림 (개별 테이블 누락은 무시)
+    if (unexpectedError) {
+      toast.error("일부 데이터를 불러오지 못했습니다.");
+    }
+
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -163,6 +216,31 @@ export function MyPage({ onSignInClick }: MyPageProps) {
   const totalSales = useMemo(() => myProducts.reduce((sum, p) => sum + p.sales, 0), [myProducts]);
   const platformFee = totalRevenue * 0.15;
   const expectedPayout = totalRevenue - platformFee;
+
+  // 광고 수익 추정 (CPM ₩2,000 기준, 크리에이터 분배 70%)
+  const AD_CPM_KRW = 2000;
+  const CREATOR_AD_SHARE = 0.7;
+  const adGrossRevenue = (adStats.impressions / 1000) * AD_CPM_KRW;
+  const adCreatorPayout = Math.floor(adGrossRevenue * CREATOR_AD_SHARE);
+  const adCTR = adStats.impressions > 0 ? (adStats.clicks / adStats.impressions) * 100 : 0;
+
+  // 크리에이터 여부 — 영상 1개 이상 업로드한 사용자만 판매(크리에이터) 탭 노출
+  const isCreator = myProducts.length > 0;
+
+  // 구독 등급 표시용 메타
+  const tierMeta = {
+    free: { label: 'FREE', color: 'from-gray-500 to-gray-600', icon: User, desc: '하이라이트 미리보기' },
+    basic: { label: 'BASIC', color: 'from-[#6366f1] to-[#8b5cf6]', icon: Sparkles, desc: '풀 영상 시청 가능' },
+    premium: { label: 'PREMIUM', color: 'from-amber-500 to-orange-500', icon: Crown, desc: '풀 영상 + 광고 제거' },
+  }[subscriptionTier];
+  const TierIcon = tierMeta.icon;
+
+  // 사용자가 비크리에이터인데 sales 탭이 활성화돼 있으면 profile로 리다이렉트
+  useEffect(() => {
+    if (!isCreator && activeTab === 'sales') {
+      setActiveTab('profile');
+    }
+  }, [isCreator, activeTab]);
 
   const handleSaveProfile = async () => {
     if (!editName.trim()) { toast.error("이름을 입력해주세요."); return; }
@@ -316,13 +394,15 @@ export function MyPage({ onSignInClick }: MyPageProps) {
       {/* Tabs Layout */}
       <div className="px-4 md:px-0">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 bg-[#1c1c1e] p-1.5 rounded-2xl mb-8 border border-white/5 shadow-inner">
-            {[
+          <TabsList
+            className={`grid w-full ${isCreator ? 'grid-cols-4' : 'grid-cols-3'} bg-[#1c1c1e] p-1.5 rounded-2xl mb-8 border border-white/5 shadow-inner`}
+          >
+            {([
               { id: 'profile', icon: User, label: '프로필' },
               { id: 'purchases', icon: ShoppingBag, label: '구매' },
-              { id: 'sales', icon: TrendingUp, label: '판매' },
+              ...(isCreator ? [{ id: 'sales', icon: TrendingUp, label: '판매' }] : []),
               { id: 'settings', icon: Settings, label: '설정' },
-            ].map(tab => {
+            ] as { id: string; icon: any; label: string }[]).map(tab => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               return (
@@ -358,6 +438,36 @@ export function MyPage({ onSignInClick }: MyPageProps) {
               transition={{ duration: 0.3 }}
             >
               <TabsContent value="profile" className="space-y-4 m-0">
+                {/* 구독 상태 카드 */}
+                <div className={`relative bg-gradient-to-br ${tierMeta.color} p-5 md:p-6 rounded-2xl border border-white/10 shadow-md overflow-hidden`}>
+                  <div className="relative z-10 flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] font-bold text-white/70 uppercase tracking-widest mb-2">현재 구독 등급</p>
+                      <p className="text-2xl font-black text-white drop-shadow-sm flex items-center gap-2">
+                        <TierIcon className="w-6 h-6" />
+                        {tierMeta.label}
+                      </p>
+                      <p className="text-xs font-medium text-white/80 mt-1">{tierMeta.desc}</p>
+                      {isSubscriber && profile?.subscription_expires_at && (
+                        <p className="text-[11px] text-white/60 mt-2">
+                          만료일: {new Date(profile.subscription_expires_at).toLocaleDateString('ko-KR')}
+                        </p>
+                      )}
+                    </div>
+                    {!isSubscriber && (
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => toast.info("구독 결제는 곧 출시됩니다.")}
+                        className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-lg text-sm font-bold border border-white/20 transition-colors shadow-sm"
+                      >
+                        업그레이드
+                      </motion.button>
+                    )}
+                  </div>
+                  <TierIcon className="absolute -right-4 -bottom-4 w-32 h-32 text-white/10 rotate-12" />
+                </div>
+
                 <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
                   <h3 className="text-lg font-bold text-white mb-5 flex items-center"><User className="w-5 h-5 mr-2 text-[#6366f1]" />계정 정보</h3>
                   <div className="space-y-4">
@@ -379,10 +489,12 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                       <div>
                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">계정 유형</p>
                         <p className="inline-flex items-center gap-2 text-gray-200 font-medium">
-                          판매자 인증 완료
-                          <span className="px-2 py-0.5 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white rounded text-[10px] font-black tracking-wider shadow-sm">
-                            PRO
-                          </span>
+                          {isCreator ? '크리에이터' : '일반 회원'}
+                          {isCreator && (
+                            <span className="px-2 py-0.5 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white rounded text-[10px] font-black tracking-wider shadow-sm">
+                              CREATOR
+                            </span>
+                          )}
                         </p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 hidden md:block" />
@@ -390,19 +502,36 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                   </div>
                 </div>
 
-                <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
-                  <h3 className="text-lg font-bold text-white mb-5 flex items-center"><CreditCard className="w-5 h-5 mr-2 text-[#8b5cf6]" />정산 계좌</h3>
-                  <div className="bg-[#1c1c1e] p-5 rounded-xl border border-white/5 flex items-center justify-between relative overflow-hidden group">
-                    <div className="relative z-10">
-                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">국민은행</p>
-                      <p className="text-lg text-gray-200 font-medium tracking-wider">123-45-678910</p>
+                {/* 정산 계좌 — 크리에이터에게만 노출 */}
+                {isCreator && (
+                  <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
+                    <h3 className="text-lg font-bold text-white mb-5 flex items-center"><CreditCard className="w-5 h-5 mr-2 text-[#8b5cf6]" />정산 계좌</h3>
+                    <div className="bg-[#1c1c1e] p-5 rounded-xl border border-white/5 flex items-center justify-between relative overflow-hidden group">
+                      <div className="relative z-10">
+                        {profile?.payout_info?.bank_name ? (
+                          <>
+                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{profile.payout_info.bank_name}</p>
+                            <p className="text-lg text-gray-200 font-medium tracking-wider">{profile.payout_info.account_number}</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">미등록</p>
+                            <p className="text-sm text-gray-400 font-medium">정산 받으려면 계좌를 등록해주세요</p>
+                          </>
+                        )}
+                      </div>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => toast.info("정산 계좌 등록은 곧 출시됩니다.")}
+                        className="relative z-10 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-bold border border-white/10 transition-colors shadow-sm"
+                      >
+                        {profile?.payout_info?.bank_name ? '변경' : '등록'}
+                      </motion.button>
+                      <CreditCard className="absolute -right-4 -bottom-4 w-24 h-24 text-white/5 rotate-12 group-hover:text-white/10 transition-colors" />
                     </div>
-                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="relative z-10 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-bold border border-white/10 transition-colors shadow-sm">
-                      변경
-                    </motion.button>
-                    <CreditCard className="absolute -right-4 -bottom-4 w-24 h-24 text-white/5 rotate-12 group-hover:text-white/10 transition-colors" />
                   </div>
-                </div>
+                )}
               </TabsContent>
 
               <TabsContent value="purchases" className="space-y-4 m-0">
@@ -469,6 +598,35 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                     </div>
                     <TrendingUp className="absolute right-2 bottom-2 w-16 h-16 text-[#8b5cf6]/10 group-hover:scale-110 transition-transform duration-500" />
                   </motion.div>
+                </motion.div>
+
+                {/* 광고 수익 통계 */}
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-gradient-to-br from-[#1a1a1c] to-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="font-bold text-white flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-amber-400" />
+                      광고 수익
+                    </h3>
+                    <span className="text-[10px] text-gray-500 font-medium">CPM ₩{AD_CPM_KRW.toLocaleString()} · 크리에이터 분배 {Math.round(CREATOR_AD_SHARE * 100)}%</span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="bg-[#1c1c1e] p-3 rounded-xl border border-white/5 text-center">
+                      <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">노출수</p>
+                      <p className="text-lg font-black text-white">{adStats.impressions.toLocaleString()}</p>
+                    </div>
+                    <div className="bg-[#1c1c1e] p-3 rounded-xl border border-white/5 text-center">
+                      <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">클릭</p>
+                      <p className="text-lg font-black text-white">{adStats.clicks.toLocaleString()}</p>
+                    </div>
+                    <div className="bg-[#1c1c1e] p-3 rounded-xl border border-white/5 text-center">
+                      <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">CTR</p>
+                      <p className="text-lg font-black text-white">{adCTR.toFixed(2)}%</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 p-3 rounded-xl border border-amber-500/30 text-center">
+                      <p className="text-[10px] text-amber-300/80 font-bold uppercase mb-1">예상 수익</p>
+                      <p className="text-lg font-black text-amber-300">₩{adCreatorPayout.toLocaleString()}</p>
+                    </div>
+                  </div>
                 </motion.div>
 
                 {/* Payout Schedule */}
@@ -557,6 +715,83 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                          등록한 비디오가 없습니다.
                        </div>
                     )}
+                  </div>
+                </motion.div>
+
+                {/* 수익 창출 가이드 */}
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
+                  <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-[#6366f1]" />
+                    수익 창출 가이드
+                  </h3>
+                  <div className="space-y-3 text-sm">
+                    <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5">
+                      <p className="font-bold text-white mb-1.5">💰 두 가지 수익원</p>
+                      <p className="text-gray-400 text-[13px] leading-relaxed">
+                        <span className="text-white font-medium">라이선스 판매</span>: 다른 사용자가 영상 라이선스를 구매할 때마다 매출의 <span className="text-[#8b5cf6] font-bold">85%</span> 정산<br />
+                        <span className="text-white font-medium">광고 수익</span>: 본인 영상 시청 전 광고 노출 시 광고 매출의 <span className="text-amber-300 font-bold">{Math.round(CREATOR_AD_SHARE * 100)}%</span> 분배 (CPM 기준)
+                      </p>
+                    </div>
+                    <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5">
+                      <p className="font-bold text-white mb-1.5">📅 정산 주기</p>
+                      <p className="text-gray-400 text-[13px] leading-relaxed">
+                        매월 <span className="text-white font-medium">15일</span>에 전월 매출이 등록 계좌로 자동 정산됩니다. 최소 정산 금액은 <span className="text-white font-medium">₩50,000</span> 이상이며, 미달 시 다음 달로 이월됩니다.
+                      </p>
+                    </div>
+                    <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5">
+                      <p className="font-bold text-white mb-1.5">🚀 수익 늘리기 팁</p>
+                      <ul className="text-gray-400 text-[13px] leading-relaxed space-y-1 list-disc list-inside">
+                        <li>고품질 영상 + 명확한 메타데이터 (태그, 카테고리)</li>
+                        <li>시네마 메타데이터 작성 (감독, 출연, 시놉시스 등)</li>
+                        <li>정기적인 업로드로 시청자 충성도 확보</li>
+                        <li>SNS 공유로 본인 영상 시청수 증가 → 광고 노출 ↑</li>
+                      </ul>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* 주의사항 / 약관 */}
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-amber-500/20 shadow-sm">
+                  <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                    <Lock className="w-5 h-5 text-amber-400" />
+                    크리에이터 주의사항
+                  </h3>
+                  <div className="space-y-3 text-[13px]">
+                    <div className="flex gap-3">
+                      <div className="w-1 bg-amber-500/50 rounded-full shrink-0" />
+                      <div>
+                        <p className="font-bold text-white mb-0.5">저작권 준수</p>
+                        <p className="text-gray-400 leading-relaxed">모든 업로드 영상은 본인이 제작했거나 정당한 사용 권한을 보유한 콘텐츠여야 합니다. 타인의 저작물을 무단 사용 시 영상 삭제 + 계정 정지 + 법적 책임이 따를 수 있습니다.</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <div className="w-1 bg-amber-500/50 rounded-full shrink-0" />
+                      <div>
+                        <p className="font-bold text-white mb-0.5">AI 생성 표시</p>
+                        <p className="text-gray-400 leading-relaxed">AI로 생성된 영상은 사용한 AI 도구(ai_tool), 모델 버전(ai_model_version), 시드(seed) 등을 명확히 기재해야 합니다. 미기재 시 노출 제한 가능.</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <div className="w-1 bg-red-500/50 rounded-full shrink-0" />
+                      <div>
+                        <p className="font-bold text-white mb-0.5">금지 콘텐츠</p>
+                        <p className="text-gray-400 leading-relaxed">음란물, 폭력적·잔혹한 묘사, 차별·혐오 표현, 미성년자에게 부적절한 콘텐츠, 실존 인물의 명예훼손 콘텐츠는 즉시 삭제 처리됩니다.</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <div className="w-1 bg-amber-500/50 rounded-full shrink-0" />
+                      <div>
+                        <p className="font-bold text-white mb-0.5">정산 정보 정확성</p>
+                        <p className="text-gray-400 leading-relaxed">정확한 본인 명의 계좌 정보 등록이 필수입니다. 타인 명의 계좌 등록 시 정산 보류 + 환수 조치될 수 있습니다.</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <div className="w-1 bg-gray-500/50 rounded-full shrink-0" />
+                      <div>
+                        <p className="font-bold text-white mb-0.5">위반 시 단계별 조치</p>
+                        <p className="text-gray-400 leading-relaxed">1차 경고 → 2차 영상 비공개 + 수익 보류 → 3차 계정 정지 + 정산 환수 (사안 경중에 따라 즉시 정지 가능)</p>
+                      </div>
+                    </div>
                   </div>
                 </motion.div>
               </TabsContent>

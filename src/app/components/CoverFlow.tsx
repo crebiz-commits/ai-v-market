@@ -21,9 +21,12 @@ interface Video {
 interface CoverFlowProps {
   videos: Video[];
   hideControls?: boolean;
+  // 비디오 클릭 시 외부 핸들러 호출 (제공 시 내부 모달 대신 사용)
+  // 부모가 새로운 ProductDetail로 라우팅하도록 함
+  onVideoClick?: (video: Video) => void;
 }
 
-export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
+export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps) {
   const [rotation, setRotation] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -185,8 +188,12 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
       return;
     }
     
-    // 중앙에 있는 아이템을 클릭한 경우 비디오 플레이어 열기
+    // 중앙에 있는 아이템을 클릭한 경우 — 외부 핸들러 우선
     if (index === centerIndex) {
+      if (onVideoClick) {
+        onVideoClick(videos[index]);
+        return;
+      }
       setSelectedVideo(videos[index]);
       setIsAutoRotating(false);
       setIsPlaying(true);
@@ -423,12 +430,15 @@ export function CoverFlow({ videos, hideControls }: CoverFlowProps) {
                 style={style}
               >
                 {/* Cover Image */}
-                <div 
-                  className="coverflow-cover cursor-pointer" 
+                <div
+                  className="coverflow-cover cursor-pointer"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Image clicked:', video.title);
+                    if (onVideoClick) {
+                      onVideoClick(video);
+                      return;
+                    }
                     setSelectedVideo(video);
                     setIsAutoRotating(false);
                     setIsPlaying(true);

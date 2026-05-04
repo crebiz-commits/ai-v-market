@@ -9,10 +9,28 @@ interface User {
   created_at?: string;
 }
 
+type SubscriptionTier = 'free' | 'basic' | 'premium';
+
+interface Profile {
+  id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  subscription_tier: SubscriptionTier;
+  subscription_started_at: string | null;
+  subscription_expires_at: string | null;
+  payout_info: any | null;
+}
+
 interface AuthContextType {
   user: User | null;
+  profile: Profile | null;
   accessToken: string | null;
   loading: boolean;
+  subscriptionTier: SubscriptionTier;
+  isSubscriber: boolean;
+  isPremium: boolean;
+  refreshProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -25,16 +43,40 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const serverUrl = `https://${projectId}.supabase.co/functions/v1/make-server-f4aeac42`;
+  // 신규 Edge Function 'server'로 통일 (legacy 'make-server-f4aeac42' 제거)
+  const serverUrl = `https://${projectId}.supabase.co/functions/v1/server`;
+
+  // profile 가져오기 (가입 직후엔 트리거가 아직 처리 중일 수 있어 1회 재시도)
+  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, display_name, avatar_url, bio, subscription_tier, subscription_started_at, subscription_expires_at, payout_info')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[AuthContext] fetchProfile error:', error.message);
+      return null;
+    }
+    return data as Profile | null;
+  }, []);
+
+  const refreshProfile = useCallback(async () => {
+    if (!user?.id) return;
+    const p = await fetchProfile(user.id);
+    if (p) setProfile(p);
+  }, [user?.id, fetchProfile]);
 
   // signOut을 useCallback으로 감싸서 메모이제이션
   const signOut = useCallback(() => {
     setUser(null);
+    setProfile(null);
     setAccessToken(null);
-    
+
     // Supabase signOut은 선택적으로 호출 (에러 무시)
     try {
       supabase.auth.signOut().catch(err => {
@@ -74,28 +116,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     // 2. 상태 업데이트 헬퍼
-    const updateUserState = (supabaseUser: any, token: string | null) => {
+    const updateUserState = async (supabaseUser: any, token: string | null) => {
       if (!supabaseUser) {
         setUser(null);
+        setProfile(null);
         setAccessToken(null);
         return;
       }
 
-      const name = supabaseUser.user_metadata?.name || 
-                  supabaseUser.user_metadata?.full_name || 
-                  supabaseUser.email?.split('@')[0] || 
+      const name = supabaseUser.user_metadata?.name ||
+                  supabaseUser.user_metadata?.full_name ||
+                  supabaseUser.email?.split('@')[0] ||
                   'User';
-      
+
       const userData = {
         id: supabaseUser.id,
         email: supabaseUser.email || '',
         name: name,
         created_at: supabaseUser.created_at,
       };
-      
+
       setAccessToken(token);
       setUser(userData);
       console.log('[AuthContext] User state updated:', userData.email);
+
+      // profile 비동기 로드 (실패해도 user 인증은 유지)
+      const p = await fetchProfile(supabaseUser.id);
+      if (mounted) setProfile(p);
     };
 
     // 3. 인증 상태 변경 리스너 즉시 등록
@@ -141,9 +188,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(data.error || '로그인에 실패했습니다.');
       }
 
-      const token = data.session.access_token;
-      setAccessToken(token);
-      setUser(data.user);
+      // Supabase SDK에 세션 동기화 — onAuthStateChange 리스너가 발동되어
+      // user/accessToken/profile 상태가 일관되게 갱신됨
+      // (이전엔 setUser/setAccessToken만 호출해서 SDK 클라이언트가 미동기 상태였음)
+      if (data.session?.access_token && data.session?.refresh_token) {
+        await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+      } else {
+        // fallback: 세션 토큰이 응답에 없을 때만 수동 설정 (방어적)
+        setAccessToken(data.session?.access_token ?? null);
+        setUser(data.user);
+        const p = await fetchProfile(data.user.id);
+        setProfile(p);
+      }
     } catch (error) {
       console.error('로그인 에러:', error);
       throw error;
@@ -241,10 +300,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const subscriptionTier: SubscriptionTier = profile?.subscription_tier ?? 'free';
+  const subscriptionActive =
+    subscriptionTier !== 'free' &&
+    (!profile?.subscription_expires_at ||
+      new Date(profile.subscription_expires_at).getTime() > Date.now());
+
   const value = {
     user,
+    profile,
     accessToken,
     loading,
+    subscriptionTier,
+    isSubscriber: subscriptionActive,
+    isPremium: subscriptionActive && subscriptionTier === 'premium',
+    refreshProfile,
     signIn,
     signUp,
     signInWithGoogle,

@@ -217,7 +217,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                         placeholder="이름 입력"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="h-11 bg-gray-50 border-gray-200 focus:bg-white transition-colors"
+                        className="h-11 bg-gray-50 border-gray-200 focus:bg-white transition-colors text-gray-900 placeholder:text-gray-400"
                         required={mode === "signup"}
                       />
                     </div>
@@ -231,7 +231,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                       placeholder="이메일 입력"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="h-11 bg-gray-50 border-gray-200 focus:bg-white transition-colors"
+                      className="h-11 bg-gray-50 border-gray-200 focus:bg-white transition-colors text-gray-900 placeholder:text-gray-400"
                       required
                     />
                   </div>
@@ -244,7 +244,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                       placeholder="비밀번호 입력"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="h-11 bg-gray-50 border-gray-200 focus:bg-white transition-colors"
+                      className="h-11 bg-gray-50 border-gray-200 focus:bg-white transition-colors text-gray-900 placeholder:text-gray-400"
                       required
                       minLength={6}
                     />

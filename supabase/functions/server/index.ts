@@ -20,10 +20,13 @@ const getSupabaseClient = (useServiceRole = false) => {
 app.use('*', logger(console.log));
 
 // Enable CORS for all routes and methods
+// Google IMA SDK (imasdk.googleapis.com)가 credentials: 'include'로 호출하므로
+// origin 함수로 요청 origin을 echo + credentials: true 설정 필요
 app.use(
   "/*",
   cors({
-    origin: "*",
+    origin: (origin: string) => origin || "*",
+    credentials: true,
     allowHeaders: ["Content-Type", "Authorization", "apikey", "x-client-info"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     exposeHeaders: ["Content-Length"],
@@ -472,9 +475,11 @@ app.get("/vast-tag", async (c) => {
 
     const ad = ads[0];
 
-    // 트래킹 URL 베이스 (현재 호스트 기준)
-    const url = new URL(c.req.url);
-    const trackBase = `${url.origin}${url.pathname.replace('/vast-tag', '/vast-track')}`;
+    // 트래킹 URL 베이스 — SUPABASE_URL 환경변수로 정확한 HTTPS 공개 경로 빌드
+    // c.req.url은 Hono 내부 경로(/server/...)를 반환해서 /functions/v1/ 누락 + http 스킴
+    // → Mixed Content 차단으로 IMA SDK가 VAST 거부하던 문제 수정
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const trackBase = `${supabaseUrl}/functions/v1/server/vast-track`;
     const trackParams = new URLSearchParams({
       ad_id: ad.id,
       source_video_id: sourceVideoId,
@@ -506,6 +511,10 @@ app.get("/vast-tag", async (c) => {
               <ClickTracking><![CDATA[${trackBase}?${trackParams}&event=click]]></ClickTracking>
             </VideoClicks>
             <MediaFiles>
+              ${ad.video_url && ad.video_url.includes('/playlist.m3u8') ? `
+              <MediaFile delivery="progressive" type="video/mp4" width="1280" height="720">
+                <![CDATA[${ad.video_url.replace('/playlist.m3u8', '/play_720p.mp4')}]]>
+              </MediaFile>` : ''}
               <MediaFile delivery="streaming" type="application/x-mpegURL" width="1920" height="1080">
                 <![CDATA[${ad.video_url}]]>
               </MediaFile>
