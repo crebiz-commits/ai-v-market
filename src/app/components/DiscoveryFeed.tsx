@@ -561,9 +561,11 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
       setLoading(true);
       try {
         const [videoResult, adResult] = await Promise.all([
-          // 공개 설정: public 또는 visibility가 null인 레거시 영상만 홈 피드에 노출
+          // 홈 피드: show_on_home=true (Phase 1 분류 — 모든 영상이 홈에 노출되지만
+          // 향후 비공개/검수 등 정책 시 false 가능) + visibility public/null
           supabase.from("videos").select("*")
             .or("visibility.eq.public,visibility.is.null")
+            .eq("show_on_home", true)
             .order("created_at", { ascending: false }).limit(20),
           // 홈 피드 광고: feed_display 타입만 (또는 ad_type 컬럼 없는 레거시)
           // video_preroll은 영상 재생 직전에만 노출되므로 피드에 표시 안 함

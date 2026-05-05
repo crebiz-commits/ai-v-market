@@ -360,7 +360,7 @@ function AppContent() {
       case "market":
         return <Market onProductClick={setSelectedProduct} />;
       case "ott":
-        return <PremiumOTT onSignInClick={() => setShowAuthModal(true)} />;
+        return <PremiumOTT onSignInClick={() => setShowAuthModal(true)} onProductClick={setSelectedProduct} />;
       case "upload":
         return <Upload onSignInClick={() => setShowAuthModal(true)} onViewMyProducts={() => setActiveTab("mypage")} />;
       case "community":

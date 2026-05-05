@@ -94,8 +94,9 @@ export function Market({ onProductClick }: MarketProps) {
         const { data, error } = await supabase
           .from("videos")
           .select("*")
-          // 공개 설정: public 또는 visibility가 null인 레거시 영상만 노출
+          // 시네마 피드: 3분 이상 영상만 (Phase 1 분류 자동) + 공개 설정
           .or("visibility.eq.public,visibility.is.null")
+          .eq("show_on_cinema", true)
           .order("created_at", { ascending: false })
           .limit(24);
 
