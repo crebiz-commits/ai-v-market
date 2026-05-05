@@ -10,6 +10,7 @@ interface OttVideo {
   thumbnail: string;
   creator: string;
   duration: string;
+  durationSeconds?: number;   // 페이월 게이트용 (Phase 4)
   resolution?: string;
   tool: string;
   category?: string;
@@ -79,6 +80,7 @@ export function PremiumOTT({ onSignInClick, onProductClick }: PremiumOTTProps) {
           thumbnail: item.thumbnail,
           creator: item.creator || "AI Creator",
           duration: item.duration || "0:00",
+          durationSeconds: item.duration_seconds || 0,
           resolution: item.resolution,
           tool: item.ai_tool || "AI Tool",
           category: item.category,

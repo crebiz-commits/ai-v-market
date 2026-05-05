@@ -27,6 +27,7 @@ interface Product {
   creator: string;
   price: number;              // 하위 호환 — priceStandard와 동일
   duration: string;
+  durationSeconds?: number;   // 페이월 게이트용 (Phase 4)
   resolution: string;
   tool: string;
   category: string;
@@ -110,6 +111,7 @@ export function Market({ onProductClick }: MarketProps) {
             creator: item.creator || "AI Creator",
             price: item.price_standard || 0,
             duration: item.duration || "0:15",
+            durationSeconds: item.duration_seconds || 0,
             resolution: item.resolution || "1080p",
             tool: item.ai_tool || "AI Tool",
             category: item.category || "General",

@@ -86,6 +86,7 @@ interface VideoProduct {
   creator: string;
   price: number;              // 하위 호환 — priceStandard와 동일
   duration: string;
+  durationSeconds?: number;   // 페이월 게이트 결정용 (Phase 4)
   resolution?: string;
   tool: string;
   category?: string;
@@ -751,6 +752,7 @@ function AppContent() {
           <ProductDetail
             product={selectedProduct}
             onClose={() => setSelectedProduct(null)}
+            onSignInClick={() => setShowAuthModal(true)}
             onAddToCart={addToCart}
           />
         </Suspense>

@@ -1,13 +1,29 @@
-import { X, Heart, Send, Download, ShoppingCart, Check, MessageCircle } from "lucide-react";
+import { X, Heart, Send, Download, ShoppingCart, Check, MessageCircle, Crown, Lock } from "lucide-react";
 import { Button } from "./ui/button";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { CommentPanel } from "./CommentPanel";
 import { useBackButton } from "../hooks/useBackButton";
+import { useAuth } from "../contexts/AuthContext";
+import { SubscriptionModal, type PaywallReason } from "./SubscriptionModal";
 
 // Bunny Stream 라이브러리 ID (env 변수). 클라이언트에 노출되어도 안전.
 const BUNNY_LIBRARY_ID = (import.meta as any).env?.VITE_BUNNY_LIBRARY_ID || "";
+
+// 페이월 정책 임계값 (Phase 4)
+const CINEMA_PREVIEW_SECONDS = 180; // 비구독자 시네마 미리보기 한도 (3분)
+const OTT_THRESHOLD_SECONDS = 600;  // 이 길이 이상이면 OTT 영상 (구독자만)
+
+// duration 텍스트 → 초 (durationSeconds 미제공 레거시 영상 대응)
+function parseDurationText(text: string | undefined): number {
+  if (!text) return 0;
+  const parts = text.split(":").map((p) => parseInt(p, 10));
+  if (parts.some(isNaN)) return 0;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return parts[0] || 0;
+}
 
 interface ProductDetailProps {
   product: {
@@ -18,6 +34,7 @@ interface ProductDetailProps {
     creator: string;
     price: number;
     duration: string;
+    durationSeconds?: number;   // 페이월 게이트용 (Phase 4)
     resolution?: string;
     tool: string;
     category?: string;
@@ -52,25 +69,61 @@ interface ProductDetailProps {
   };
   onClose: () => void;
   onAddToCart?: (product: any, licenseType: "standard" | "commercial" | "extended") => Promise<boolean> | boolean | void;
+  onSignInClick?: () => void;
 }
 
-export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailProps) {
+export function ProductDetail({ product, onClose, onAddToCart, onSignInClick }: ProductDetailProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [showComments, setShowComments] = useState(false);
 
+  // Phase 4: 페이월 게이트
+  const { isSubscriber } = useAuth();
+  const durationSeconds = product.durationSeconds ?? parseDurationText(product.duration);
+  // 영상 등급 판정
+  const isOttVideo = durationSeconds >= OTT_THRESHOLD_SECONDS;        // 10분+
+  const isCinemaVideo = durationSeconds >= CINEMA_PREVIEW_SECONDS;     // 3분+
+  // OTT 비구독자: 즉시 차단 (iframe 절대 로드 안 함)
+  const ottBlocked = isOttVideo && !isSubscriber;
+  // 시네마 비구독자: 3분 미리보기 후 차단 (cutoff 트리거)
+  const cinemaPaywallNeeded = isCinemaVideo && !isOttVideo && !isSubscriber;
+  // 페이월 모달 상태
+  const [paywallOpen, setPaywallOpen] = useState(ottBlocked);
+  const [paywallReason, setPaywallReason] = useState<PaywallReason>(ottBlocked ? "ott_block" : "cinema_cutoff");
+  // 시네마 컷오프 발동 후 iframe 제거 플래그
+  const [cinemaCutoffTriggered, setCinemaCutoffTriggered] = useState(false);
+  const cutoffTimerRef = useRef<number | null>(null);
+
+  // 시네마 미리보기 타이머 — iframe 마운트 직후 3분 카운트
+  useEffect(() => {
+    // OTT 차단 상태이거나 컷오프 불필요면 타이머 안 돈다
+    if (!cinemaPaywallNeeded || cinemaCutoffTriggered) return;
+    cutoffTimerRef.current = window.setTimeout(() => {
+      setCinemaCutoffTriggered(true);
+      setPaywallReason("cinema_cutoff");
+      setPaywallOpen(true);
+    }, CINEMA_PREVIEW_SECONDS * 1000);
+    return () => {
+      if (cutoffTimerRef.current) {
+        clearTimeout(cutoffTimerRef.current);
+        cutoffTimerRef.current = null;
+      }
+    };
+  }, [cinemaPaywallNeeded, cinemaCutoffTriggered]);
+
   // Bunny Stream Player iframe embed URL
   // 진행바·볼륨·전체화면·재생속도·자막·HLS 적응형 비트레이트 등 모두 내장
   // VAST pre-roll 광고는 vastTagUrl 파라미터로 자동 적용
-  // - 자체 광고 서버(/vast-tag)가 가중치 랜덤 선택 후 VAST XML 응답
-  // - Bunny Player가 영상 시작 전 자동 재생, skip 시 본 영상 시작
-  const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer"; // 광고 서버 호스트
+  const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer";
   const vastTagUrl = encodeURIComponent(
     `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/server/vast-tag?source_video_id=${product.id}`
   );
   const bunnyEmbedUrl = BUNNY_LIBRARY_ID && product.id
     ? `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${product.id}?autoplay=true&loop=false&muted=true&preload=true&responsive=true&vastTagUrl=${vastTagUrl}`
     : null;
+
+  // iframe 실제 노출 여부 — 페이월 게이트
+  const iframeBlocked = ottBlocked || cinemaCutoffTriggered;
 
   // 뒤로가기로 댓글 패널 닫기
   useBackButton(showComments, () => setShowComments(false));
@@ -131,13 +184,44 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
       >
       {/* Main column */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        {/* Header */}
+        {/* Header — 영상 재생 영역 (페이월 적용) */}
         <div className="relative bg-black aspect-video md:aspect-video max-h-[40vh] md:max-h-none flex items-center justify-center overflow-hidden shrink-0">
-          {bunnyEmbedUrl ? (
-            // Bunny Stream Player iframe embed
-            // - 진행바·볼륨·전체화면·재생속도·자막 모두 내장
-            // - 적응형 비트레이트 자동 처리
-            // - 광고/DRM/분석 미래 기능 native 지원
+          {iframeBlocked ? (
+            // 페이월 차단 화면 — OTT 비구독자 또는 시네마 3분 컷오프 후
+            <div className="relative w-full h-full">
+              {/* 썸네일 배경 (블러) */}
+              <img
+                src={product.thumbnail}
+                alt={product.title}
+                className="absolute inset-0 w-full h-full object-cover scale-110 blur-md opacity-40"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/40" />
+              {/* 중앙 페이월 안내 */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-2xl mb-4">
+                  {ottBlocked ? <Crown className="w-8 h-8 text-white" /> : <Lock className="w-8 h-8 text-white" />}
+                </div>
+                <h3 className="text-xl md:text-2xl font-black text-white mb-2">
+                  {ottBlocked ? "프리미엄 OTT 콘텐츠" : "미리보기가 끝났어요"}
+                </h3>
+                <p className="text-sm text-gray-300 mb-5 max-w-md">
+                  {ottBlocked
+                    ? "이 영상은 구독자 전용입니다. 월 ₩2,900으로 모든 OTT 영상을 무제한으로 시청하세요."
+                    : "구독하시면 이 영상의 전체를 시청하실 수 있습니다. 월 ₩2,900."}
+                </p>
+                <Button
+                  onClick={() => {
+                    setPaywallReason(ottBlocked ? "ott_block" : "cinema_cutoff");
+                    setPaywallOpen(true);
+                  }}
+                  className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black px-6 h-11 shadow-lg shadow-amber-500/20 rounded-xl border border-white/10"
+                >
+                  <Crown className="w-4 h-4" />
+                  구독하기
+                </Button>
+              </div>
+            </div>
+          ) : bunnyEmbedUrl ? (
             <iframe
               src={bunnyEmbedUrl}
               loading="lazy"
@@ -162,6 +246,14 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
             </div>
           )}
 
+
+          {/* 시네마 미리보기 카운트다운 표시 (비구독자 + 시네마 + iframe 활성 시) */}
+          {cinemaPaywallNeeded && !iframeBlocked && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-amber-500/90 backdrop-blur-sm rounded-full text-white text-xs font-black shadow-lg flex items-center gap-1.5 pointer-events-none">
+              <Lock className="w-3.5 h-3.5" />
+              3분 미리보기 — 구독 시 풀 영상
+            </div>
+          )}
 
           {/* Duration Badge */}
           <div className="absolute top-4 right-4 px-3 py-1 bg-black/70 backdrop-blur-sm rounded-full text-white text-sm">
@@ -520,6 +612,14 @@ export function ProductDetail({ product, onClose, onAddToCart }: ProductDetailPr
         </AnimatePresence>
 
       </motion.div>
+
+      {/* Phase 4: 페이월 구독 안내 모달 */}
+      <SubscriptionModal
+        open={paywallOpen}
+        reason={paywallReason}
+        onClose={() => setPaywallOpen(false)}
+        onSignInClick={onSignInClick}
+      />
     </motion.div>
   );
 }

@@ -36,6 +36,7 @@ interface Video {
   likes: number;
   price: number;
   duration: string;
+  durationSeconds?: number;   // 페이월 게이트용 (Phase 4)
   resolution?: string;
   tool: string;
   category?: string;
@@ -587,6 +588,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
             likes: item.likes || 0,
             price: item.price_standard || 0,
             duration: item.duration || "0:00",
+            durationSeconds: item.duration_seconds || 0,
             resolution: item.resolution || undefined,
             tool: item.ai_tool || "AI Tool",
             category: item.category || undefined,
