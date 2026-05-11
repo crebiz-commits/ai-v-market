@@ -92,22 +92,58 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick }: 
   const [paywallReason, setPaywallReason] = useState<PaywallReason>(ottBlocked ? "ott_block" : "cinema_cutoff");
   // 시네마 컷오프 발동 후 iframe 제거 플래그
   const [cinemaCutoffTriggered, setCinemaCutoffTriggered] = useState(false);
-  const cutoffTimerRef = useRef<number | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
-  // 시네마 미리보기 타이머 — iframe 마운트 직후 3분 카운트
+  // 시네마 미리보기 — 영상 currentTime이 180초 도달 시 차단
+  // Bunny Stream Player의 player.js 프로토콜(postMessage)로 재생 위치 추적.
+  // wall-clock이 아닌 영상 시간 기준이라 시킹 점프(예: 7분 위치)도 즉시 차단.
   useEffect(() => {
-    // OTT 차단 상태이거나 컷오프 불필요면 타이머 안 돈다
     if (!cinemaPaywallNeeded || cinemaCutoffTriggered) return;
-    cutoffTimerRef.current = window.setTimeout(() => {
-      setCinemaCutoffTriggered(true);
-      setPaywallReason("cinema_cutoff");
-      setPaywallOpen(true);
-    }, CINEMA_PREVIEW_SECONDS * 1000);
-    return () => {
-      if (cutoffTimerRef.current) {
-        clearTimeout(cutoffTimerRef.current);
-        cutoffTimerRef.current = null;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const LISTENER_ID = "creaite-cinema-cutoff";
+    const BUNNY_ORIGIN = "https://iframe.mediadelivery.net";
+
+    const subscribe = () => {
+      iframe.contentWindow?.postMessage(
+        JSON.stringify({
+          context: "player.js",
+          version: "0.0.12",
+          method: "addEventListener",
+          value: "timeupdate",
+          listener: LISTENER_ID,
+        }),
+        BUNNY_ORIGIN,
+      );
+    };
+
+    const handleLoad = () => subscribe();
+    iframe.addEventListener("load", handleLoad);
+    subscribe(); // iframe이 이미 로드돼 있는 경우 대응
+
+    const handleMessage = (e: MessageEvent) => {
+      if (e.origin !== BUNNY_ORIGIN) return;
+      let data: any;
+      try {
+        data = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+      } catch {
+        return;
       }
+      if (data?.context !== "player.js") return;
+      if (data?.event !== "timeupdate" || data?.listener !== LISTENER_ID) return;
+      const seconds = data?.value?.seconds ?? 0;
+      if (seconds >= CINEMA_PREVIEW_SECONDS) {
+        setCinemaCutoffTriggered(true);
+        setPaywallReason("cinema_cutoff");
+        setPaywallOpen(true);
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => {
+      iframe.removeEventListener("load", handleLoad);
+      window.removeEventListener("message", handleMessage);
     };
   }, [cinemaPaywallNeeded, cinemaCutoffTriggered]);
 
@@ -223,6 +259,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick }: 
             </div>
           ) : bunnyEmbedUrl ? (
             <iframe
+              ref={iframeRef}
               src={bunnyEmbedUrl}
               loading="lazy"
               className="absolute inset-0 w-full h-full"
