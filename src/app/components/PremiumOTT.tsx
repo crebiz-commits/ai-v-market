@@ -177,7 +177,7 @@ export function PremiumOTT({ onSignInClick, onProductClick }: PremiumOTTProps) {
                 <p className="text-xs text-gray-400 mt-0.5">
                   {isSubscriber
                     ? "원하는 영상을 자유롭게 시청하세요"
-                    : "월 ₩2,900 — 홈/시네마/OTT 전체 콘텐츠"}
+                    : "월 ₩4,900 — 홈/시네마/OTT 전체 콘텐츠"}
                 </p>
               </div>
             </div>

@@ -257,8 +257,8 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                 </h3>
                 <p className="text-sm text-gray-300 mb-5 max-w-md">
                   {ottBlocked
-                    ? "이 영상은 구독자 전용입니다. 월 ₩2,900으로 모든 OTT 영상을 무제한으로 시청하세요."
-                    : "구독하시면 이 영상의 전체를 시청하실 수 있습니다. 월 ₩2,900."}
+                    ? "이 영상은 구독자 전용입니다. 월 ₩4,900으로 모든 OTT 영상을 무제한으로 시청하세요."
+                    : "구독하시면 이 영상의 전체를 시청하실 수 있습니다. 월 ₩4,900."}
                 </p>
                 <Button
                   onClick={() => {

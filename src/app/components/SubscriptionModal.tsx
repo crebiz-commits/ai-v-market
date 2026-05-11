@@ -107,7 +107,7 @@ export function SubscriptionModal({
                     <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">CREAITE PREMIUM</span>
                   </div>
                   <div className="flex items-baseline gap-1 mb-4">
-                    <span className="text-3xl font-black text-white">₩2,900</span>
+                    <span className="text-3xl font-black text-white">₩4,900</span>
                     <span className="text-sm text-gray-500 font-medium">/ 월</span>
                   </div>
 
@@ -136,7 +136,7 @@ export function SubscriptionModal({
                   {isAuthenticated ? (
                     <>
                       <Crown className="w-5 h-5" />
-                      구독하기 — 월 ₩2,900
+                      구독하기 — 월 ₩4,900
                     </>
                   ) : (
                     <>
