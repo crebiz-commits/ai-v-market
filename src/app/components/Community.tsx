@@ -120,7 +120,7 @@ const CATEGORY_COLOR: Record<string, string> = {
 };
 
 export function Community() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, profile } = useAuth();
   const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [bookmarkedPosts, setBookmarkedPosts] = useState<Set<string>>(new Set());
@@ -169,8 +169,8 @@ export function Community() {
       // 로컬 상태에 추가 (Supabase community_posts 테이블 연동은 테이블 생성 후 활성화)
       const newPost: Post = {
         id: `local-${Date.now()}`,
-        author: user?.name || "익명",
-        avatar: "",
+        author: profile?.display_name || user?.name || "익명",
+        avatar: profile?.avatar_url || "",
         title: writeTitle.trim(),
         content: writeContent.trim(),
         category: writeCategory,

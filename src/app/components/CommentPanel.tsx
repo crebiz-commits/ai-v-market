@@ -3,6 +3,7 @@ import { X, Send, Heart, ChevronDown, ChevronUp, Loader2, MessageCircle, Trash2 
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
+import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { toast } from "sonner";
 
 interface Comment {
@@ -68,8 +69,15 @@ function Avatar({ name, src, size = 36 }: { name: string; src?: string; size?: n
 }
 
 export function CommentPanel({ videoId, postId, title, onClose, onCommentPosted, mode = "sheet" }: CommentPanelProps) {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, profile } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
+  // Phase 6.6: 댓글 작성자들의 아바타 한 번에 fetch (대댓글 포함)
+  const allUserIds: string[] = [];
+  comments.forEach((c) => {
+    allUserIds.push(c.user_id);
+    c.replies?.forEach((r) => allUserIds.push(r.user_id));
+  });
+  const creatorInfo = useCreatorInfo(allUserIds);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [text, setText] = useState("");
@@ -257,7 +265,11 @@ export function CommentPanel({ videoId, postId, title, onClose, onCommentPosted,
       animate={{ opacity: 1, y: 0 }}
       className={`flex gap-3 ${isReply ? "ml-10 mt-2" : ""}`}
     >
-      <Avatar name={comment.author_name} size={isReply ? 28 : 36} />
+      <Avatar
+        name={comment.author_name}
+        src={creatorInfo[comment.user_id]?.avatar ?? undefined}
+        size={isReply ? 28 : 36}
+      />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 flex-wrap">
           <span className="text-sm font-semibold text-white">{comment.author_name}</span>
@@ -384,7 +396,7 @@ export function CommentPanel({ videoId, postId, title, onClose, onCommentPosted,
           </div>
         )}
         <div className="flex gap-2 items-center">
-          {user && <Avatar name={user.name} size={36} />}
+          {user && <Avatar name={user.name} src={profile?.avatar_url ?? undefined} size={36} />}
           <div className="flex-1 relative">
             <textarea
               ref={inputRef}

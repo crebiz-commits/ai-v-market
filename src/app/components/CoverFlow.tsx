@@ -3,12 +3,15 @@ import { ChevronLeft, ChevronRight, X, Play, Pause, Volume2, VolumeX, Maximize }
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
 import Player from 'video.js/dist/types/player';
+import { useCreatorInfo } from '../hooks/useCreatorInfo';
+import { CreatorAvatar } from './CreatorAvatar';
 
 interface Video {
   id: string;
   thumbnail: string;
   title: string;
   creator: string;
+  creatorId?: string;
   videoUrl?: string;
   duration?: string;
   resolution?: string;
@@ -28,6 +31,7 @@ interface CoverFlowProps {
 
 export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps) {
   const [rotation, setRotation] = useState(0);
+  const creatorInfo = useCreatorInfo(videos.map((v) => v.creatorId));
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [startRotation, setStartRotation] = useState(0);
@@ -466,7 +470,19 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
                       <h3 className="text-white font-semibold text-[10px] md:text-sm mb-0.5 truncate">
                         {video.title}
                       </h3>
-                      <p className="text-white/70 text-[8px] md:text-xs">{video.creator}</p>
+                      {(() => {
+                        const latestName = (video.creatorId ? creatorInfo[video.creatorId]?.name : null) ?? video.creator;
+                        return (
+                          <div className="flex items-center gap-1">
+                            <CreatorAvatar
+                              avatarUrl={video.creatorId ? creatorInfo[video.creatorId]?.avatar ?? null : null}
+                              name={latestName}
+                              size="xs"
+                            />
+                            <p className="text-white/70 text-[8px] md:text-xs">{latestName}</p>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -554,12 +570,19 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
               {/* Title & Creator */}
               <div className="mb-3 md:mb-4">
                 <h3 className="text-white text-lg md:text-xl font-bold mb-1.5 md:mb-2">{selectedVideo.title}</h3>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-white text-xs md:text-sm font-bold">
-                    {selectedVideo.creator?.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="text-white/80 text-xs md:text-sm">{selectedVideo.creator}</span>
-                </div>
+                {(() => {
+                  const latestName = (selectedVideo.creatorId ? creatorInfo[selectedVideo.creatorId]?.name : null) ?? selectedVideo.creator;
+                  return (
+                    <div className="flex items-center gap-2">
+                      <CreatorAvatar
+                        avatarUrl={selectedVideo.creatorId ? creatorInfo[selectedVideo.creatorId]?.avatar ?? null : null}
+                        name={latestName}
+                        size="sm"
+                      />
+                      <span className="text-white/80 text-xs md:text-sm">{latestName}</span>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Video Controls & Specs - Same Row */}

@@ -8,6 +8,8 @@ import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { CommentPanel } from "./CommentPanel";
 import { VideoFullscreen } from "./VideoFullscreen";
+import { CreatorAvatar } from "./CreatorAvatar";
+import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { useBackButton } from "../hooks/useBackButton";
 import { toast } from "sonner";
 
@@ -270,6 +272,8 @@ const MovieSection = memo(({
   onShare,
   onFullscreen,
   commentCount = 0,
+  creatorAvatar = null,
+  creatorName = null,
 }: {
   video: Video;
   isActive: boolean;
@@ -283,6 +287,8 @@ const MovieSection = memo(({
   onShare: (video: Video) => void;
   onFullscreen: (video: Video) => void;
   commentCount?: number;
+  creatorAvatar?: string | null;
+  creatorName?: string | null;
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<any>(null);
@@ -488,10 +494,8 @@ const MovieSection = memo(({
         <div className="px-3 pt-8 pb-3 pointer-events-auto">
           {/* 제목 + 크리에이터 */}
           <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-[11px] font-bold text-white shrink-0">
-              {(video.creator?.[0] || "?").toUpperCase()}
-            </div>
-            <span className="text-[13px] font-semibold text-white/80">{video.creator}</span>
+            <CreatorAvatar avatarUrl={creatorAvatar} name={creatorName ?? video.creator} size="xs" />
+            <span className="text-[13px] font-semibold text-white/80">{creatorName ?? video.creator}</span>
           </div>
           <h3 className="text-sm font-bold text-white leading-tight line-clamp-1 mb-2">{video.title}</h3>
 
@@ -529,6 +533,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
   const [fullscreenVideo, setFullscreenVideo] = useState<Video | null>(null);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const { user } = useAuth();
+  // Phase 6.6 — 영상별 크리에이터 아바타 매핑
+  const creatorInfo = useCreatorInfo(videos.map((v) => v.creatorId));
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 모바일 뒤로가기로 전체화면 / 댓글 패널 닫기
@@ -808,6 +814,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
                 onShare={handleShare}
                 onFullscreen={(v) => setFullscreenVideo(v)}
                 commentCount={commentCounts[item.id] || 0}
+                creatorAvatar={item.creatorId ? creatorInfo[item.creatorId]?.avatar ?? null : null}
+                creatorName={item.creatorId ? creatorInfo[item.creatorId]?.name ?? null : null}
               />
             )}
           </div>
@@ -832,6 +840,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
                 onComment={(vid) => setCommentVideo(vid)}
                 onShare={handleShare}
                 commentCount={commentCounts[v.id] || 0}
+                creatorAvatar={v.creatorId ? creatorInfo[v.creatorId]?.avatar ?? null : null}
+                creatorName={v.creatorId ? creatorInfo[v.creatorId]?.name ?? null : null}
               />
             ))}
           </div>
@@ -1007,7 +1017,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
   );
 }
 
-function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onComment, onShare, commentCount = 0 }: { video: Video; onVideoClick: (video: Video) => void; isLiked: boolean; onToggleLike: (id: string, currentlyLiked: boolean) => void; onComment: (video: Video) => void; onShare: (video: Video) => void; commentCount?: number }) {
+function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onComment, onShare, commentCount = 0, creatorAvatar = null, creatorName = null }: { video: Video; onVideoClick: (video: Video) => void; isLiked: boolean; onToggleLike: (id: string, currentlyLiked: boolean) => void; onComment: (video: Video) => void; onShare: (video: Video) => void; commentCount?: number; creatorAvatar?: string | null; creatorName?: string | null }) {
   const [isHovered, setIsHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -1078,7 +1088,8 @@ function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onCommen
           <h3 className="font-extrabold text-lg text-white line-clamp-1 group-hover:bg-gradient-to-r group-hover:from-[#6366f1] group-hover:to-[#8b5cf6] group-hover:bg-clip-text group-hover:text-transparent transition-all uppercase tracking-tight">{video.title}</h3>
         </div>
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-xs font-bold text-white/40">{video.creator}</span>
+          <CreatorAvatar avatarUrl={creatorAvatar} name={creatorName ?? video.creator} size="xs" />
+          <span className="text-xs font-bold text-white/40">{creatorName ?? video.creator}</span>
         </div>
         <div className="flex items-center justify-between pt-4 border-t border-white/10">
           <span className="text-lg font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>

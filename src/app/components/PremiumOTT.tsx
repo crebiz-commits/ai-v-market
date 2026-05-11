@@ -3,6 +3,8 @@ import { Crown, Lock, Loader2, Play, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../utils/supabaseClient";
+import { useCreatorInfo } from "../hooks/useCreatorInfo";
+import { CreatorAvatar } from "./CreatorAvatar";
 
 interface OttVideo {
   id: string;
@@ -55,6 +57,7 @@ export function PremiumOTT({ onSignInClick, onProductClick }: PremiumOTTProps) {
   const { isAuthenticated, isSubscriber, loading: authLoading } = useAuth();
   const [videos, setVideos] = useState<OttVideo[]>([]);
   const [loading, setLoading] = useState(true);
+  const creatorInfo = useCreatorInfo(videos.map((v) => v.creatorId));
 
   useEffect(() => {
     let cancelled = false;
@@ -267,10 +270,22 @@ export function PremiumOTT({ onSignInClick, onProductClick }: PremiumOTTProps) {
                   <h3 className="font-bold text-white mb-1 line-clamp-2 leading-snug">
                     {video.title}
                   </h3>
-                  <p className="text-xs text-gray-400 mb-2">
-                    {video.director ? `감독 ${video.director}` : video.creator}
-                    {video.productionYear ? ` · ${video.productionYear}` : ""}
-                  </p>
+                  {(() => {
+                    const latestName = (video.creatorId ? creatorInfo[video.creatorId]?.name : null) ?? video.creator;
+                    return (
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <CreatorAvatar
+                          avatarUrl={video.creatorId ? creatorInfo[video.creatorId]?.avatar ?? null : null}
+                          name={latestName}
+                          size="xs"
+                        />
+                        <p className="text-xs text-gray-400">
+                          {video.director ? `감독 ${video.director}` : latestName}
+                          {video.productionYear ? ` · ${video.productionYear}` : ""}
+                        </p>
+                      </div>
+                    );
+                  })()}
                   <div className="flex items-center gap-2 flex-wrap">
                     {video.category && (
                       <span className="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[10px] font-medium text-gray-400">

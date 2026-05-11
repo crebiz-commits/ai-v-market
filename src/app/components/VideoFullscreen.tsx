@@ -3,12 +3,15 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Play, Pause, Volume2, VolumeX, Heart, MessageCircle, Send, Minimize2 } from "lucide-react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
+import { useCreatorInfo } from "../hooks/useCreatorInfo";
+import { CreatorAvatar } from "./CreatorAvatar";
 
 interface VideoFullscreenProps {
   video: {
     id: string;
     title: string;
     creator: string;
+    creatorId?: string;
     videoUrl: string;
     thumbnail: string;
     likes: number;
@@ -43,6 +46,9 @@ export function VideoFullscreen({
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
+  const creatorInfo = useCreatorInfo([video.creatorId]);
+  const creatorAvatar = video.creatorId ? creatorInfo[video.creatorId]?.avatar ?? null : null;
+  const creatorName = (video.creatorId ? creatorInfo[video.creatorId]?.name : null) ?? video.creator;
   const [duration, setDuration] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
 
@@ -183,9 +189,12 @@ export function VideoFullscreen({
                 >
                   <X className="w-5 h-5" />
                 </button>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white font-bold text-sm truncate">{video.title}</p>
-                  <p className="text-white/60 text-xs truncate">{video.creator}</p>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <CreatorAvatar avatarUrl={creatorAvatar} name={creatorName} size="sm" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-bold text-sm truncate">{video.title}</p>
+                    <p className="text-white/60 text-xs truncate">{creatorName}</p>
+                  </div>
                 </div>
               </div>
             </motion.div>

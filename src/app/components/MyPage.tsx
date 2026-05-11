@@ -169,9 +169,40 @@ export function MyPage({ onSignInClick }: MyPageProps) {
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [editName, setEditName] = useState("");
   const [editBio, setEditBio] = useState("");
+  const [editAvatarUrl, setEditAvatarUrl] = useState("");
   const [editBannerUrl, setEditBannerUrl] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+
+  const handleAvatarUpload = async (file: File) => {
+    if (!user) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("아바타는 2MB 이하여야 합니다.");
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      toast.error("JPEG, PNG, WebP 이미지만 업로드 가능합니다.");
+      return;
+    }
+    setUploadingAvatar(true);
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `${user.id}/avatar.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('user-avatars')
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (uploadErr) throw uploadErr;
+      const { data: urlData } = supabase.storage.from('user-avatars').getPublicUrl(path);
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      setEditAvatarUrl(publicUrl);
+      toast.success("아바타가 업로드됐습니다.");
+    } catch (err: any) {
+      toast.error(err?.message || "아바타 업로드에 실패했습니다.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleBannerUpload = async (file: File) => {
     if (!user) return;
@@ -401,13 +432,14 @@ export function MyPage({ onSignInClick }: MyPageProps) {
       const { error: authErr } = await supabase.auth.updateUser({ data: { name: editName.trim() } });
       if (authErr) throw authErr;
 
-      // 2) public.profiles (display_name / bio / banner_url) — upsert
+      // 2) public.profiles (display_name / bio / avatar_url / banner_url) — upsert
       const { error: profileErr } = await supabase
         .from('profiles')
         .upsert({
           id: user.id,
           display_name: editName.trim(),
           bio: editBio.trim() || null,
+          avatar_url: editAvatarUrl.trim() || null,
           banner_url: editBannerUrl.trim() || null,
           updated_at: new Date().toISOString(),
         });
@@ -546,13 +578,19 @@ export function MyPage({ onSignInClick }: MyPageProps) {
         <div className="h-32 md:h-40 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] opacity-90" />
         <div className="px-6 pb-6 relative z-10">
           <div className="relative -mt-16 mb-4 flex items-end justify-between">
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.1 }}
-              className="w-28 h-28 rounded-full border-[6px] border-[#121212] bg-gradient-to-br from-[#1E1E24] to-[#2B2B36] flex items-center justify-center shadow-lg"
+              className="w-28 h-28 rounded-full border-[6px] border-[#121212] overflow-hidden shadow-lg"
             >
-              <User className="w-12 h-12 text-gray-400" />
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt={user?.name || ''} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-white text-4xl font-bold">
+                  {(user?.name || user?.email || '?').charAt(0).toUpperCase()}
+                </div>
+              )}
             </motion.div>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button
@@ -560,6 +598,7 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                 onClick={() => {
                   setEditName(user?.name || "");
                   setEditBio(profile?.bio || "");
+                  setEditAvatarUrl(profile?.avatar_url || "");
                   setEditBannerUrl(profile?.banner_url || "");
                   setShowProfileEdit(true);
                 }}
@@ -1100,6 +1139,51 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                 <label className="block text-xs font-semibold text-gray-400 mb-1.5">이메일</label>
                 <p className="px-4 py-3 bg-white/5 rounded-xl text-sm text-gray-500 border border-white/5">{user?.email}</p>
               </div>
+
+              {/* 아바타 업로드 (Phase 6.6) */}
+              <div className="mb-4">
+                <label className="block text-xs font-semibold text-gray-400 mb-1.5">프로필 사진</label>
+                <div className="flex items-center gap-3">
+                  <label className="relative w-20 h-20 rounded-full cursor-pointer bg-gradient-to-br from-[#1E1E24] to-[#2B2B36] border-2 border-white/10 overflow-hidden hover:border-white/20 transition-colors shrink-0">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      disabled={uploadingAvatar}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleAvatarUpload(file);
+                        e.target.value = '';
+                      }}
+                    />
+                    {editAvatarUrl ? (
+                      <img src={editAvatarUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-gray-500">
+                        <ImagePlus className="w-6 h-6" />
+                      </div>
+                    )}
+                    {uploadingAvatar && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                        <Loader2 className="w-5 h-5 animate-spin text-white" />
+                      </div>
+                    )}
+                  </label>
+                  <div className="flex-1">
+                    <p className="text-[11px] text-gray-500 mb-1">정사각형 권장 · 최대 2MB · JPG/PNG/WebP</p>
+                    {editAvatarUrl && !uploadingAvatar && (
+                      <button
+                        type="button"
+                        onClick={() => setEditAvatarUrl('')}
+                        className="text-[11px] text-red-400 hover:text-red-300 font-medium"
+                      >
+                        제거
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="mb-4">
                 <label className="block text-xs font-semibold text-gray-400 mb-1.5">표시 이름</label>
                 <input

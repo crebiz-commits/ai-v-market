@@ -18,6 +18,8 @@ import { Slider } from "./ui/slider";
 import { CoverFlow } from "./CoverFlow";
 import { supabase } from "../utils/supabaseClient";
 import { useBackButton } from "../hooks/useBackButton";
+import { useCreatorInfo } from "../hooks/useCreatorInfo";
+import { CreatorAvatar } from "./CreatorAvatar";
 
 interface Product {
   // 기본 정보
@@ -25,6 +27,7 @@ interface Product {
   thumbnail: string;
   title: string;
   creator: string;
+  creatorId?: string;
   price: number;              // 하위 호환 — priceStandard와 동일
   duration: string;
   durationSeconds?: number;   // 페이월 게이트용 (Phase 4)
@@ -73,6 +76,7 @@ interface MarketProps {
 export function Market({ onProductClick }: MarketProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const creatorInfo = useCreatorInfo(products.map((p) => p.creatorId));
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("전체");
   const [sortBy, setSortBy] = useState("latest");
@@ -109,6 +113,7 @@ export function Market({ onProductClick }: MarketProps) {
             thumbnail: item.thumbnail,
             title: item.title,
             creator: item.creator || "AI Creator",
+            creatorId: item.creator_id || undefined,
             price: item.price_standard || 0,
             duration: item.duration || "0:15",
             durationSeconds: item.duration_seconds || 0,
@@ -692,12 +697,19 @@ export function Market({ onProductClick }: MarketProps) {
                       <h3 className="font-bold text-gray-100 text-[15px] mb-1.5 leading-tight line-clamp-1 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-indigo-400 group-hover:to-purple-400 transition-all">
                         {product.title}
                       </h3>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-[#6366f1] to-[#8b5cf6] drop-shadow-sm flex items-center justify-center">
-                          <span className="text-[8px] font-bold text-white">AI</span>
-                        </div>
-                        <span className="text-xs text-gray-400 font-medium">{product.creator}</span>
-                      </div>
+                      {(() => {
+                        const latestName = (product.creatorId ? creatorInfo[product.creatorId]?.name : null) ?? product.creator;
+                        return (
+                          <div className="flex items-center gap-2 mb-3">
+                            <CreatorAvatar
+                              avatarUrl={product.creatorId ? creatorInfo[product.creatorId]?.avatar ?? null : null}
+                              name={latestName}
+                              size="xs"
+                            />
+                            <span className="text-xs text-gray-400 font-medium">{latestName}</span>
+                          </div>
+                        );
+                      })()}
                     </div>
                     
                     <div className="flex items-center justify-between pt-3 border-t border-white/10 mt-auto">
@@ -754,6 +766,7 @@ function CurationRow({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(true);
+  const creatorInfo = useCreatorInfo(section.videos.map((v) => v.creatorId));
 
   const updateButtons = () => {
     const el = scrollRef.current;
@@ -874,7 +887,19 @@ function CurationRow({
               </div>
               <div className="mt-2 px-0.5">
                 <p className="text-sm font-bold text-white truncate">{video.title}</p>
-                <p className="text-xs text-gray-500 truncate">{video.creator}</p>
+                {(() => {
+                  const latestName = (video.creatorId ? creatorInfo[video.creatorId]?.name : null) ?? video.creator;
+                  return (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <CreatorAvatar
+                        avatarUrl={video.creatorId ? creatorInfo[video.creatorId]?.avatar ?? null : null}
+                        name={latestName}
+                        size="xs"
+                      />
+                      <p className="text-xs text-gray-500 truncate">{latestName}</p>
+                    </div>
+                  );
+                })()}
                 <p className="text-sm font-extrabold text-[#f87171] mt-1">₩{video.price.toLocaleString()}</p>
               </div>
             </motion.button>

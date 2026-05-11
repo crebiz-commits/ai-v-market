@@ -6,7 +6,9 @@ import { toast } from "sonner";
 import { CommentPanel } from "./CommentPanel";
 import { useBackButton } from "../hooks/useBackButton";
 import { useAuth } from "../contexts/AuthContext";
+import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { SubscriptionModal, type PaywallReason } from "./SubscriptionModal";
+import { CreatorAvatar } from "./CreatorAvatar";
 
 // Bunny Stream 라이브러리 ID (env 변수). 클라이언트에 노출되어도 안전.
 const BUNNY_LIBRARY_ID = (import.meta as any).env?.VITE_BUNNY_LIBRARY_ID || "";
@@ -80,6 +82,10 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
   const [isLiked, setIsLiked] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  // 크리에이터 아바타·이름 — Phase 6.6 (videos.creator는 snapshot이라 항상 최신 profiles 정보 우선)
+  const creatorInfo = useCreatorInfo([product.creatorId]);
+  const creatorAvatar = product.creatorId ? creatorInfo[product.creatorId]?.avatar : null;
+  const creatorName = (product.creatorId ? creatorInfo[product.creatorId]?.name : null) ?? product.creator;
 
   // Phase 4: 페이월 게이트
   const { isSubscriber } = useAuth();
@@ -322,10 +328,8 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               <h2 className="text-2xl mb-2">{product.title}</h2>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 text-muted-foreground">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center">
-                    <span className="text-white text-xs">AI</span>
-                  </div>
-                  <span>{product.creator}</span>
+                  <CreatorAvatar avatarUrl={creatorAvatar} name={creatorName} size="sm" />
+                  <span>{creatorName}</span>
                 </div>
                 {product.creatorId && onViewCreator && (
                   <button
