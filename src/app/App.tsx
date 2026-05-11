@@ -151,6 +151,13 @@ function AppContent() {
   });
   const [activeTab, setActiveTab] = useState<Tab>("discovery");
   const [selectedProduct, setSelectedProduct] = useState<VideoProduct | null>(null);
+  // 채널 탭 외부에서 "채널 보기" 클릭 시 어떤 크리에이터를 열지 신호 (Channel이 mount 후 selectedCreatorId로 채택)
+  const [pendingCreatorId, setPendingCreatorId] = useState<string | null>(null);
+  const handleViewCreator = (creatorId: string) => {
+    setPendingCreatorId(creatorId);
+    setSelectedProduct(null);
+    setActiveTab("channel");
+  };
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [activePanel, setActivePanel] = useState<Panel>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -367,7 +374,14 @@ function AppContent() {
       case "community":
         return <Community />;
       case "channel":
-        return <Channel onSignInClick={() => setShowAuthModal(true)} onProductClick={setSelectedProduct} />;
+        return (
+          <Channel
+            onSignInClick={() => setShowAuthModal(true)}
+            onProductClick={setSelectedProduct}
+            initialCreatorId={pendingCreatorId}
+            onCreatorOpened={() => setPendingCreatorId(null)}
+          />
+        );
       case "mypage":
         return <MyPage onSignInClick={() => setShowAuthModal(true)} />;
       case "admin":
@@ -754,6 +768,7 @@ function AppContent() {
             onClose={() => setSelectedProduct(null)}
             onSignInClick={() => setShowAuthModal(true)}
             onAddToCart={addToCart}
+            onViewCreator={handleViewCreator}
           />
         </Suspense>
       )}

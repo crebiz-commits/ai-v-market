@@ -66,13 +66,17 @@ interface ProductDetailProps {
     visibility?: "public" | "unlisted" | "private";
     highlightStart?: number;
     highlightEnd?: number;
+
+    // 채널 진입용 (Phase 6.5)
+    creatorId?: string;
   };
   onClose: () => void;
   onAddToCart?: (product: any, licenseType: "standard" | "commercial" | "extended") => Promise<boolean> | boolean | void;
   onSignInClick?: () => void;
+  onViewCreator?: (creatorId: string) => void;
 }
 
-export function ProductDetail({ product, onClose, onAddToCart, onSignInClick }: ProductDetailProps) {
+export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, onViewCreator }: ProductDetailProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -316,11 +320,21 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick }: 
             {/* Title & Creator */}
             <div className="mb-6">
               <h2 className="text-2xl mb-2">{product.title}</h2>
-              <div className="flex items-center gap-3 text-muted-foreground">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center">
-                  <span className="text-white text-xs">AI</span>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center">
+                    <span className="text-white text-xs">AI</span>
+                  </div>
+                  <span>{product.creator}</span>
                 </div>
-                <span>{product.creator}</span>
+                {product.creatorId && onViewCreator && (
+                  <button
+                    onClick={() => onViewCreator(product.creatorId!)}
+                    className="px-3 py-1.5 text-xs font-bold bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg text-gray-200 transition-colors whitespace-nowrap"
+                  >
+                    채널 보기 →
+                  </button>
+                )}
               </div>
             </div>
 

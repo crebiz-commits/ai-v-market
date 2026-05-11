@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles } from "lucide-react";
+import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -168,7 +168,40 @@ export function MyPage({ onSignInClick }: MyPageProps) {
   // 프로필 편집 모달
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [editName, setEditName] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [editBannerUrl, setEditBannerUrl] = useState("");
+  const [uploadingBanner, setUploadingBanner] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+
+  const handleBannerUpload = async (file: File) => {
+    if (!user) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("배너 이미지는 5MB 이하여야 합니다.");
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      toast.error("JPEG, PNG, WebP 이미지만 업로드 가능합니다.");
+      return;
+    }
+    setUploadingBanner(true);
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `${user.id}/banner.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('user-banners')
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (uploadErr) throw uploadErr;
+      const { data: urlData } = supabase.storage.from('user-banners').getPublicUrl(path);
+      // 캐시 무력화 — Storage가 같은 경로에 덮어쓰면 브라우저가 옛 이미지 캐시
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      setEditBannerUrl(publicUrl);
+      toast.success("배너가 업로드됐습니다.");
+    } catch (err: any) {
+      toast.error(err?.message || "배너 업로드에 실패했습니다.");
+    } finally {
+      setUploadingBanner(false);
+    }
+  };
 
   // 비밀번호 변경 모달
   const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -361,10 +394,25 @@ export function MyPage({ onSignInClick }: MyPageProps) {
 
   const handleSaveProfile = async () => {
     if (!editName.trim()) { toast.error("이름을 입력해주세요."); return; }
+    if (!user) return;
     setSavingProfile(true);
     try {
-      const { error } = await supabase.auth.updateUser({ data: { name: editName.trim() } });
-      if (error) throw error;
+      // 1) auth.users 메타데이터 (이름)
+      const { error: authErr } = await supabase.auth.updateUser({ data: { name: editName.trim() } });
+      if (authErr) throw authErr;
+
+      // 2) public.profiles (display_name / bio / banner_url) — upsert
+      const { error: profileErr } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          display_name: editName.trim(),
+          bio: editBio.trim() || null,
+          banner_url: editBannerUrl.trim() || null,
+          updated_at: new Date().toISOString(),
+        });
+      if (profileErr) throw profileErr;
+
       toast.success("프로필이 업데이트됐습니다!");
       setShowProfileEdit(false);
     } catch (err: any) {
@@ -509,7 +557,12 @@ export function MyPage({ onSignInClick }: MyPageProps) {
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button
                 variant="outline"
-                onClick={() => { setEditName(user?.name || ""); setShowProfileEdit(true); }}
+                onClick={() => {
+                  setEditName(user?.name || "");
+                  setEditBio(profile?.bio || "");
+                  setEditBannerUrl(profile?.banner_url || "");
+                  setShowProfileEdit(true);
+                }}
                 className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-semibold rounded-lg mb-2 shadow-sm gap-2"
               >
                 <Pencil className="w-4 h-4" />
@@ -1047,7 +1100,7 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                 <label className="block text-xs font-semibold text-gray-400 mb-1.5">이메일</label>
                 <p className="px-4 py-3 bg-white/5 rounded-xl text-sm text-gray-500 border border-white/5">{user?.email}</p>
               </div>
-              <div className="mb-5">
+              <div className="mb-4">
                 <label className="block text-xs font-semibold text-gray-400 mb-1.5">표시 이름</label>
                 <input
                   type="text"
@@ -1057,6 +1110,59 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors"
                   placeholder="이름을 입력하세요"
                 />
+              </div>
+              <div className="mb-4">
+                <label className="block text-xs font-semibold text-gray-400 mb-1.5">자기소개</label>
+                <textarea
+                  value={editBio}
+                  onChange={e => setEditBio(e.target.value)}
+                  maxLength={200}
+                  rows={3}
+                  placeholder="채널 페이지에 표시될 자기소개를 작성하세요"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors resize-none"
+                />
+                <p className="text-[11px] text-gray-500 mt-1">{editBio.length}/200</p>
+              </div>
+              <div className="mb-5">
+                <label className="block text-xs font-semibold text-gray-400 mb-1.5">채널 배너</label>
+                <label className="relative block aspect-[3/1] cursor-pointer rounded-xl border border-white/10 border-dashed bg-white/5 overflow-hidden hover:bg-white/10 transition-colors">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    disabled={uploadingBanner}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleBannerUpload(file);
+                      e.target.value = '';
+                    }}
+                  />
+                  {editBannerUrl ? (
+                    <img src={editBannerUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 text-xs gap-1.5">
+                      <ImagePlus className="w-6 h-6" />
+                      <span>클릭해서 이미지 업로드</span>
+                    </div>
+                  )}
+                  {uploadingBanner && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-white" />
+                    </div>
+                  )}
+                </label>
+                <div className="flex items-center justify-between mt-1.5">
+                  <p className="text-[11px] text-gray-500">JPG/PNG/WebP · 최대 5MB · 권장 1500×500 (3:1)</p>
+                  {editBannerUrl && !uploadingBanner && (
+                    <button
+                      type="button"
+                      onClick={() => setEditBannerUrl('')}
+                      className="text-[11px] text-red-400 hover:text-red-300 font-medium"
+                    >
+                      제거
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => setShowProfileEdit(false)} className="flex-1 border-white/10">취소</Button>

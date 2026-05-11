@@ -16,12 +16,15 @@ interface CreatorProfile {
   creator_id: string;
   creator_name: string;
   avatar_url: string | null;
+  banner_url: string | null;
   bio: string | null;
   video_count: number;
   follower_count: number;
   total_views: number;
   am_i_following: boolean;
 }
+
+type SortOrder = "latest" | "oldest";
 
 interface CreatorVideo {
   id: string;
@@ -50,6 +53,7 @@ function mapVideoForDetail(v: CreatorVideo) {
     title: v.title,
     thumbnail: v.thumbnail,
     creator: v.creator_name,
+    creatorId: v.creator_id,
     price: 0,
     duration: v.duration || "0:00",
     durationSeconds: v.duration_seconds || 0,
@@ -64,6 +68,12 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
   const [profile, setProfile] = useState<CreatorProfile | null>(null);
   const [videos, setVideos] = useState<CreatorVideo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortOrder, setSortOrder] = useState<SortOrder>("latest");
+
+  const sortedVideos = [...videos].sort((a, b) => {
+    const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    return sortOrder === "latest" ? diff : -diff;
+  });
 
   const isMyChannel = user?.id === creatorId;
 
@@ -151,7 +161,17 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
           animate={{ opacity: 1, y: 0 }}
           className="relative bg-[#121212] rounded-2xl overflow-hidden border border-white/5 shadow-xl mt-4 mb-6"
         >
-          <div className="h-28 md:h-40 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] opacity-90" />
+          <div className="relative h-28 md:h-40 overflow-hidden">
+            {profile.banner_url ? (
+              <img
+                src={profile.banner_url}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] opacity-90" />
+            )}
+          </div>
           <div className="px-5 md:px-6 pb-6">
             <div className="relative -mt-14 mb-4 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
               <div className="flex items-end gap-4">
@@ -187,8 +207,34 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
           </div>
         </motion.div>
 
-        {/* 영상 그리드 */}
-        <h2 className="text-lg font-bold text-white mb-4">등록 영상</h2>
+        {/* 영상 그리드 헤더: 제목 + 정렬 토글 */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-white">등록 영상</h2>
+          {videos.length > 1 && (
+            <div className="flex items-center gap-1 p-1 bg-[#1c1c1e] rounded-lg border border-white/5">
+              <button
+                onClick={() => setSortOrder("latest")}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+                  sortOrder === "latest"
+                    ? "bg-[#6366f1] text-white shadow-sm"
+                    : "text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                최신순
+              </button>
+              <button
+                onClick={() => setSortOrder("oldest")}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+                  sortOrder === "oldest"
+                    ? "bg-[#6366f1] text-white shadow-sm"
+                    : "text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                오래된순
+              </button>
+            </div>
+          )}
+        </div>
         {videos.length === 0 ? (
           <div className="bg-[#121212] rounded-2xl border border-white/5 p-8 md:p-12 text-center">
             <Film className="w-12 h-12 text-gray-600 mx-auto mb-3" />
@@ -196,7 +242,7 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
-            {videos.map((v) => (
+            {sortedVideos.map((v) => (
               <motion.button
                 key={v.id}
                 whileHover={{ y: -4 }}

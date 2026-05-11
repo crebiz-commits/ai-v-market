@@ -9,6 +9,10 @@ import { CreatorChannel } from "./CreatorChannel";
 interface ChannelProps {
   onSignInClick?: () => void;
   onProductClick?: (video: any) => void;
+  // 외부(ProductDetail "채널 보기" 등)에서 채널 탭으로 진입할 때 자동 열 크리에이터 ID
+  initialCreatorId?: string | null;
+  // 위 ID로 채널 페이지가 열린 직후 App.tsx state 클리어 신호
+  onCreatorOpened?: () => void;
 }
 
 type ChannelTab = "subscribed" | "explore";
@@ -45,6 +49,7 @@ function mapVideoForDetail(v: FollowingVideo) {
     title: v.title,
     thumbnail: v.thumbnail,
     creator: v.creator_name,
+    creatorId: v.creator_id,
     price: 0,
     duration: v.duration || "0:00",
     durationSeconds: v.duration_seconds || 0,
@@ -60,10 +65,18 @@ function formatNumber(n: number): string {
   return String(n);
 }
 
-export function Channel({ onSignInClick, onProductClick }: ChannelProps) {
+export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCreatorOpened }: ChannelProps) {
   const [activeTab, setActiveTab] = useState<ChannelTab>("subscribed");
   const [selectedCreatorId, setSelectedCreatorId] = useState<string | null>(null);
   const { user, isAuthenticated, loading: authLoading } = useAuth();
+
+  // 외부에서 채널 진입 신호 들어오면 채택
+  useEffect(() => {
+    if (initialCreatorId) {
+      setSelectedCreatorId(initialCreatorId);
+      onCreatorOpened?.();
+    }
+  }, [initialCreatorId, onCreatorOpened]);
 
   // 구독 탭 데이터
   const [followingVideos, setFollowingVideos] = useState<FollowingVideo[]>([]);

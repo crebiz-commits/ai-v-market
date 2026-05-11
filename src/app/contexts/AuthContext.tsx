@@ -15,6 +15,7 @@ interface Profile {
   id: string;
   display_name: string | null;
   avatar_url: string | null;
+  banner_url: string | null;
   bio: string | null;
   subscription_tier: SubscriptionTier;
   subscription_started_at: string | null;

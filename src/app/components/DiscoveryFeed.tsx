@@ -33,6 +33,7 @@ interface Video {
   thumbnail: string;
   title: string;
   creator: string;
+  creatorId?: string;
   likes: number;
   price: number;
   duration: string;
@@ -585,6 +586,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
             thumbnail: item.thumbnail,
             title: item.title,
             creator: item.creator || "AI Creator",
+            creatorId: item.creator_id || undefined,
             likes: item.likes || 0,
             price: item.price_standard || 0,
             duration: item.duration || "0:00",
