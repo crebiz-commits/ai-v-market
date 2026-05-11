@@ -105,11 +105,11 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick }: 
     const LISTENER_ID = "creaite-cinema-cutoff";
     const BUNNY_ORIGIN = "https://iframe.mediadelivery.net";
 
-    const subscribe = () => {
+    const subscribeTimeupdate = () => {
       iframe.contentWindow?.postMessage(
         JSON.stringify({
           context: "player.js",
-          version: "0.0.12",
+          version: "0.0.1",
           method: "addEventListener",
           value: "timeupdate",
           listener: LISTENER_ID,
@@ -117,10 +117,6 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick }: 
         BUNNY_ORIGIN,
       );
     };
-
-    const handleLoad = () => subscribe();
-    iframe.addEventListener("load", handleLoad);
-    subscribe(); // iframe이 이미 로드돼 있는 경우 대응
 
     const handleMessage = (e: MessageEvent) => {
       if (e.origin !== BUNNY_ORIGIN) return;
@@ -131,18 +127,27 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick }: 
         return;
       }
       if (data?.context !== "player.js") return;
-      if (data?.event !== "timeupdate" || data?.listener !== LISTENER_ID) return;
-      const seconds = data?.value?.seconds ?? 0;
-      if (seconds >= CINEMA_PREVIEW_SECONDS) {
-        setCinemaCutoffTriggered(true);
-        setPaywallReason("cinema_cutoff");
-        setPaywallOpen(true);
+
+      // Bunny가 ready 이벤트를 보내면 그때 timeupdate 구독 (load 시점은 너무 빠름)
+      if (data?.event === "ready") {
+        console.log("[페이월] Bunny ready 수신 → timeupdate 구독");
+        subscribeTimeupdate();
+        return;
+      }
+
+      if (data?.event === "timeupdate") {
+        const seconds = data?.value?.seconds ?? 0;
+        if (seconds >= CINEMA_PREVIEW_SECONDS) {
+          console.log("[페이월] currentTime", seconds, "초 도달 → 차단");
+          setCinemaCutoffTriggered(true);
+          setPaywallReason("cinema_cutoff");
+          setPaywallOpen(true);
+        }
       }
     };
 
     window.addEventListener("message", handleMessage);
     return () => {
-      iframe.removeEventListener("load", handleLoad);
       window.removeEventListener("message", handleMessage);
     };
   }, [cinemaPaywallNeeded, cinemaCutoffTriggered]);
