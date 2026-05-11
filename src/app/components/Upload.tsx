@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useEffect } from "react";
-import { Upload as UploadIcon, Video, FileText, CheckCircle2, Loader2, X, ImagePlus } from "lucide-react";
+import { Upload as UploadIcon, Video, FileText, CheckCircle2, Loader2, X, ImagePlus, Lock } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -1582,27 +1582,48 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                 </div>
               </div>
 
-              <div className="bg-card p-6 rounded-lg border border-border">
-                <h3 className="mb-1">All-in-One 라이선스 가격</h3>
-                <p className="text-xs text-muted-foreground mb-4">
-                  유튜브·SNS·기업 마케팅·독점 사용권이 모두 포함된 단일 라이선스입니다. 구매 시 모든 사용권이 구매자에게 영구 양도되고 마켓에서 즉시 판매 종료됩니다.
-                </p>
+              {(() => {
+                const isShortVideo = videoDurationSec > 0 && videoDurationSec < 180;
+                return (
+                  <div className="bg-card p-6 rounded-lg border border-border">
+                    <h3 className="mb-1">All-in-One 라이선스 가격</h3>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      유튜브·SNS·기업 마케팅·독점 사용권이 모두 포함된 단일 라이선스입니다. 구매 시 모든 사용권이 구매자에게 영구 양도되고 마켓에서 즉시 판매 종료됩니다.
+                    </p>
 
-                <div>
-                  <Label htmlFor="price" className="mb-2 block">가격 *</Label>
-                  <Input
-                    id="price"
-                    type="text"
-                    value={formData.standardPrice}
-                    onChange={(e) => setFormData({ ...formData, standardPrice: formatWithCommas(e.target.value) })}
-                    placeholder="100,000"
-                    className="bg-background"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    표시 가격은 부가세(VAT) 포함입니다.
-                  </p>
-                </div>
-              </div>
+                    {isShortVideo ? (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 flex gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
+                          <Lock className="w-4 h-4 text-amber-400" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-amber-300 mb-1">
+                            3분 미만 영상은 라이선스 판매가 비활성화됩니다
+                          </p>
+                          <p className="text-xs text-amber-300/70 leading-relaxed">
+                            홈 피드 숏폼은 광고 수익만 정산됩니다. 라이선스 판매를 원하시면 3분 이상 영상으로 업로드해 주세요.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <Label htmlFor="price" className="mb-2 block">가격 *</Label>
+                        <Input
+                          id="price"
+                          type="text"
+                          value={formData.standardPrice}
+                          onChange={(e) => setFormData({ ...formData, standardPrice: formatWithCommas(e.target.value) })}
+                          placeholder="100,000"
+                          className="bg-background"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          표시 가격은 부가세(VAT) 포함입니다.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div className="bg-card p-6 rounded-lg border border-border space-y-4">
                 <h3>저작권 서약</h3>
