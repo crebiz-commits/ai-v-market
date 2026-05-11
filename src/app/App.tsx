@@ -14,6 +14,8 @@ import './init';
 
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, Loader2, Crown, Users } from "lucide-react";
+import { Footer } from "./components/Footer";
+import { HamburgerMenu } from "./components/HamburgerMenu";
 import { motion, AnimatePresence } from "motion/react";
 
 // ────────────────────────────────────────────────────
@@ -47,6 +49,10 @@ const Community = lazy(() => import("./components/Community").then(m => ({ defau
 const Channel = lazy(() => import("./components/Channel").then(m => ({ default: m.Channel })));
 const MyPage = lazy(() => import("./components/MyPage").then(m => ({ default: m.MyPage })));
 const AdminDashboard = lazy(() => import("./components/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
+const BusinessPage = lazy(() => import("./components/BusinessPage").then(m => ({ default: m.BusinessPage })));
+const AboutPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.AboutPage })));
+const TermsPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.TermsPage })));
+const PrivacyPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.PrivacyPage })));
 
 // 모달·패널 (열릴 때만 로드)
 const ProductDetail = lazy(() => import("./components/ProductDetail").then(m => ({ default: m.ProductDetail })));
@@ -75,7 +81,7 @@ function PageLoading() {
   );
 }
 
-type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin";
+type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy";
 type Panel = "cart" | "notifications" | null;
 
 interface VideoProduct {
@@ -386,6 +392,14 @@ function AppContent() {
         return <MyPage onSignInClick={() => setShowAuthModal(true)} />;
       case "admin":
         return <AdminDashboard />;
+      case "business":
+        return <BusinessPage onBack={() => setActiveTab("discovery")} />;
+      case "about":
+        return <AboutPage onBack={() => setActiveTab("discovery")} />;
+      case "terms":
+        return <TermsPage onBack={() => setActiveTab("discovery")} />;
+      case "privacy":
+        return <PrivacyPage onBack={() => setActiveTab("discovery")} />;
       default:
         return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} />;
     }
@@ -471,6 +485,7 @@ function AppContent() {
             >
               <User className="w-[22px] h-[22px]" />
             </motion.button>
+            <HamburgerMenu onNavigate={(tab) => setActiveTab(tab)} />
           </div>
         </div>
       </motion.header>
@@ -590,10 +605,13 @@ function AppContent() {
       {/* Main Content + Side Panel Layout */}
       <div className="flex-1 relative overflow-hidden bg-[#0A0A0A] flex">
         {/* Content */}
-        <div className={`flex-1 overflow-hidden transition-all duration-300 ${activePanel ? "md:mr-80" : ""}`}>
-          <Suspense fallback={<PageLoading />}>
-            {renderContent()}
-          </Suspense>
+        <div className={`flex-1 overflow-hidden transition-all duration-300 flex flex-col ${activePanel ? "md:mr-80" : ""}`}>
+          <div className="flex-1 overflow-hidden">
+            <Suspense fallback={<PageLoading />}>
+              {renderContent()}
+            </Suspense>
+          </div>
+          <Footer onNavigate={(tab) => setActiveTab(tab)} />
         </div>
 
         {/* Desktop Side Panel */}
