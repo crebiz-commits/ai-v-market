@@ -30,8 +30,108 @@ interface MyProduct {
   status: string;
 }
 
+type PageMode = 'select' | 'user' | 'creator';
+
+const PAGE_MODE_STORAGE_KEY = 'creaite_mypage_mode';
+
 interface MyPageProps {
   onSignInClick?: () => void;
+}
+
+// 모드 선택 화면 (마이 탭 진입 시)
+function ModeSelectScreen({
+  isCreator,
+  onSelectUser,
+  onSelectCreator,
+}: {
+  isCreator: boolean;
+  onSelectUser: () => void;
+  onSelectCreator: () => void;
+}) {
+  return (
+    <div className="h-full flex items-center justify-center bg-[#0a0a0a] p-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-2xl w-full"
+      >
+        <h2 className="text-2xl md:text-3xl font-black text-white text-center mb-2">
+          어떤 코너를 보시겠어요?
+        </h2>
+        <p className="text-sm text-gray-400 text-center mb-8">
+          언제든 다시 선택할 수 있어요
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <motion.button
+            whileHover={{ y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={onSelectUser}
+            className="bg-gradient-to-br from-[#6366f1]/10 to-[#8b5cf6]/10 hover:from-[#6366f1]/20 hover:to-[#8b5cf6]/20 border border-[#6366f1]/30 hover:border-[#6366f1]/50 rounded-2xl p-6 md:p-8 text-left transition-colors group"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center mb-5 shadow-lg">
+              <ShoppingBag className="w-7 h-7 text-white" />
+            </div>
+            <h3 className="text-xl font-black text-white mb-1.5">일반 사용자</h3>
+            <p className="text-sm text-gray-400 leading-relaxed">
+              구매 내역, 시청 기록, 계정 설정을 관리합니다
+            </p>
+          </motion.button>
+
+          <motion.button
+            whileHover={{ y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={onSelectCreator}
+            className="relative bg-gradient-to-br from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 border border-amber-500/30 hover:border-amber-500/50 rounded-2xl p-6 md:p-8 text-left transition-colors group overflow-hidden"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center mb-5 shadow-lg">
+              <Crown className="w-7 h-7 text-white" />
+            </div>
+            <h3 className="text-xl font-black text-white mb-1.5 flex items-center gap-2">
+              크리에이터
+              {!isCreator && <Lock className="w-4 h-4 text-amber-400/70" />}
+            </h3>
+            <p className="text-sm text-gray-400 leading-relaxed">
+              {isCreator
+                ? '등록 영상, 수익, 정산 정보를 확인합니다'
+                : '영상을 업로드하면 자동으로 활성화됩니다'}
+            </p>
+            <Crown className="absolute -right-6 -bottom-6 w-28 h-28 text-amber-500/5 rotate-12" />
+          </motion.button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// 영상 0개 크리에이터 안내 화면
+function CreatorOnboardingScreen({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="h-full flex items-center justify-center bg-[#0a0a0a] p-6">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-md w-full text-center"
+      >
+        <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/30 flex items-center justify-center mb-6">
+          <Crown className="w-10 h-10 text-amber-400" />
+        </div>
+        <h2 className="text-2xl font-black text-white mb-3">
+          크리에이터 코너 준비 중
+        </h2>
+        <p className="text-sm text-gray-400 leading-relaxed mb-8">
+          영상을 업로드하면 자동으로 크리에이터 코너가 오픈됩니다.<br />
+          하단 중앙의 업로드 버튼으로 첫 작품을 등록해 주세요.
+        </p>
+        <Button
+          onClick={onBack}
+          variant="outline"
+          className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-medium"
+        >
+          다른 코너 보기
+        </Button>
+      </motion.div>
+    </div>
+  );
 }
 
 const containerVariants = {
@@ -51,6 +151,11 @@ const itemVariants = {
 
 export function MyPage({ onSignInClick }: MyPageProps) {
   const [activeTab, setActiveTab] = useState("profile");
+  const [pageMode, setPageMode] = useState<PageMode>(() => {
+    if (typeof window === 'undefined') return 'select';
+    const saved = localStorage.getItem(PAGE_MODE_STORAGE_KEY);
+    return saved === 'user' || saved === 'creator' ? saved : 'select';
+  });
   const { user, profile, subscriptionTier, isSubscriber, signOut, isAuthenticated } = useAuth();
   const [purchaseHistory, setPurchaseHistory] = useState<Purchase[]>([]);
   const [myProducts, setMyProducts] = useState<MyProduct[]>([]);
@@ -236,11 +341,23 @@ export function MyPage({ onSignInClick }: MyPageProps) {
   const TierIcon = tierMeta.icon;
 
   // 사용자가 비크리에이터인데 sales 탭이 활성화돼 있으면 profile로 리다이렉트
+  // user 모드인데 sales 탭, creator 모드인데 purchases 탭이면 profile로
   useEffect(() => {
-    if (!isCreator && activeTab === 'sales') {
-      setActiveTab('profile');
-    }
-  }, [isCreator, activeTab]);
+    if (!isCreator && activeTab === 'sales') setActiveTab('profile');
+    if (pageMode === 'user' && activeTab === 'sales') setActiveTab('profile');
+    if (pageMode === 'creator' && activeTab === 'purchases') setActiveTab('profile');
+  }, [isCreator, activeTab, pageMode]);
+
+  const handleSelectMode = (mode: 'user' | 'creator') => {
+    setPageMode(mode);
+    localStorage.setItem(PAGE_MODE_STORAGE_KEY, mode);
+    setActiveTab(mode === 'creator' && isCreator ? 'sales' : 'profile');
+  };
+
+  const handleBackToSelect = () => {
+    setPageMode('select');
+    localStorage.removeItem(PAGE_MODE_STORAGE_KEY);
+  };
 
   const handleSaveProfile = async () => {
     if (!editName.trim()) { toast.error("이름을 입력해주세요."); return; }
@@ -311,12 +428,12 @@ export function MyPage({ onSignInClick }: MyPageProps) {
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center bg-background">
-        <motion.div 
+        <motion.div
           className="text-center"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
         >
-          <motion.div 
+          <motion.div
             animate={{ rotate: 360 }}
             transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
             className="mx-auto mb-4 w-10 h-10 text-[#6366f1]"
@@ -329,10 +446,49 @@ export function MyPage({ onSignInClick }: MyPageProps) {
     );
   }
 
+  // 모드 선택 화면
+  if (pageMode === 'select') {
+    return (
+      <ModeSelectScreen
+        isCreator={isCreator}
+        onSelectUser={() => handleSelectMode('user')}
+        onSelectCreator={() => handleSelectMode('creator')}
+      />
+    );
+  }
+
+  // 영상 0개인 사용자가 크리에이터 모드 진입 시: 안내 화면
+  if (pageMode === 'creator' && !isCreator) {
+    return <CreatorOnboardingScreen onBack={handleBackToSelect} />;
+  }
+
   return (
     <div className="h-full overflow-y-auto bg-[#0a0a0a] selection:bg-[#6366f1]/30 pb-20">
       <div className="max-w-6xl mx-auto md:p-6 pb-6">
-      
+
+      {/* 모드 표시 + 코너 전환 버튼 */}
+      <div className="px-4 md:px-0 pt-4 md:pt-0 mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shadow-sm ${
+            pageMode === 'creator'
+              ? 'bg-gradient-to-br from-amber-500 to-orange-500'
+              : 'bg-gradient-to-br from-[#6366f1] to-[#8b5cf6]'
+          }`}>
+            {pageMode === 'creator' ? <Crown className="w-4 h-4 text-white" /> : <ShoppingBag className="w-4 h-4 text-white" />}
+          </div>
+          <span className="text-sm font-bold text-white">
+            {pageMode === 'creator' ? '크리에이터 코너' : '일반 사용자 코너'}
+          </span>
+        </div>
+        <button
+          onClick={handleBackToSelect}
+          className="text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5"
+        >
+          <ChevronRight className="w-3.5 h-3.5 rotate-180" />
+          다른 코너
+        </button>
+      </div>
+
       {/* Profile Header Parallax/Entrance */}
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
@@ -395,12 +551,12 @@ export function MyPage({ onSignInClick }: MyPageProps) {
       <div className="px-4 md:px-0">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList
-            className={`grid w-full ${isCreator ? 'grid-cols-4' : 'grid-cols-3'} bg-[#1c1c1e] p-1.5 rounded-2xl mb-8 border border-white/5 shadow-inner`}
+            className="grid w-full grid-cols-3 bg-[#1c1c1e] p-1.5 rounded-2xl mb-8 border border-white/5 shadow-inner"
           >
             {([
               { id: 'profile', icon: User, label: '프로필' },
-              { id: 'purchases', icon: ShoppingBag, label: '구매' },
-              ...(isCreator ? [{ id: 'sales', icon: TrendingUp, label: '판매' }] : []),
+              ...(pageMode === 'user' ? [{ id: 'purchases', icon: ShoppingBag, label: '구매' }] : []),
+              ...(pageMode === 'creator' && isCreator ? [{ id: 'sales', icon: TrendingUp, label: '판매' }] : []),
               { id: 'settings', icon: Settings, label: '설정' },
             ] as { id: string; icon: any; label: string }[]).map(tab => {
               const Icon = tab.icon;
