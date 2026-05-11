@@ -367,7 +367,7 @@ function AppContent() {
       case "community":
         return <Community />;
       case "channel":
-        return <Channel onSignInClick={() => setShowAuthModal(true)} />;
+        return <Channel onSignInClick={() => setShowAuthModal(true)} onProductClick={setSelectedProduct} />;
       case "mypage":
         return <MyPage onSignInClick={() => setShowAuthModal(true)} />;
       case "admin":
