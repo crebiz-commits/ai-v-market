@@ -72,17 +72,20 @@ CREATE TRIGGER profiles_set_updated_at
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 3. 구독 정보 보호 트리거 (일반 사용자가 자기 tier를 premium으로 못 바꾸게)
---    service_role(서버사이드)만 subscription_tier/payout_info 수정 가능
+--    허용 역할: postgres / supabase_admin / service_role
+--    차단 역할: anon / authenticated (PostgREST 클라이언트 호출)
 -- ────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.protect_subscription_columns()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- service_role이 아닌 경우 보호 컬럼은 OLD 값 유지
-  IF current_setting('request.jwt.claim.role', true) IS DISTINCT FROM 'service_role' THEN
-    NEW.subscription_tier = OLD.subscription_tier;
-    NEW.subscription_started_at = OLD.subscription_started_at;
-    NEW.subscription_expires_at = OLD.subscription_expires_at;
-    NEW.payout_info = OLD.payout_info;
+  -- Dashboard SQL Editor (postgres) / Edge Function service_role / supabase_admin은 허용
+  -- 일반 사용자(anon, authenticated)만 보호 컬럼 변경 차단
+  IF current_user NOT IN ('postgres', 'supabase_admin', 'service_role')
+     AND COALESCE(current_setting('request.jwt.claim.role', true), '') <> 'service_role' THEN
+    NEW.subscription_tier := OLD.subscription_tier;
+    NEW.subscription_started_at := OLD.subscription_started_at;
+    NEW.subscription_expires_at := OLD.subscription_expires_at;
+    NEW.payout_info := OLD.payout_info;
   END IF;
   RETURN NEW;
 END;
