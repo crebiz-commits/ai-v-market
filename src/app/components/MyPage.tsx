@@ -163,6 +163,12 @@ export function MyPage({ onSignInClick }: MyPageProps) {
   const [adStats, setAdStats] = useState<{ impressions: number; clicks: number; completes: number; skips: number }>({
     impressions: 0, clicks: 0, completes: 0, skips: 0,
   });
+  // 영상별 광고 노출 통계 (분배율 가중평균 계산용)
+  const [adStatsByVideo, setAdStatsByVideo] = useState<Record<string, { impressions: number; clicks: number }>>({});
+  // 영상 분류 정보 (광고 분배율 tier 결정용)
+  const [videoTiers, setVideoTiers] = useState<Record<string, "home" | "cinema" | "ott">>({});
+  // 플랫폼 정책 설정 (어드민이 변경 가능, RPC로 로드)
+  const [policyRates, setPolicyRates] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   // 프로필 편집 모달
@@ -319,6 +325,15 @@ export function MyPage({ onSignInClick }: MyPageProps) {
       });
       setMyProducts(products);
 
+      // 영상별 tier 매핑 (광고 분배율 가중평균 계산용)
+      const tierMap: Record<string, "home" | "cinema" | "ott"> = {};
+      for (const v of videoData) {
+        if (v.show_on_ott) tierMap[v.id] = "ott";
+        else if (v.show_on_cinema) tierMap[v.id] = "cinema";
+        else tierMap[v.id] = "home";
+      }
+      setVideoTiers(tierMap);
+
       // 월별 매출 차트 (orders 데이터 기반 — 없으면 0으로 채워진 6개월)
       const monthMap: Record<string, number> = {};
       videoData.forEach((video: any) => {
@@ -364,6 +379,39 @@ export function MyPage({ onSignInClick }: MyPageProps) {
         } catch (err) {
           console.warn('[MyPage] 광고 통계 조회 예외:', err);
         }
+
+        // 영상별 광고 통계 (분배율 가중평균용)
+        try {
+          const { data: byVideo, error: byVideoErr } = await supabase.rpc('get_creator_ad_stats_by_video');
+          if (byVideoErr) {
+            console.warn('[MyPage] get_creator_ad_stats_by_video 실패:', byVideoErr.message);
+          } else if (byVideo) {
+            const map: Record<string, { impressions: number; clicks: number }> = {};
+            for (const row of byVideo) {
+              map[row.video_id] = {
+                impressions: Number(row.impressions || 0),
+                clicks: Number(row.clicks || 0),
+              };
+            }
+            setAdStatsByVideo(map);
+          }
+        } catch (err) {
+          console.warn('[MyPage] 영상별 광고 통계 예외:', err);
+        }
+      }
+
+      // ── 4. 플랫폼 정책 (어드민이 변경 가능) — 분배율/CPM/정산 최소액
+      try {
+        const { data: settingsData, error: settingsErr } = await supabase.rpc('get_active_platform_settings');
+        if (settingsErr) {
+          console.warn('[MyPage] get_active_platform_settings 실패 (마이그레이션 미적용 가능):', settingsErr.message);
+        } else if (settingsData) {
+          const map: Record<string, number> = {};
+          for (const s of settingsData) map[s.key] = Number(s.value);
+          setPolicyRates(map);
+        }
+      } catch (err) {
+        console.warn('[MyPage] 정책 조회 예외:', err);
       }
     }
 
@@ -383,14 +431,35 @@ export function MyPage({ onSignInClick }: MyPageProps) {
 
   const totalRevenue = useMemo(() => myProducts.reduce((sum, p) => sum + p.revenue, 0), [myProducts]);
   const totalSales = useMemo(() => myProducts.reduce((sum, p) => sum + p.sales, 0), [myProducts]);
-  const platformFee = totalRevenue * 0.15;
+
+  // 분배 정책 (platform_settings에서 로드, 미로드 시 기본값 = 정책 메모리 2026-05-12 기준)
+  const CREATOR_SHARE_SALE   = policyRates.creator_share_sale            ?? 0.80;
+  const CREATOR_SHARE_HOME   = policyRates.creator_share_ad_home         ?? 0.50;
+  const CREATOR_SHARE_CINEMA = policyRates.creator_share_ad_cinema       ?? 0.55;
+  const CREATOR_SHARE_OTT    = policyRates.creator_share_ad_ott          ?? 0.60;
+  const AD_CPM_KRW           = policyRates.ad_cpm_krw                    ?? 2000;
+  const PAYOUT_MIN_KRW       = policyRates.payout_minimum_krw            ?? 10000;
+
+  const platformFee = Math.floor(totalRevenue * (1 - CREATOR_SHARE_SALE));
   const expectedPayout = totalRevenue - platformFee;
 
-  // 광고 수익 추정 (CPM ₩2,000 기준, 크리에이터 분배 70%)
-  const AD_CPM_KRW = 2000;
-  const CREATOR_AD_SHARE = 0.7;
-  const adGrossRevenue = (adStats.impressions / 1000) * AD_CPM_KRW;
-  const adCreatorPayout = Math.floor(adGrossRevenue * CREATOR_AD_SHARE);
+  // 광고 수익 가중평균 — 영상별 tier(home/cinema/ott)에 따라 분배율 적용
+  const tierShare = { home: CREATOR_SHARE_HOME, cinema: CREATOR_SHARE_CINEMA, ott: CREATOR_SHARE_OTT };
+  let adWeightedPayout = 0;
+  let adGrossRevenue = 0;
+  for (const [videoId, stats] of Object.entries(adStatsByVideo)) {
+    const tier = videoTiers[videoId] || "home";
+    const gross = (stats.impressions / 1000) * AD_CPM_KRW;
+    adGrossRevenue += gross;
+    adWeightedPayout += gross * tierShare[tier];
+  }
+  // 영상별 통계 미로드 시 fallback: 전체 노출 × 시네마 비율 (중간값)
+  if (adGrossRevenue === 0 && adStats.impressions > 0) {
+    adGrossRevenue = (adStats.impressions / 1000) * AD_CPM_KRW;
+    adWeightedPayout = adGrossRevenue * CREATOR_SHARE_CINEMA;
+  }
+  const adCreatorPayout = Math.floor(adWeightedPayout);
+  const avgAdShare = adGrossRevenue > 0 ? adWeightedPayout / adGrossRevenue : CREATOR_SHARE_CINEMA;
   const adCTR = adStats.impressions > 0 ? (adStats.clicks / adStats.impressions) * 100 : 0;
 
   // 크리에이터 여부 — 영상 1개 이상 업로드한 사용자만 판매(크리에이터) 탭 노출
@@ -842,7 +911,7 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                     <div className="relative z-10">
                       <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">실 정산액</p>
                       <p className="text-2xl font-black text-[#8b5cf6]">₩{expectedPayout.toLocaleString()}</p>
-                      <p className="text-[10px] text-gray-500 font-medium mt-1">수수료 15% 공제</p>
+                      <p className="text-[10px] text-gray-500 font-medium mt-1">수수료 {Math.round((1 - CREATOR_SHARE_SALE) * 100)}% 공제</p>
                     </div>
                     <TrendingUp className="absolute right-2 bottom-2 w-16 h-16 text-[#8b5cf6]/10 group-hover:scale-110 transition-transform duration-500" />
                   </motion.div>
@@ -855,7 +924,7 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                       <Sparkles className="w-5 h-5 text-amber-400" />
                       광고 수익
                     </h3>
-                    <span className="text-[10px] text-gray-500 font-medium">CPM ₩{AD_CPM_KRW.toLocaleString()} · 크리에이터 분배 {Math.round(CREATOR_AD_SHARE * 100)}%</span>
+                    <span className="text-[10px] text-gray-500 font-medium">CPM ₩{AD_CPM_KRW.toLocaleString()} · 영상별 분배율 가중평균 약 {Math.round(avgAdShare * 100)}%</span>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="bg-[#1c1c1e] p-3 rounded-xl border border-white/5 text-center">
@@ -976,14 +1045,14 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                     <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5">
                       <p className="font-bold text-white mb-1.5">💰 두 가지 수익원</p>
                       <p className="text-gray-400 text-[13px] leading-relaxed">
-                        <span className="text-white font-medium">라이선스 판매</span>: 다른 사용자가 영상 라이선스를 구매할 때마다 매출의 <span className="text-[#8b5cf6] font-bold">85%</span> 정산<br />
-                        <span className="text-white font-medium">광고 수익</span>: 본인 영상 시청 전 광고 노출 시 광고 매출의 <span className="text-amber-300 font-bold">{Math.round(CREATOR_AD_SHARE * 100)}%</span> 분배 (CPM 기준)
+                        <span className="text-white font-medium">라이선스 판매</span>: 다른 사용자가 영상 라이선스를 구매할 때마다 매출의 <span className="text-[#8b5cf6] font-bold">{Math.round(CREATOR_SHARE_SALE * 100)}%</span> 정산<br />
+                        <span className="text-white font-medium">광고 수익</span>: 본인 영상 시청 전 광고 노출 시 영상 등급별 분배 — 홈 <span className="text-amber-300 font-bold">{Math.round(CREATOR_SHARE_HOME * 100)}%</span> / 시네마 <span className="text-amber-300 font-bold">{Math.round(CREATOR_SHARE_CINEMA * 100)}%</span> / OTT <span className="text-amber-300 font-bold">{Math.round(CREATOR_SHARE_OTT * 100)}%</span> (CPM 기준)
                       </p>
                     </div>
                     <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5">
                       <p className="font-bold text-white mb-1.5">📅 정산 주기</p>
                       <p className="text-gray-400 text-[13px] leading-relaxed">
-                        매월 <span className="text-white font-medium">15일</span>에 전월 매출이 등록 계좌로 자동 정산됩니다. 최소 정산 금액은 <span className="text-white font-medium">₩50,000</span> 이상이며, 미달 시 다음 달로 이월됩니다.
+                        매월 <span className="text-white font-medium">15일</span>에 전월 매출이 등록 계좌로 자동 정산됩니다. 최소 정산 금액은 <span className="text-white font-medium">₩{PAYOUT_MIN_KRW.toLocaleString()}</span> 이상이며, 미달 시 다음 달로 이월됩니다.
                       </p>
                     </div>
                     <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5">
