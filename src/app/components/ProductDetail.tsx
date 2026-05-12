@@ -9,6 +9,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { SubscriptionModal, type PaywallReason } from "./SubscriptionModal";
 import { CreatorAvatar } from "./CreatorAvatar";
+import { trackVideoView } from "../utils/viewTracking";
 
 // Bunny Stream 라이브러리 ID (env 변수). 클라이언트에 노출되어도 안전.
 const BUNNY_LIBRARY_ID = (import.meta as any).env?.VITE_BUNNY_LIBRARY_ID || "";
@@ -161,6 +162,70 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
       window.removeEventListener("message", handleMessage);
     };
   }, [cinemaPaywallNeeded, cinemaCutoffTriggered]);
+
+  // ── Phase 8: 시청 기록 (video_views 적재용) ──
+  // 페이월 통과한 사용자가 영상을 실제로 시청하면 30% 도달 시 1회 RPC 호출.
+  // 30%에 도달하지 못해도 5초 이상 시청했으면 unmount 시점에 기록 (서버에서 low_ratio로 invalid 처리).
+  // 페이월 cutoff와 별도 LISTENER_ID로 구독해서 서로 간섭 없음.
+  useEffect(() => {
+    if (!product.id || !durationSeconds) return;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const LISTENER_ID = "creaite-view-tracker";
+    const BUNNY_ORIGIN = "https://iframe.mediadelivery.net";
+    const threshold = Math.max(5, Math.floor(durationSeconds * 0.30));
+    let maxWatched = 0;
+    let tracked = false;
+
+    const subscribeTimeupdate = () => {
+      iframe.contentWindow?.postMessage(
+        JSON.stringify({
+          context: "player.js",
+          version: "0.0.1",
+          method: "addEventListener",
+          value: "timeupdate",
+          listener: LISTENER_ID,
+        }),
+        BUNNY_ORIGIN,
+      );
+    };
+
+    const handleMessage = (e: MessageEvent) => {
+      if (e.origin !== BUNNY_ORIGIN) return;
+      let data: any;
+      try {
+        data = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+      } catch {
+        return;
+      }
+      if (data?.context !== "player.js") return;
+
+      if (data?.event === "ready") {
+        subscribeTimeupdate();
+        return;
+      }
+      // 다른 LISTENER (cinema cutoff 등) 이벤트는 무시
+      if (data?.event !== "timeupdate" || data?.listener !== LISTENER_ID) return;
+
+      const seconds = data?.value?.seconds ?? 0;
+      if (seconds > maxWatched) maxWatched = seconds;
+
+      if (!tracked && maxWatched >= threshold) {
+        tracked = true;
+        trackVideoView(product.id, Math.floor(maxWatched));
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      // 30%에 못 도달했어도 5초+ 시청은 기록 (서버에서 유효성 판정)
+      if (!tracked && maxWatched >= 5) {
+        trackVideoView(product.id, Math.floor(maxWatched));
+      }
+    };
+  }, [product.id, durationSeconds]);
 
   // Bunny Stream Player iframe embed URL
   // 진행바·볼륨·전체화면·재생속도·자막·HLS 적응형 비트레이트 등 모두 내장

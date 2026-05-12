@@ -5,6 +5,7 @@ import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { CreatorAvatar } from "./CreatorAvatar";
+import { trackVideoView } from "../utils/viewTracking";
 
 interface VideoFullscreenProps {
   video: {
@@ -52,9 +53,18 @@ export function VideoFullscreen({
   const [duration, setDuration] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
 
+  // Phase 8: 시청 기록 추적 (re-render 없이 ref로 관리)
+  const maxWatchedRef = useRef(0);
+  const trackedRef = useRef(false);
+
   // Video.js 초기화
   useEffect(() => {
     if (!videoRef.current || !video.videoUrl) return;
+
+    // 새 영상이 들어오면 추적 상태 리셋
+    maxWatchedRef.current = 0;
+    trackedRef.current = false;
+
     const player = videojs(videoRef.current, {
       autoplay: true,
       controls: false,
@@ -83,7 +93,25 @@ export function VideoFullscreen({
       }
     });
     player.on("timeupdate", () => {
-      if (!isSeeking) setCurrentTime(player.currentTime() || 0);
+      const t = player.currentTime() || 0;
+      if (!isSeeking) setCurrentTime(t);
+
+      // 시청 추적: 최대 시청 위치 갱신 + 30% 도달 시 1회 RPC 호출
+      if (t > maxWatchedRef.current) maxWatchedRef.current = t;
+      if (!trackedRef.current) {
+        const d = player.duration() || 0;
+        const threshold = d > 0 ? Math.max(5, d * 0.30) : Infinity;
+        if (maxWatchedRef.current >= threshold) {
+          trackedRef.current = true;
+          trackVideoView(video.id, Math.floor(maxWatchedRef.current));
+        }
+      }
+    });
+    player.on("ended", () => {
+      if (!trackedRef.current && maxWatchedRef.current >= 5) {
+        trackedRef.current = true;
+        trackVideoView(video.id, Math.floor(maxWatchedRef.current));
+      }
     });
     player.on("play", () => setIsPlaying(true));
     player.on("pause", () => setIsPlaying(false));
@@ -91,6 +119,10 @@ export function VideoFullscreen({
 
     playerRef.current = player;
     return () => {
+      // unmount/영상교체 시점에 30%에 못 도달했어도 5초+ 시청은 기록
+      if (!trackedRef.current && maxWatchedRef.current >= 5 && video.id) {
+        trackVideoView(video.id, Math.floor(maxWatchedRef.current));
+      }
       if (player && !player.isDisposed()) player.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
