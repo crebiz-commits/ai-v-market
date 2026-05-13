@@ -604,4 +604,132 @@ app.get("/vast-track", async (c) => {
   });
 });
 
+// ============================================
+// Phase 9 — 토스페이먼츠 결제 승인 (toss-confirm)
+//
+// 요청 (POST /server/toss-confirm):
+//   { orderId, paymentKey, amount }
+//
+// 동작:
+//   1. payments 테이블에서 orderId 조회 → 금액 위변조 검증
+//   2. 토스 API confirm 호출 (시크릿 키 사용)
+//   3. 성공: confirm_payment RPC → status='completed' + 권한 부여
+//   4. 실패: fail_payment RPC → status='failed'
+//
+// 환경변수 필요:
+//   TOSS_SECRET_KEY = test_sk_xxx (Supabase Dashboard에서 설정)
+// ============================================
+app.post('/toss-confirm', async (c) => {
+  try {
+    const { orderId, paymentKey, amount } = await c.req.json();
+
+    if (!orderId || !paymentKey || !amount) {
+      return c.json({ error: 'orderId, paymentKey, amount 모두 필요합니다' }, 400);
+    }
+
+    const tossSecretKey = Deno.env.get('TOSS_SECRET_KEY');
+    if (!tossSecretKey) {
+      console.error('[toss-confirm] TOSS_SECRET_KEY 미설정');
+      return c.json({ error: '결제 서버 설정 오류 (관리자 문의)' }, 500);
+    }
+
+    // 서비스 롤 클라이언트 (RLS 우회 + SECURITY DEFINER RPC 호출)
+    const supabase = getSupabaseClient(true);
+
+    // 1) payments 테이블에서 orderId 조회 — 금액 위변조 방지
+    const { data: paymentRow, error: lookupErr } = await supabase
+      .from('payments')
+      .select('amount, status, user_id, payment_type')
+      .eq('order_id', orderId)
+      .single();
+
+    if (lookupErr || !paymentRow) {
+      console.error('[toss-confirm] orderId 조회 실패:', orderId, lookupErr);
+      return c.json({ error: '존재하지 않는 결제 요청입니다' }, 404);
+    }
+
+    if (paymentRow.amount !== Number(amount)) {
+      console.error('[toss-confirm] 금액 불일치:', { orderId, expected: paymentRow.amount, actual: amount });
+      return c.json({ error: '결제 금액이 변조되었습니다' }, 400);
+    }
+
+    if (paymentRow.status === 'completed') {
+      // 멱등성 — 이미 처리됨
+      return c.json({ success: true, message: '이미 처리된 결제입니다', alreadyProcessed: true });
+    }
+
+    if (paymentRow.status !== 'pending') {
+      return c.json({ error: `잘못된 결제 상태: ${paymentRow.status}` }, 400);
+    }
+
+    // 2) 토스 API confirm 호출
+    // Authorization: Basic base64(secretKey + ':')
+    const authHeader = `Basic ${btoa(tossSecretKey + ':')}`;
+    const tossRes = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ orderId, paymentKey, amount: Number(amount) }),
+    });
+
+    const tossBody = await tossRes.json();
+
+    if (!tossRes.ok) {
+      // 토스 confirm 실패
+      console.error('[toss-confirm] 토스 confirm 실패:', tossBody);
+      await supabase.rpc('fail_payment', {
+        p_order_id: orderId,
+        p_failure_code: tossBody?.code || 'TOSS_CONFIRM_FAILED',
+        p_failure_reason: tossBody?.message || '토스페이먼츠 승인 실패',
+      });
+      return c.json({
+        error: tossBody?.message || '결제 승인 실패',
+        code: tossBody?.code,
+      }, 400);
+    }
+
+    // 3) confirm 성공 — DB 갱신 (RPC가 권한 부여까지 처리)
+    const { error: confirmErr } = await supabase.rpc('confirm_payment', {
+      p_order_id: orderId,
+      p_payment_key: paymentKey,
+      p_method: tossBody?.method || '카드',
+      p_approved_at: tossBody?.approvedAt || new Date().toISOString(),
+      p_raw_response: tossBody,
+    });
+
+    if (confirmErr) {
+      console.error('[toss-confirm] confirm_payment RPC 실패:', confirmErr);
+      // 토스 결제는 승인됐지만 우리 DB 갱신 실패 — 수동 조치 필요
+      return c.json({
+        error: '결제는 승인됐지만 DB 처리 실패. 고객센터 문의 필요',
+        orderId,
+        paymentKey,
+      }, 500);
+    }
+
+    // 결제 종류별 성공 메시지
+    let successMessage = '결제가 정상적으로 완료되었습니다.';
+    if (paymentRow.payment_type === 'subscription') {
+      successMessage = '프리미엄 구독이 활성화되었습니다. 30일간 시네마·OTT를 무제한 즐기세요.';
+    } else if (paymentRow.payment_type === 'license') {
+      successMessage = '영상 라이선스 구매가 완료되었습니다. 다운로드 페이지에서 확인하세요.';
+    } else if (paymentRow.payment_type === 'ad_budget') {
+      successMessage = '광고 예산이 충전되었습니다.';
+    }
+
+    return c.json({
+      success: true,
+      message: successMessage,
+      orderId,
+      amount: Number(amount),
+      method: tossBody?.method,
+    });
+  } catch (err: any) {
+    console.error('[toss-confirm] 예외:', err);
+    return c.json({ error: '결제 승인 처리 중 서버 오류: ' + (err?.message || err) }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

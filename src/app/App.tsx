@@ -53,6 +53,7 @@ const BusinessPage = lazy(() => import("./components/BusinessPage").then(m => ({
 const AboutPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.AboutPage })));
 const TermsPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.TermsPage })));
 const PrivacyPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.PrivacyPage })));
+const PaymentResult = lazy(() => import("./components/PaymentResult").then(m => ({ default: m.PaymentResult })));
 
 // 모달·패널 (열릴 때만 로드)
 const ProductDetail = lazy(() => import("./components/ProductDetail").then(m => ({ default: m.ProductDetail })));
@@ -144,6 +145,20 @@ function AppContent() {
     if (previewMap[previewParam]) {
       return <Suspense fallback={<PageLoading />}>{previewMap[previewParam]}</Suspense>;
     }
+  }
+
+  // Phase 9 — 토스페이먼츠 결제 결과 라우팅 (?payment=success|fail)
+  const paymentParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("payment") : null;
+  if (paymentParam === "success" || paymentParam === "fail") {
+    const handleClose = () => {
+      // URL 쿼리 제거 후 강제 리로드 (정상 흐름으로 복귀)
+      window.location.href = window.location.pathname;
+    };
+    return (
+      <Suspense fallback={<PageLoading />}>
+        <PaymentResult onClose={handleClose} />
+      </Suspense>
+    );
   }
 
   const [showSplash, setShowSplash] = useState(() => {

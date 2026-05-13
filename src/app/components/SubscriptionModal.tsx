@@ -1,7 +1,9 @@
-import { Crown, Check, X, LogIn } from "lucide-react";
+import { useState } from "react";
+import { Crown, Check, X, LogIn, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "./ui/button";
 import { useAuth } from "../contexts/AuthContext";
+import { usePayment } from "../hooks/usePayment";
 import { toast } from "sonner";
 
 export type PaywallReason = "ott_block" | "cinema_cutoff";
@@ -28,7 +30,9 @@ export function SubscriptionModal({
   onClose,
   onSignInClick,
 }: SubscriptionModalProps) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const { startSubscription } = usePayment();
+  const [paying, setPaying] = useState(false);
 
   const messages = {
     ott_block: {
@@ -43,14 +47,29 @@ export function SubscriptionModal({
 
   const msg = messages[reason];
 
-  const handleSubscribe = () => {
+  const handleSubscribe = async () => {
     if (!isAuthenticated) {
       onSignInClick?.();
       onClose();
       return;
     }
-    // TODO Phase 5: 실제 결제 모달/페이지로 이동
-    toast.info("구독 결제는 곧 출시됩니다. 잠시만 기다려주세요!");
+
+    setPaying(true);
+    try {
+      await startSubscription({
+        email: user?.email,
+        name: user?.name || user?.email,
+      });
+      // 성공 시 토스 결제창으로 이동 — 여기 이후 코드는 실행 안 됨
+    } catch (err: any) {
+      // 사용자가 결제창에서 취소하거나 SDK 오류
+      if (err?.code === "USER_CANCEL") {
+        toast.info("결제를 취소했습니다.");
+      } else {
+        toast.error("결제 시작 실패: " + (err?.message || "알 수 없는 오류"));
+      }
+      setPaying(false);
+    }
   };
 
   return (
@@ -131,9 +150,15 @@ export function SubscriptionModal({
                 {/* CTA 버튼 */}
                 <Button
                   onClick={handleSubscribe}
-                  className="w-full h-12 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white font-black text-base shadow-lg shadow-amber-500/20 rounded-xl border border-white/10"
+                  disabled={paying}
+                  className="w-full h-12 gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white font-black text-base shadow-lg shadow-amber-500/20 rounded-xl border border-white/10 disabled:opacity-60"
                 >
-                  {isAuthenticated ? (
+                  {paying ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      결제창 여는 중...
+                    </>
+                  ) : isAuthenticated ? (
                     <>
                       <Crown className="w-5 h-5" />
                       구독하기 — 월 ₩4,900

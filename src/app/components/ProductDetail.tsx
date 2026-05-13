@@ -10,6 +10,8 @@ import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { SubscriptionModal, type PaywallReason } from "./SubscriptionModal";
 import { CreatorAvatar } from "./CreatorAvatar";
 import { trackVideoView } from "../utils/viewTracking";
+import { usePayment } from "../hooks/usePayment";
+import { Loader2 } from "lucide-react";
 
 // Bunny Stream 라이브러리 ID (env 변수). 클라이언트에 노출되어도 안전.
 const BUNNY_LIBRARY_ID = (import.meta as any).env?.VITE_BUNNY_LIBRARY_ID || "";
@@ -89,7 +91,10 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
   const creatorName = (product.creatorId ? creatorInfo[product.creatorId]?.name : null) ?? product.creator;
 
   // Phase 4: 페이월 게이트
-  const { isSubscriber } = useAuth();
+  const { isSubscriber, isAuthenticated, user } = useAuth();
+  // Phase 9: 라이선스 결제
+  const { startLicensePurchase } = usePayment();
+  const [buyingLicense, setBuyingLicense] = useState(false);
   const durationSeconds = product.durationSeconds ?? parseDurationText(product.duration);
   // 영상 등급 판정
   const isOttVideo = durationSeconds >= OTT_THRESHOLD_SECONDS;        // 10분+
@@ -243,6 +248,37 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
 
   // 뒤로가기로 댓글 패널 닫기
   useBackButton(showComments, () => setShowComments(false));
+
+  // Phase 9: 라이선스 즉시 구매 (장바구니 우회)
+  const handleBuyNow = async () => {
+    if (!isAuthenticated) {
+      onSignInClick?.();
+      return;
+    }
+    if (!product.price || product.price <= 0) {
+      toast.error("이 영상은 라이선스 판매 대상이 아닙니다.");
+      return;
+    }
+
+    setBuyingLicense(true);
+    try {
+      await startLicensePurchase({
+        videoId: product.id,
+        amount: product.price,
+        videoTitle: product.title,
+        email: user?.email,
+        name: user?.name || user?.email,
+      });
+      // 토스 결제창으로 이동 — 여기 이후 코드는 실행 안 됨
+    } catch (err: any) {
+      if (err?.code === "USER_CANCEL") {
+        toast.info("결제를 취소했습니다.");
+      } else {
+        toast.error("결제 시작 실패: " + (err?.message || "알 수 없는 오류"));
+      }
+      setBuyingLicense(false);
+    }
+  };
 
   const handleAddToCart = async () => {
     if (!onAddToCart) return;
@@ -684,11 +720,21 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               )}
             </Button>
             <Button
-              onClick={() => toast.info("결제 기능은 준비 중입니다.", { duration: 3000 })}
-              className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
+              onClick={handleBuyNow}
+              disabled={buyingLicense}
+              className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] disabled:opacity-60"
             >
-              <Download className="w-5 h-5" />
-              구매하기
+              {buyingLicense ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  결제창 열기
+                </>
+              ) : (
+                <>
+                  <Download className="w-5 h-5" />
+                  구매하기
+                </>
+              )}
             </Button>
           </div>
         </div>
