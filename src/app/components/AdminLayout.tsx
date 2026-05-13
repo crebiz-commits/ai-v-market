@@ -10,7 +10,7 @@
 import { useState, lazy, Suspense } from "react";
 import {
   ShieldCheck, Megaphone, Settings, Coins, Flag, EyeOff,
-  ArrowLeft, Menu, X, ShieldAlert, Loader2
+  ArrowLeft, Menu, X, ShieldAlert, Loader2, LayoutDashboard
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
@@ -21,12 +21,14 @@ const ADMIN_EMAILS = [
 ];
 
 // 지연 로드 (각 페이지)
+const AdminOverview = lazy(() => import("./AdminOverview").then(m => ({ default: m.AdminOverview })));
 const AdminDashboard = lazy(() => import("./AdminDashboard").then(m => ({ default: m.AdminDashboard })));
 const AdminRevenuePolicy = lazy(() => import("./AdminRevenuePolicy").then(m => ({ default: m.AdminRevenuePolicy })));
 const AdminRevenueSettlement = lazy(() => import("./AdminRevenueSettlement").then(m => ({ default: m.AdminRevenueSettlement })));
 const AdminReports = lazy(() => import("./AdminReports").then(m => ({ default: m.AdminReports })));
 
 type AdminPage =
+  | "overview"      // 대시보드 (한눈에 보기)
   | "ads"           // 광고 관리
   | "policy"        // 수익 정책
   | "settlement"    // 정산 관리
@@ -41,6 +43,7 @@ interface MenuItem {
 }
 
 const MENU: MenuItem[] = [
+  { key: "overview",   label: "대시보드",   icon: LayoutDashboard, group: "📊 한눈에 보기" },
   { key: "ads",        label: "광고 관리",  icon: Megaphone, group: "💰 수익화" },
   { key: "policy",     label: "수익 정책",  icon: Settings,  group: "💰 수익화" },
   { key: "settlement", label: "정산 관리",  icon: Coins,     group: "💰 수익화" },
@@ -49,6 +52,7 @@ const MENU: MenuItem[] = [
 ];
 
 const PAGE_META: Record<AdminPage, { title: string; subtitle: string }> = {
+  overview:   { title: "대시보드",       subtitle: "사용자·콘텐츠·매출·시청·운영 통계를 한눈에 봅니다" },
   ads:        { title: "광고 관리",      subtitle: "Discovery Feed에 노출되는 광고를 관리합니다" },
   policy:     { title: "수익 정책",      subtitle: "크리에이터 분배율·CPM·정산 허들을 변경하고 이력을 추적합니다" },
   settlement: { title: "정산 관리",      subtitle: "월별 크리에이터 수익을 산출하고 지급 처리합니다" },
@@ -62,7 +66,7 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
   const { user } = useAuth();
-  const [currentPage, setCurrentPage] = useState<AdminPage>("ads");
+  const [currentPage, setCurrentPage] = useState<AdminPage>("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);  // 모바일용
 
   const isAdmin = user && ADMIN_EMAILS.includes(user.email);
@@ -100,6 +104,7 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
   const renderPage = () => {
     return (
       <Suspense fallback={<div className="flex justify-center py-16"><Loader2 className="w-8 h-8 text-[#6366f1] animate-spin" /></div>}>
+        {currentPage === "overview" && <AdminOverview />}
         {currentPage === "ads" && <AdminDashboard />}
         {currentPage === "policy" && <AdminRevenuePolicy />}
         {currentPage === "settlement" && <AdminRevenueSettlement />}
