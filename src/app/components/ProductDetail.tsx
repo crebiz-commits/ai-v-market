@@ -1,4 +1,4 @@
-import { X, Heart, Send, Download, ShoppingCart, Check, MessageCircle, Crown, Lock } from "lucide-react";
+import { X, Heart, Send, Download, ShoppingCart, Check, MessageCircle, Crown, Lock, Flag } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -12,6 +12,7 @@ import { CreatorAvatar } from "./CreatorAvatar";
 import { trackVideoView } from "../utils/viewTracking";
 import { usePayment } from "../hooks/usePayment";
 import { Loader2 } from "lucide-react";
+import { ReportModal } from "./ReportModal";
 
 // Bunny Stream 라이브러리 ID (env 변수). 클라이언트에 노출되어도 안전.
 const BUNNY_LIBRARY_ID = (import.meta as any).env?.VITE_BUNNY_LIBRARY_ID || "";
@@ -95,6 +96,8 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
   // Phase 9: 라이선스 결제
   const { startLicensePurchase } = usePayment();
   const [buyingLicense, setBuyingLicense] = useState(false);
+  // Phase 10: 신고 모달
+  const [reportOpen, setReportOpen] = useState(false);
   const durationSeconds = product.durationSeconds ?? parseDurationText(product.duration);
   // 영상 등급 판정
   const isOttVideo = durationSeconds >= OTT_THRESHOLD_SECONDS;        // 10분+
@@ -694,6 +697,19 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               </div>
             </motion.button>
 
+            {/* Phase 10: 신고 버튼 */}
+            <motion.button
+              whileTap={{ scale: 0.85 }}
+              onClick={() => setReportOpen(true)}
+              className="flex flex-col items-center"
+              aria-label="신고"
+              title="이 영상 신고"
+            >
+              <div className="w-10 h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center hover:bg-red-500/20 hover:border-red-400/60 transition-colors">
+                <Flag className="w-[18px] h-[18px] text-foreground" strokeWidth={1.8} />
+              </div>
+            </motion.button>
+
             <div className="flex-1" />
             <div className="text-right">
               <p className="text-xs text-muted-foreground">All-in-One 라이선스</p>
@@ -789,6 +805,16 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
         open={paywallOpen}
         reason={paywallReason}
         onClose={() => setPaywallOpen(false)}
+        onSignInClick={onSignInClick}
+      />
+
+      {/* Phase 10: 신고 모달 */}
+      <ReportModal
+        open={reportOpen}
+        targetType="video"
+        targetId={product.id}
+        targetTitle={product.title}
+        onClose={() => setReportOpen(false)}
         onSignInClick={onSignInClick}
       />
     </motion.div>

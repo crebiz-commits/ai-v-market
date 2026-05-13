@@ -3,16 +3,12 @@ import {
   Plus, Pencil, Trash2, ToggleLeft, ToggleRight,
   BarChart2, Eye, MousePointerClick, Megaphone,
   ImageIcon, Video, Link, Calendar, Save, X, Loader2, ShieldAlert,
-  Upload as UploadIcon, Settings, Coins
+  Upload as UploadIcon
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { supabase, supabaseAnonKey } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
-import { AdminRevenuePolicy } from "./AdminRevenuePolicy";
-import { AdminRevenueSettlement } from "./AdminRevenueSettlement";
-
-type AdminTab = "ads" | "policy" | "settlement";
 
 // ─── 관리자 이메일 목록 (여기에 추가) ────────────────────────────
 const ADMIN_EMAILS = [
@@ -81,7 +77,6 @@ function fmt(n: number) {
 
 export function AdminDashboard() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<AdminTab>("ads");
   const [ads, setAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -374,66 +369,18 @@ export function AdminDashboard() {
   const totalClicks = ads.reduce((s, a) => s + a.clicks, 0);
   const activeCount = ads.filter(a => a.is_active).length;
 
-  // 탭 별 헤더 메타
-  const TAB_META: Record<AdminTab, { title: string; subtitle: string; icon: typeof Megaphone }> = {
-    ads:        { title: "광고 관리",  subtitle: "Discovery Feed에 노출되는 광고를 관리합니다.",            icon: Megaphone },
-    policy:     { title: "수익 정책",  subtitle: "크리에이터 분배율·CPM·정산 허들을 변경하고 이력을 추적합니다.", icon: Settings },
-    settlement: { title: "정산 관리",  subtitle: "월별 크리에이터 수익을 산출하고 지급 처리합니다.",            icon: Coins },
-  };
-  const meta = TAB_META[tab];
-
   return (
-    <div className="h-full overflow-y-auto bg-background">
-      <div className="max-w-5xl mx-auto p-4 md:p-6 pb-16">
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              <meta.icon className="w-6 h-6 text-[#6366f1]" />
-              {meta.title}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">{meta.subtitle}</p>
-          </div>
-          {tab === "ads" && (
-            <Button
-              onClick={openCreate}
-              className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 font-bold"
-            >
-              <Plus className="w-4 h-4" />
-              광고 추가
-            </Button>
-          )}
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-1 mb-6 border-b border-border">
-          {([
-            { key: "ads",        label: "광고 관리",  icon: Megaphone },
-            { key: "policy",     label: "수익 정책",  icon: Settings },
-            { key: "settlement", label: "정산 관리",  icon: Coins },
-          ] as { key: AdminTab; label: string; icon: typeof Megaphone }[]).map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`px-4 py-2.5 flex items-center gap-1.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-                tab === key
-                  ? "border-[#6366f1] text-[#6366f1]"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* 탭 컨텐츠: policy / settlement는 별도 컴포넌트로 위임 */}
-        {tab === "policy" && <AdminRevenuePolicy />}
-        {tab === "settlement" && <AdminRevenueSettlement />}
-
-        {/* ──── 이하 광고 관리 탭 (tab === "ads") ──── */}
-        {tab === "ads" && <>
+    <div>
+      {/* 광고 추가 버튼 */}
+      <div className="flex justify-end mb-4">
+        <Button
+          onClick={openCreate}
+          className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 font-bold"
+        >
+          <Plus className="w-4 h-4" />
+          광고 추가
+        </Button>
+      </div>
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mb-6">
@@ -598,9 +545,6 @@ export function AdminDashboard() {
             })}
           </div>
         )}
-
-        </>}
-      </div>
 
       {/* ── 광고 등록/수정 폼 (슬라이드 패널) ── */}
       {showForm && (

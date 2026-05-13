@@ -48,7 +48,7 @@ const Upload = lazy(() => import("./components/Upload").then(m => ({ default: m.
 const Community = lazy(() => import("./components/Community").then(m => ({ default: m.Community })));
 const Channel = lazy(() => import("./components/Channel").then(m => ({ default: m.Channel })));
 const MyPage = lazy(() => import("./components/MyPage").then(m => ({ default: m.MyPage })));
-const AdminDashboard = lazy(() => import("./components/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
+const AdminLayout = lazy(() => import("./components/AdminLayout").then(m => ({ default: m.AdminLayout })));
 const BusinessPage = lazy(() => import("./components/BusinessPage").then(m => ({ default: m.BusinessPage })));
 const AboutPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.AboutPage })));
 const TermsPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.TermsPage })));
@@ -406,7 +406,7 @@ function AppContent() {
       case "mypage":
         return <MyPage onSignInClick={() => setShowAuthModal(true)} />;
       case "admin":
-        return <AdminDashboard />;
+        return <AdminLayout onBackToSite={() => setActiveTab("discovery")} />;
       case "business":
         return <BusinessPage onBack={() => setActiveTab("discovery")} />;
       case "about":
