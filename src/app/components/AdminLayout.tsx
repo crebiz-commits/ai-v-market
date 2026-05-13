@@ -10,7 +10,8 @@
 import { useState, lazy, Suspense } from "react";
 import {
   ShieldCheck, Megaphone, Settings, Coins, Flag, EyeOff,
-  ArrowLeft, Menu, X, ShieldAlert, Loader2, LayoutDashboard
+  ArrowLeft, Menu, X, ShieldAlert, Loader2, LayoutDashboard,
+  Users, Film, DollarSign
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
@@ -26,14 +27,21 @@ const AdminDashboard = lazy(() => import("./AdminDashboard").then(m => ({ defaul
 const AdminRevenuePolicy = lazy(() => import("./AdminRevenuePolicy").then(m => ({ default: m.AdminRevenuePolicy })));
 const AdminRevenueSettlement = lazy(() => import("./AdminRevenueSettlement").then(m => ({ default: m.AdminRevenueSettlement })));
 const AdminReports = lazy(() => import("./AdminReports").then(m => ({ default: m.AdminReports })));
+const AdminUsers = lazy(() => import("./AdminUsers").then(m => ({ default: m.AdminUsers })));
+const AdminContent = lazy(() => import("./AdminContent").then(m => ({ default: m.AdminContent })));
+const AdminModeration = lazy(() => import("./AdminModeration").then(m => ({ default: m.AdminModeration })));
+const AdminPayments = lazy(() => import("./AdminPayments").then(m => ({ default: m.AdminPayments })));
 
 type AdminPage =
   | "overview"      // 대시보드 (한눈에 보기)
   | "ads"           // 광고 관리
   | "policy"        // 수익 정책
   | "settlement"    // 정산 관리
+  | "payments"      // 결제/환불
+  | "users"         // 사용자 관리
+  | "content"       // 콘텐츠 관리
   | "reports"       // 신고 큐
-  | "moderation";   // 콘텐츠 모더레이션 (향후)
+  | "moderation";   // 숨김 콘텐츠
 
 interface MenuItem {
   key: AdminPage;
@@ -44,20 +52,26 @@ interface MenuItem {
 
 const MENU: MenuItem[] = [
   { key: "overview",   label: "대시보드",   icon: LayoutDashboard, group: "📊 한눈에 보기" },
+  { key: "users",      label: "사용자 관리", icon: Users,     group: "👥 운영" },
+  { key: "content",    label: "콘텐츠 관리", icon: Film,      group: "👥 운영" },
   { key: "ads",        label: "광고 관리",  icon: Megaphone, group: "💰 수익화" },
   { key: "policy",     label: "수익 정책",  icon: Settings,  group: "💰 수익화" },
   { key: "settlement", label: "정산 관리",  icon: Coins,     group: "💰 수익화" },
+  { key: "payments",   label: "결제·환불",  icon: DollarSign, group: "💰 수익화" },
   { key: "reports",    label: "신고 큐",    icon: Flag,      group: "🛡 안전·품질" },
   { key: "moderation", label: "숨김 콘텐츠", icon: EyeOff,    group: "🛡 안전·품질" },
 ];
 
 const PAGE_META: Record<AdminPage, { title: string; subtitle: string }> = {
   overview:   { title: "대시보드",       subtitle: "사용자·콘텐츠·매출·시청·운영 통계를 한눈에 봅니다" },
+  users:      { title: "사용자 관리",    subtitle: "사용자 검색, 정지, 어드민 권한 부여를 관리합니다" },
+  content:    { title: "콘텐츠 관리",    subtitle: "전체 영상 검색, 강제 숨김, 영구 삭제를 처리합니다" },
   ads:        { title: "광고 관리",      subtitle: "Discovery Feed에 노출되는 광고를 관리합니다" },
   policy:     { title: "수익 정책",      subtitle: "크리에이터 분배율·CPM·정산 허들을 변경하고 이력을 추적합니다" },
   settlement: { title: "정산 관리",      subtitle: "월별 크리에이터 수익을 산출하고 지급 처리합니다" },
+  payments:   { title: "결제·환불",      subtitle: "모든 결제 내역 조회 및 환불 처리 (구독/라이선스/광고예산)" },
   reports:    { title: "신고 큐",        subtitle: "사용자가 신고한 영상/댓글/사용자/커뮤니티 글을 검토합니다" },
-  moderation: { title: "숨김 콘텐츠",    subtitle: "신고로 숨김 처리된 콘텐츠와 정지된 사용자 계정을 관리합니다 (준비 중)" },
+  moderation: { title: "숨김 콘텐츠",    subtitle: "자동/수동 숨김된 콘텐츠와 정지된 계정을 통합 관리합니다" },
 };
 
 interface AdminLayoutProps {
@@ -105,11 +119,14 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
     return (
       <Suspense fallback={<div className="flex justify-center py-16"><Loader2 className="w-8 h-8 text-[#6366f1] animate-spin" /></div>}>
         {currentPage === "overview" && <AdminOverview />}
+        {currentPage === "users" && <AdminUsers />}
+        {currentPage === "content" && <AdminContent />}
         {currentPage === "ads" && <AdminDashboard />}
         {currentPage === "policy" && <AdminRevenuePolicy />}
         {currentPage === "settlement" && <AdminRevenueSettlement />}
+        {currentPage === "payments" && <AdminPayments />}
         {currentPage === "reports" && <AdminReports />}
-        {currentPage === "moderation" && <ModerationPlaceholder />}
+        {currentPage === "moderation" && <AdminModeration />}
       </Suspense>
     );
   };
@@ -214,22 +231,6 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
           </div>
         </div>
       </main>
-    </div>
-  );
-}
-
-// 임시 placeholder
-function ModerationPlaceholder() {
-  return (
-    <div className="text-center py-16 text-muted-foreground">
-      <EyeOff className="w-12 h-12 mx-auto mb-3 opacity-30" />
-      <p className="font-semibold">숨김 콘텐츠 관리 (준비 중)</p>
-      <p className="text-xs mt-2">
-        신고로 숨김된 영상/댓글/사용자를 한눈에 보고 관리할 수 있는 화면이 곧 추가됩니다.
-      </p>
-      <p className="text-xs mt-1">
-        현재는 SQL Editor에서 직접 <code className="text-[#6366f1]">videos WHERE is_hidden = true</code> 조회 가능합니다.
-      </p>
     </div>
   );
 }
