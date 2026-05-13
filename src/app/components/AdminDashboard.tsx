@@ -45,9 +45,12 @@ interface Ad {
   skip_offset: number;
   max_duration: number;
   weight: number;
+  // Phase 8.5: 광고 예산 회계
+  budget_krw: number | null;
+  spent_krw: number;
 }
 
-const emptyForm = (): Omit<Ad, "id" | "impressions" | "clicks" | "created_at"> => ({
+const emptyForm = (): Omit<Ad, "id" | "impressions" | "clicks" | "created_at" | "spent_krw"> => ({
   title: "",
   advertiser: "",
   image_url: null,
@@ -63,6 +66,7 @@ const emptyForm = (): Omit<Ad, "id" | "impressions" | "clicks" | "created_at"> =
   skip_offset: 5,
   max_duration: 30,
   weight: 1,
+  budget_krw: 100000,  // Phase 8.5 — 기본 예산 ₩100,000
 });
 
 function ctr(impressions: number, clicks: number) {
@@ -274,6 +278,7 @@ export function AdminDashboard() {
       skip_offset: ad.skip_offset ?? 5,
       max_duration: ad.max_duration ?? 30,
       weight: ad.weight ?? 1,
+      budget_krw: ad.budget_krw,  // Phase 8.5
     });
     setShowForm(true);
   };
@@ -458,8 +463,15 @@ export function AdminDashboard() {
           </div>
         ) : (
           <div className="space-y-3">
-            {ads.map(ad => (
-              <div key={ad.id} className="bg-card border border-border rounded-xl overflow-hidden">
+            {ads.map(ad => {
+              const isDepleted = ad.budget_krw != null && (ad.spent_krw || 0) >= ad.budget_krw;
+              return (
+              <div
+                key={ad.id}
+                className={`bg-card border rounded-xl overflow-hidden transition-opacity ${
+                  isDepleted ? "border-red-500/30 opacity-60" : "border-border"
+                }`}
+              >
                 <div className="flex items-start gap-3 p-4">
                   {/* 썸네일 */}
                   <div className="w-20 h-14 rounded-lg overflow-hidden bg-muted flex-shrink-0">
@@ -497,8 +509,46 @@ export function AdminDashboard() {
                       <span className="flex items-center gap-1"><MousePointerClick className="w-3 h-3" />{fmt(ad.clicks)}</span>
                       <span className="flex items-center gap-1"><BarChart2 className="w-3 h-3" />CTR {ctr(ad.impressions, ad.clicks)}</span>
                     </div>
+                    {/* Phase 8.5 — 예산 진행률 */}
+                    {(() => {
+                      if (ad.budget_krw == null) {
+                        return (
+                          <p className="text-xs text-amber-300/80 mt-1.5 flex items-center gap-1">
+                            🏠 자체 광고 · 예산 무제한
+                          </p>
+                        );
+                      }
+                      const spent = ad.spent_krw || 0;
+                      const ratio = ad.budget_krw > 0 ? Math.min(spent / ad.budget_krw, 1) : 0;
+                      const depleted = spent >= ad.budget_krw;
+                      const pct = Math.round(ratio * 100);
+                      return (
+                        <div className="mt-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className={depleted ? "text-red-400 font-bold" : "text-muted-foreground"}>
+                              {depleted ? "예산 소진" : "예산"} ₩{spent.toLocaleString()} / ₩{ad.budget_krw.toLocaleString()}
+                            </span>
+                            <span className={`font-mono ${depleted ? "text-red-400" : "text-[#8b5cf6]"}`}>
+                              {pct}%
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mt-1">
+                            <div
+                              className={`h-full ${
+                                depleted
+                                  ? "bg-red-500"
+                                  : ratio >= 0.8
+                                    ? "bg-amber-400"
+                                    : "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
+                              }`}
+                              style={{ width: `${Math.max(pct, 2)}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
                     {(ad.starts_at || ad.ends_at) && (
-                      <p className="text-xs text-muted-foreground/60 mt-1 flex items-center gap-1">
+                      <p className="text-xs text-muted-foreground/60 mt-1.5 flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         {ad.starts_at ? ad.starts_at.slice(0, 10) : "즉시"} ~ {ad.ends_at ? ad.ends_at.slice(0, 10) : "무기한"}
                       </p>
@@ -544,7 +594,8 @@ export function AdminDashboard() {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -749,6 +800,26 @@ export function AdminDashboard() {
                   value={form.cta_text}
                   onChange={e => setForm(f => ({ ...f, cta_text: e.target.value }))}
                 />
+              </Field>
+
+              {/* Phase 8.5 — 광고 예산 (CPM 차감) */}
+              <Field label="광고 예산 (₩)">
+                <input
+                  type="number"
+                  min={0}
+                  step={1000}
+                  className="input-base"
+                  placeholder="예: 100000 (₩100,000) — 비워두면 무제한 (자체 광고)"
+                  value={form.budget_krw ?? ""}
+                  onChange={e => setForm(f => ({
+                    ...f,
+                    budget_krw: e.target.value === "" ? null : Number(e.target.value),
+                  }))}
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  노출 1회당 약 ₩{Math.ceil(2000 / 1000)} 차감 (CPM ₩2,000 기준).
+                  잔액 0 시 광고 자동 중단. 비워두면 자체 광고로 무제한 노출.
+                </p>
               </Field>
 
               {/* 홈피드 광고 — 노출 간격 */}
