@@ -11,7 +11,7 @@ import { useState, lazy, Suspense } from "react";
 import {
   ShieldCheck, Megaphone, Settings, Coins, Flag, EyeOff,
   ArrowLeft, Menu, X, ShieldAlert, Loader2, LayoutDashboard,
-  Users, Film, DollarSign
+  Users, Film, DollarSign, Send, ClipboardList
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
@@ -31,6 +31,8 @@ const AdminUsers = lazy(() => import("./AdminUsers").then(m => ({ default: m.Adm
 const AdminContent = lazy(() => import("./AdminContent").then(m => ({ default: m.AdminContent })));
 const AdminModeration = lazy(() => import("./AdminModeration").then(m => ({ default: m.AdminModeration })));
 const AdminPayments = lazy(() => import("./AdminPayments").then(m => ({ default: m.AdminPayments })));
+const AdminBroadcast = lazy(() => import("./AdminBroadcast").then(m => ({ default: m.AdminBroadcast })));
+const AdminActivityLog = lazy(() => import("./AdminActivityLog").then(m => ({ default: m.AdminActivityLog })));
 
 type AdminPage =
   | "overview"      // 대시보드 (한눈에 보기)
@@ -41,7 +43,9 @@ type AdminPage =
   | "users"         // 사용자 관리
   | "content"       // 콘텐츠 관리
   | "reports"       // 신고 큐
-  | "moderation";   // 숨김 콘텐츠
+  | "moderation"    // 숨김 콘텐츠
+  | "broadcast"     // 공지 발송
+  | "activity";     // 활동 로그
 
 interface MenuItem {
   key: AdminPage;
@@ -54,24 +58,28 @@ const MENU: MenuItem[] = [
   { key: "overview",   label: "대시보드",   icon: LayoutDashboard, group: "📊 한눈에 보기" },
   { key: "users",      label: "사용자 관리", icon: Users,     group: "👥 운영" },
   { key: "content",    label: "콘텐츠 관리", icon: Film,      group: "👥 운영" },
+  { key: "broadcast",  label: "공지 발송",  icon: Send,      group: "👥 운영" },
   { key: "ads",        label: "광고 관리",  icon: Megaphone, group: "💰 수익화" },
   { key: "policy",     label: "수익 정책",  icon: Settings,  group: "💰 수익화" },
   { key: "settlement", label: "정산 관리",  icon: Coins,     group: "💰 수익화" },
   { key: "payments",   label: "결제·환불",  icon: DollarSign, group: "💰 수익화" },
   { key: "reports",    label: "신고 큐",    icon: Flag,      group: "🛡 안전·품질" },
   { key: "moderation", label: "숨김 콘텐츠", icon: EyeOff,    group: "🛡 안전·품질" },
+  { key: "activity",   label: "활동 로그",  icon: ClipboardList, group: "🛡 안전·품질" },
 ];
 
 const PAGE_META: Record<AdminPage, { title: string; subtitle: string }> = {
   overview:   { title: "대시보드",       subtitle: "사용자·콘텐츠·매출·시청·운영 통계를 한눈에 봅니다" },
   users:      { title: "사용자 관리",    subtitle: "사용자 검색, 정지, 어드민 권한 부여를 관리합니다" },
   content:    { title: "콘텐츠 관리",    subtitle: "전체 영상 검색, 강제 숨김, 영구 삭제를 처리합니다" },
+  broadcast:  { title: "공지 발송",      subtitle: "전체/세그먼트 사용자에게 인앱 공지를 발송합니다" },
   ads:        { title: "광고 관리",      subtitle: "Discovery Feed에 노출되는 광고를 관리합니다" },
   policy:     { title: "수익 정책",      subtitle: "크리에이터 분배율·CPM·정산 허들을 변경하고 이력을 추적합니다" },
   settlement: { title: "정산 관리",      subtitle: "월별 크리에이터 수익을 산출하고 지급 처리합니다" },
   payments:   { title: "결제·환불",      subtitle: "모든 결제 내역 조회 및 환불 처리 (구독/라이선스/광고예산)" },
   reports:    { title: "신고 큐",        subtitle: "사용자가 신고한 영상/댓글/사용자/커뮤니티 글을 검토합니다" },
   moderation: { title: "숨김 콘텐츠",    subtitle: "자동/수동 숨김된 콘텐츠와 정지된 계정을 통합 관리합니다" },
+  activity:   { title: "활동 로그",      subtitle: "어드민이 변경한 모든 작업의 이력을 추적합니다 (감사용)" },
 };
 
 interface AdminLayoutProps {
@@ -121,12 +129,14 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
         {currentPage === "overview" && <AdminOverview />}
         {currentPage === "users" && <AdminUsers />}
         {currentPage === "content" && <AdminContent />}
+        {currentPage === "broadcast" && <AdminBroadcast />}
         {currentPage === "ads" && <AdminDashboard />}
         {currentPage === "policy" && <AdminRevenuePolicy />}
         {currentPage === "settlement" && <AdminRevenueSettlement />}
         {currentPage === "payments" && <AdminPayments />}
         {currentPage === "reports" && <AdminReports />}
         {currentPage === "moderation" && <AdminModeration />}
+        {currentPage === "activity" && <AdminActivityLog />}
       </Suspense>
     );
   };
