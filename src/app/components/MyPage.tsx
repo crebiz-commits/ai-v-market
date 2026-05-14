@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus } from "lucide-react";
+import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus, Clock, Trash2, Film } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -36,6 +36,7 @@ const PAGE_MODE_STORAGE_KEY = 'creaite_mypage_mode';
 
 interface MyPageProps {
   onSignInClick?: () => void;
+  onVideoClick?: (videoId: string) => void;  // Phase 17: 시청 기록에서 영상 클릭
 }
 
 // 모드 선택 화면 (마이 탭 진입 시)
@@ -149,7 +150,7 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
 };
 
-export function MyPage({ onSignInClick }: MyPageProps) {
+export function MyPage({ onSignInClick, onVideoClick }: MyPageProps) {
   const [activeTab, setActiveTab] = useState("profile");
   const [pageMode, setPageMode] = useState<PageMode>(() => {
     if (typeof window === 'undefined') return 'select';
@@ -169,6 +170,9 @@ export function MyPage({ onSignInClick }: MyPageProps) {
   const [videoTiers, setVideoTiers] = useState<Record<string, "home" | "cinema" | "ott">>({});
   // 플랫폼 정책 설정 (어드민이 변경 가능, RPC로 로드)
   const [policyRates, setPolicyRates] = useState<Record<string, number>>({});
+  // Phase 17: 시청 기록
+  const [watchHistory, setWatchHistory] = useState<any[]>([]);
+  const [watchHistoryLoading, setWatchHistoryLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // 프로필 편집 모달
@@ -428,6 +432,38 @@ export function MyPage({ onSignInClick }: MyPageProps) {
       fetchMyData();
     }
   }, [isAuthenticated, user?.id]);
+
+  // Phase 17: 시청 기록 탭 활성 시 로드
+  useEffect(() => {
+    if (activeTab !== 'history' || !isAuthenticated) return;
+    (async () => {
+      setWatchHistoryLoading(true);
+      const { data, error } = await supabase.rpc('get_my_watch_history', { p_limit: 50, p_offset: 0 });
+      if (error) {
+        console.warn('[MyPage] watch history 조회 실패:', error.message);
+        setWatchHistory([]);
+      } else {
+        setWatchHistory(data || []);
+      }
+      setWatchHistoryLoading(false);
+    })();
+  }, [activeTab, isAuthenticated]);
+
+  const handleDeleteHistoryItem = async (videoId: string) => {
+    if (!confirm('이 영상의 시청 기록을 삭제하시겠습니까?')) return;
+    const { error } = await supabase.rpc('delete_my_watch_history', { p_video_id: videoId });
+    if (error) return toast.error('삭제 실패: ' + error.message);
+    setWatchHistory(prev => prev.filter(h => h.video_id !== videoId));
+    toast.success('시청 기록 삭제됨');
+  };
+
+  const handleClearAllHistory = async () => {
+    if (!confirm('전체 시청 기록을 삭제하시겠습니까?\n(이 작업은 되돌릴 수 없습니다)')) return;
+    const { error } = await supabase.rpc('delete_my_watch_history', { p_video_id: null });
+    if (error) return toast.error('삭제 실패: ' + error.message);
+    setWatchHistory([]);
+    toast.success('전체 시청 기록 삭제됨');
+  };
 
   const totalRevenue = useMemo(() => myProducts.reduce((sum, p) => sum + p.revenue, 0), [myProducts]);
   const totalSales = useMemo(() => myProducts.reduce((sum, p) => sum + p.sales, 0), [myProducts]);
@@ -712,12 +748,13 @@ export function MyPage({ onSignInClick }: MyPageProps) {
       <div className="px-4 md:px-0">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList
-            className="grid w-full grid-cols-3 bg-[#1c1c1e] p-1.5 rounded-2xl mb-8 border border-white/5 shadow-inner"
+            className="grid w-full grid-cols-4 bg-[#1c1c1e] p-1.5 rounded-2xl mb-8 border border-white/5 shadow-inner"
           >
             {([
               { id: 'profile', icon: User, label: '프로필' },
               ...(pageMode === 'user' ? [{ id: 'purchases', icon: ShoppingBag, label: '구매' }] : []),
               ...(pageMode === 'creator' && isCreator ? [{ id: 'sales', icon: TrendingUp, label: '판매' }] : []),
+              { id: 'history', icon: Clock, label: '시청 기록' },
               { id: 'settings', icon: Settings, label: '설정' },
             ] as { id: string; icon: any; label: string }[]).map(tab => {
               const Icon = tab.icon;
@@ -1111,6 +1148,96 @@ export function MyPage({ onSignInClick }: MyPageProps) {
                     </div>
                   </div>
                 </motion.div>
+              </TabsContent>
+
+              {/* Phase 17: 시청 기록 탭 */}
+              <TabsContent value="history" className="space-y-4 m-0">
+                <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-white flex items-center">
+                      <Clock className="w-5 h-5 mr-2 text-gray-400" />
+                      시청 기록
+                    </h3>
+                    {watchHistory.length > 0 && (
+                      <button
+                        onClick={handleClearAllHistory}
+                        className="text-xs text-red-400 hover:text-red-300 font-medium"
+                      >
+                        전체 삭제
+                      </button>
+                    )}
+                  </div>
+
+                  {watchHistoryLoading ? (
+                    <div className="flex justify-center py-12">
+                      <Loader2 className="w-7 h-7 text-[#6366f1] animate-spin" />
+                    </div>
+                  ) : watchHistory.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                      <p className="text-sm">아직 시청 기록이 없습니다</p>
+                      <p className="text-xs mt-1 text-gray-600">영상을 시청하면 여기에 자동으로 기록됩니다</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {watchHistory.map((h: any) => {
+                        const pct = h.watch_ratio ? Math.round(h.watch_ratio * 100) : 0;
+                        const date = new Date(h.occurred_at);
+                        const dateStr = date.toLocaleString('ko-KR', {
+                          month: 'short', day: 'numeric',
+                          hour: '2-digit', minute: '2-digit'
+                        });
+                        return (
+                          <div
+                            key={h.view_id}
+                            className="flex gap-3 p-2.5 rounded-lg bg-[#1c1c1e] hover:bg-[#2a2a2e] transition-colors group"
+                          >
+                            <button
+                              onClick={() => onVideoClick?.(h.video_id)}
+                              className="flex gap-3 flex-1 min-w-0 text-left"
+                            >
+                              {h.thumbnail ? (
+                                <img
+                                  src={h.thumbnail}
+                                  alt=""
+                                  className="w-24 h-16 rounded object-cover flex-shrink-0 bg-muted"
+                                />
+                              ) : (
+                                <div className="w-24 h-16 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                                  <Film className="w-5 h-5 text-muted-foreground/40" />
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-white truncate">{h.title || '제목 없음'}</p>
+                                <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                                  {h.creator_name || '이름 없음'} · {dateStr}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1.5">
+                                  <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full ${
+                                        h.is_valid ? 'bg-[#8b5cf6]' : 'bg-amber-400/50'
+                                      }`}
+                                      style={{ width: `${Math.max(pct, 2)}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-[10px] font-mono text-gray-500">{pct}%</span>
+                                </div>
+                              </div>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteHistoryItem(h.video_id)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-red-500/15 text-red-400 self-start"
+                              title="기록 삭제"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </TabsContent>
 
               <TabsContent value="settings" className="space-y-4 m-0">

@@ -13,6 +13,7 @@ import { trackVideoView } from "../utils/viewTracking";
 import { usePayment } from "../hooks/usePayment";
 import { Loader2 } from "lucide-react";
 import { ReportModal } from "./ReportModal";
+import { ShareModal } from "./ShareModal";
 
 // Bunny Stream 라이브러리 ID (env 변수). 클라이언트에 노출되어도 안전.
 const BUNNY_LIBRARY_ID = (import.meta as any).env?.VITE_BUNNY_LIBRARY_ID || "";
@@ -98,6 +99,8 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
   const [buyingLicense, setBuyingLicense] = useState(false);
   // Phase 10: 신고 모달
   const [reportOpen, setReportOpen] = useState(false);
+  // Phase 19: 공유 모달
+  const [shareOpen, setShareOpen] = useState(false);
   const durationSeconds = product.durationSeconds ?? parseDurationText(product.duration);
   // 영상 등급 판정
   const isOttVideo = durationSeconds >= OTT_THRESHOLD_SECONDS;        // 10분+
@@ -293,6 +296,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
     }
   };
 
+  // Phase 19: 공유 모달 열기 (기존 navigator.share fallback도 유지 — 모바일 네이티브 공유)
   const handleShare = async () => {
     const url = `${window.location.origin}?video=${product.id}`;
     const shareData = {
@@ -300,23 +304,20 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
       text: `CREAITE: ${product.title} by ${product.creator}`,
       url,
     };
-    try {
-      if (navigator.share && navigator.canShare?.(shareData)) {
+
+    // 모바일에서 네이티브 공유 시트 우선 (있으면)
+    if (typeof navigator !== "undefined" && navigator.share && navigator.canShare?.(shareData)) {
+      try {
         await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(url);
-        toast.success("링크가 클립보드에 복사됐습니다!");
-      }
-    } catch (err: any) {
-      if (err.name !== "AbortError") {
-        try {
-          await navigator.clipboard.writeText(url);
-          toast.success("링크가 클립보드에 복사됐습니다!");
-        } catch {
-          toast.error("공유 링크 복사에 실패했습니다.");
-        }
+        return;
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;  // 사용자 취소 — 무시
+        // 그 외 에러는 모달 fallback
       }
     }
+
+    // 데스크톱 / 네이티브 공유 안 됨 → 우리 ShareModal
+    setShareOpen(true);
   };
 
   return (
@@ -816,6 +817,15 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
         targetTitle={product.title}
         onClose={() => setReportOpen(false)}
         onSignInClick={onSignInClick}
+      />
+
+      {/* Phase 19: 공유 모달 */}
+      <ShareModal
+        open={shareOpen}
+        url={`${typeof window !== "undefined" ? window.location.origin : ""}?video=${product.id}`}
+        title={product.title}
+        text={`CREAITE: ${product.title} by ${product.creator}`}
+        onClose={() => setShareOpen(false)}
       />
     </motion.div>
   );

@@ -404,7 +404,50 @@ function AppContent() {
           />
         );
       case "mypage":
-        return <MyPage onSignInClick={() => setShowAuthModal(true)} />;
+        return (
+          <MyPage
+            onSignInClick={() => setShowAuthModal(true)}
+            onVideoClick={async (videoId) => {
+              // 시청 기록에서 영상 클릭 → DB 조회 후 ProductDetail 열기
+              try {
+                const { data, error } = await supabase
+                  .from("videos")
+                  .select("*")
+                  .eq("id", videoId)
+                  .single();
+                if (error || !data) {
+                  toast.error("영상을 찾을 수 없습니다");
+                  return;
+                }
+                setSelectedProduct({
+                  id: data.id,
+                  thumbnail: data.thumbnail || "",
+                  title: data.title,
+                  creator: data.creator || "",
+                  creatorId: data.creator_id,
+                  price: data.price_standard || 0,
+                  duration: data.duration || "",
+                  durationSeconds: data.duration_seconds,
+                  resolution: data.resolution || "",
+                  tool: data.ai_tool || "",
+                  category: data.category || "",
+                  videoUrl: data.video_url || "",
+                  description: data.description || "",
+                  tags: Array.isArray(data.tags) ? data.tags : [],
+                  priceStandard: data.price_standard || 0,
+                  priceCommercial: data.price_commercial || 0,
+                  priceExclusive: data.price_exclusive || 0,
+                  aiModelVersion: data.ai_model_version || "",
+                  seed: data.seed || "",
+                  highlightStart: data.highlight_start || 0,
+                  highlightEnd: data.highlight_end || 15,
+                } as VideoProduct);
+              } catch (err: any) {
+                toast.error("영상 조회 실패: " + (err?.message || err));
+              }
+            }}
+          />
+        );
       case "admin":
         return <AdminLayout onBackToSite={() => setActiveTab("discovery")} />;
       case "business":
