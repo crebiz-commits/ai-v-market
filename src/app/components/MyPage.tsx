@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus, Clock, Trash2, Film, Tv } from "lucide-react";
+import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus, Clock, Trash2, Film, Tv, FolderPlus, Bookmark, ArrowLeft, Play } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -174,6 +174,13 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
   // Phase 17: 시청 기록
   const [watchHistory, setWatchHistory] = useState<any[]>([]);
   const [watchHistoryLoading, setWatchHistoryLoading] = useState(false);
+  // Phase 18: 플레이리스트
+  const [playlists, setPlaylists] = useState<any[]>([]);
+  const [playlistsLoading, setPlaylistsLoading] = useState(false);
+  const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
+  const [activePlaylistName, setActivePlaylistName] = useState<string>("");
+  const [playlistVideos, setPlaylistVideos] = useState<any[]>([]);
+  const [playlistVideosLoading, setPlaylistVideosLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // 프로필 편집 모달
@@ -464,6 +471,63 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
     if (error) return toast.error('삭제 실패: ' + error.message);
     setWatchHistory([]);
     toast.success('전체 시청 기록 삭제됨');
+  };
+
+  // Phase 18: 플레이리스트 탭 활성 시 로드
+  const loadPlaylists = async () => {
+    setPlaylistsLoading(true);
+    const { data, error } = await supabase.rpc('get_my_playlists');
+    if (error) {
+      console.warn('[MyPage] 플레이리스트 조회 실패:', error.message);
+      setPlaylists([]);
+    } else {
+      setPlaylists(data || []);
+    }
+    setPlaylistsLoading(false);
+  };
+  useEffect(() => {
+    if (activeTab !== 'playlists' || !isAuthenticated) return;
+    loadPlaylists();
+    setActivePlaylistId(null);  // 탭 재진입 시 그리드로 돌아감
+  }, [activeTab, isAuthenticated]);
+
+  // 특정 플레이리스트 진입 시 영상 목록 로드
+  useEffect(() => {
+    if (!activePlaylistId) {
+      setPlaylistVideos([]);
+      return;
+    }
+    (async () => {
+      setPlaylistVideosLoading(true);
+      const { data, error } = await supabase.rpc('get_playlist_videos', { p_playlist_id: activePlaylistId });
+      if (error) {
+        toast.error('영상 로드 실패: ' + error.message);
+        setPlaylistVideos([]);
+      } else {
+        setPlaylistVideos(data || []);
+      }
+      setPlaylistVideosLoading(false);
+    })();
+  }, [activePlaylistId]);
+
+  const handleDeletePlaylist = async (playlistId: string, name: string, isWatchLater: boolean) => {
+    if (isWatchLater) {
+      toast.info('"나중에 보기"는 삭제할 수 없습니다');
+      return;
+    }
+    if (!confirm(`"${name}" 플레이리스트를 삭제하시겠습니까?`)) return;
+    const { error } = await supabase.rpc('delete_playlist', { p_playlist_id: playlistId });
+    if (error) return toast.error('삭제 실패: ' + error.message);
+    toast.success('플레이리스트 삭제됨');
+    await loadPlaylists();
+  };
+
+  const handleRemoveFromPlaylist = async (videoId: string) => {
+    if (!activePlaylistId) return;
+    const { error } = await supabase.rpc('remove_from_playlist', { p_playlist_id: activePlaylistId, p_video_id: videoId });
+    if (error) return toast.error('제거 실패: ' + error.message);
+    setPlaylistVideos(prev => prev.filter(v => v.id !== videoId));
+    toast.success('영상 제거됨');
   };
 
   const totalRevenue = useMemo(() => myProducts.reduce((sum, p) => sum + p.revenue, 0), [myProducts]);
@@ -762,13 +826,14 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
       <div className="px-4 md:px-0">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList
-            className="grid w-full grid-cols-4 bg-[#1c1c1e] p-1.5 rounded-2xl mb-8 border border-white/5 shadow-inner"
+            className="grid w-full grid-cols-5 bg-[#1c1c1e] p-1.5 rounded-2xl mb-8 border border-white/5 shadow-inner"
           >
             {([
               { id: 'profile', icon: User, label: '프로필' },
               ...(pageMode === 'user' ? [{ id: 'purchases', icon: ShoppingBag, label: '구매' }] : []),
               ...(pageMode === 'creator' && isCreator ? [{ id: 'sales', icon: TrendingUp, label: '판매' }] : []),
               { id: 'history', icon: Clock, label: '시청 기록' },
+              { id: 'playlists', icon: FolderPlus, label: '플레이리스트' },
               { id: 'settings', icon: Settings, label: '설정' },
             ] as { id: string; icon: any; label: string }[]).map(tab => {
               const Icon = tab.icon;
@@ -1252,6 +1317,150 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                     </div>
                   )}
                 </div>
+              </TabsContent>
+
+              {/* Phase 18: 플레이리스트 탭 */}
+              <TabsContent value="playlists" className="space-y-4 m-0">
+                {activePlaylistId ? (
+                  /* ── 플레이리스트 상세 (영상 목록) ─────────────────── */
+                  <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
+                    <div className="flex items-center gap-3 mb-5">
+                      <button
+                        onClick={() => setActivePlaylistId(null)}
+                        className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                        title="플레이리스트 목록으로"
+                      >
+                        <ArrowLeft className="w-5 h-5 text-white" />
+                      </button>
+                      <h3 className="font-bold text-white text-lg flex-1 truncate">{activePlaylistName}</h3>
+                      <span className="text-xs text-gray-500 font-bold">{playlistVideos.length}개</span>
+                    </div>
+
+                    {playlistVideosLoading ? (
+                      <div className="py-12 flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 animate-spin text-[#8b5cf6]" />
+                      </div>
+                    ) : playlistVideos.length === 0 ? (
+                      <div className="py-12 text-center text-sm text-gray-500">
+                        이 플레이리스트는 비어있습니다
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {playlistVideos.map((v: any) => (
+                          <div key={v.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors group">
+                            <button
+                              onClick={() => onVideoClick?.(v.id)}
+                              className="relative flex-shrink-0 w-24 aspect-video rounded-lg overflow-hidden bg-black group/thumb"
+                              title="재생"
+                            >
+                              {v.thumbnail ? (
+                                <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-[#1c1c1e] to-[#2d2d30]" />
+                              )}
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 bg-black/40 transition-opacity">
+                                <Play className="w-6 h-6 text-white fill-white" />
+                              </div>
+                              {v.duration && (
+                                <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/80 rounded text-white text-[10px] font-bold">
+                                  {v.duration}
+                                </div>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => onVideoClick?.(v.id)}
+                              className="flex-1 min-w-0 text-left"
+                            >
+                              <p className="text-sm font-bold text-white line-clamp-2 leading-tight mb-0.5">{v.title}</p>
+                              <p className="text-xs text-gray-500 line-clamp-1">{v.creator_display_name || v.creator}</p>
+                            </button>
+                            <button
+                              onClick={() => handleRemoveFromPlaylist(v.id)}
+                              className="p-2 rounded-lg hover:bg-red-500/10 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                              title="플레이리스트에서 제거"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* ── 플레이리스트 그리드 ─────────────────────────── */
+                  <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
+                    <div className="flex items-center justify-between mb-5">
+                      <h3 className="font-bold text-white flex items-center">
+                        <FolderPlus className="w-5 h-5 mr-2 text-[#8b5cf6]" />
+                        내 플레이리스트
+                      </h3>
+                      <span className="text-xs text-gray-500 font-bold">{playlists.length}개</span>
+                    </div>
+
+                    {playlistsLoading ? (
+                      <div className="py-12 flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 animate-spin text-[#8b5cf6]" />
+                      </div>
+                    ) : playlists.length === 0 ? (
+                      <div className="py-12 text-center">
+                        <FolderPlus className="w-12 h-12 mx-auto text-gray-600 mb-3" />
+                        <p className="text-sm text-gray-400 mb-1">아직 플레이리스트가 없습니다</p>
+                        <p className="text-xs text-gray-500">영상 상세 페이지에서 <Bookmark className="w-3 h-3 inline" /> 버튼으로 저장하세요</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {playlists.map((pl: any) => (
+                          <div key={pl.id} className="relative group">
+                            <button
+                              onClick={() => {
+                                setActivePlaylistId(pl.id);
+                                setActivePlaylistName(pl.name);
+                              }}
+                              className="block w-full text-left rounded-xl overflow-hidden border border-white/5 hover:border-[#8b5cf6]/60 bg-[#1c1c1e] hover:bg-[#222226] transition-all"
+                            >
+                              <div className="relative aspect-video bg-black">
+                                {pl.preview_thumbnail ? (
+                                  <img src={pl.preview_thumbnail} alt={pl.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-[#1c1c1e] to-[#2d2d30] flex items-center justify-center">
+                                    <FolderPlus className="w-10 h-10 text-gray-700" />
+                                  </div>
+                                )}
+                                {/* 영상 개수 뱃지 */}
+                                <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/80 backdrop-blur-sm rounded text-white text-[11px] font-bold">
+                                  {pl.video_count}개
+                                </div>
+                                {/* Watch Later 표시 */}
+                                {pl.is_watch_later && (
+                                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-[#ec4899]/90 backdrop-blur-sm rounded-full text-white text-[10px] font-black flex items-center gap-1">
+                                    <Bookmark className="w-3 h-3 fill-white" />
+                                    나중에 보기
+                                  </div>
+                                )}
+                              </div>
+                              <div className="p-3">
+                                <p className="text-sm font-bold text-white line-clamp-1">{pl.name}</p>
+                              </div>
+                            </button>
+                            {/* 삭제 버튼 (Watch Later 제외) */}
+                            {!pl.is_watch_later && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePlaylist(pl.id, pl.name, pl.is_watch_later);
+                                }}
+                                className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/70 hover:bg-red-500/80 text-white opacity-0 group-hover:opacity-100 transition-all"
+                                title="플레이리스트 삭제"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="settings" className="space-y-4 m-0">

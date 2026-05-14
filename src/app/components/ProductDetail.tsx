@@ -1,4 +1,4 @@
-import { X, Heart, Send, Download, ShoppingCart, Check, MessageCircle, Crown, Lock, Flag } from "lucide-react";
+import { X, Heart, Send, Download, ShoppingCart, Check, MessageCircle, Crown, Lock, Flag, Bookmark } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -15,6 +15,7 @@ import { Loader2 } from "lucide-react";
 import { ReportModal } from "./ReportModal";
 import { ShareModal } from "./ShareModal";
 import { NextVideoOverlay } from "./NextVideoOverlay";
+import { AddToPlaylistModal } from "./AddToPlaylistModal";
 import { supabase } from "../utils/supabaseClient";
 
 // Bunny Stream 라이브러리 ID (env 변수). 클라이언트에 노출되어도 안전.
@@ -104,6 +105,23 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
   const [reportOpen, setReportOpen] = useState(false);
   // Phase 19: 공유 모달
   const [shareOpen, setShareOpen] = useState(false);
+  // Phase 18: 플레이리스트 모달 + 저장됨 상태
+  const [playlistOpen, setPlaylistOpen] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  useEffect(() => {
+    if (!isAuthenticated || !product.id) {
+      setIsSaved(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.rpc("get_playlist_memberships", { p_video_id: product.id });
+      if (!cancelled && Array.isArray(data)) {
+        setIsSaved(data.some((p: any) => p.contains));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [product.id, isAuthenticated]);
   const durationSeconds = product.durationSeconds ?? parseDurationText(product.duration);
   // 영상 등급 판정
   const isOttVideo = durationSeconds >= OTT_THRESHOLD_SECONDS;        // 10분+
@@ -834,6 +852,32 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               </div>
             </motion.button>
 
+            {/* Phase 18: 저장 (플레이리스트/나중에 보기) */}
+            <motion.button
+              whileTap={{ scale: 0.85 }}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  onSignInClick?.();
+                  return;
+                }
+                setPlaylistOpen(true);
+              }}
+              className="flex flex-col items-center"
+              aria-label="플레이리스트에 저장"
+              title="플레이리스트에 저장 / 나중에 보기"
+            >
+              <div className={`w-10 h-10 rounded-full backdrop-blur-xl border-2 flex items-center justify-center transition-all ${
+                isSaved
+                  ? "bg-gradient-to-br from-[#6366f1]/30 to-[#ec4899]/30 border-[#ec4899] shadow-[0_0_20px_rgba(236,72,153,0.5)]"
+                  : "bg-white/10 border-white/30"
+              }`}>
+                <Bookmark
+                  className={`w-[18px] h-[18px] ${isSaved ? "fill-[#ec4899] text-[#ec4899]" : "text-foreground"}`}
+                  strokeWidth={1.8}
+                />
+              </div>
+            </motion.button>
+
             {/* Phase 10: 신고 버튼 */}
             <motion.button
               whileTap={{ scale: 0.85 }}
@@ -962,6 +1006,21 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
         title={product.title}
         text={`CREAITE: ${product.title} by ${product.creator}`}
         onClose={() => setShareOpen(false)}
+      />
+
+      {/* Phase 18: 플레이리스트 모달 */}
+      <AddToPlaylistModal
+        open={playlistOpen}
+        videoId={product.id}
+        videoTitle={product.title}
+        onClose={() => setPlaylistOpen(false)}
+        onChange={async () => {
+          // 저장 상태 갱신
+          const { data } = await supabase.rpc("get_playlist_memberships", { p_video_id: product.id });
+          if (Array.isArray(data)) {
+            setIsSaved(data.some((p: any) => p.contains));
+          }
+        }}
       />
     </motion.div>
   );
