@@ -407,6 +407,7 @@ function AppContent() {
         return (
           <MyPage
             onSignInClick={() => setShowAuthModal(true)}
+            onViewMyChannel={user?.id ? () => handleViewCreator(user.id) : undefined}
             onVideoClick={async (videoId) => {
               // 시청 기록에서 영상 클릭 → DB 조회 후 ProductDetail 열기
               try {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus, Clock, Trash2, Film } from "lucide-react";
+import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus, Clock, Trash2, Film, Tv } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -37,6 +37,7 @@ const PAGE_MODE_STORAGE_KEY = 'creaite_mypage_mode';
 interface MyPageProps {
   onSignInClick?: () => void;
   onVideoClick?: (videoId: string) => void;  // Phase 17: 시청 기록에서 영상 클릭
+  onViewMyChannel?: () => void;              // 내 채널 가기 (Channel 탭으로 이동)
 }
 
 // 모드 선택 화면 (마이 탭 진입 시)
@@ -150,7 +151,7 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
 };
 
-export function MyPage({ onSignInClick, onVideoClick }: MyPageProps) {
+export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageProps) {
   const [activeTab, setActiveTab] = useState("profile");
   const [pageMode, setPageMode] = useState<PageMode>(() => {
     if (typeof window === 'undefined') return 'select';
@@ -697,22 +698,35 @@ export function MyPage({ onSignInClick, onVideoClick }: MyPageProps) {
                 </div>
               )}
             </motion.div>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setEditName(user?.name || "");
-                  setEditBio(profile?.bio || "");
-                  setEditAvatarUrl(profile?.avatar_url || "");
-                  setEditBannerUrl(profile?.banner_url || "");
-                  setShowProfileEdit(true);
-                }}
-                className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-semibold rounded-lg mb-2 shadow-sm gap-2"
-              >
-                <Pencil className="w-4 h-4" />
-                프로필 편집
-              </Button>
-            </motion.div>
+            <div className="flex items-center gap-2 mb-2">
+              {onViewMyChannel && (
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button
+                    onClick={onViewMyChannel}
+                    className="bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#ec4899] hover:opacity-90 text-white font-semibold rounded-lg shadow-md shadow-[#8b5cf6]/30 gap-2 border-0"
+                  >
+                    <Tv className="w-4 h-4" />
+                    내 채널
+                  </Button>
+                </motion.div>
+              )}
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setEditName(user?.name || "");
+                    setEditBio(profile?.bio || "");
+                    setEditAvatarUrl(profile?.avatar_url || "");
+                    setEditBannerUrl(profile?.banner_url || "");
+                    setShowProfileEdit(true);
+                  }}
+                  className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-semibold rounded-lg shadow-sm gap-2"
+                >
+                  <Pencil className="w-4 h-4" />
+                  프로필 편집
+                </Button>
+              </motion.div>
+            </div>
           </div>
           <div>
             <h2 className="text-2xl font-black text-white mb-1 drop-shadow-sm">{user?.name || 'AI Creator'}</h2>
@@ -760,21 +774,21 @@ export function MyPage({ onSignInClick, onVideoClick }: MyPageProps) {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               return (
-                <TabsTrigger 
+                <TabsTrigger
                   key={tab.id}
                   value={tab.id}
                   className={`relative py-3 rounded-xl transition-all duration-300 font-bold text-[13px] md:text-sm
                     ${isActive ? 'text-white' : 'text-gray-500 hover:text-gray-300'}
                   data-[state=active]:bg-transparent data-[state=active]:shadow-none`}
                 >
-                  <Icon className="w-4 h-4 mr-1.5 hidden md:block" />
-                  <span className="relative z-10 flex items-center justify-center w-full">
+                  <Icon className="w-4 h-4 mr-1.5 hidden md:block relative z-10" />
+                  <span className="relative z-10 flex items-center justify-center">
                     {tab.label}
                   </span>
                   {isActive && (
                     <motion.div
                       layoutId="mypage-active-tab"
-                      className="absolute inset-0 bg-[#2d2d30] border border-white/10 rounded-xl shadow-md -z-0"
+                      className="absolute inset-0 bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#ec4899] rounded-xl shadow-lg shadow-[#8b5cf6]/30 -z-0"
                       transition={{ type: "spring", stiffness: 400, damping: 30 }}
                     />
                   )}
