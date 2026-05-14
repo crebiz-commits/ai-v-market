@@ -14,6 +14,8 @@ import { usePayment } from "../hooks/usePayment";
 import { Loader2 } from "lucide-react";
 import { ReportModal } from "./ReportModal";
 import { ShareModal } from "./ShareModal";
+import { NextVideoOverlay } from "./NextVideoOverlay";
+import { supabase } from "../utils/supabaseClient";
 
 // Bunny Stream 라이브러리 ID (env 변수). 클라이언트에 노출되어도 안전.
 const BUNNY_LIBRARY_ID = (import.meta as any).env?.VITE_BUNNY_LIBRARY_ID || "";
@@ -81,9 +83,10 @@ interface ProductDetailProps {
   onAddToCart?: (product: any, licenseType: "standard" | "commercial" | "extended") => Promise<boolean> | boolean | void;
   onSignInClick?: () => void;
   onViewCreator?: (creatorId: string) => void;
+  onNavigateToVideo?: (videoId: string) => void | Promise<void>;   // Phase 16: 연속 재생
 }
 
-export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, onViewCreator }: ProductDetailProps) {
+export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, onViewCreator, onNavigateToVideo }: ProductDetailProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -252,6 +255,125 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
   // iframe 실제 노출 여부 — 페이월 게이트
   const iframeBlocked = ottBlocked || cinemaCutoffTriggered;
 
+  // ── Phase 16: 연속 재생 (영상 종료 → 다음 영상 카운트다운) ──
+  const [nextVideo, setNextVideo] = useState<{ id: string; title: string; thumbnail?: string | null; creator?: string | null; duration?: string | null; views?: number | null } | null>(null);
+  const [showNextOverlay, setShowNextOverlay] = useState(false);
+  // 영상 변경 시 오버레이 초기화 (다른 영상 연속 재생할 때 잔류 방지)
+  useEffect(() => {
+    setShowNextOverlay(false);
+    setNextVideo(null);
+  }, [product.id]);
+
+  // Bunny `ended` 이벤트 구독 + timeupdate 폴백 → 추천 영상 로드 → 오버레이 표시
+  useEffect(() => {
+    if (!onNavigateToVideo) return;
+    if (iframeBlocked) return;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const LISTENER_ID = "creaite-next-video";
+    const BUNNY_ORIGIN = "https://iframe.mediadelivery.net";
+
+    const subscribe = () => {
+      // ended + timeupdate 둘 다 구독 (ended가 안 뜨는 영상 대비 폴백)
+      ["ended", "timeupdate"].forEach((ev) => {
+        iframe.contentWindow?.postMessage(
+          JSON.stringify({
+            context: "player.js",
+            version: "0.0.1",
+            method: "addEventListener",
+            value: ev,
+            listener: LISTENER_ID,
+          }),
+          BUNNY_ORIGIN,
+        );
+      });
+    };
+
+    let didFire = false;
+    const triggerNext = async () => {
+      if (didFire) return;
+      didFire = true;
+      try {
+        // 1차: 같은 카테고리 비슷한 영상
+        let { data, error } = await supabase.rpc("get_similar_videos", {
+          p_video_id: product.id,
+          p_limit: 3,
+        });
+
+        // 2차 폴백: similar 비면 trending (24h)
+        if (!error && (!data || data.length === 0)) {
+          const fallback = await supabase.rpc("get_trending_videos", {
+            p_tier: "all",
+            p_hours: 24,
+            p_limit: 5,
+          });
+          data = (fallback.data || []).filter((v: any) => v.id !== product.id);
+        }
+
+        // 3차 폴백: 그래도 비면 신작 (30일)
+        if (!data || data.length === 0) {
+          const fallback2 = await supabase.rpc("get_new_releases", {
+            p_tier: "all",
+            p_days: 30,
+            p_limit: 5,
+          });
+          data = (fallback2.data || []).filter((v: any) => v.id !== product.id);
+        }
+
+        if (!data || data.length === 0) return;
+        const v = data[0];
+        setNextVideo({
+          id: v.id,
+          title: v.title,
+          thumbnail: v.thumbnail,
+          creator: v.creator_display_name || v.creator,
+          duration: v.duration,
+          views: Number(v.views || 0),
+        });
+        setShowNextOverlay(true);
+      } catch {
+        // 추천 로드 실패는 조용히 무시 (영상 시청 흐름 방해 안 함)
+      }
+    };
+
+    // iframe이 이미 ready 상태일 수 있으니 한 번 즉시 시도 + ready 이벤트에서도 구독
+    const initialSubscribe = setTimeout(subscribe, 500);
+
+    const handleMessage = (e: MessageEvent) => {
+      if (e.origin !== BUNNY_ORIGIN) return;
+      let data: any;
+      try {
+        data = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+      } catch {
+        return;
+      }
+      if (data?.context !== "player.js") return;
+      if (data?.event === "ready") {
+        subscribe();
+        return;
+      }
+      if (data?.event === "ended" && data?.listener === LISTENER_ID) {
+        triggerNext();
+        return;
+      }
+      // 폴백: timeupdate로 영상 종료 직전 감지 (Bunny가 ended 안 보내는 케이스)
+      if (data?.event === "timeupdate" && data?.listener === LISTENER_ID) {
+        const seconds = data?.value?.seconds ?? 0;
+        const duration = data?.value?.duration ?? durationSeconds ?? 0;
+        if (duration > 0 && seconds > 0 && Math.abs(seconds - duration) < 0.6) {
+          triggerNext();
+        }
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => {
+      clearTimeout(initialSubscribe);
+      window.removeEventListener("message", handleMessage);
+    };
+  }, [product.id, iframeBlocked, onNavigateToVideo, durationSeconds]);
+
   // 뒤로가기로 댓글 패널 닫기
   useBackButton(showComments, () => setShowComments(false));
 
@@ -411,6 +533,20 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               3분 미리보기 — 구독 시 풀 영상
             </div>
           )}
+
+          {/* Phase 16: 다음 영상 오버레이 (영상 종료 시) */}
+          <NextVideoOverlay
+            open={showNextOverlay}
+            nextVideo={nextVideo}
+            countdownSeconds={8}
+            onPlayNow={() => {
+              if (nextVideo && onNavigateToVideo) {
+                setShowNextOverlay(false);
+                onNavigateToVideo(nextVideo.id);
+              }
+            }}
+            onCancel={() => setShowNextOverlay(false)}
+          />
 
           {/* Duration Badge */}
           <div className="absolute top-4 right-4 px-3 py-1 bg-black/70 backdrop-blur-sm rounded-full text-white text-sm">
