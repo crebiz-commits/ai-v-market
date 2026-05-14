@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Play, Pause, Volume2, VolumeX, Heart, MessageCircle, Send, Minimize2 } from "lucide-react";
+import { X, Play, Pause, Volume2, VolumeX, Heart, MessageCircle, Send, Minimize2, Gauge, PictureInPicture2 } from "lucide-react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
@@ -52,6 +52,10 @@ export function VideoFullscreen({
   const creatorName = (video.creatorId ? creatorInfo[video.creatorId]?.name : null) ?? video.creator;
   const [duration, setDuration] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
+  // Phase 14: 재생 컨트롤
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [showRateMenu, setShowRateMenu] = useState(false);
+  const [isPiP, setIsPiP] = useState(false);
 
   // Phase 8: 시청 기록 추적 (re-render 없이 ref로 관리)
   const maxWatchedRef = useRef(0);
@@ -135,18 +139,110 @@ export function VideoFullscreen({
     return () => clearTimeout(timer);
   }, [showControls, isPlaying]);
 
-  // 키보드 (Esc로 닫기, 스페이스로 재생/정지)
+  // Phase 14: 확장된 키보드 단축키
+  //   Esc: 닫기 / Space: 재생-정지 / ← →: 10초 / ↑ ↓: 볼륨 / M: 음소거
+  //   > <: 배속 / P: PiP
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === " ") {
+      // 텍스트 입력 중이면 단축키 무시
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      const p = playerRef.current;
+      if (!p || p.isDisposed()) return;
+
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.key === " ") { e.preventDefault(); togglePlay(); return; }
+      if (e.key === "ArrowLeft") {
         e.preventDefault();
-        togglePlay();
+        p.currentTime(Math.max(0, (p.currentTime() || 0) - 10));
+        setShowControls(true);
+        return;
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        p.currentTime(Math.min(p.duration() || 0, (p.currentTime() || 0) + 10));
+        setShowControls(true);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        p.volume(Math.min(1, (p.volume() || 0) + 0.1));
+        p.muted(false);
+        setShowControls(true);
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        p.volume(Math.max(0, (p.volume() || 0) - 0.1));
+        setShowControls(true);
+        return;
+      }
+      if (e.key === "m" || e.key === "M") {
+        toggleMute();
+        return;
+      }
+      if (e.key === ">" || e.key === ".") {
+        cyclePlaybackRate(1);
+        return;
+      }
+      if (e.key === "<" || e.key === ",") {
+        cyclePlaybackRate(-1);
+        return;
+      }
+      if (e.key === "p" || e.key === "P") {
+        togglePiP();
+        return;
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Phase 14: 배속 변경
+  const RATES = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  const applyRate = (r: number) => {
+    const p = playerRef.current;
+    if (!p || p.isDisposed()) return;
+    p.playbackRate(r);
+    setPlaybackRate(r);
+    setShowControls(true);
+  };
+  const cyclePlaybackRate = (direction: 1 | -1) => {
+    const currentIdx = RATES.indexOf(playbackRate);
+    const nextIdx = (currentIdx + direction + RATES.length) % RATES.length;
+    applyRate(RATES[nextIdx]);
+  };
+
+  // Phase 14: PiP 토글
+  const togglePiP = async () => {
+    const videoEl = videoRef.current;
+    if (!videoEl) return;
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+        setIsPiP(false);
+      } else {
+        await (videoEl as any).requestPictureInPicture();
+        setIsPiP(true);
+      }
+    } catch (err) {
+      console.warn("[PiP] 실패:", err);
+    }
+    setShowControls(true);
+  };
+
+  // PiP 상태 동기화 (사용자가 PiP 창 직접 닫는 경우)
+  useEffect(() => {
+    const handlePipEnter = () => setIsPiP(true);
+    const handlePipLeave = () => setIsPiP(false);
+    document.addEventListener("enterpictureinpicture", handlePipEnter);
+    document.addEventListener("leavepictureinpicture", handlePipLeave);
+    return () => {
+      document.removeEventListener("enterpictureinpicture", handlePipEnter);
+      document.removeEventListener("leavepictureinpicture", handlePipLeave);
+    };
   }, []);
 
   const togglePlay = () => {
@@ -343,7 +439,56 @@ export function VideoFullscreen({
                   >
                     {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
                   </button>
+
                   <div className="flex-1" />
+
+                  {/* Phase 14: 배속 버튼 + 메뉴 */}
+                  <div className="relative">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowRateMenu(v => !v); setShowControls(true); }}
+                      className="h-9 px-2.5 rounded-full flex items-center gap-1 text-white hover:bg-white/10 transition-colors text-xs font-bold"
+                      aria-label="재생 속도"
+                      title="재생 속도 (단축키: < >)"
+                    >
+                      <Gauge className="w-4 h-4" />
+                      {playbackRate}x
+                    </button>
+                    {showRateMenu && (
+                      <div
+                        className="absolute bottom-full right-0 mb-2 bg-black/90 backdrop-blur-md rounded-lg overflow-hidden border border-white/20 min-w-[90px]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {RATES.map(r => (
+                          <button
+                            key={r}
+                            onClick={() => { applyRate(r); setShowRateMenu(false); }}
+                            className={`w-full px-4 py-2 text-xs font-medium text-left transition-colors ${
+                              playbackRate === r
+                                ? "bg-[#6366f1]/40 text-white"
+                                : "text-white/80 hover:bg-white/10"
+                            }`}
+                          >
+                            {r}x {r === 1 && "(기본)"}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Phase 14: PiP 버튼 (지원 브라우저에서만) */}
+                  {typeof document !== "undefined" && "pictureInPictureEnabled" in document && document.pictureInPictureEnabled && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); togglePiP(); }}
+                      className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                        isPiP ? "bg-[#6366f1]/30 text-[#8b5cf6]" : "text-white hover:bg-white/10"
+                      }`}
+                      aria-label="화면 속 화면 (PiP)"
+                      title="화면 속 화면 (단축키: P)"
+                    >
+                      <PictureInPicture2 className="w-5 h-5" />
+                    </button>
+                  )}
+
                   <button
                     onClick={(e) => { e.stopPropagation(); onClose(); }}
                     className="w-9 h-9 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-colors"
