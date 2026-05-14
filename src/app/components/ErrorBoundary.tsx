@@ -22,6 +22,22 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+
+    // 청크 로드 실패 (새 배포 후 옛 청크 URL 참조) → 자동 새로고침
+    // sessionStorage 가드로 무한 루프 방지
+    const RELOAD_KEY = 'creaite_chunk_reload_attempted';
+    const msg = error?.message || String(error);
+    const isChunkError =
+      msg.includes('Failed to fetch dynamically imported') ||
+      msg.includes('Loading chunk') ||
+      msg.includes('Importing a module script failed') ||
+      error?.name === 'ChunkLoadError';
+
+    if (isChunkError && !sessionStorage.getItem(RELOAD_KEY)) {
+      sessionStorage.setItem(RELOAD_KEY, 'true');
+      // 즉시 새로고침 (사용자가 ErrorBoundary 화면 거의 못 봄)
+      setTimeout(() => window.location.reload(), 100);
+    }
   }
 
   render() {

@@ -12,7 +12,8 @@
 // 초기화 스크립트를 가장 먼저 import (콘솔 필터 설치)
 import './init';
 
-import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { lazyRetry as lazy } from "./utils/lazyRetry";
 import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, Loader2, Crown, Users } from "lucide-react";
 import { Footer } from "./components/Footer";
 import { HamburgerMenu } from "./components/HamburgerMenu";
