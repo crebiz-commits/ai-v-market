@@ -43,8 +43,7 @@ import { toast } from "sonner";
 
 // 메인 탭 (각각 별도 chunk로 분리)
 const DiscoveryFeed = lazy(() => import("./components/DiscoveryFeed").then(m => ({ default: m.DiscoveryFeed })));
-const Market = lazy(() => import("./components/Market").then(m => ({ default: m.Market })));
-const PremiumOTT = lazy(() => import("./components/PremiumOTT").then(m => ({ default: m.PremiumOTT })));
+const Cinema = lazy(() => import("./components/Cinema").then(m => ({ default: m.Cinema })));
 const Upload = lazy(() => import("./components/Upload").then(m => ({ default: m.Upload })));
 const Community = lazy(() => import("./components/Community").then(m => ({ default: m.Community })));
 const Channel = lazy(() => import("./components/Channel").then(m => ({ default: m.Channel })));
@@ -388,9 +387,9 @@ function AppContent() {
       case "discovery":
         return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} />;
       case "market":
-        return <Market onProductClick={setSelectedProduct} />;
+        return <Cinema onProductClick={setSelectedProduct} tier="cinema" />;
       case "ott":
-        return <PremiumOTT onSignInClick={() => setShowAuthModal(true)} onProductClick={setSelectedProduct} />;
+        return <Cinema onProductClick={setSelectedProduct} tier="ott" />;
       case "upload":
         return <Upload onSignInClick={() => setShowAuthModal(true)} onViewMyProducts={() => setActiveTab("mypage")} />;
       case "community":
