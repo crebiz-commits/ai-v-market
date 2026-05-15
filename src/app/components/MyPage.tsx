@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { supabase } from "../utils/supabaseClient";
 import { InstallGuideCard } from "./InstallPrompt";
 import { CommentSettings } from "./CommentSettings";
+import { CreatorDashboard } from "./CreatorDashboard";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
 
 // Phase 24: 차단한 사용자 관리 섹션
@@ -1089,6 +1090,10 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
               </TabsContent>
 
               <TabsContent value="sales" className="space-y-4 m-0">
+                {/* Phase 21: 크리에이터 대시보드 (KPI 4개 + 일별 그래프) */}
+                <CreatorDashboard />
+
+                {/* 기존 KPI 2개 (실 정산액 — 수수료 공제 후 미리보기) */}
                 <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-2 gap-4">
                   <motion.div variants={itemVariants} className="bg-[#121212] p-5 rounded-2xl border border-white/5 relative overflow-hidden group">
                     <div className="relative z-10">
