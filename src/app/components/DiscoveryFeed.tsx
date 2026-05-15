@@ -7,6 +7,7 @@ import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { CommentPanel } from "./CommentPanel";
+import { ShareModal } from "./ShareModal";
 import { VideoFullscreen } from "./VideoFullscreen";
 import { CreatorAvatar } from "./CreatorAvatar";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
@@ -530,6 +531,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
   const [likedVideos, setLikedVideos] = useState<Set<string>>(new Set());
   const [isMuted, setIsMuted] = useState(true);
   const [commentVideo, setCommentVideo] = useState<Video | null>(null);
+  const [shareTarget, setShareTarget] = useState<Video | null>(null);
   const [fullscreenVideo, setFullscreenVideo] = useState<Video | null>(null);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const { user } = useAuth();
@@ -768,18 +770,18 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
   const handleShare = useCallback(async (video: Video) => {
     const url = `${window.location.origin}?video=${video.id}`;
     const shareData = { title: video.title, text: `CREAITE: ${video.title}`, url };
-    try {
-      if (navigator.share && navigator.canShare?.(shareData)) {
+    // 모바일: 네이티브 공유 시트 우선
+    if (navigator.share && navigator.canShare?.(shareData)) {
+      try {
         await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(url);
-        toast.success("링크가 클립보드에 복사됐습니다!");
-      }
-    } catch (err: any) {
-      if (err.name !== "AbortError") {
-        try { await navigator.clipboard.writeText(url); toast.success("링크 복사됐습니다!"); } catch {}
+        return;
+      } catch (err: any) {
+        if (err.name === "AbortError") return;
+        // AbortError 외 실패는 모달 폴백
       }
     }
+    // 데스크탑 또는 네이티브 공유 미지원: ShareModal
+    setShareTarget(video);
   }, []);
 
   if (loading) return <div className="h-full flex items-center justify-center bg-background"><Loader2 className="w-10 h-10 text-[#6366f1] animate-spin" /></div>;
@@ -945,6 +947,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
           >
             <CommentPanel
               videoId={commentVideo.id}
+              videoCreatorId={commentVideo.creatorId}
               title={commentVideo.title}
               onClose={() => setCommentVideo(null)}
               onCommentPosted={() => setCommentCounts(prev => ({ ...prev, [commentVideo.id]: (prev[commentVideo.id] || 0) + 1 }))}
@@ -953,6 +956,15 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* 공유 모달 (데스크탑 + 네이티브 공유 미지원 폴백) */}
+      <ShareModal
+        open={!!shareTarget}
+        url={shareTarget ? `${window.location.origin}?video=${shareTarget.id}` : ""}
+        title={shareTarget?.title || ""}
+        text={shareTarget ? `CREAITE: ${shareTarget.title}` : ""}
+        onClose={() => setShareTarget(null)}
+      />
 
       {/* 데스크탑 댓글 모달 */}
       <AnimatePresence>
@@ -973,6 +985,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
             >
               <CommentPanel
                 videoId={commentVideo.id}
+                videoCreatorId={commentVideo.creatorId}
                 title={commentVideo.title}
                 onClose={() => setCommentVideo(null)}
                 onCommentPosted={() => setCommentCounts(prev => ({ ...prev, [commentVideo.id]: (prev[commentVideo.id] || 0) + 1 }))}

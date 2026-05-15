@@ -89,6 +89,7 @@ interface ProductDetailProps {
 
 export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, onViewCreator, onNavigateToVideo }: ProductDetailProps) {
   const [isLiked, setIsLiked] = useState(false);
+  const [likeBusy, setLikeBusy] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [showComments, setShowComments] = useState(false);
   // 크리에이터 아바타·이름 — Phase 6.6 (videos.creator는 snapshot이라 항상 최신 profiles 정보 우선)
@@ -122,6 +123,49 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
     })();
     return () => { cancelled = true; };
   }, [product.id, isAuthenticated]);
+
+  // Phase 23: 좋아요 정상화 — video_likes 테이블 연동 (DiscoveryFeed와 동일 출처)
+  useEffect(() => {
+    if (!isAuthenticated || !user || !product.id) {
+      setIsLiked(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("video_likes")
+        .select("video_id")
+        .eq("video_id", product.id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!cancelled) setIsLiked(!!data);
+    })();
+    return () => { cancelled = true; };
+  }, [product.id, isAuthenticated, user]);
+
+  const handleToggleLike = async () => {
+    if (!isAuthenticated || !user) {
+      onSignInClick?.();
+      return;
+    }
+    if (likeBusy) return;
+    setLikeBusy(true);
+    const next = !isLiked;
+    setIsLiked(next);
+    try {
+      if (next) {
+        await supabase.from("video_likes").insert({ video_id: product.id, user_id: user.id });
+      } else {
+        await supabase.from("video_likes").delete().match({ video_id: product.id, user_id: user.id });
+      }
+    } catch (err) {
+      setIsLiked(!next);
+      toast.error("좋아요 처리에 실패했습니다.");
+      console.error("[ProductDetail] toggleLike error:", err);
+    } finally {
+      setLikeBusy(false);
+    }
+  };
   const durationSeconds = product.durationSeconds ?? parseDurationText(product.duration);
   // 영상 등급 판정
   const isOttVideo = durationSeconds >= OTT_THRESHOLD_SECONDS;        // 10분+
@@ -803,7 +847,8 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
             {/* 좋아요 — 글래스 + 글로우 */}
             <motion.button
               whileTap={{ scale: 0.85 }}
-              onClick={() => setIsLiked(!isLiked)}
+              onClick={handleToggleLike}
+              disabled={likeBusy}
               className="flex flex-col items-center"
               aria-label="좋아요"
             >
@@ -950,7 +995,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
             >
               <CommentPanel
                 videoId={product.id}
-                title={product.title}
+                videoCreatorId={product.creatorId}
                 onClose={() => setShowComments(false)}
                 mode="panel"
               />
@@ -971,7 +1016,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
             >
               <CommentPanel
                 videoId={product.id}
-                title={product.title}
+                videoCreatorId={product.creatorId}
                 onClose={() => setShowComments(false)}
                 mode="sheet"
               />

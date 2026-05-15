@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus, Clock, Trash2, Film, Tv, FolderPlus, Bookmark, ArrowLeft, Play } from "lucide-react";
+import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus, Clock, Trash2, Film, Tv, FolderPlus, Bookmark, ArrowLeft, Play, MessageSquare, Filter } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -9,6 +9,7 @@ import { useBackButton } from "../hooks/useBackButton";
 import { toast } from "sonner";
 import { supabase } from "../utils/supabaseClient";
 import { InstallGuideCard } from "./InstallPrompt";
+import { CommentSettings } from "./CommentSettings";
 
 interface Purchase {
   id: string;
@@ -580,7 +581,10 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
     if (!isCreator && activeTab === 'sales') setActiveTab('profile');
     if (pageMode === 'user' && activeTab === 'sales') setActiveTab('profile');
     if (pageMode === 'creator' && activeTab === 'purchases') setActiveTab('profile');
+    if ((pageMode !== 'creator' || !isCreator) && activeTab === 'comments') setActiveTab('profile');
   }, [isCreator, activeTab, pageMode]);
+
+  const [showCommentSettings, setShowCommentSettings] = useState(false);
 
   const handleSelectMode = (mode: 'user' | 'creator') => {
     setPageMode(mode);
@@ -714,6 +718,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
 
   return (
     <div className="h-full overflow-y-auto bg-[#0a0a0a] selection:bg-[#6366f1]/30 pb-20">
+      <CommentSettings open={showCommentSettings} onClose={() => setShowCommentSettings(false)} />
       <div className="max-w-6xl mx-auto md:p-6 pb-6">
 
       {/* 모드 표시 + 코너 전환 버튼 */}
@@ -826,12 +831,13 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
       <div className="px-4 md:px-0">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList
-            className="grid w-full grid-cols-5 bg-[#1c1c1e] p-1.5 rounded-2xl mb-8 border border-white/5 shadow-inner"
+            className={`grid w-full ${pageMode === 'creator' && isCreator ? 'grid-cols-6' : 'grid-cols-5'} bg-[#1c1c1e] p-1.5 rounded-2xl mb-8 border border-white/5 shadow-inner`}
           >
             {([
               { id: 'profile', icon: User, label: '프로필' },
               ...(pageMode === 'user' ? [{ id: 'purchases', icon: ShoppingBag, label: '구매' }] : []),
               ...(pageMode === 'creator' && isCreator ? [{ id: 'sales', icon: TrendingUp, label: '판매' }] : []),
+              ...(pageMode === 'creator' && isCreator ? [{ id: 'comments', icon: MessageSquare, label: '댓글' }] : []),
               { id: 'history', icon: Clock, label: '시청 기록' },
               { id: 'playlists', icon: FolderPlus, label: '플레이리스트' },
               { id: 'settings', icon: Settings, label: '설정' },
@@ -1227,6 +1233,51 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                     </div>
                   </div>
                 </motion.div>
+              </TabsContent>
+
+              {/* Phase 23: 댓글 관리 탭 (크리에이터 전용) */}
+              <TabsContent value="comments" className="space-y-4 m-0">
+                <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center shadow-md">
+                      <MessageSquare className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-white">댓글 관리</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">금칙어·차단 사용자 설정과 자동 필터된 댓글 검토</p>
+                    </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-3 gap-3 mb-5">
+                    <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+                      <Filter className="w-5 h-5 text-[#8b5cf6] mb-2" />
+                      <p className="text-sm font-bold text-white mb-1">금칙어</p>
+                      <p className="text-xs text-gray-500 leading-relaxed">금칙어 포함 댓글을 자동 숨김</p>
+                    </div>
+                    <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+                      <Lock className="w-5 h-5 text-[#f43f5e] mb-2" />
+                      <p className="text-sm font-bold text-white mb-1">사용자 차단</p>
+                      <p className="text-xs text-gray-500 leading-relaxed">특정 사용자의 댓글 일괄 차단</p>
+                    </div>
+                    <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+                      <Eye className="w-5 h-5 text-amber-400 mb-2" />
+                      <p className="text-sm font-bold text-white mb-1">필터 검토</p>
+                      <p className="text-xs text-gray-500 leading-relaxed">자동 숨김된 댓글 복원 가능</p>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={() => setShowCommentSettings(true)}
+                    className="w-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white font-bold rounded-xl py-3 gap-2"
+                  >
+                    <Filter className="w-4 h-4" />
+                    댓글 관리 열기
+                  </Button>
+
+                  <p className="text-[11px] text-gray-600 text-center mt-3">
+                    영상 페이지의 댓글에서 핀 고정·❤️ 표시·차단도 직접 가능합니다.
+                  </p>
+                </div>
               </TabsContent>
 
               {/* Phase 17: 시청 기록 탭 */}

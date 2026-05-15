@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, Loader2, Play, Sparkles, Eye, Users, Film } from "lucide-react";
+import { ArrowLeft, Loader2, Play, Sparkles, Eye, Users, Film, Filter } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../utils/supabaseClient";
 import { FollowButton } from "./FollowButton";
+import { CommentSettings } from "./CommentSettings";
 
 interface CreatorChannelProps {
   creatorId: string;
@@ -69,6 +70,7 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
   const [videos, setVideos] = useState<CreatorVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortOrder, setSortOrder] = useState<SortOrder>("latest");
+  const [showCommentSettings, setShowCommentSettings] = useState(false);
 
   const sortedVideos = [...videos].sort((a, b) => {
     const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -141,6 +143,9 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
 
   return (
     <div className="h-full overflow-y-auto bg-[#0a0a0a]">
+      {isMyChannel && (
+        <CommentSettings open={showCommentSettings} onClose={() => setShowCommentSettings(false)} />
+      )}
       {/* 뒤로가기 띠 */}
       <div className="sticky top-0 z-20 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/5">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center gap-3">
@@ -183,7 +188,15 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
                   )}
                 </div>
               </div>
-              {!isMyChannel && (
+              {isMyChannel ? (
+                <button
+                  onClick={() => setShowCommentSettings(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white text-sm font-bold shadow-md shadow-[#8b5cf6]/30 transition-opacity"
+                >
+                  <Filter className="w-4 h-4" />
+                  댓글 관리
+                </button>
+              ) : (
                 <FollowButton
                   creatorId={creatorId}
                   initialFollowing={profile.am_i_following}
