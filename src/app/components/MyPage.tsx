@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus, Clock, Trash2, Film, Tv, FolderPlus, Bookmark, ArrowLeft, Play, MessageSquare, Filter } from "lucide-react";
+import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus, Clock, Trash2, Film, Tv, FolderPlus, Bookmark, ArrowLeft, Play, MessageSquare, Filter, UserX } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -10,6 +10,74 @@ import { toast } from "sonner";
 import { supabase } from "../utils/supabaseClient";
 import { InstallGuideCard } from "./InstallPrompt";
 import { CommentSettings } from "./CommentSettings";
+import { useBlockedUsers } from "../hooks/useBlockedUsers";
+
+// Phase 24: 차단한 사용자 관리 섹션
+function BlockedUsersSection() {
+  const { unblockUser } = useBlockedUsers();
+  const [list, setList] = useState<{ blocked_user_id: string; display_name: string | null; avatar_url: string | null; blocked_at: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = async () => {
+    setLoading(true);
+    const { data } = await supabase.rpc("get_my_blocked_users");
+    setList((data ?? []) as any[]);
+    setLoading(false);
+  };
+
+  useEffect(() => { refresh(); }, []);
+
+  const handleUnblock = async (id: string, name: string | null) => {
+    if (!confirm(`${name || "이 사용자"} 차단을 해제할까요?`)) return;
+    const ok = await unblockUser(id);
+    if (ok) refresh();
+  };
+
+  return (
+    <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
+      <div className="flex items-center gap-2 mb-4">
+        <UserX className="w-5 h-5 text-red-400" />
+        <h3 className="font-bold text-white">차단한 사용자</h3>
+        <span className="text-xs text-gray-500">{list.length}명</span>
+      </div>
+      <p className="text-xs text-gray-500 leading-relaxed mb-4">
+        차단한 사용자의 영상·댓글·커뮤니티 글이 회원님 화면에 보이지 않습니다.
+      </p>
+
+      {loading ? (
+        <div className="flex justify-center py-6">
+          <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+        </div>
+      ) : list.length === 0 ? (
+        <p className="text-center text-sm text-gray-500 py-6">차단한 사용자가 없습니다.</p>
+      ) : (
+        <div className="space-y-2">
+          {list.map((u) => (
+            <div key={u.blocked_user_id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/5">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center overflow-hidden flex-shrink-0">
+                {u.avatar_url ? (
+                  <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-white text-sm font-bold">{(u.display_name || "?").charAt(0).toUpperCase()}</span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-white truncate">{u.display_name || "알 수 없는 사용자"}</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">{new Date(u.blocked_at).toLocaleDateString("ko-KR")} 차단</p>
+              </div>
+              <button
+                onClick={() => handleUnblock(u.blocked_user_id, u.display_name)}
+                className="px-3 py-1.5 text-xs font-bold text-gray-300 bg-white/5 hover:bg-white/10 rounded-md border border-white/10 transition-colors"
+              >
+                차단 해제
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface Purchase {
   id: string;
@@ -1534,6 +1602,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                     ))}
                   </div>
                 </div>
+
+                {/* Phase 24: 차단한 사용자 관리 */}
+                <BlockedUsersSection />
 
                 <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
                   <h3 className="font-bold text-white mb-5">계정 보안</h3>

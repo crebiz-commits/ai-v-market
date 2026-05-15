@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, Loader2, Play, Sparkles, Eye, Users, Film, Filter } from "lucide-react";
+import { ArrowLeft, Loader2, Play, Sparkles, Eye, Users, Film, Filter, Flag, UserX, MoreVertical } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../utils/supabaseClient";
 import { FollowButton } from "./FollowButton";
 import { CommentSettings } from "./CommentSettings";
+import { ReportModal } from "./ReportModal";
+import { useBlockedUsers } from "../hooks/useBlockedUsers";
 
 interface CreatorChannelProps {
   creatorId: string;
@@ -71,6 +73,18 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
   const [loading, setLoading] = useState(true);
   const [sortOrder, setSortOrder] = useState<SortOrder>("latest");
   const [showCommentSettings, setShowCommentSettings] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const { isBlocked, blockUser, unblockUser } = useBlockedUsers();
+  const blockedHere = isBlocked(creatorId);
+
+  // 메뉴 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handler = () => setMoreMenuOpen(false);
+    window.addEventListener("click", handler);
+    return () => window.removeEventListener("click", handler);
+  }, [moreMenuOpen]);
 
   const sortedVideos = [...videos].sort((a, b) => {
     const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -146,6 +160,23 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
       {isMyChannel && (
         <CommentSettings open={showCommentSettings} onClose={() => setShowCommentSettings(false)} />
       )}
+      {!isMyChannel && (
+        <ReportModal
+          open={reportOpen}
+          targetType="user"
+          targetId={creatorId}
+          targetTitle={`${profile.creator_name} 채널`}
+          onClose={() => setReportOpen(false)}
+          onSignInClick={onSignInClick}
+        />
+      )}
+      {!isMyChannel && blockedHere && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2">
+          <p className="text-xs text-amber-300 text-center">
+            🚫 차단한 채널입니다. 이 채널의 콘텐츠는 회원님의 피드에 보이지 않습니다.
+          </p>
+        </div>
+      )}
       {/* 뒤로가기 띠 */}
       <div className="sticky top-0 z-20 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/5">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center gap-3">
@@ -197,13 +228,56 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
                   댓글 관리
                 </button>
               ) : (
-                <FollowButton
-                  creatorId={creatorId}
-                  initialFollowing={profile.am_i_following}
-                  onSignInClick={onSignInClick}
-                  onChange={handleFollowChange}
-                  size="md"
-                />
+                <div className="flex items-center gap-2">
+                  <FollowButton
+                    creatorId={creatorId}
+                    initialFollowing={profile.am_i_following}
+                    onSignInClick={onSignInClick}
+                    onChange={handleFollowChange}
+                    size="md"
+                  />
+                  {/* 더보기: 신고 / 차단 */}
+                  <div className="relative">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setMoreMenuOpen((v) => !v); }}
+                      className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                      aria-label="더보기"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                    {moreMenuOpen && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute z-30 right-0 mt-1 bg-[#1c1c1e] border border-white/10 rounded-lg shadow-xl py-1 w-44"
+                      >
+                        <button
+                          onClick={() => { setMoreMenuOpen(false); setReportOpen(true); }}
+                          className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-amber-400 transition-colors flex items-center gap-2"
+                        >
+                          <Flag className="w-3.5 h-3.5" />
+                          채널 신고
+                        </button>
+                        {blockedHere ? (
+                          <button
+                            onClick={() => { setMoreMenuOpen(false); unblockUser(creatorId); }}
+                            className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-[#10b981] transition-colors flex items-center gap-2"
+                          >
+                            <UserX className="w-3.5 h-3.5" />
+                            차단 해제
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => { setMoreMenuOpen(false); blockUser(creatorId, profile.creator_name); }}
+                            className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-red-400 transition-colors flex items-center gap-2"
+                          >
+                            <UserX className="w-3.5 h-3.5" />
+                            이 채널 차단
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
             <h1 className="text-2xl md:text-3xl font-black text-white mb-2">{profile.creator_name}</h1>

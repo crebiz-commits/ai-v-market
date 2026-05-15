@@ -8,6 +8,7 @@ import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { CommentPanel } from "./CommentPanel";
 import { ShareModal } from "./ShareModal";
+import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { VideoFullscreen } from "./VideoFullscreen";
 import { CreatorAvatar } from "./CreatorAvatar";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
@@ -535,8 +536,11 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
   const [fullscreenVideo, setFullscreenVideo] = useState<Video | null>(null);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const { user } = useAuth();
+  const { isBlocked } = useBlockedUsers();
+  // Phase 24: 차단 사용자 영상은 피드에서 제외
+  const visibleVideos = videos.filter((v) => !v.creatorId || !isBlocked(v.creatorId));
   // Phase 6.6 — 영상별 크리에이터 아바타 매핑
-  const creatorInfo = useCreatorInfo(videos.map((v) => v.creatorId));
+  const creatorInfo = useCreatorInfo(visibleVideos.map((v) => v.creatorId));
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 모바일 뒤로가기로 전체화면 / 댓글 패널 닫기
@@ -674,12 +678,13 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
   }, []);
 
   // 영상 목록에 광고를 interval_count마다 삽입하여 피드 아이템 배열 생성
+  // Phase 24: 차단 사용자 영상은 visibleVideos 기준으로 제외
   const feedItems = (() => {
-    if (ads.length === 0) return videos.map(v => ({ kind: "video" as const, ...v }));
+    if (ads.length === 0) return visibleVideos.map(v => ({ kind: "video" as const, ...v }));
     const interval = ads[0].interval_count || 4;
     const result: FeedItem[] = [];
     let adIdx = 0;
-    videos.forEach((v, i) => {
+    visibleVideos.forEach((v, i) => {
       result.push({ kind: "video", ...v });
       if ((i + 1) % interval === 0 && ads.length > 0) {
         result.push({ kind: "ad", ...ads[adIdx % ads.length] });

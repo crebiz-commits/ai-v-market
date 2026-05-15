@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Search, X, Loader2, TrendingUp, Clock, Filter, ChevronDown, Eye, Heart, Play, Users, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
+import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { toast } from "sonner";
 
 const HISTORY_KEY = "creaite_search_history";
@@ -126,6 +127,7 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
   const [popular, setPopular] = useState<PopularQuery[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
+  const { isBlocked } = useBlockedUsers();
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -249,6 +251,10 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
       videoUrl: v.video_url || "",
     });
   };
+
+  // Phase 24: 차단 사용자 결과는 표시에서 제외
+  const visibleVideos = videos.filter((v) => !v.creator_id || !isBlocked(v.creator_id));
+  const visibleCreators = creators.filter((c) => !isBlocked(c.creator_id));
 
   const showInitialState = !submittedQuery && !hasActiveFilter && !loading;
 
@@ -428,7 +434,7 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
                   tab === "videos" ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white" : "text-gray-400 hover:text-white"
                 }`}
               >
-                영상 {videos.length > 0 && `(${videos.length})`}
+                영상 {visibleVideos.length > 0 && `(${visibleVideos.length})`}
               </button>
               <button
                 onClick={() => setTab("creators")}
@@ -437,7 +443,7 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
                   tab === "creators" ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white" : "text-gray-400 hover:text-white"
                 }`}
               >
-                크리에이터 {creators.length > 0 && `(${creators.length})`}
+                크리에이터 {visibleCreators.length > 0 && `(${visibleCreators.length})`}
               </button>
             </div>
 
@@ -466,22 +472,22 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
         ) : showInitialState ? (
           <EmptyInitial popular={popular} onPick={handlePickSuggestion} />
         ) : tab === "videos" ? (
-          videos.length === 0 ? (
+          visibleVideos.length === 0 ? (
             <EmptyResult query={submittedQuery} />
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-              {videos.map((v) => (
+              {visibleVideos.map((v) => (
                 <VideoCard key={v.id} video={v} onClick={() => handleClickVideo(v)} />
               ))}
             </div>
           )
         ) : (
           // creators
-          creators.length === 0 ? (
+          visibleCreators.length === 0 ? (
             <EmptyResult query={submittedQuery} subject="크리에이터" />
           ) : (
             <div className="space-y-2">
-              {creators.map((c) => (
+              {visibleCreators.map((c) => (
                 <CreatorRow key={c.creator_id} creator={c} onClick={() => onViewCreator?.(c.creator_id)} />
               ))}
             </div>

@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { X, Send, Heart, ChevronDown, ChevronUp, Loader2, MessageCircle, Trash2, Pin, MoreVertical, Ban } from "lucide-react";
+import { X, Send, Heart, ChevronDown, ChevronUp, Loader2, MessageCircle, Trash2, Pin, MoreVertical, Ban, Flag, UserX } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
+import { useBlockedUsers } from "../hooks/useBlockedUsers";
+import { ReportModal } from "./ReportModal";
 import { toast } from "sonner";
 
 interface Comment {
@@ -93,6 +95,8 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
   const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ id: string; name: string } | null>(null);
+  const { isBlocked, blockUser } = useBlockedUsers();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -392,12 +396,21 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
     fetchComments();
   };
 
-  const totalCount = comments.reduce((acc, c) => acc + 1 + (c.replies?.length || 0), 0);
+  // Phase 24: 차단한 사용자 댓글/대댓글 자동 숨김 (본인 화면에서만)
+  const visibleComments = comments
+    .filter((c) => !isBlocked(c.user_id))
+    .map((c) => ({
+      ...c,
+      replies: (c.replies || []).filter((r) => !isBlocked(r.user_id)),
+    }));
+
+  const totalCount = visibleComments.reduce((acc, c) => acc + 1 + (c.replies?.length || 0), 0);
 
   const CommentItem = ({ comment, isReply = false, parentId }: { comment: Comment; isReply?: boolean; parentId?: string }) => {
     const isMine = user?.id === comment.user_id;
     const isCommentByCreator = !!videoCreatorId && comment.user_id === videoCreatorId;
-    const showOwnerMenu = isVideoOwner && !isCommentByCreator;
+    const canCreatorBlock = isVideoOwner && !isCommentByCreator;
+    const showMenu = !isMine && isAuthenticated; // 본인 댓글 아니고 로그인 시 메뉴 노출
     const menuOpen = openMenu === comment.id;
 
     return (
@@ -491,7 +504,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
               </button>
             )}
 
-            {showOwnerMenu && (
+            {showMenu && (
               <div className="relative">
                 <button
                   onClick={(e) => {
@@ -506,18 +519,40 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
                 {menuOpen && (
                   <div
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute z-10 right-0 mt-1 bg-[#1c1c1e] border border-white/10 rounded-lg shadow-xl py-1 w-36"
+                    className="absolute z-10 right-0 mt-1 bg-[#1c1c1e] border border-white/10 rounded-lg shadow-xl py-1 w-44"
                   >
                     <button
                       onClick={() => {
                         setOpenMenu(null);
-                        handleBlockUser(comment.user_id, comment.author_name);
+                        setReportTarget({ id: comment.id, name: comment.author_name });
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-amber-400 transition-colors flex items-center gap-2"
+                    >
+                      <Flag className="w-3.5 h-3.5" />
+                      댓글 신고
+                    </button>
+                    <button
+                      onClick={() => {
+                        setOpenMenu(null);
+                        blockUser(comment.user_id, comment.author_name);
                       }}
                       className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-red-400 transition-colors flex items-center gap-2"
                     >
-                      <Ban className="w-3.5 h-3.5" />
+                      <UserX className="w-3.5 h-3.5" />
                       이 사용자 차단
                     </button>
+                    {canCreatorBlock && (
+                      <button
+                        onClick={() => {
+                          setOpenMenu(null);
+                          handleBlockUser(comment.user_id, comment.author_name);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-red-400 transition-colors flex items-center gap-2 border-t border-white/5 mt-1 pt-2"
+                      >
+                        <Ban className="w-3.5 h-3.5" />
+                        이 채널에서 차단
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -557,14 +592,14 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
           <div className="flex items-center justify-center py-10">
             <Loader2 className="w-6 h-6 animate-spin text-[#8b5cf6]" />
           </div>
-        ) : comments.length === 0 ? (
+        ) : visibleComments.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[200px]">
             <MessageCircle className="w-10 h-10 text-gray-600 mb-3" />
             <p className="text-gray-500 text-sm">첫 번째 댓글을 남겨보세요!</p>
           </div>
         ) : (
           <AnimatePresence initial={false}>
-            {comments.map((comment) => (
+            {visibleComments.map((comment) => (
               <div key={comment.id}>
                 <CommentItem comment={comment} />
 
@@ -646,6 +681,15 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
           </button>
         </div>
       </div>
+
+      {/* Phase 24: 댓글 신고 모달 */}
+      <ReportModal
+        open={!!reportTarget}
+        targetType="comment"
+        targetId={reportTarget?.id || ""}
+        targetTitle={reportTarget ? `${reportTarget.name}의 댓글` : undefined}
+        onClose={() => setReportTarget(null)}
+      />
     </div>
   );
 }
