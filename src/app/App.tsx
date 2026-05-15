@@ -54,6 +54,7 @@ const AboutPage = lazy(() => import("./components/StaticPages").then(m => ({ def
 const TermsPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.TermsPage })));
 const PrivacyPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.PrivacyPage })));
 const PaymentResult = lazy(() => import("./components/PaymentResult").then(m => ({ default: m.PaymentResult })));
+const SearchPage = lazy(() => import("./components/SearchPage").then(m => ({ default: m.SearchPage })));
 
 // 모달·패널 (열릴 때만 로드)
 const ProductDetail = lazy(() => import("./components/ProductDetail").then(m => ({ default: m.ProductDetail })));
@@ -82,7 +83,7 @@ function PageLoading() {
   );
 }
 
-type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy";
+type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy" | "search";
 type Panel = "cart" | "notifications" | null;
 
 interface VideoProduct {
@@ -460,6 +461,14 @@ function AppContent() {
         return <TermsPage onBack={() => setActiveTab("discovery")} />;
       case "privacy":
         return <PrivacyPage onBack={() => setActiveTab("discovery")} />;
+      case "search":
+        return (
+          <SearchPage
+            onProductClick={setSelectedProduct}
+            onViewCreator={handleViewCreator}
+            onClose={() => setActiveTab("discovery")}
+          />
+        );
       default:
         return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} />;
     }
@@ -499,8 +508,8 @@ function AppContent() {
           <div className="flex items-center gap-1">
             <motion.button
               whileTap={{ scale: 0.9 }}
-              onClick={() => setActiveTab("market")}
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setActiveTab("search")}
+              className={`p-2 transition-colors ${activeTab === "search" ? "text-[#8b5cf6]" : "text-muted-foreground hover:text-foreground"}`}
             >
               <Search className="w-[22px] h-[22px]" />
             </motion.button>
