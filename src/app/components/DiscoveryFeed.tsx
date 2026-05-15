@@ -9,6 +9,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { CommentPanel } from "./CommentPanel";
 import { ShareModal } from "./ShareModal";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
+import { FollowButton } from "./FollowButton";
 import { VideoFullscreen } from "./VideoFullscreen";
 import { CreatorAvatar } from "./CreatorAvatar";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
@@ -277,6 +278,8 @@ const MovieSection = memo(({
   commentCount = 0,
   creatorAvatar = null,
   creatorName = null,
+  onViewCreator,
+  onSignInClick,
 }: {
   video: Video;
   isActive: boolean;
@@ -292,6 +295,8 @@ const MovieSection = memo(({
   commentCount?: number;
   creatorAvatar?: string | null;
   creatorName?: string | null;
+  onViewCreator?: (creatorId: string) => void;
+  onSignInClick?: () => void;
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<any>(null);
@@ -495,10 +500,25 @@ const MovieSection = memo(({
         style={{ background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 50%, transparent 100%)" }}
       >
         <div className="px-3 pt-8 pb-3 pointer-events-auto">
-          {/* 제목 + 크리에이터 */}
+          {/* 제목 + 크리에이터 + 팔로우 */}
           <div className="flex items-center gap-2 mb-1.5">
-            <CreatorAvatar avatarUrl={creatorAvatar} name={creatorName ?? video.creator} size="xs" />
-            <span className="text-[13px] font-semibold text-white/80">{creatorName ?? video.creator}</span>
+            {video.creatorId && onViewCreator ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); onViewCreator(video.creatorId!); }}
+                className="flex items-center gap-2 hover:text-white transition-colors"
+              >
+                <CreatorAvatar avatarUrl={creatorAvatar} name={creatorName ?? video.creator} size="xs" />
+                <span className="text-[13px] font-semibold text-white/80 hover:text-white">{creatorName ?? video.creator}</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <CreatorAvatar avatarUrl={creatorAvatar} name={creatorName ?? video.creator} size="xs" />
+                <span className="text-[13px] font-semibold text-white/80">{creatorName ?? video.creator}</span>
+              </div>
+            )}
+            {video.creatorId && (
+              <FollowButton creatorId={video.creatorId} onSignInClick={onSignInClick} size="sm" />
+            )}
           </div>
           <h3 className="text-sm font-bold text-white leading-tight line-clamp-1 mb-2">{video.title}</h3>
 
@@ -824,6 +844,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
                 commentCount={commentCounts[item.id] || 0}
                 creatorAvatar={item.creatorId ? creatorInfo[item.creatorId]?.avatar ?? null : null}
                 creatorName={item.creatorId ? creatorInfo[item.creatorId]?.name ?? null : null}
+                onViewCreator={onViewCreator}
+                onSignInClick={onSignInClick}
               />
             )}
           </div>
@@ -850,6 +872,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
                 commentCount={commentCounts[v.id] || 0}
                 creatorAvatar={v.creatorId ? creatorInfo[v.creatorId]?.avatar ?? null : null}
                 creatorName={v.creatorId ? creatorInfo[v.creatorId]?.name ?? null : null}
+                onViewCreator={onViewCreator}
+                onSignInClick={onSignInClick}
               />
             ))}
           </div>
@@ -1037,7 +1061,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
   );
 }
 
-function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onComment, onShare, commentCount = 0, creatorAvatar = null, creatorName = null }: { video: Video; onVideoClick: (video: Video) => void; isLiked: boolean; onToggleLike: (id: string, currentlyLiked: boolean) => void; onComment: (video: Video) => void; onShare: (video: Video) => void; commentCount?: number; creatorAvatar?: string | null; creatorName?: string | null }) {
+function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onComment, onShare, commentCount = 0, creatorAvatar = null, creatorName = null, onViewCreator, onSignInClick }: { video: Video; onVideoClick: (video: Video) => void; isLiked: boolean; onToggleLike: (id: string, currentlyLiked: boolean) => void; onComment: (video: Video) => void; onShare: (video: Video) => void; commentCount?: number; creatorAvatar?: string | null; creatorName?: string | null; onViewCreator?: (creatorId: string) => void; onSignInClick?: () => void }) {
   const [isHovered, setIsHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -1108,8 +1132,23 @@ function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onCommen
           <h3 className="font-extrabold text-lg text-white line-clamp-1 group-hover:bg-gradient-to-r group-hover:from-[#6366f1] group-hover:to-[#8b5cf6] group-hover:bg-clip-text group-hover:text-transparent transition-all uppercase tracking-tight">{video.title}</h3>
         </div>
         <div className="flex items-center gap-2 mb-4">
-          <CreatorAvatar avatarUrl={creatorAvatar} name={creatorName ?? video.creator} size="xs" />
-          <span className="text-xs font-bold text-white/40">{creatorName ?? video.creator}</span>
+          {video.creatorId && onViewCreator ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); onViewCreator(video.creatorId!); }}
+              className="flex items-center gap-2 hover:text-white transition-colors"
+            >
+              <CreatorAvatar avatarUrl={creatorAvatar} name={creatorName ?? video.creator} size="xs" />
+              <span className="text-xs font-bold text-white/40 hover:text-white">{creatorName ?? video.creator}</span>
+            </button>
+          ) : (
+            <>
+              <CreatorAvatar avatarUrl={creatorAvatar} name={creatorName ?? video.creator} size="xs" />
+              <span className="text-xs font-bold text-white/40">{creatorName ?? video.creator}</span>
+            </>
+          )}
+          {video.creatorId && (
+            <FollowButton creatorId={video.creatorId} onSignInClick={onSignInClick} size="sm" />
+          )}
         </div>
         <div className="flex items-center justify-between pt-4 border-t border-white/10">
           <span className="text-lg font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>

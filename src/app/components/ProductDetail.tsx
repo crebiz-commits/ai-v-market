@@ -13,6 +13,7 @@ import { trackVideoView } from "../utils/viewTracking";
 import { usePayment } from "../hooks/usePayment";
 import { Loader2 } from "lucide-react";
 import { ReportModal } from "./ReportModal";
+import { FollowButton } from "./FollowButton";
 import { ShareModal } from "./ShareModal";
 import { NextVideoOverlay } from "./NextVideoOverlay";
 import { AddToPlaylistModal } from "./AddToPlaylistModal";
@@ -630,17 +631,26 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
             <div className="mb-6">
               <h2 className="text-2xl mb-2">{product.title}</h2>
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <CreatorAvatar avatarUrl={creatorAvatar} name={creatorName} size="sm" />
-                  <span>{creatorName}</span>
-                </div>
-                {product.creatorId && onViewCreator && (
+                {product.creatorId && onViewCreator ? (
                   <button
                     onClick={() => onViewCreator(product.creatorId!)}
-                    className="px-3 py-1.5 text-xs font-bold bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg text-gray-200 transition-colors whitespace-nowrap"
+                    className="flex items-center gap-3 text-muted-foreground hover:text-white transition-colors group"
                   >
-                    채널 보기 →
+                    <CreatorAvatar avatarUrl={creatorAvatar} name={creatorName} size="sm" />
+                    <span className="group-hover:text-white">{creatorName}</span>
                   </button>
+                ) : (
+                  <div className="flex items-center gap-3 text-muted-foreground">
+                    <CreatorAvatar avatarUrl={creatorAvatar} name={creatorName} size="sm" />
+                    <span>{creatorName}</span>
+                  </div>
+                )}
+                {product.creatorId && (
+                  <FollowButton
+                    creatorId={product.creatorId}
+                    onSignInClick={onSignInClick}
+                    size="sm"
+                  />
                 )}
               </div>
             </div>
