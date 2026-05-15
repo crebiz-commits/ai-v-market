@@ -10,6 +10,8 @@ import { CommentPanel } from "./CommentPanel";
 import { ShareModal } from "./ShareModal";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { FollowButton } from "./FollowButton";
+import { mergeShowcase, shouldShowShowcase, handleShowcaseClick } from "../utils/showcase";
+import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { VideoFullscreen } from "./VideoFullscreen";
 import { CreatorAvatar } from "./CreatorAvatar";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
@@ -556,8 +558,29 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
   const [shareTarget, setShareTarget] = useState<Video | null>(null);
   const [fullscreenVideo, setFullscreenVideo] = useState<Video | null>(null);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { isBlocked } = useBlockedUsers();
+  const showcase = shouldShowShowcase(profile?.is_admin);
+
+  // ShowcaseVideo → Video 변환
+  const showcaseToVideo = (s: ShowcaseVideo): Video => ({
+    id: s.id,
+    thumbnail: s.thumbnail,
+    title: s.title,
+    creator: s.creator,
+    creatorId: s.creatorId,
+    likes: s.likes,
+    price: s.price,
+    duration: s.duration,
+    durationSeconds: s.durationSeconds,
+    resolution: s.resolution,
+    tool: s.tool,
+    category: s.category,
+    videoUrl: "",
+    tags: s.tags ? s.tags.split(",").map(t => t.trim()) : [],
+    priceStandard: s.price,
+    visibility: "public",
+  });
   // Phase 24: 차단 사용자 영상은 피드에서 제외
   const visibleVideos = videos.filter((v) => !v.creatorId || !isBlocked(v.creatorId));
   // Phase 6.6 — 영상별 크리에이터 아바타 매핑
@@ -652,8 +675,10 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
             highlightStart: item.highlight_start || 0,
             highlightEnd: item.highlight_end || 15,
           }));
-          setVideos(formatted);
-          if (formatted.length > 0) setActiveId(formatted[0].id);
+          // Phase: Showcase Mode — 비관리자에게 Mock 100개 추가
+          const final = showcase ? mergeShowcase(formatted, showcaseToVideo) : formatted;
+          setVideos(final);
+          if (final.length > 0) setActiveId(final[0].id);
 
           // 댓글 수 fetch
           const videoIds = formatted.map((v: Video) => v.id);
@@ -767,6 +792,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
                          // loading=false 시점에 container가 생기므로 재실행 필요
 
   const toggleLike = async (videoId: string, currentlyLiked: boolean) => {
+    if (handleShowcaseClick(videoId)) return;
     if (!user) {
       if (onSignInClick) onSignInClick();
       return;
@@ -794,6 +820,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
   };
 
   const handleShare = useCallback(async (video: Video) => {
+    if (handleShowcaseClick(video.id)) return;
     const url = `${window.location.origin}?video=${video.id}`;
     const shareData = { title: video.title, text: `CREAITE: ${video.title}`, url };
     // 모바일: 네이티브 공유 시트 우선
@@ -838,9 +865,9 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
                 isLiked={likedVideos.has(item.id)}
                 onToggleLike={toggleLike}
                 onSetActive={(id) => setActiveId(id)}
-                onComment={(v) => setCommentVideo(v)}
+                onComment={(v) => { if (handleShowcaseClick(v.id)) return; setCommentVideo(v); }}
                 onShare={handleShare}
-                onFullscreen={(v) => setFullscreenVideo(v)}
+                onFullscreen={(v) => { if (handleShowcaseClick(v.id)) return; setFullscreenVideo(v); }}
                 commentCount={commentCounts[item.id] || 0}
                 creatorAvatar={item.creatorId ? creatorInfo[item.creatorId]?.avatar ?? null : null}
                 creatorName={item.creatorId ? creatorInfo[item.creatorId]?.name ?? null : null}
@@ -867,7 +894,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
                 onVideoClick={onVideoClick}
                 isLiked={likedVideos.has(v.id)}
                 onToggleLike={toggleLike}
-                onComment={(vid) => setCommentVideo(vid)}
+                onComment={(vid) => { if (handleShowcaseClick(vid.id)) return; setCommentVideo(vid); }}
                 onShare={handleShare}
                 commentCount={commentCounts[v.id] || 0}
                 creatorAvatar={v.creatorId ? creatorInfo[v.creatorId]?.avatar ?? null : null}

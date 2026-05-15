@@ -6,8 +6,31 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Search, X, Loader2, TrendingUp, Clock, Filter, ChevronDown, Eye, Heart, Play, Users, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
+import { useAuth } from "../contexts/AuthContext";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
+import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
+import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { toast } from "sonner";
+
+function showcaseToVideoResult(s: ShowcaseVideo): VideoResult {
+  return {
+    id: s.id,
+    title: s.title,
+    thumbnail: s.thumbnail,
+    video_url: null,
+    creator: s.creator,
+    creator_id: s.creatorId ?? null,
+    creator_display_name: s.creator,
+    creator_avatar: null,
+    category: s.category,
+    ai_tool: s.tool,
+    duration: s.duration,
+    duration_seconds: s.durationSeconds,
+    views_count: s.views,
+    likes: s.likes,
+    price_standard: s.price,
+  };
+}
 
 const HISTORY_KEY = "creaite_search_history";
 const HISTORY_MAX = 10;
@@ -127,7 +150,9 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
   const [popular, setPopular] = useState<PopularQuery[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
+  const { profile } = useAuth();
   const { isBlocked } = useBlockedUsers();
+  const showcase = shouldShowShowcase(profile?.is_admin);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -188,7 +213,20 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
         toast.error("영상 검색에 실패했습니다.");
         setVideos([]);
       } else {
-        setVideos((videosRes.data ?? []) as VideoResult[]);
+        let realVideos = (videosRes.data ?? []) as VideoResult[];
+        // Showcase: 검색어로 mock도 필터링해서 추가
+        if (showcase && trimmed) {
+          const lq = trimmed.toLowerCase();
+          const merged = mergeShowcase(realVideos, showcaseToVideoResult).filter(
+            (v) =>
+              v.title.toLowerCase().includes(lq) ||
+              (v.creator_display_name || v.creator || "").toLowerCase().includes(lq) ||
+              (v.category || "").toLowerCase().includes(lq) ||
+              (v.ai_tool || "").toLowerCase().includes(lq)
+          );
+          realVideos = merged;
+        }
+        setVideos(realVideos);
       }
 
       if (creatorsRes.error) {

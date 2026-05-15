@@ -172,7 +172,16 @@ function AppContent() {
     return false;
   });
   const [activeTab, setActiveTab] = useState<Tab>("discovery");
-  const [selectedProduct, setSelectedProduct] = useState<VideoProduct | null>(null);
+  const [selectedProduct, setSelectedProductRaw] = useState<VideoProduct | null>(null);
+  // Showcase Mode: demo- prefix 영상은 진입 차단 + 안내 토스트
+  const setSelectedProduct = (product: VideoProduct | null) => {
+    if (product?.id?.startsWith("demo-")) {
+      // 동적 import로 토스트만 띄우고 진입 차단
+      import("./utils/showcase").then(m => m.handleShowcaseClick(product.id));
+      return;
+    }
+    setSelectedProductRaw(product);
+  };
   // 채널 탭 외부에서 "채널 보기" 클릭 시 어떤 크리에이터를 열지 신호 (Channel이 mount 후 selectedCreatorId로 채택)
   const [pendingCreatorId, setPendingCreatorId] = useState<string | null>(null);
   const handleViewCreator = (creatorId: string) => {

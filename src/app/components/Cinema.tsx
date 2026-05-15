@@ -12,9 +12,34 @@
 import { useEffect, useState } from "react";
 import { Loader2, Film, Search as SearchIcon } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
+import { useAuth } from "../contexts/AuthContext";
 import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
 import { CoverFlow } from "./CoverFlow";
 import { Input } from "./ui/input";
+import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
+import type { ShowcaseVideo } from "../data/showcaseVideos";
+
+// ShowcaseVideo → CarouselVideo 변환
+function showcaseToCarousel(s: ShowcaseVideo): CarouselVideo {
+  return {
+    id: s.id,
+    title: s.title,
+    thumbnail: s.thumbnail,
+    creator: s.creator,
+    creator_id: s.creatorId ?? null,
+    creator_display_name: s.creator,
+    creator_avatar: null,
+    duration: s.duration,
+    duration_seconds: s.durationSeconds,
+    ai_tool: s.tool,
+    category: s.category,
+    price_standard: s.price,
+    views: s.views,
+    likes: s.likes,
+    highlight_start: 0,
+    highlight_end: 15,
+  } as any;
+}
 
 // CarouselVideo (RPC 반환) → CoverFlow Video 매핑
 function toCoverFlowVideo(v: CarouselVideo & { video_url?: string }): any {
@@ -90,6 +115,8 @@ function toProduct(v: CarouselVideo): Product {
 }
 
 export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
+  const { profile } = useAuth();
+  const showcase = shouldShowShowcase(profile?.is_admin);
   const [loading, setLoading] = useState(true);
   const [recommended, setRecommended] = useState<CarouselVideo[]>([]);
   const [continueWatching, setContinueWatching] = useState<CarouselVideo[]>([]);
@@ -127,7 +154,11 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
           supabase.rpc("get_categories_with_count", { p_tier: tier, p_min_count: 2 }),
         ]);
 
-        setRecommended(rec || []);
+        // Showcase Mode: tier 기반 (cinema=3분+, ott=10분+) Mock 합성
+        const merge = (real: CarouselVideo[], opts?: { category?: string }) =>
+          showcase ? mergeShowcase(real, showcaseToCarousel, { tier, ...opts }) : real;
+
+        setRecommended(merge(rec || []));
         // 이어 보기는 시네마 tier일 때만 (OTT는 별도)
         setContinueWatching(
           (cont || []).filter((v: CarouselVideo) => {
@@ -135,9 +166,9 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
             return (v.duration_seconds || 0) >= 180 && (v.duration_seconds || 0) < 600;
           })
         );
-        setTrending(trd || []);
-        setNewReleases(nrl || []);
-        setTop10(top || []);
+        setTrending(merge(trd || []));
+        setNewReleases(merge(nrl || []));
+        setTop10(merge(top || []));
 
         // 카테고리별 영상 로드 (상위 5개 카테고리)
         const topCategories = (cats || []).slice(0, 5);
@@ -148,9 +179,19 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
               p_tier: tier,
               p_limit: 12,
             });
-            return { category: cat.category, videos: data || [] };
+            return { category: cat.category, videos: merge(data || [], { category: cat.category }) };
           })
         );
+        // showcase 모드 + 실제 카테고리가 적으면 mock 카테고리도 추가
+        if (showcase && rows.length < 5) {
+          const showcaseCategories = ["drama", "action", "thriller", "romance", "comedy"];
+          for (const cat of showcaseCategories) {
+            if (rows.find(r => r.category === cat)) continue;
+            const mockOnly = mergeShowcase([] as CarouselVideo[], showcaseToCarousel, { tier, category: cat, maxShowcase: 12 });
+            if (mockOnly.length > 0) rows.push({ category: cat, videos: mockOnly });
+            if (rows.length >= 5) break;
+          }
+        }
         setCategoryRows(rows);
       } catch (err: any) {
         console.warn("[Cinema] 로딩 실패:", err?.message);

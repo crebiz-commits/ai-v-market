@@ -19,12 +19,18 @@ export type CreatorInfoMap = Record<string, CreatorInfo>;
  *   const creatorInfo = useCreatorInfo(videos.map(v => v.creatorId).filter(Boolean));
  *   <CreatorAvatar avatarUrl={creatorInfo[v.creatorId]?.avatar} name={v.creator} />
  */
+// UUID v4 형식 (Showcase Mock의 "demo-creator-1" 같은 가짜 ID는 RPC에 못 들어가게 차단)
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function useCreatorInfo(creatorIds: (string | null | undefined)[]): CreatorInfoMap {
   const [map, setMap] = useState<CreatorInfoMap>({});
   const lastKeyRef = useRef<string>("");
 
   // unique + sorted → key로 변환해 의존성 안정화
-  const uniqueIds = Array.from(new Set(creatorIds.filter((id): id is string => !!id))).sort();
+  // UUID 형식만 통과 (Showcase mock의 "demo-creator-X" 등 차단)
+  const uniqueIds = Array.from(
+    new Set(creatorIds.filter((id): id is string => !!id && UUID_RE.test(id)))
+  ).sort();
   const key = uniqueIds.join(",");
 
   useEffect(() => {

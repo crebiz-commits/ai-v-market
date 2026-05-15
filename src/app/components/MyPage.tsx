@@ -907,8 +907,8 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
               ...(pageMode === 'user' ? [{ id: 'purchases', icon: ShoppingBag, label: '구매' }] : []),
               ...(pageMode === 'creator' && isCreator ? [{ id: 'sales', icon: TrendingUp, label: '판매' }] : []),
               ...(pageMode === 'creator' && isCreator ? [{ id: 'comments', icon: MessageSquare, label: '댓글' }] : []),
-              { id: 'history', icon: Clock, label: '시청 기록' },
-              { id: 'playlists', icon: FolderPlus, label: '플레이리스트' },
+              { id: 'history', icon: Clock, label: '기록' },
+              { id: 'playlists', icon: FolderPlus, label: '보관함' },
               { id: 'settings', icon: Settings, label: '설정' },
             ] as { id: string; icon: any; label: string }[]).map(tab => {
               const Icon = tab.icon;
