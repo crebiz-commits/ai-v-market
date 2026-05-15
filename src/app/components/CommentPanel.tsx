@@ -36,6 +36,11 @@ interface CommentPanelProps {
   title?: string;
   onClose: () => void;
   onCommentPosted?: () => void;
+  /**
+   * 댓글 작성자 아바타/이름 클릭 시 호출. 채널 페이지로 이동.
+   * 호출자가 ProductDetail/DiscoveryFeed 등에서 자체 닫고 채널 라우팅.
+   */
+  onViewCreator?: (creatorId: string) => void;
   // 모바일: 바텀시트, 데스크탑: 사이드패널
   mode?: "sheet" | "panel";
 }
@@ -77,7 +82,7 @@ function Avatar({ name, src, size = 36 }: { name: string; src?: string; size?: n
   );
 }
 
-export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onCommentPosted, mode = "sheet" }: CommentPanelProps) {
+export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onCommentPosted, onViewCreator, mode = "sheet" }: CommentPanelProps) {
   const { user, isAuthenticated, profile } = useAuth();
   const isVideoOwner = !!(videoId && videoCreatorId && user?.id === videoCreatorId);
 
@@ -419,11 +424,25 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
         animate={{ opacity: 1, y: 0 }}
         className={`flex gap-3 ${isReply ? "ml-10 mt-2" : ""} ${comment.is_pinned ? "bg-[#6366f1]/5 -mx-4 px-4 py-2 rounded-lg" : ""}`}
       >
-        <Avatar
-          name={comment.author_name}
-          src={creatorInfo[comment.user_id]?.avatar ?? undefined}
-          size={isReply ? 28 : 36}
-        />
+        {onViewCreator ? (
+          <button
+            onClick={() => onViewCreator(comment.user_id)}
+            className="flex-shrink-0 hover:opacity-80 transition-opacity"
+            aria-label={`${comment.author_name} 채널 보기`}
+          >
+            <Avatar
+              name={comment.author_name}
+              src={creatorInfo[comment.user_id]?.avatar ?? undefined}
+              size={isReply ? 28 : 36}
+            />
+          </button>
+        ) : (
+          <Avatar
+            name={comment.author_name}
+            src={creatorInfo[comment.user_id]?.avatar ?? undefined}
+            size={isReply ? 28 : 36}
+          />
+        )}
         <div className="flex-1 min-w-0">
           {comment.is_pinned && !isReply && (
             <div className="flex items-center gap-1 text-[11px] text-[#8b5cf6] font-bold mb-1">
@@ -432,7 +451,16 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
             </div>
           )}
           <div className="flex items-baseline gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-white">{comment.author_name}</span>
+            {onViewCreator ? (
+              <button
+                onClick={() => onViewCreator(comment.user_id)}
+                className="text-sm font-semibold text-white hover:text-[#a78bfa] transition-colors"
+              >
+                {comment.author_name}
+              </button>
+            ) : (
+              <span className="text-sm font-semibold text-white">{comment.author_name}</span>
+            )}
             {isCommentByCreator && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold">
                 크리에이터

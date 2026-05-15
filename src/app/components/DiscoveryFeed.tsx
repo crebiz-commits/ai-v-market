@@ -78,6 +78,7 @@ interface Video {
 interface DiscoveryFeedProps {
   onVideoClick: (video: Video) => void;
   onSignInClick?: () => void;
+  onViewCreator?: (creatorId: string) => void;
 }
 
 // 📢 Ad Card Component
@@ -524,7 +525,7 @@ const MovieSection = memo(({
 
 MovieSection.displayName = "MovieSection";
 
-export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProps) {
+export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: DiscoveryFeedProps) {
   const [videos, setVideos] = useState<Video[]>([]);
   const [ads, setAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
@@ -956,6 +957,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick }: DiscoveryFeedProp
               title={commentVideo.title}
               onClose={() => setCommentVideo(null)}
               onCommentPosted={() => setCommentCounts(prev => ({ ...prev, [commentVideo.id]: (prev[commentVideo.id] || 0) + 1 }))}
+              onViewCreator={(cid) => { setCommentVideo(null); onViewCreator?.(cid); }}
               mode="sheet"
             />
           </motion.div>

@@ -425,7 +425,7 @@ function AppContent() {
   const renderContent = () => {
     switch (activeTab) {
       case "discovery":
-        return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} />;
+        return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} onViewCreator={handleViewCreator} />;
       case "market":
         return <Cinema onProductClick={setSelectedProduct} tier="cinema" />;
       case "ott":

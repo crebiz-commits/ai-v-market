@@ -997,6 +997,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                 videoId={product.id}
                 videoCreatorId={product.creatorId}
                 onClose={() => setShowComments(false)}
+                onViewCreator={onViewCreator}
                 mode="panel"
               />
             </motion.div>
@@ -1018,6 +1019,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                 videoId={product.id}
                 videoCreatorId={product.creatorId}
                 onClose={() => setShowComments(false)}
+                onViewCreator={onViewCreator}
                 mode="sheet"
               />
             </motion.div>
