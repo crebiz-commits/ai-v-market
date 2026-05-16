@@ -102,13 +102,19 @@ export const GENRE_STYLES: Record<string, GenreStyle> = {
     gradient: "from-violet-700 to-purple-900",
     emoji: "🎵",
   },
-  // SF 카테고리는 우리 enum에 없지만 sci-fi 추가 가능 — 일단 fantasy로
   fantasy: {
     key: "fantasy",
     label: "판타지",
     subtitle: "마법과 환상의 세계",
     gradient: "from-violet-700 via-purple-700 to-fuchsia-900",
     emoji: "🌌",
+  },
+  "sci-fi": {
+    key: "sci-fi",
+    label: "SF",
+    subtitle: "미래의 시네마",
+    gradient: "from-cyan-700 via-blue-700 to-indigo-900",
+    emoji: "🚀",
   },
 };
 
