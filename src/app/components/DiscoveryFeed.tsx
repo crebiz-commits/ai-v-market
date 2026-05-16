@@ -12,6 +12,8 @@ import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { FollowButton } from "./FollowButton";
 import { mergeShowcase, shouldShowShowcase, handleShowcaseClick } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
+import { AgeBadge, shouldBlur } from "./AgeBadge";
+import { Lock } from "lucide-react";
 import { VideoFullscreen } from "./VideoFullscreen";
 import { CreatorAvatar } from "./CreatorAvatar";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
@@ -52,6 +54,8 @@ interface Video {
   videoUrl: string;
   description?: string;
   tags?: string[];
+  // Phase 26: 연령 등급
+  age_rating?: "all" | "13" | "15" | "19";
 
   // 라이선스 (3종 호환 — 현재는 priceStandard만 사용)
   priceStandard?: number;
@@ -305,6 +309,11 @@ const MovieSection = memo(({
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
+  // Phase 26: 19+ 연령 잠금 여부 (본인 영상은 게이트 제외)
+  const { profile, user } = useAuth();
+  const ageVerified = profile?.age_verified ?? false;
+  const isMyVideo = !!user?.id && !!video.creatorId && user.id === video.creatorId;
+  const isAgeLocked = !isMyVideo && shouldBlur(video.age_rating, ageVerified);
 
   // Effect 1: 플레이어 생성/삭제 — video 소스가 바뀔 때만 (isActive 제외!)
   // isActive를 deps에 넣으면 dispose()가 <video> DOM을 제거해 videoRef가 죽은 요소를 참조하게 됨
@@ -487,6 +496,20 @@ const MovieSection = memo(({
         </div>
       )}
 
+      {/* Phase 26: 19+ 잠금 오버레이 (본인 영상 제외) — 클릭 시 ProductDetail 진입 → 거기서 자동 게이트 */}
+      {isAgeLocked && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onVideoClick(video); }}
+          className="absolute inset-0 z-30 bg-black/80 backdrop-blur-xl flex flex-col items-center justify-center text-center p-4 cursor-pointer hover:bg-black/85 transition-colors"
+        >
+          <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center mb-3">
+            <Lock className="w-6 h-6 text-white" />
+          </div>
+          <p className="text-base font-black text-white mb-1">19+ 인증 필요</p>
+          <p className="text-xs text-gray-300 underline">탭하여 본인 인증</p>
+        </button>
+      )}
+
       {/* 우측 액션 버튼 (글래스 + 글로우 스타일) */}
       <ActionButtons
         video={video}
@@ -521,8 +544,9 @@ const MovieSection = memo(({
             {video.creatorId && (
               <FollowButton creatorId={video.creatorId} onSignInClick={onSignInClick} size="sm" />
             )}
+            <AgeBadge rating={(video as any).age_rating} size="xs" />
           </div>
-          <h3 className="text-sm font-bold text-white leading-tight line-clamp-1 mb-2">{video.title}</h3>
+          <h3 className="text-sm font-bold text-white leading-tight line-clamp-1 mb-2 pr-16">{video.title}</h3>
 
           {/* 가격 + 버튼 */}
           <div className="flex items-center justify-between">
@@ -580,6 +604,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
     tags: s.tags ? s.tags.split(",").map(t => t.trim()) : [],
     priceStandard: s.price,
     visibility: "public",
+    age_rating: "all" as any,
   });
   // Phase 24: 차단 사용자 영상은 피드에서 제외
   const visibleVideos = videos.filter((v) => !v.creatorId || !isBlocked(v.creatorId));
@@ -652,6 +677,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
             category: item.category || undefined,
             genre: item.genre || undefined,
             videoUrl: item.video_url || "",
+            // Phase 26: 연령 등급
+            age_rating: item.age_rating || "all",
             description: item.description || undefined,
             tags: Array.isArray(item.tags) ? item.tags : (typeof item.tags === "string" && item.tags ? item.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : []),
             // 라이선스 (현재 단일 가격 — DB 컬럼 3개에 동일값)

@@ -22,6 +22,8 @@ interface Profile {
   subscription_expires_at: string | null;
   payout_info: any | null;
   is_admin: boolean | null;
+  birthdate: string | null;
+  age_verified: boolean | null;
 }
 
 interface AuthContextType {
@@ -56,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, display_name, avatar_url, bio, subscription_tier, subscription_started_at, subscription_expires_at, payout_info, is_admin')
+      .select('id, display_name, avatar_url, bio, subscription_tier, subscription_started_at, subscription_expires_at, payout_info, is_admin, birthdate, age_verified')
       .eq('id', userId)
       .maybeSingle();
 

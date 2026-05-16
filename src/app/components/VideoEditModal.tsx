@@ -21,9 +21,17 @@ interface VideoEditModalProps {
   initialThumbnail?: string;
   initialChapters?: Chapter[];
   initialSubtitleUrl?: string | null;
+  initialAgeRating?: string;
   onClose: () => void;
-  onSaved?: (updates: { thumbnail?: string; chapters?: Chapter[]; subtitleUrl?: string | null }) => void;
+  onSaved?: (updates: { thumbnail?: string; chapters?: Chapter[]; subtitleUrl?: string | null; ageRating?: string }) => void;
 }
+
+const AGE_OPTIONS: { value: string; label: string; color: string }[] = [
+  { value: "all", label: "전체관람가", color: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" },
+  { value: "13",  label: "13+",       color: "border-amber-500/40 bg-amber-500/10 text-amber-300" },
+  { value: "15",  label: "15+",       color: "border-orange-500/40 bg-orange-500/10 text-orange-300" },
+  { value: "19",  label: "19+ (성인)", color: "border-red-500/40 bg-red-500/10 text-red-300" },
+];
 
 // HH:MM:SS or MM:SS → seconds
 function parseTimeInput(input: string): number | null {
@@ -52,6 +60,7 @@ export function VideoEditModal({
   initialThumbnail,
   initialChapters = [],
   initialSubtitleUrl,
+  initialAgeRating = "all",
   onClose,
   onSaved,
 }: VideoEditModalProps) {
@@ -69,6 +78,8 @@ export function VideoEditModal({
   const [uploadingSubtitle, setUploadingSubtitle] = useState(false);
   const [clearSubtitle, setClearSubtitle] = useState(false);
 
+  const [ageRating, setAgeRating] = useState<string>(initialAgeRating);
+
   const [saving, setSaving] = useState(false);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const subtitleInputRef = useRef<HTMLInputElement>(null);
@@ -84,8 +95,9 @@ export function VideoEditModal({
       setSubtitleUrl(initialSubtitleUrl || null);
       setSubtitleFile(null);
       setClearSubtitle(false);
+      setAgeRating(initialAgeRating || "all");
     }
-  }, [open, initialThumbnail, initialSubtitleUrl]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, initialThumbnail, initialSubtitleUrl, initialAgeRating]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // 선택한 새 썸네일 변경 취소 (저장 전, 원본으로 복원)
   const handleResetThumbnail = () => {
@@ -196,13 +208,13 @@ export function VideoEditModal({
       }
 
       // 3. RPC로 메타데이터 일괄 갱신
-      // supabase-js가 객체/배열을 자동 JSON 직렬화 → JSON.stringify 미리 하지 말 것
       const { error: rpcErr } = await supabase.rpc("update_my_video_metadata", {
         p_video_id: videoId,
         p_thumbnail: finalThumbnail ?? null,
         p_chapters: chapters,
         p_subtitle_url: finalSubtitleUrl ?? null,
         p_clear_subtitle: willClearSubtitle,
+        p_age_rating: ageRating,
       });
       if (rpcErr) throw rpcErr;
 
@@ -211,6 +223,7 @@ export function VideoEditModal({
         thumbnail: finalThumbnail,
         chapters,
         subtitleUrl: willClearSubtitle ? null : (finalSubtitleUrl || subtitleUrl),
+        ageRating,
       });
       onClose();
     } catch (err: any) {
@@ -369,7 +382,34 @@ export function VideoEditModal({
               </div>
             </section>
 
-            {/* 3. 자막 */}
+            {/* 3. 연령 등급 (Phase 26) */}
+            <section>
+              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400" />
+                연령 등급
+              </h3>
+              <p className="text-xs text-gray-500 mb-3">콘텐츠 무드에 맞는 등급을 선택해주세요. 19+ 영상은 본인 인증된 사용자만 시청 가능합니다.</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {AGE_OPTIONS.map(opt => {
+                  const active = ageRating === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setAgeRating(opt.value)}
+                      className={`px-3 py-2.5 rounded-lg text-xs font-bold border transition-all ${
+                        active
+                          ? `${opt.color} ring-2 ring-offset-1 ring-offset-[#111] ring-white/30`
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* 4. 자막 */}
             <section>
               <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-[#8b5cf6]" />

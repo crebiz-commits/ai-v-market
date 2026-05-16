@@ -842,13 +842,12 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
 
   const [showCommentSettings, setShowCommentSettings] = useState(false);
   // Phase 22: 영상 편집 모달
-  const [editingVideo, setEditingVideo] = useState<{ id: string; thumbnail: string; chapters: any[]; subtitle_url: string | null } | null>(null);
+  const [editingVideo, setEditingVideo] = useState<{ id: string; thumbnail: string; chapters: any[]; subtitle_url: string | null; age_rating: string } | null>(null);
 
   const handleOpenEditVideo = async (productId: string, thumbnail: string) => {
-    // chapters/subtitle_url을 fetch (myProducts엔 없음)
     const { data } = await supabase
       .from("videos")
-      .select("chapters, subtitle_url")
+      .select("chapters, subtitle_url, age_rating")
       .eq("id", productId)
       .maybeSingle();
     setEditingVideo({
@@ -856,6 +855,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
       thumbnail,
       chapters: Array.isArray((data as any)?.chapters) ? (data as any).chapters : [],
       subtitle_url: (data as any)?.subtitle_url || null,
+      age_rating: (data as any)?.age_rating || "all",
     });
   };
 
@@ -1000,6 +1000,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
           initialThumbnail={editingVideo.thumbnail}
           initialChapters={editingVideo.chapters}
           initialSubtitleUrl={editingVideo.subtitle_url}
+          initialAgeRating={editingVideo.age_rating}
           onClose={() => setEditingVideo(null)}
           onSaved={() => { setEditingVideo(null); /* 추후 myProducts 갱신 */ }}
         />

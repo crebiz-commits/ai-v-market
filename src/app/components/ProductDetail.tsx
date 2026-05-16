@@ -1,4 +1,4 @@
-import { X, Heart, Send, Download, ShoppingCart, Check, MessageCircle, Crown, Lock, Flag, Bookmark } from "lucide-react";
+import { X, Heart, Send, Download, ShoppingCart, Check, MessageCircle, Crown, Lock, Flag, Bookmark, FileText } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -16,6 +16,8 @@ import { ReportModal } from "./ReportModal";
 import { FollowButton } from "./FollowButton";
 import { VideoEditModal } from "./VideoEditModal";
 import { Pencil, Clock as ClockIcon } from "lucide-react";
+import { AgeBadge, shouldBlur } from "./AgeBadge";
+import { AgeGateModal } from "./AgeGateModal";
 import { ShareModal } from "./ShareModal";
 import { NextVideoOverlay } from "./NextVideoOverlay";
 import { AddToPlaylistModal } from "./AddToPlaylistModal";
@@ -95,10 +97,17 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
   const [likeBusy, setLikeBusy] = useState(false);
   // Phase 22: 영상 편집 모달 + 챕터/자막 fetch
   const [editOpen, setEditOpen] = useState(false);
-  const [videoMeta, setVideoMeta] = useState<{ chapters: { title: string; time_seconds: number }[]; subtitle_url: string | null }>({
+  const [videoMeta, setVideoMeta] = useState<{
+    chapters: { title: string; time_seconds: number }[];
+    subtitle_url: string | null;
+    age_rating: string;
+  }>({
     chapters: [],
     subtitle_url: null,
+    age_rating: "all",
   });
+  // Phase 26: 연령 게이트
+  const [ageGateOpen, setAgeGateOpen] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [showComments, setShowComments] = useState(false);
   // 크리에이터 아바타·이름 — Phase 6.6 (videos.creator는 snapshot이라 항상 최신 profiles 정보 우선)
@@ -107,7 +116,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
   const creatorName = (product.creatorId ? creatorInfo[product.creatorId]?.name : null) ?? product.creator;
 
   // Phase 4: 페이월 게이트
-  const { isSubscriber, isAuthenticated, user } = useAuth();
+  const { isSubscriber, isAuthenticated, user, profile } = useAuth();
   // Phase 9: 라이선스 결제
   const { startLicensePurchase } = usePayment();
   const [buyingLicense, setBuyingLicense] = useState(false);
@@ -140,19 +149,27 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
     (async () => {
       const { data } = await supabase
         .from("videos")
-        .select("chapters, subtitle_url")
+        .select("chapters, subtitle_url, age_rating")
         .eq("id", product.id)
         .maybeSingle();
       if (cancelled || !data) return;
-      setVideoMeta({
+      const meta = {
         chapters: Array.isArray((data as any).chapters) ? (data as any).chapters : [],
         subtitle_url: (data as any).subtitle_url || null,
-      });
+        age_rating: (data as any).age_rating || "all",
+      };
+      setVideoMeta(meta);
+      // Phase 26: 19+ 영상 + 미인증 사용자면 진입 시 자동 게이트
+      if (meta.age_rating === "19" && !profile?.age_verified && user?.id !== (product.creatorId || undefined)) {
+        setAgeGateOpen(true);
+      }
     })();
     return () => { cancelled = true; };
-  }, [product.id]);
+  }, [product.id, profile?.age_verified, user?.id, product.creatorId]);
 
   const isMyVideo = !!user?.id && !!product.creatorId && user.id === product.creatorId;
+  // Phase 26: 19+ 영상 비인증 시 컨텐츠 잠금 (본인 영상은 제외)
+  const isAgeLocked = !isMyVideo && shouldBlur(videoMeta.age_rating, profile?.age_verified);
 
   // Phase 23: 좋아요 정상화 — video_likes 테이블 연동 (DiscoveryFeed와 동일 출처)
   useEffect(() => {
@@ -344,8 +361,8 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
     ? `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${product.id}?autoplay=true&loop=false&muted=true&preload=true&responsive=true&vastTagUrl=${vastTagUrl}`
     : null;
 
-  // iframe 실제 노출 여부 — 페이월 게이트
-  const iframeBlocked = ottBlocked || cinemaCutoffTriggered;
+  // iframe 실제 노출 여부 — 페이월 게이트 + Phase 26: 19+ 미인증 차단
+  const iframeBlocked = ottBlocked || cinemaCutoffTriggered || isAgeLocked;
 
   // ── Phase 16: 연속 재생 (영상 종료 → 다음 영상 카운트다운) ──
   const [nextVideo, setNextVideo] = useState<{ id: string; title: string; thumbnail?: string | null; creator?: string | null; duration?: string | null; views?: number | null } | null>(null);
@@ -658,7 +675,10 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
           <div className="p-6 pb-40 md:pb-6">
             {/* Title & Creator */}
             <div className="mb-6">
-              <h2 className="text-2xl mb-2">{product.title}</h2>
+              <div className="flex items-start gap-2 mb-2">
+                <h2 className="text-2xl flex-1">{product.title}</h2>
+                <AgeBadge rating={videoMeta.age_rating} size="md" />
+              </div>
               <div className="flex items-center justify-between gap-3">
                 {product.creatorId && onViewCreator ? (
                   <button
@@ -1140,13 +1160,47 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
           initialThumbnail={product.thumbnail}
           initialChapters={videoMeta.chapters}
           initialSubtitleUrl={videoMeta.subtitle_url}
+          initialAgeRating={videoMeta.age_rating}
           onClose={() => setEditOpen(false)}
           onSaved={(updates) => {
             setEditOpen(false);
             if (updates.chapters) setVideoMeta(prev => ({ ...prev, chapters: updates.chapters! }));
             if (updates.subtitleUrl !== undefined) setVideoMeta(prev => ({ ...prev, subtitle_url: updates.subtitleUrl ?? null }));
+            if (updates.ageRating) setVideoMeta(prev => ({ ...prev, age_rating: updates.ageRating! }));
           }}
         />
+      )}
+
+      {/* Phase 26: 연령 게이트 모달 */}
+      <AgeGateModal
+        open={ageGateOpen}
+        onClose={() => {
+          setAgeGateOpen(false);
+          // 인증 안 한 채로 닫으면 영상에서 나가기
+          if (isAgeLocked) onClose();
+        }}
+        onResult={(verified) => {
+          if (verified) setAgeGateOpen(false);
+        }}
+      />
+
+      {/* Phase 26: 19+ 잠금 오버레이 (영상 위에 표시) */}
+      {isAgeLocked && (
+        <div className="absolute inset-0 z-30 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-red-600 flex items-center justify-center mb-4">
+            <Lock className="w-8 h-8 text-white" />
+          </div>
+          <h3 className="text-xl font-black text-white mb-2">19+ 콘텐츠</h3>
+          <p className="text-sm text-gray-400 mb-6 max-w-xs">이 영상은 만 19세 이상만 시청할 수 있습니다. 본인 인증을 진행해 주세요.</p>
+          <div className="flex gap-2">
+            <Button onClick={onClose} variant="outline" className="bg-white/5 text-gray-300 border-white/10 hover:bg-white/10">
+              돌아가기
+            </Button>
+            <Button onClick={() => setAgeGateOpen(true)} className="bg-red-600 hover:bg-red-700 text-white font-bold gap-2">
+              <Lock className="w-4 h-4" /> 본인 인증
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Phase 19: 공유 모달 */}
