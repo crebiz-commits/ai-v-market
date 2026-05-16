@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus, Clock, Trash2, Film, Tv, FolderPlus, Bookmark, ArrowLeft, Play, MessageSquare, Filter, UserX } from "lucide-react";
+import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus, Clock, Trash2, Film, Tv, FolderPlus, Bookmark, ArrowLeft, Play, MessageSquare, Filter, UserX, Download, AlertTriangle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -12,6 +12,192 @@ import { InstallGuideCard } from "./InstallPrompt";
 import { CommentSettings } from "./CommentSettings";
 import { CreatorDashboard } from "./CreatorDashboard";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
+
+// Phase 27: 데이터 다운로드 섹션 (개인정보보호법 데이터 이동권)
+function DataDownloadSection() {
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const { data, error } = await supabase.rpc("export_my_data");
+      if (error) throw error;
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `creaite-my-data-${stamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("데이터를 다운로드했습니다.");
+    } catch (e: any) {
+      console.error("[DataDownload] error:", e);
+      toast.error("다운로드에 실패했습니다.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
+      <div className="flex items-center gap-2 mb-4">
+        <Download className="w-5 h-5 text-[#10b981]" />
+        <h3 className="font-bold text-white">내 데이터 다운로드</h3>
+      </div>
+      <p className="text-xs text-gray-500 leading-relaxed mb-4">
+        프로필 · 영상 · 댓글 · 좋아요 · 시청 기록 · 구매 내역 · 플레이리스트 · 차단·금칙어 등
+        회원님의 모든 데이터를 JSON 파일로 다운로드합니다 (개인정보보호법 데이터 이동권).
+      </p>
+      <Button
+        onClick={handleDownload}
+        disabled={downloading}
+        className="bg-[#10b981]/10 hover:bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/30 font-bold gap-2"
+        variant="outline"
+      >
+        {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+        {downloading ? "준비 중..." : "JSON 파일로 다운로드"}
+      </Button>
+    </div>
+  );
+}
+
+// Phase 27: 계정 삭제 (위험 영역, 30일 유예)
+interface DeletionStatus {
+  requested_at: string;
+  scheduled_at: string;
+  days_left: number;
+  reason: string | null;
+}
+
+function DangerZoneSection({ onSignOut }: { onSignOut: () => void }) {
+  const [status, setStatus] = useState<DeletionStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const refresh = async () => {
+    setLoading(true);
+    const { data } = await supabase.rpc("get_my_deletion_status");
+    setStatus((data && data[0]) || null);
+    setLoading(false);
+  };
+
+  useEffect(() => { refresh(); }, []);
+
+  const handleRequest = async () => {
+    if (!confirm("정말 계정 삭제를 요청하시겠습니까?\n30일 후 모든 데이터가 영구 삭제됩니다.\n그 전에는 언제든 취소할 수 있습니다.")) return;
+    setSubmitting(true);
+    const { error } = await supabase.rpc("request_account_deletion", { p_reason: reason.trim() || null });
+    setSubmitting(false);
+    if (error) {
+      toast.error("요청에 실패했습니다.");
+      return;
+    }
+    toast.success("계정 삭제가 요청됐습니다. 30일 후 영구 삭제됩니다.");
+    setShowConfirm(false);
+    setReason("");
+    refresh();
+  };
+
+  const handleCancel = async () => {
+    if (!confirm("계정 삭제 요청을 취소할까요?")) return;
+    const { error } = await supabase.rpc("cancel_account_deletion");
+    if (error) {
+      toast.error("취소에 실패했습니다.");
+      return;
+    }
+    toast.success("계정 삭제 요청을 취소했습니다.");
+    refresh();
+  };
+
+  if (loading) return null;
+
+  // 삭제 요청 중인 상태
+  if (status) {
+    return (
+      <div className="bg-red-500/10 border-2 border-red-500/30 p-5 md:p-6 rounded-2xl shadow-sm">
+        <div className="flex items-center gap-2 mb-3">
+          <AlertTriangle className="w-5 h-5 text-red-400" />
+          <h3 className="font-bold text-red-300">계정 삭제 예정</h3>
+        </div>
+        <p className="text-sm text-gray-300 leading-relaxed mb-2">
+          <span className="font-bold text-red-300">{status.days_left}일 후</span> 계정과 모든 데이터가 영구 삭제됩니다.
+        </p>
+        <p className="text-xs text-gray-500 mb-4">
+          삭제 예정일: {new Date(status.scheduled_at).toLocaleDateString("ko-KR")}
+          {status.reason && ` · 사유: ${status.reason}`}
+        </p>
+        <Button
+          onClick={handleCancel}
+          className="bg-white text-black hover:bg-gray-100 font-bold gap-2"
+        >
+          <X className="w-4 h-4" />
+          삭제 요청 취소
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-red-500/5 border-2 border-red-500/20 p-5 md:p-6 rounded-2xl shadow-sm">
+      <div className="flex items-center gap-2 mb-3">
+        <AlertTriangle className="w-5 h-5 text-red-400" />
+        <h3 className="font-bold text-red-300">위험 영역</h3>
+      </div>
+      <p className="text-xs text-gray-500 leading-relaxed mb-4">
+        계정 삭제를 요청하면 <span className="text-red-300 font-bold">30일 유예 기간</span> 후 모든 데이터가 영구 삭제됩니다.
+        업로드한 영상·댓글·구매 기록·구독 등 복구할 수 없습니다. 유예 기간 내에는 언제든 취소할 수 있습니다.
+      </p>
+
+      {!showConfirm ? (
+        <Button
+          onClick={() => setShowConfirm(true)}
+          variant="outline"
+          className="bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30 font-bold gap-2"
+        >
+          <Trash2 className="w-4 h-4" />
+          계정 삭제 요청
+        </Button>
+      ) : (
+        <div className="space-y-3 pt-2 border-t border-red-500/20">
+          <div>
+            <label className="text-xs font-bold text-gray-400 mb-1.5 block">탈퇴 사유 (선택)</label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="서비스 개선에 도움이 됩니다 (선택 사항)"
+              rows={2}
+              maxLength={300}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-400 resize-none"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => { setShowConfirm(false); setReason(""); }}
+              variant="outline"
+              className="flex-1 bg-white/5 text-gray-300 border-white/10 hover:bg-white/10"
+            >
+              취소
+            </Button>
+            <Button
+              onClick={handleRequest}
+              disabled={submitting}
+              className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold gap-2"
+            >
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              30일 후 삭제 요청
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Phase 24: 차단한 사용자 관리 섹션
 function BlockedUsersSection() {
@@ -1611,6 +1797,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                 {/* Phase 24: 차단한 사용자 관리 */}
                 <BlockedUsersSection />
 
+                {/* Phase 27: 내 데이터 다운로드 (개인정보보호법 데이터 이동권) */}
+                <DataDownloadSection />
+
                 <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
                   <h3 className="font-bold text-white mb-5">계정 보안</h3>
                   <div className="space-y-3">
@@ -1655,6 +1844,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                   {/* PWA 앱 설치 안내 카드 */}
                   <InstallGuideCard />
                 </div>
+
+                {/* Phase 27: 위험 영역 — 계정 삭제 (가장 아래) */}
+                <DangerZoneSection onSignOut={signOut} />
               </TabsContent>
             </motion.div>
           </AnimatePresence>

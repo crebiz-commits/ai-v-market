@@ -119,7 +119,16 @@ export function TermsPage({ onBack }: StaticPageProps) {
         <Section title="제7조 (서비스 변경·중단)">
           회사는 운영·기술상의 필요에 따라 서비스 내용을 변경하거나 중단할 수 있으며, 중대한 변경 시 사전 공지합니다.
         </Section>
-        <Section title="제8조 (분쟁 해결)">
+        <Section title="제8조 (회원 탈퇴 · 계정 삭제)">
+          이용자는 언제든지 마이페이지 → 설정 → 위험 영역에서 계정 삭제를 요청할 수 있습니다.
+          삭제 요청 후 <span className="font-bold text-white">30일의 유예 기간</span>이 부여되며, 이 기간 동안은 언제든 취소할 수 있습니다.
+          30일 경과 시 계정 및 모든 개인 데이터(영상·댓글·좋아요·시청 기록·플레이리스트 등)가 영구 삭제됩니다.
+          단, 전자상거래법 등 관계 법령에 따라 보존이 필요한 결제 기록은 해당 법령에서 정한 기간 동안 보관됩니다.
+        </Section>
+        <Section title="제9조 (이용자 데이터 권리)">
+          이용자는 마이페이지 → 설정 → "내 데이터 다운로드"에서 자신의 모든 데이터를 JSON 형식으로 언제든 다운로드할 수 있습니다 (개인정보보호법상 데이터 이동권).
+        </Section>
+        <Section title="제10조 (분쟁 해결)">
           본 약관과 관련된 분쟁은 대한민국 법률을 적용하며, 서울중앙지방법원을 1심 관할 법원으로 합니다.
         </Section>
       </div>
@@ -156,8 +165,12 @@ export function PrivacyPage({ onBack }: StaticPageProps) {
         <Section title="5. 위탁 업체">
           Supabase Inc. (DB·인증·스토리지), Bunny.net (영상 CDN), Vercel Inc. (호스팅), 토스페이먼츠 또는 카카오페이 (결제) 등.
         </Section>
-        <Section title="6. 이용자 권리">
-          이용자는 언제든 자신의 개인정보를 열람·수정·삭제·처리 정지를 요청할 수 있습니다. 마이페이지 또는 support@creaite.net으로 연락주세요.
+        <Section title="6. 이용자 권리 (열람·수정·삭제·다운로드)">
+          이용자는 개인정보보호법에 따라 다음 권리를 행사할 수 있습니다:<br />
+          <strong className="text-white">· 열람·수정:</strong> 마이페이지 → 프로필 편집에서 직접 수정<br />
+          <strong className="text-white">· 데이터 다운로드:</strong> 마이페이지 → 설정 → "내 데이터 다운로드"에서 본인 데이터 전체 JSON 다운로드<br />
+          <strong className="text-white">· 계정 삭제:</strong> 마이페이지 → 설정 → 위험 영역에서 요청. 30일 유예 후 영구 삭제. 그 전까지 언제든 취소 가능<br />
+          기타 문의는 <a href="mailto:privacy@creaite.net" className="text-[#8b5cf6] hover:underline">privacy@creaite.net</a>으로 연락주세요.
         </Section>
         <Section title="7. 쿠키 사용">
           서비스는 로그인 유지 및 사용성 개선을 위해 쿠키를 사용합니다. 브라우저 설정에서 거부할 수 있으나 일부 기능이 제한될 수 있습니다.
