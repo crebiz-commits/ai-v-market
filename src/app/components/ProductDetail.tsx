@@ -14,6 +14,8 @@ import { usePayment } from "../hooks/usePayment";
 import { Loader2 } from "lucide-react";
 import { ReportModal } from "./ReportModal";
 import { FollowButton } from "./FollowButton";
+import { VideoEditModal } from "./VideoEditModal";
+import { Pencil, Clock as ClockIcon } from "lucide-react";
 import { ShareModal } from "./ShareModal";
 import { NextVideoOverlay } from "./NextVideoOverlay";
 import { AddToPlaylistModal } from "./AddToPlaylistModal";
@@ -91,6 +93,12 @@ interface ProductDetailProps {
 export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, onViewCreator, onNavigateToVideo }: ProductDetailProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
+  // Phase 22: 영상 편집 모달 + 챕터/자막 fetch
+  const [editOpen, setEditOpen] = useState(false);
+  const [videoMeta, setVideoMeta] = useState<{ chapters: { title: string; time_seconds: number }[]; subtitle_url: string | null }>({
+    chapters: [],
+    subtitle_url: null,
+  });
   const [addedToCart, setAddedToCart] = useState(false);
   const [showComments, setShowComments] = useState(false);
   // 크리에이터 아바타·이름 — Phase 6.6 (videos.creator는 snapshot이라 항상 최신 profiles 정보 우선)
@@ -124,6 +132,27 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
     })();
     return () => { cancelled = true; };
   }, [product.id, isAuthenticated]);
+
+  // Phase 22: 영상 메타데이터 (chapters, subtitle_url) 마운트 시 fetch
+  useEffect(() => {
+    if (!product.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("videos")
+        .select("chapters, subtitle_url")
+        .eq("id", product.id)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      setVideoMeta({
+        chapters: Array.isArray((data as any).chapters) ? (data as any).chapters : [],
+        subtitle_url: (data as any).subtitle_url || null,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [product.id]);
+
+  const isMyVideo = !!user?.id && !!product.creatorId && user.id === product.creatorId;
 
   // Phase 23: 좋아요 정상화 — video_likes 테이블 연동 (DiscoveryFeed와 동일 출처)
   useEffect(() => {
@@ -645,13 +674,25 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                     <span>{creatorName}</span>
                   </div>
                 )}
-                {product.creatorId && (
-                  <FollowButton
-                    creatorId={product.creatorId}
-                    onSignInClick={onSignInClick}
-                    size="sm"
-                  />
-                )}
+                <div className="flex items-center gap-2">
+                  {isMyVideo && (
+                    <button
+                      onClick={() => setEditOpen(true)}
+                      className="w-9 h-9 rounded-full backdrop-blur-xl flex items-center justify-center border-2 border-white/30 bg-white/10 hover:bg-white/20 text-white transition-colors"
+                      aria-label="영상 편집"
+                      title="영상 편집"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  )}
+                  {product.creatorId && (
+                    <FollowButton
+                      creatorId={product.creatorId}
+                      onSignInClick={onSignInClick}
+                      size="sm"
+                    />
+                  )}
+                </div>
               </div>
             </div>
 
@@ -670,6 +711,41 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                 <p className="font-medium">{product.tool}</p>
               </div>
             </div>
+
+            {/* Phase 22: 챕터 리스트 */}
+            {videoMeta.chapters.length > 0 && (
+              <div className="mb-6 bg-[#121212] rounded-xl border border-white/5 overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-white/5 flex items-center gap-2">
+                  <ClockIcon className="w-4 h-4 text-[#a78bfa]" />
+                  <span className="text-sm font-bold text-white">챕터</span>
+                  <span className="text-[10px] text-gray-500">{videoMeta.chapters.length}개</span>
+                </div>
+                <div className="max-h-48 overflow-y-auto scrollbar-hide">
+                  {videoMeta.chapters.map((c, idx) => {
+                    const h = Math.floor(c.time_seconds / 3600);
+                    const m = Math.floor((c.time_seconds % 3600) / 60);
+                    const s = c.time_seconds % 60;
+                    const fmt = h > 0
+                      ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+                      : `${m}:${String(s).padStart(2, "0")}`;
+                    return (
+                      <div key={idx} className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors">
+                        <span className="text-xs font-mono text-[#a78bfa] w-14 flex-shrink-0">{fmt}</span>
+                        <span className="text-sm text-gray-200 flex-1 truncate">{c.title}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Phase 22: 자막 표시 안내 */}
+            {videoMeta.subtitle_url && (
+              <div className="mb-4 px-3 py-2 bg-[#10b981]/10 border border-[#10b981]/20 rounded-lg flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#10b981]" />
+                <span className="text-xs text-[#10b981]">자막 파일이 등록되어 있습니다 (CC)</span>
+              </div>
+            )}
 
             {/* 카테고리 / 장르 뱃지 */}
             {(product.category || product.genre) && (
@@ -1055,6 +1131,23 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
         onClose={() => setReportOpen(false)}
         onSignInClick={onSignInClick}
       />
+
+      {/* Phase 22: 영상 편집 모달 (본인 영상만) */}
+      {isMyVideo && (
+        <VideoEditModal
+          open={editOpen}
+          videoId={product.id}
+          initialThumbnail={product.thumbnail}
+          initialChapters={videoMeta.chapters}
+          initialSubtitleUrl={videoMeta.subtitle_url}
+          onClose={() => setEditOpen(false)}
+          onSaved={(updates) => {
+            setEditOpen(false);
+            if (updates.chapters) setVideoMeta(prev => ({ ...prev, chapters: updates.chapters! }));
+            if (updates.subtitleUrl !== undefined) setVideoMeta(prev => ({ ...prev, subtitle_url: updates.subtitleUrl ?? null }));
+          }}
+        />
+      )}
 
       {/* Phase 19: 공유 모달 */}
       <ShareModal

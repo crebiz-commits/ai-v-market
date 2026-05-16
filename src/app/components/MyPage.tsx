@@ -11,6 +11,7 @@ import { supabase } from "../utils/supabaseClient";
 import { InstallGuideCard } from "./InstallPrompt";
 import { CommentSettings } from "./CommentSettings";
 import { CreatorDashboard } from "./CreatorDashboard";
+import { VideoEditModal } from "./VideoEditModal";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
 
 // Phase 27: 데이터 다운로드 섹션 (개인정보보호법 데이터 이동권)
@@ -840,6 +841,23 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
   }, [isCreator, activeTab, pageMode]);
 
   const [showCommentSettings, setShowCommentSettings] = useState(false);
+  // Phase 22: 영상 편집 모달
+  const [editingVideo, setEditingVideo] = useState<{ id: string; thumbnail: string; chapters: any[]; subtitle_url: string | null } | null>(null);
+
+  const handleOpenEditVideo = async (productId: string, thumbnail: string) => {
+    // chapters/subtitle_url을 fetch (myProducts엔 없음)
+    const { data } = await supabase
+      .from("videos")
+      .select("chapters, subtitle_url")
+      .eq("id", productId)
+      .maybeSingle();
+    setEditingVideo({
+      id: productId,
+      thumbnail,
+      chapters: Array.isArray((data as any)?.chapters) ? (data as any).chapters : [],
+      subtitle_url: (data as any)?.subtitle_url || null,
+    });
+  };
 
   const handleSelectMode = (mode: 'user' | 'creator') => {
     setPageMode(mode);
@@ -974,6 +992,18 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
   return (
     <div className="h-full overflow-y-auto bg-[#0a0a0a] selection:bg-[#6366f1]/30 pb-20">
       <CommentSettings open={showCommentSettings} onClose={() => setShowCommentSettings(false)} />
+      {/* Phase 22: 영상 편집 모달 */}
+      {editingVideo && (
+        <VideoEditModal
+          open={!!editingVideo}
+          videoId={editingVideo.id}
+          initialThumbnail={editingVideo.thumbnail}
+          initialChapters={editingVideo.chapters}
+          initialSubtitleUrl={editingVideo.subtitle_url}
+          onClose={() => setEditingVideo(null)}
+          onSaved={() => { setEditingVideo(null); /* 추후 myProducts 갱신 */ }}
+        />
+      )}
       <div className="max-w-6xl mx-auto md:p-6 pb-6">
 
       {/* 모드 표시 + 코너 전환 버튼 */}
@@ -1400,10 +1430,17 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                               <p className="text-[#8b5cf6] font-bold">₩{product.revenue.toLocaleString()}</p>
                             </div>
                           </div>
-                          <div className="flex">
+                          <div className="flex items-center justify-between">
                             <span className="px-2 py-0.5 bg-[#10b981]/10 border border-[#10b981]/20 text-[#10b981] rounded text-[10px] font-bold shadow-sm">
                               {product.status}
                             </span>
+                            <button
+                              onClick={() => handleOpenEditVideo(product.id, product.thumbnail)}
+                              className="flex items-center gap-1 text-[10px] font-bold text-gray-400 hover:text-white px-2 py-1 rounded bg-white/5 hover:bg-white/10 transition-colors"
+                            >
+                              <Pencil className="w-3 h-3" />
+                              편집
+                            </button>
                           </div>
                         </div>
                       </div>
