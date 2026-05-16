@@ -3,9 +3,9 @@
 // MyPage 판매 탭 최상단에 배치.
 // ════════════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback } from "react";
-import { DollarSign, Eye, Heart, TrendingUp, Calendar, Loader2 } from "lucide-react";
+import { DollarSign, Eye, Heart, TrendingUp, Calendar, Loader2, Users, CheckCircle2, Percent, BarChart3, Award, Clock as ClockIcon } from "lucide-react";
 import { motion } from "motion/react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, Cell } from "recharts";
 import { supabase } from "../utils/supabaseClient";
 
 interface Summary {
@@ -19,6 +19,30 @@ interface Summary {
 
 interface DailyRevenue { day: string; revenue: number }
 interface DailyEngagement { day: string; views: number; likes: number }
+interface DailyFollowers { day: string; gained: number; total: number }
+interface AudienceStats {
+  avg_watch_ratio: number;
+  completion_rate: number;
+  unique_viewers: number;
+  total_views: number;
+  avg_watch_seconds: number;
+}
+interface TopVideo {
+  id: string;
+  title: string;
+  thumbnail: string;
+  duration: string;
+  views_count: number;
+  likes_count: number;
+  avg_watch_ratio: number;
+}
+interface RetentionBucket {
+  bucket: string;
+  bucket_order: number;
+  avg_watch_ratio: number;
+  view_count: number;
+}
+type TopMetric = "views" | "likes" | "watch_ratio";
 
 const RANGE_OPTIONS = [
   { days: 7, label: "7일" },
@@ -45,6 +69,11 @@ export function CreatorDashboard() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [revenue, setRevenue] = useState<DailyRevenue[]>([]);
   const [engagement, setEngagement] = useState<DailyEngagement[]>([]);
+  const [followers, setFollowers] = useState<DailyFollowers[]>([]);
+  const [audience, setAudience] = useState<AudienceStats | null>(null);
+  const [retention, setRetention] = useState<RetentionBucket[]>([]);
+  const [topVideos, setTopVideos] = useState<TopVideo[]>([]);
+  const [topMetric, setTopMetric] = useState<TopMetric>("views");
   const [loading, setLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(false);
 
@@ -63,11 +92,15 @@ export function CreatorDashboard() {
     }
   }, []);
 
-  const fetchCharts = useCallback(async (d: number) => {
+  const fetchCharts = useCallback(async (d: number, metric: TopMetric) => {
     setChartLoading(true);
-    const [revRes, engRes] = await Promise.all([
+    const [revRes, engRes, folRes, audRes, retRes, topRes] = await Promise.all([
       supabase.rpc("get_creator_daily_revenue", { p_days: d }),
       supabase.rpc("get_creator_daily_engagement", { p_days: d }),
+      supabase.rpc("get_creator_daily_followers", { p_days: d }),
+      supabase.rpc("get_creator_audience_stats", { p_days: d }),
+      supabase.rpc("get_creator_retention_by_duration", { p_days: d }),
+      supabase.rpc("get_creator_top_videos", { p_metric: metric, p_days: d, p_limit: 5 }),
     ]);
     if (Array.isArray(revRes.data)) {
       setRevenue((revRes.data as any[]).map(r => ({ day: r.day, revenue: Number(r.revenue) || 0 })));
@@ -75,16 +108,48 @@ export function CreatorDashboard() {
     if (Array.isArray(engRes.data)) {
       setEngagement((engRes.data as any[]).map(r => ({ day: r.day, views: Number(r.views) || 0, likes: Number(r.likes) || 0 })));
     }
+    if (Array.isArray(folRes.data)) {
+      setFollowers((folRes.data as any[]).map(r => ({ day: r.day, gained: Number(r.gained) || 0, total: Number(r.total) || 0 })));
+    }
+    if (Array.isArray(audRes.data) && audRes.data[0]) {
+      const a = audRes.data[0] as any;
+      setAudience({
+        avg_watch_ratio: Number(a.avg_watch_ratio) || 0,
+        completion_rate: Number(a.completion_rate) || 0,
+        unique_viewers: Number(a.unique_viewers) || 0,
+        total_views: Number(a.total_views) || 0,
+        avg_watch_seconds: Number(a.avg_watch_seconds) || 0,
+      });
+    }
+    if (Array.isArray(retRes.data)) {
+      setRetention((retRes.data as any[]).map(r => ({
+        bucket: r.bucket,
+        bucket_order: Number(r.bucket_order),
+        avg_watch_ratio: Number(r.avg_watch_ratio) || 0,
+        view_count: Number(r.view_count) || 0,
+      })));
+    }
+    if (Array.isArray(topRes.data)) {
+      setTopVideos((topRes.data as any[]).map(r => ({
+        id: r.id,
+        title: r.title,
+        thumbnail: r.thumbnail || "",
+        duration: r.duration || "",
+        views_count: Number(r.views_count) || 0,
+        likes_count: Number(r.likes_count) || 0,
+        avg_watch_ratio: Number(r.avg_watch_ratio) || 0,
+      })));
+    }
     setChartLoading(false);
   }, []);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await Promise.all([fetchSummary(), fetchCharts(days)]);
+      await Promise.all([fetchSummary(), fetchCharts(days, topMetric)]);
       setLoading(false);
     })();
-  }, [fetchSummary, fetchCharts, days]);
+  }, [fetchSummary, fetchCharts, days, topMetric]);
 
   if (loading) {
     return (
@@ -96,16 +161,64 @@ export function CreatorDashboard() {
 
   const formattedRevenue = revenue.map(r => ({ ...r, day: formatDay(r.day, days) }));
   const formattedEngagement = engagement.map(r => ({ ...r, day: formatDay(r.day, days) }));
+  const formattedFollowers = followers.map(r => ({ ...r, day: formatDay(r.day, days) }));
+  // retention bucket 색상 (시청률에 따라 보간)
+  const retentionColors = ["#ef4444", "#f59e0b", "#10b981", "#6366f1"];
+
+  const TOP_METRIC_LABELS: Record<TopMetric, string> = {
+    views: "조회수순",
+    likes: "좋아요순",
+    watch_ratio: "시청률순",
+  };
+
+  const formatSeconds = (s: number): string => {
+    if (s < 60) return `${s}초`;
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}분 ${sec}초`;
+  };
 
   return (
     <div className="space-y-4">
-      {/* KPI 4개 */}
+      {/* KPI 4개 (누적) */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KpiCard icon={DollarSign} label="누적 수익" value={`₩${(summary?.total_revenue ?? 0).toLocaleString()}`} color="text-[#6366f1]" bgColor="bg-[#6366f1]/10" />
         <KpiCard icon={Eye} label="총 조회수" value={formatNumber(summary?.total_views ?? 0)} color="text-[#10b981]" bgColor="bg-[#10b981]/10" />
         <KpiCard icon={Heart} label="총 좋아요" value={formatNumber(summary?.total_likes ?? 0)} color="text-[#ec4899]" bgColor="bg-[#ec4899]/10" />
         <KpiCard icon={TrendingUp} label="RPM (30일)" value={`₩${(summary?.rpm ?? 0).toLocaleString()}`} color="text-amber-400" bgColor="bg-amber-400/10" tooltip="1000회 시청당 평균 수익" />
       </motion.div>
+
+      {/* Phase 20: 시청자 인사이트 (선택 기간 기준) */}
+      {audience && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiCard
+            icon={Percent}
+            label={`평균 시청률 (${days}일)`}
+            value={`${Math.round((audience.avg_watch_ratio || 0) * 100)}%`}
+            color="text-cyan-400" bgColor="bg-cyan-400/10"
+            tooltip="유효 시청 1건당 평균 시청한 비율"
+          />
+          <KpiCard
+            icon={CheckCircle2}
+            label={`완주율 (${days}일)`}
+            value={`${Math.round((audience.completion_rate || 0) * 100)}%`}
+            color="text-[#10b981]" bgColor="bg-[#10b981]/10"
+            tooltip="90%+ 시청한 비율"
+          />
+          <KpiCard
+            icon={Users}
+            label={`고유 시청자 (${days}일)`}
+            value={formatNumber(audience.unique_viewers)}
+            color="text-[#a78bfa]" bgColor="bg-[#a78bfa]/10"
+          />
+          <KpiCard
+            icon={ClockIcon}
+            label={`평균 시청 시간 (${days}일)`}
+            value={formatSeconds(audience.avg_watch_seconds)}
+            color="text-orange-400" bgColor="bg-orange-400/10"
+          />
+        </motion.div>
+      )}
 
       {/* 다음 정산 안내 */}
       {summary && summary.pending_payout > 0 && (
@@ -197,6 +310,115 @@ export function CreatorDashboard() {
             </LineChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      {/* Phase 20: 일별 팔로워 증가 */}
+      <div className="bg-[#121212] p-5 rounded-2xl border border-white/5 relative">
+        <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+          <Users className="w-4 h-4 text-[#a78bfa]" />
+          일별 팔로워 (누적)
+        </h4>
+        {chartLoading && (
+          <div className="absolute right-5 top-5"><Loader2 className="w-4 h-4 animate-spin text-gray-500" /></div>
+        )}
+        <div className="h-[200px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={formattedFollowers} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+              <XAxis dataKey="day" stroke="#666" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis stroke="#666" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#1a1a1c', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: 12 }}
+                formatter={(v: any, name: any) => [Number(v).toLocaleString(), name]}
+              />
+              <Legend wrapperStyle={{ fontSize: 11, color: '#999' }} iconType="circle" />
+              <Line type="monotone" dataKey="total" name="누적 팔로워" stroke="#a78bfa" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+              <Line type="monotone" dataKey="gained" name="당일 신규" stroke="#10b981" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Phase 20: 영상 길이 구간별 평균 시청률 */}
+      {retention.length > 0 && (
+        <div className="bg-[#121212] p-5 rounded-2xl border border-white/5 relative">
+          <h4 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-cyan-400" />
+            영상 길이별 평균 시청률
+          </h4>
+          <p className="text-[10px] text-gray-500 mb-4">어떤 길이의 영상이 가장 끝까지 시청되는지</p>
+          {chartLoading && <div className="absolute right-5 top-5"><Loader2 className="w-4 h-4 animate-spin text-gray-500" /></div>}
+          <div className="h-[200px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={retention} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                <XAxis dataKey="bucket" stroke="#666" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis stroke="#666" tick={{ fontSize: 11 }} axisLine={false} tickLine={false}
+                  tickFormatter={(v) => `${Math.round(Number(v) * 100)}%`} domain={[0, 1]} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1a1a1c', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: 12 }}
+                  formatter={(v: any, _name: any, p: any) => [
+                    `${Math.round(Number(v) * 100)}% (${p.payload.view_count}회 시청)`,
+                    "평균 시청률"
+                  ]}
+                />
+                <Bar dataKey="avg_watch_ratio" radius={[6, 6, 0, 0]}>
+                  {retention.map((_, idx) => (
+                    <Cell key={idx} fill={retentionColors[idx % retentionColors.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Phase 20: Top 영상 */}
+      <div className="bg-[#121212] p-5 rounded-2xl border border-white/5 relative">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-sm font-bold text-white flex items-center gap-2">
+            <Award className="w-4 h-4 text-amber-400" />
+            Top 영상 5
+          </h4>
+          <div className="flex gap-1 bg-white/5 rounded-lg p-0.5 border border-white/10">
+            {(["views", "likes", "watch_ratio"] as TopMetric[]).map(m => (
+              <button
+                key={m}
+                onClick={() => setTopMetric(m)}
+                disabled={chartLoading}
+                className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-colors disabled:opacity-50 ${
+                  topMetric === m
+                    ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white shadow-sm"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                {TOP_METRIC_LABELS[m]}
+              </button>
+            ))}
+          </div>
+        </div>
+        {topVideos.length === 0 ? (
+          <p className="text-center text-xs text-gray-500 py-6">아직 시청 데이터가 없습니다.</p>
+        ) : (
+          <div className="space-y-2">
+            {topVideos.map((v, idx) => (
+              <div key={v.id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg transition-colors">
+                <span className="text-base font-black text-amber-400 w-6 text-center">{idx + 1}</span>
+                <div className="w-20 aspect-video rounded-md overflow-hidden bg-black flex-shrink-0">
+                  {v.thumbnail && <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white truncate">{v.title}</p>
+                  <div className="flex items-center gap-3 text-[10px] text-gray-500 mt-0.5">
+                    <span className="flex items-center gap-0.5"><Eye className="w-3 h-3" />{formatNumber(v.views_count)}</span>
+                    <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" />{formatNumber(v.likes_count)}</span>
+                    <span className="flex items-center gap-0.5"><Percent className="w-3 h-3" />{Math.round(v.avg_watch_ratio * 100)}%</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
