@@ -44,6 +44,7 @@ import { toast } from "sonner";
 // 메인 탭 (각각 별도 chunk로 분리)
 const DiscoveryFeed = lazy(() => import("./components/DiscoveryFeed").then(m => ({ default: m.DiscoveryFeed })));
 const Cinema = lazy(() => import("./components/Cinema").then(m => ({ default: m.Cinema })));
+const Ott = lazy(() => import("./components/Ott").then(m => ({ default: m.Ott })));
 const Upload = lazy(() => import("./components/Upload").then(m => ({ default: m.Upload })));
 const Community = lazy(() => import("./components/Community").then(m => ({ default: m.Community })));
 const Channel = lazy(() => import("./components/Channel").then(m => ({ default: m.Channel })));
@@ -71,6 +72,7 @@ const LogoFish = lazy(() => import("./components/LogoFish").then(m => ({ default
 const LogoFishPlay = lazy(() => import("./components/LogoFishPlay").then(m => ({ default: m.LogoFishPlay })));
 const CinemaIconPreview = lazy(() => import("./components/CinemaIconPreview").then(m => ({ default: m.CinemaIconPreview })));
 const UploadButtonPreview = lazy(() => import("./components/UploadButtonPreview").then(m => ({ default: m.UploadButtonPreview })));
+const OttDesignPreview = lazy(() => import("./components/OttDesignPreview").then(m => ({ default: m.OttDesignPreview })));
 
 // ────────────────────────────────────────────────────
 // 로딩 fallback (lazy 컴포넌트 다운로드 중 표시)
@@ -142,6 +144,7 @@ function AppContent() {
       cinema: <CinemaIconPreview />,
       splash: <SplashScreen onComplete={() => { window.location.search = ""; }} />,
       uploadbtn: <UploadButtonPreview />,
+      "ott-design": <OttDesignPreview />,
     };
     if (previewMap[previewParam]) {
       return <Suspense fallback={<PageLoading />}>{previewMap[previewParam]}</Suspense>;
@@ -438,7 +441,7 @@ function AppContent() {
       case "market":
         return <Cinema onProductClick={setSelectedProduct} tier="cinema" />;
       case "ott":
-        return <Cinema onProductClick={setSelectedProduct} tier="ott" />;
+        return <Ott onProductClick={setSelectedProduct} />;
       case "upload":
         return <Upload onSignInClick={() => setShowAuthModal(true)} onViewMyProducts={() => setActiveTab("mypage")} />;
       case "community":
