@@ -86,8 +86,6 @@ function buildOgHtml(html: string, video: Video, pageUrl: string): string {
 export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const videoId = url.searchParams.get("video");
-  const userAgent = req.headers.get("user-agent") || "";
-  const isBot = BOT_REGEX.test(userAgent);
 
   // 원본 index.html 가져오기
   const origin = url.origin;
@@ -97,17 +95,15 @@ export default async function handler(req: Request): Promise<Response> {
   }
   const indexHtml = await indexRes.text();
 
-  // 봇이 아니거나 video id 없으면 원본 그대로
-  if (!isBot || !videoId) {
+  // video id 없으면 원본 그대로
+  if (!videoId) {
     return new Response(indexHtml, {
-      headers: {
-        "content-type": "text/html; charset=utf-8",
-        "cache-control": "public, max-age=0, must-revalidate",
-      },
+      headers: { "content-type": "text/html; charset=utf-8" },
     });
   }
 
-  // 봇: 영상 정보 fetch + 메타 주입
+  // 영상 정보 fetch + 메타 주입 (User-Agent 무관 — 검증 도구도 작동)
+  // React SPA는 hydration이 head 메타에 영향 없음 → 일반 사용자에도 안전
   const video = await fetchVideo(videoId);
   if (!video) {
     return new Response(indexHtml, {
