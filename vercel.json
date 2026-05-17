@@ -44,6 +44,15 @@
   ],
   "rewrites": [
     {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "query", "key": "video" }],
+      "destination": "/api/og"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

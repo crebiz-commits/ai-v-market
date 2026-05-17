@@ -142,6 +142,42 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
     return () => { cancelled = true; };
   }, [product.id, isAuthenticated]);
 
+  // Phase 36: 영상별 JSON-LD VideoObject 스크립트 주입 (구글 비디오 검색용)
+  useEffect(() => {
+    if (!product.id) return;
+    const seconds = product.durationSeconds || 0;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    const isoDuration = `PT${m}M${s}S`;
+    const ld = {
+      "@context": "https://schema.org",
+      "@type": "VideoObject",
+      name: product.title,
+      description: `AI 시네마 — ${creatorName} | CREAITE`,
+      thumbnailUrl: product.thumbnail,
+      uploadDate: new Date().toISOString(),
+      duration: isoDuration,
+      contentUrl: `https://www.creaite.net/?video=${product.id}`,
+      embedUrl: `https://www.creaite.net/?video=${product.id}`,
+      potentialAction: {
+        "@type": "WatchAction",
+        target: `https://www.creaite.net/?video=${product.id}`,
+      },
+    };
+    const script = document.createElement("script");
+    script.type = "application/ld+json";
+    script.id = "video-jsonld";
+    script.text = JSON.stringify(ld);
+    // 기존 video-jsonld 있으면 제거
+    const prev = document.getElementById("video-jsonld");
+    if (prev) prev.remove();
+    document.head.appendChild(script);
+    return () => {
+      const el = document.getElementById("video-jsonld");
+      if (el) el.remove();
+    };
+  }, [product.id, product.title, product.thumbnail, product.durationSeconds, creatorName]);
+
   // Phase 22: 영상 메타데이터 (chapters, subtitle_url) 마운트 시 fetch
   useEffect(() => {
     if (!product.id) return;
