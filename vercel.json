@@ -52,7 +52,7 @@
       "destination": "/api/sitemap"
     },
     {
-      "source": "/",
+      "source": "/(.*)",
       "has": [{ "type": "query", "key": "video" }],
       "destination": "/api/og"
     },
