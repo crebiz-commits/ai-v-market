@@ -8,3 +8,9 @@ dist/
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+
+# Claude Code 내부 파일
+.claude/scheduled_tasks.lock
+
+# Supabase CLI 임시 파일
+supabase/.temp/

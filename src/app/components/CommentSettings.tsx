@@ -15,6 +15,7 @@ type Tab = "filter" | "blocked" | "review";
 interface FilterWord {
   id: string;
   word: string;
+  match_mode: "contains" | "word_boundary";
   created_at: string;
 }
 
@@ -42,6 +43,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
 
   const [filterWords, setFilterWords] = useState<FilterWord[]>([]);
   const [newWord, setNewWord] = useState("");
+  const [newWordMode, setNewWordMode] = useState<"contains" | "word_boundary">("contains");
   const [loadingWords, setLoadingWords] = useState(false);
   const [submittingWord, setSubmittingWord] = useState(false);
 
@@ -98,7 +100,10 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
     const w = newWord.trim();
     if (!w) return;
     setSubmittingWord(true);
-    const { error } = await supabase.rpc("creator_add_filter_word", { p_word: w });
+    const { error } = await supabase.rpc("creator_add_filter_word", {
+      p_word: w,
+      p_match_mode: newWordMode,
+    });
     setSubmittingWord(false);
     if (error) {
       toast.error("금칙어 등록에 실패했습니다.");
@@ -106,6 +111,19 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
     }
     toast.success(`"${w}" 금칙어를 등록했습니다.`);
     setNewWord("");
+    fetchFilterWords();
+  };
+
+  const handleToggleMode = async (id: string, currentMode: "contains" | "word_boundary") => {
+    const nextMode = currentMode === "contains" ? "word_boundary" : "contains";
+    const { error } = await supabase.rpc("creator_update_filter_word_mode", {
+      p_word_id: id,
+      p_match_mode: nextMode,
+    });
+    if (error) {
+      toast.error("매칭 모드 변경에 실패했습니다.");
+      return;
+    }
     fetchFilterWords();
   };
 
@@ -206,8 +224,38 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
               <div className="space-y-4">
                 <p className="text-xs text-gray-500 leading-relaxed">
                   금칙어가 포함된 새 댓글은 자동으로 숨김 처리되며, 기존 댓글에도 소급 적용됩니다.
-                  대소문자 구분 없이 부분 일치로 매칭됩니다 (예: "바보" → "바보같다"도 차단).
+                  <br />
+                  <strong className="text-gray-400">부분 일치</strong>: "바보" → "바보같다"도 차단 (한국어/일본어/중국어 권장)
+                  <br />
+                  <strong className="text-gray-400">단어 경계</strong>: "ass" → "class" 미차단 (영어/유럽어 권장)
                 </p>
+
+                {/* 매칭 모드 선택 */}
+                <div className="flex gap-1 p-1 bg-white/5 border border-white/10 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setNewWordMode("contains")}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                      newWordMode === "contains"
+                        ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white"
+                        : "text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    부분 일치
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewWordMode("word_boundary")}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                      newWordMode === "word_boundary"
+                        ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white"
+                        : "text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    단어 경계
+                  </button>
+                </div>
+
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -239,9 +287,20 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
                     {filterWords.map((w) => (
                       <div
                         key={w.id}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-white"
+                        className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-white"
                       >
                         <span>{w.word}</span>
+                        <button
+                          onClick={() => handleToggleMode(w.id, w.match_mode)}
+                          title="매칭 모드 전환"
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-colors ${
+                            w.match_mode === "word_boundary"
+                              ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500/30"
+                              : "bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30"
+                          }`}
+                        >
+                          {w.match_mode === "word_boundary" ? "경계" : "포함"}
+                        </button>
                         <button
                           onClick={() => handleRemoveWord(w.id, w.word)}
                           className="text-gray-500 hover:text-red-400 transition-colors"

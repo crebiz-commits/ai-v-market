@@ -4,6 +4,7 @@
  */
 
 import { installConsoleFilter } from './utils/consoleFilter';
+import './i18n'; // i18n 초기화 (한·영 로드, 언어 감지)
 
 // 즉시 콘솔 필터 설치
 installConsoleFilter();

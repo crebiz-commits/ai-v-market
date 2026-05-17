@@ -12,12 +12,14 @@
 // 초기화 스크립트를 가장 먼저 import (콘솔 필터 설치)
 import './init';
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense, type ReactElement } from "react";
 import { lazyRetry as lazy } from "./utils/lazyRetry";
 import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, Loader2, Crown, Users } from "lucide-react";
 import { Footer } from "./components/Footer";
 import { HamburgerMenu } from "./components/HamburgerMenu";
+import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { motion, AnimatePresence } from "motion/react";
+import { useTranslation } from "react-i18next";
 
 // ────────────────────────────────────────────────────
 // Eager imports — 항상 즉시 필요한 코어 컴포넌트
@@ -134,7 +136,7 @@ function AppContent() {
   // 개발자 전용 프리뷰 모드 (URL ?preview=*) — 모두 lazy load됨
   const previewParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("preview") : null;
   if (previewParam) {
-    const previewMap: Record<string, JSX.Element> = {
+    const previewMap: Record<string, ReactElement> = {
       logo: <LogoPreview />,
       newlogo: <NewLogoPreview />,
       designs: <LogoDesigns />,
@@ -165,6 +167,7 @@ function AppContent() {
     );
   }
 
+  const { t } = useTranslation();
   const [showSplash, setShowSplash] = useState(() => {
     const lastVisitDate = localStorage.getItem('aivm_last_visit');
     const today = new Date().toDateString();
@@ -490,14 +493,14 @@ function AppContent() {
   const isAdmin = user && ADMIN_EMAILS.includes(user.email);
 
   const desktopTabs: { id: Tab; label: string; icon: any }[] = [
-    { id: "discovery", label: "홈", icon: Home },
-    { id: "market", label: "시네마", icon: Film },
-    { id: "ott", label: "프리미엄 OTT", icon: Crown },
-    { id: "upload", label: "업로드", icon: UploadIcon },
-    { id: "community", label: "커뮤니티", icon: MessageSquare },
-    { id: "channel", label: "채널", icon: Users },
-    { id: "mypage", label: "마이", icon: User },
-    ...(isAdmin ? [{ id: "admin" as Tab, label: "광고관리", icon: ShieldCheck }] : []),
+    { id: "discovery", label: t("nav.home"), icon: Home },
+    { id: "market", label: t("nav.cinema"), icon: Film },
+    { id: "ott", label: t("nav.ott"), icon: Crown },
+    { id: "upload", label: t("nav.upload"), icon: UploadIcon },
+    { id: "community", label: t("nav.community"), icon: MessageSquare },
+    { id: "channel", label: t("nav.channel"), icon: Users },
+    { id: "mypage", label: t("nav.mypage"), icon: User },
+    ...(isAdmin ? [{ id: "admin" as Tab, label: t("nav.admin"), icon: ShieldCheck }] : []),
   ];
 
   const springTransition: any = { type: "spring", stiffness: 500, damping: 30 };
@@ -566,6 +569,8 @@ function AppContent() {
             >
               <User className="w-[22px] h-[22px]" />
             </motion.button>
+            {/* Language Switcher (Phase 35) */}
+            <LanguageSwitcher />
             <HamburgerMenu onNavigate={(tab) => setActiveTab(tab)} />
           </div>
         </div>
@@ -624,6 +629,9 @@ function AppContent() {
             {/* PWA 앱 설치 버튼 (설치 가능 + 미설치일 때만 표시) */}
             <InstallButtonHeader />
 
+            {/* Language Switcher (Phase 35) */}
+            <LanguageSwitcher variant="compact" />
+
             {/* Notifications */}
             <motion.button
               whileTap={{ scale: 0.9 }}
@@ -675,7 +683,7 @@ function AppContent() {
                   size="sm"
                 >
                   <LogIn className="w-4 h-4" />
-                  로그인
+                  {t("auth.signIn")}
                 </Button>
               </motion.div>
             )}
@@ -775,9 +783,9 @@ function AppContent() {
         <div className="flex items-center justify-around h-20 px-1 pb-safe">
           {/* 좌측 3탭: 홈 / 시네마 / OTT */}
           {([
-            { id: "discovery", label: "홈", icon: Home },
-            { id: "market", label: "시네마", icon: Film },
-            { id: "ott", label: "OTT", icon: Crown },
+            { id: "discovery", label: t("nav.home"), icon: Home },
+            { id: "market", label: t("nav.cinema"), icon: Film },
+            { id: "ott", label: t("nav.ottShort"), icon: Crown },
           ] as { id: Tab; label: string; icon: any }[]).map(({ id, label, icon: Icon }) => {
             const isActive = activeTab === id && !activePanel;
             return (
@@ -830,9 +838,9 @@ function AppContent() {
 
           {/* 우측 3탭: 커뮤니티 / 채널 / 마이 */}
           {([
-            { id: "community", label: "커뮤", icon: MessageSquare },
-            { id: "channel", label: "채널", icon: Users },
-            { id: "mypage", label: "마이", icon: User },
+            { id: "community", label: t("nav.community"), icon: MessageSquare },
+            { id: "channel", label: t("nav.channel"), icon: Users },
+            { id: "mypage", label: t("nav.mypage"), icon: User },
           ] as { id: Tab; label: string; icon: any }[]).map(({ id, label, icon: Icon }) => {
             const isActive = activeTab === id && !activePanel;
             return (

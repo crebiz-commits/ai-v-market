@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, User as UserIcon, Loader2, ChevronLeft } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -13,6 +14,7 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState("");
@@ -94,7 +96,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
           {!showEmailForm && <div className="w-10 h-10" />}
           
           <h2 className="text-[19px] font-bold text-black text-center absolute left-1/2 -translate-x-1/2">
-            {mode === "signin" ? "CREAITE 로그인" : "CREAITE 가입하기"}
+            {mode === "signin" ? t("auth.modalSignInTitle") : t("auth.modalSignUpTitle")}
           </h2>
 
           <button
@@ -122,7 +124,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                   className="w-full h-12 border border-gray-200 rounded-sm flex items-center px-4 hover:bg-gray-50 transition-colors group relative"
                 >
                   <UserIcon className="w-5 h-5 text-gray-800" />
-                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">전화 / 이메일 / 아이디 사용</span>
+                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">{t("auth.useEmailOrId")}</span>
                 </button>
 
                 {/* Kakao */}
@@ -135,7 +137,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                       <path fill="currentColor" d="M12 3c-4.97 0-9 3.18-9 7.11 0 2.56 1.7 4.8 4.3 6.13-.17.65-.63 2.33-.72 2.64-.13.48.16.47.34.35.14-.1.2.14 2.85-1.93.5.07.9.11 1.23.11 4.97 0 9-3.18 9-7.11S16.97 3 12 3z"/>
                     </svg>
                   </div>
-                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">카카오톡으로 계속 진행</span>
+                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">{t("auth.continueWithKakao")}</span>
                 </button>
 
                 {/* Google */}
@@ -151,7 +153,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                     </svg>
                   </div>
-                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">Google로 계속 진행</span>
+                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">{t("auth.continueWithGoogle")}</span>
                 </button>
 
                 {/* Facebook */}
@@ -163,7 +165,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                       <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                     </svg>
                   </div>
-                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">Facebook으로 계속 진행</span>
+                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">{t("auth.continueWithFacebook")}</span>
                 </button>
 
                 {/* Apple */}
@@ -173,7 +175,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                   <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M17.05 20.28c-.96.95-2.04 1.8-3.26 1.8-1.22 0-1.72-.82-3.15-.82-1.43 0-1.97.82-3.15.82-1.18 0-2.34-.95-3.31-1.8-2.61-2.52-3.92-6.42-3.92-9.61 0-3.19 1.31-7.09 3.92-9.61C5.19 1 6.36.05 7.53.05c1.18 0 1.72.82 3.15.82 1.43 0 1.97-.82 3.15-.82 1.18 0 2.34.95 3.31 1.8 2.61 2.52 1.31 7.09-1.31 9.61-2.62 2.52-1.3 7.09 1.31 9.61z"/>
                   </svg>
-                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">Apple로 계속 진행</span>
+                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">{t("auth.continueWithApple")}</span>
                 </button>
 
                 {/* Twitter / X */}
@@ -185,7 +187,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                       <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
                     </svg>
                   </div>
-                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">Twitter로 계속 진행</span>
+                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">{t("auth.continueWithX")}</span>
                 </button>
 
                 {/* LINE */}
@@ -197,7 +199,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                       <path d="M24 10.304c0-5.369-5.383-9.738-12-9.738-6.616 0-12 4.369-12 9.738 0 4.814 4.269 8.846 10.036 9.608.391.084.922.258 1.058.59.121.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975 1.706-1.841 2.547-3.784 2.547-5.968z"/>
                     </svg>
                   </div>
-                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">LINE으로 계속 진행</span>
+                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">{t("auth.continueWithLine")}</span>
                 </button>
               </motion.div>
             ) : (
@@ -210,11 +212,11 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {mode === "signup" && (
                     <div className="space-y-2">
-                      <Label htmlFor="name" className="text-gray-700 font-bold">이름</Label>
+                      <Label htmlFor="name" className="text-gray-700 font-bold">{t("auth.name")}</Label>
                       <Input
                         id="name"
                         type="text"
-                        placeholder="이름 입력"
+                        placeholder={t("auth.namePlaceholder")}
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         className="h-11 bg-gray-50 border-gray-200 focus:bg-white transition-colors text-gray-900 placeholder:text-gray-400"
@@ -224,11 +226,11 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                   )}
 
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-gray-700 font-bold">이메일</Label>
+                    <Label htmlFor="email" className="text-gray-700 font-bold">{t("auth.email")}</Label>
                     <Input
                       id="email"
                       type="email"
-                      placeholder="이메일 입력"
+                      placeholder={t("auth.emailPlaceholder")}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="h-11 bg-gray-50 border-gray-200 focus:bg-white transition-colors text-gray-900 placeholder:text-gray-400"
@@ -237,11 +239,11 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="password" title="로그인 후 이메일 찾기 또는 비밀번호 재설정" className="text-gray-700 font-bold">비밀번호</Label>
+                    <Label htmlFor="password" title="로그인 후 이메일 찾기 또는 비밀번호 재설정" className="text-gray-700 font-bold">{t("auth.password")}</Label>
                     <Input
                       id="password"
                       type="password"
-                      placeholder="비밀번호 입력"
+                      placeholder={t("auth.passwordPlaceholder")}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="h-11 bg-gray-50 border-gray-200 focus:bg-white transition-colors text-gray-900 placeholder:text-gray-400"
@@ -255,7 +257,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                     className="w-full h-11 bg-[#fe2c55] hover:bg-[#ef2950] text-white font-bold text-base mt-2 rounded-sm"
                     disabled={loading}
                   >
-                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : mode === "signin" ? "로그인" : "가입하기"}
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : mode === "signin" ? t("auth.signIn") : t("auth.signUp")}
                   </Button>
                 </form>
               </motion.div>
@@ -263,29 +265,29 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
           </AnimatePresence>
 
           <div className="mt-8 text-[12.5px] text-gray-500 leading-normal text-center">
-            계속 진행할 경우 당사의 <a href="#" className="font-bold text-black border-b border-black">서비스 약관</a>에 동의하고 <a href="#" className="font-bold text-black border-b border-black">개인정보 처리방침</a>을 읽었음을 인정하는 것입니다.
+            {t("auth.agreementText")}
           </div>
         </div>
 
         <div className="p-6 bg-gray-50 border-t border-gray-100 text-center text-sm">
           {mode === "signin" ? (
             <div className="text-gray-900">
-              계정이 없으세요?{" "}
+              {t("auth.noAccount")}{" "}
               <button
                 onClick={() => { setMode("signup"); setShowEmailForm(false); }}
                 className="text-[#fe2c55] hover:underline font-bold ml-1"
               >
-                가입하기
+                {t("auth.signUp")}
               </button>
             </div>
           ) : (
             <div className="text-gray-900">
-              이미 계정이 있으신가요?{" "}
+              {t("auth.haveAccount")}{" "}
               <button
                 onClick={() => { setMode("signin"); setShowEmailForm(false); }}
                 className="text-[#fe2c55] hover:underline font-bold ml-1"
               >
-                로그인
+                {t("auth.signIn")}
               </button>
             </div>
           )}

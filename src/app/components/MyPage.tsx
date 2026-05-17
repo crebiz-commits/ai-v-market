@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { motion, AnimatePresence } from "motion/react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { useBackButton } from "../hooks/useBackButton";
 import { toast } from "sonner";
@@ -409,6 +410,7 @@ const itemVariants = {
 };
 
 export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("profile");
   const [pageMode, setPageMode] = useState<PageMode>(() => {
     if (typeof window === 'undefined') return 'select';
@@ -1120,13 +1122,13 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
             className={`grid w-full ${pageMode === 'creator' && isCreator ? 'grid-cols-6' : 'grid-cols-5'} bg-[#1c1c1e] p-1.5 rounded-2xl mb-8 border border-white/5 shadow-inner`}
           >
             {([
-              { id: 'profile', icon: User, label: '프로필' },
-              ...(pageMode === 'user' ? [{ id: 'purchases', icon: ShoppingBag, label: '구매' }] : []),
-              ...(pageMode === 'creator' && isCreator ? [{ id: 'sales', icon: TrendingUp, label: '판매' }] : []),
-              ...(pageMode === 'creator' && isCreator ? [{ id: 'comments', icon: MessageSquare, label: '댓글' }] : []),
-              { id: 'history', icon: Clock, label: '기록' },
-              { id: 'playlists', icon: FolderPlus, label: '보관함' },
-              { id: 'settings', icon: Settings, label: '설정' },
+              { id: 'profile', icon: User, label: t('mypage.tabs.profile') },
+              ...(pageMode === 'user' ? [{ id: 'purchases', icon: ShoppingBag, label: t('mypage.tabs.purchases') }] : []),
+              ...(pageMode === 'creator' && isCreator ? [{ id: 'sales', icon: TrendingUp, label: t('mypage.tabs.sales') }] : []),
+              ...(pageMode === 'creator' && isCreator ? [{ id: 'comments', icon: MessageSquare, label: t('mypage.tabs.comments') }] : []),
+              { id: 'history', icon: Clock, label: t('mypage.tabs.watchHistory') },
+              { id: 'playlists', icon: FolderPlus, label: t('mypage.tabs.playlists') },
+              { id: 'settings', icon: Settings, label: t('mypage.tabs.settings') },
             ] as { id: string; icon: any; label: string }[]).map(tab => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
