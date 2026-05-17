@@ -14,8 +14,6 @@ export const config = { runtime: "edge" };
 const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer";
 const SUPABASE_ANON_KEY = "sb_publishable_K3wmxz8uqsvUdeYXUhJv2g_g09eNNR8";
 
-const BOT_REGEX = /facebookexternalhit|Twitterbot|KAKAOTALK|Slackbot|LinkedInBot|TelegramBot|WhatsApp|Discordbot|googlebot|bingbot|naverbot|Yeti|Daumoa|kakaostory|line-poker/i;
-
 function escapeHtml(str: string): string {
   return String(str || "")
     .replace(/&/g, "&amp;")
