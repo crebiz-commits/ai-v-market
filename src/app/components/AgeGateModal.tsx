@@ -10,6 +10,7 @@ import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 interface AgeGateModalProps {
   open: boolean;
@@ -18,6 +19,7 @@ interface AgeGateModalProps {
 }
 
 export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
+  const { t } = useTranslation();
   const { isAuthenticated, refreshProfile } = useAuth();
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
@@ -26,14 +28,14 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
 
   const handleVerify = async () => {
     if (!isAuthenticated) {
-      toast.error("로그인이 필요합니다.");
+      toast.error(t("auth.loginRequired"));
       return;
     }
     const y = parseInt(year, 10);
     const m = parseInt(month, 10);
     const d = parseInt(day, 10);
     if (!y || !m || !d || y < 1900 || y > new Date().getFullYear() || m < 1 || m > 12 || d < 1 || d > 31) {
-      toast.error("올바른 생년월일을 입력해주세요.");
+      toast.error(t("ageGate.tooOld"));
       return;
     }
     const birthdate = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -44,17 +46,17 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
       if (error) throw error;
       const result = Array.isArray(data) && data[0] ? data[0] : null;
       if (result?.verified) {
-        toast.success(result.message || "본인 인증 완료");
+        toast.success(result.message || t("ageGate.verifySuccess"));
         await refreshProfile();
         onResult?.(true);
         onClose();
       } else {
-        toast.error(result?.message || "만 19세 미만은 시청할 수 없습니다.");
+        toast.error(result?.message || t("ageGate.underage"));
         onResult?.(false);
       }
     } catch (e: any) {
       console.error("[AgeGate] verify error:", e);
-      toast.error(e?.message || "인증에 실패했습니다.");
+      toast.error(e?.message || t("ageGate.verifyFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -85,8 +87,8 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
                 <Lock className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-white">19+ 콘텐츠 인증</h2>
-                <p className="text-[11px] text-red-300/80">성인 콘텐츠를 시청하시려면 본인 인증이 필요합니다</p>
+                <h2 className="text-base font-bold text-white">{t("ageGate.title")}</h2>
+                <p className="text-[11px] text-red-300/80">{t("ageGate.description")}</p>
               </div>
             </div>
             <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
@@ -99,15 +101,15 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 flex gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-amber-200/90 leading-relaxed">
-                만 19세 이상만 19+ 콘텐츠를 시청할 수 있습니다.<br />
-                <span className="text-amber-200/60">정확한 생년월일을 입력해주세요. 허위 입력 시 서비스 이용이 제한될 수 있습니다.</span>
+                {t("ageGate.underage")}<br />
+                <span className="text-amber-200/60">{t("ageGate.description")}</span>
               </p>
             </div>
 
             <div>
               <label className="text-xs font-bold text-gray-400 mb-2 block flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5" />
-                생년월일
+                {t("ageGate.birthdate")}
               </label>
               <div className="flex gap-2">
                 <input
@@ -119,7 +121,7 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
                   maxLength={4}
                   className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-400"
                 />
-                <span className="self-center text-gray-500 text-xs">년</span>
+                <span className="self-center text-gray-500 text-xs">Y</span>
                 <input
                   type="number"
                   inputMode="numeric"
@@ -129,7 +131,7 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
                   maxLength={2}
                   className="w-16 bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-400 text-center"
                 />
-                <span className="self-center text-gray-500 text-xs">월</span>
+                <span className="self-center text-gray-500 text-xs">M</span>
                 <input
                   type="number"
                   inputMode="numeric"
@@ -139,13 +141,12 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
                   maxLength={2}
                   className="w-16 bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-400 text-center"
                 />
-                <span className="self-center text-gray-500 text-xs">일</span>
+                <span className="self-center text-gray-500 text-xs">D</span>
               </div>
             </div>
 
             <p className="text-[10px] text-gray-600 leading-relaxed">
-              ※ 입력한 생년월일은 본인 인증 및 연령 제한 콘텐츠 보호 목적으로만 사용됩니다.
-              개인정보처리방침에 따라 안전하게 보관됩니다.
+              ※ The date of birth is used solely for age verification. Stored securely per our privacy policy.
             </p>
           </div>
 
@@ -157,7 +158,7 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
               className="flex-1 bg-white/5 text-gray-300 border-white/10 hover:bg-white/10"
               disabled={submitting}
             >
-              취소
+              {t("ageGate.cancel")}
             </Button>
             <Button
               onClick={handleVerify}
@@ -165,7 +166,7 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
               className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold gap-2"
             >
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-              인증하기
+              {t("ageGate.verify")}
             </Button>
           </div>
         </motion.div>

@@ -14,6 +14,7 @@ import { motion } from "motion/react";
 import { Check, X, Loader2, Home } from "lucide-react";
 import { Button } from "./ui/button";
 import { supabase, supabaseAnonKey } from "../utils/supabaseClient";
+import { useTranslation } from "react-i18next";
 
 const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer";
 const CONFIRM_ENDPOINT = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/server/toss-confirm`;
@@ -25,6 +26,7 @@ interface PaymentResultProps {
 type Status = "processing" | "success" | "failed";
 
 export function PaymentResult({ onClose }: PaymentResultProps) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<Status>("processing");
   const [message, setMessage] = useState<string>("");
   const [amount, setAmount] = useState<number | null>(null);
@@ -36,7 +38,7 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
     // ── 실패 처리 ──
     if (outcome === "fail") {
       const code = params.get("code") || "UNKNOWN";
-      const reason = params.get("message") || "알 수 없는 오류";
+      const reason = params.get("message") || t("productDetail.toast.unknownError");
       const orderId = params.get("orderId");
 
       setStatus("failed");
@@ -65,7 +67,7 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
 
       if (!orderId || !paymentKey || !parsedAmount) {
         setStatus("failed");
-        setMessage("결제 정보가 누락되었습니다. 토스에 결제 내역이 있다면 고객센터에 문의해주세요.");
+        setMessage(t("paymentResult.failMessage", { message: "" }));
         return;
       }
 
@@ -89,15 +91,15 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
 
           if (!res.ok) {
             setStatus("failed");
-            setMessage(body?.error || `결제 승인 실패 (HTTP ${res.status})`);
+            setMessage(body?.error || t("paymentResult.failMessage", { message: `HTTP ${res.status}` }));
             return;
           }
 
           setStatus("success");
-          setMessage(body?.message || "결제가 정상적으로 완료되었습니다.");
+          setMessage(body?.message || t("paymentResult.successMessage"));
         } catch (err: any) {
           setStatus("failed");
-          setMessage("결제 승인 처리 중 오류: " + (err?.message || err));
+          setMessage(t("paymentResult.failMessage", { message: err?.message || err }));
         }
       })();
       return;
@@ -105,7 +107,7 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
 
     // outcome이 success/fail이 아님 → 잘못된 진입
     setStatus("failed");
-    setMessage("올바르지 않은 결제 결과 진입입니다.");
+    setMessage(t("paymentResult.failMessage", { message: "" }));
   }, []);
 
   const goHome = () => {
@@ -126,9 +128,9 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#6366f1]/15 flex items-center justify-center">
               <Loader2 className="w-8 h-8 text-[#6366f1] animate-spin" />
             </div>
-            <h2 className="text-xl font-bold mb-2">결제 처리 중...</h2>
+            <h2 className="text-xl font-bold mb-2">{t("app.loading")}</h2>
             <p className="text-sm text-muted-foreground">
-              토스페이먼츠에서 결제를 확인하고 있습니다. 잠시만 기다려주세요.
+              {t("upload.uploadingState")}
             </p>
           </>
         )}
@@ -138,7 +140,7 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/15 flex items-center justify-center">
               <Check className="w-8 h-8 text-green-400" />
             </div>
-            <h2 className="text-xl font-bold mb-2 text-green-400">결제 완료</h2>
+            <h2 className="text-xl font-bold mb-2 text-green-400">{t("paymentResult.successTitle")}</h2>
             {amount && (
               <p className="text-2xl font-black text-[#8b5cf6] mb-2">
                 ₩{amount.toLocaleString()}
@@ -150,7 +152,7 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
               className="w-full gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
             >
               <Home className="w-4 h-4" />
-              홈으로 돌아가기
+              {t("paymentResult.goHome")}
             </Button>
           </>
         )}
@@ -160,7 +162,7 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/15 flex items-center justify-center">
               <X className="w-8 h-8 text-red-400" />
             </div>
-            <h2 className="text-xl font-bold mb-2 text-red-400">결제 실패</h2>
+            <h2 className="text-xl font-bold mb-2 text-red-400">{t("paymentResult.failTitle")}</h2>
             <p className="text-sm text-muted-foreground mb-6 break-words">{message}</p>
             <Button
               onClick={goHome}
@@ -168,10 +170,10 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
               className="w-full gap-2"
             >
               <Home className="w-4 h-4" />
-              홈으로 돌아가기
+              {t("paymentResult.goHome")}
             </Button>
             <p className="text-[11px] text-muted-foreground/60 mt-4">
-              결제는 진행되지 않았습니다. 다시 시도하시려면 홈으로 이동 후 구독/구매를 다시 진행해주세요.
+              {t("paymentResult.tryAgain")}
             </p>
           </>
         )}

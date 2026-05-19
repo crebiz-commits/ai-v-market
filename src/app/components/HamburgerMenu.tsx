@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { Menu, X, Briefcase, Building2, FileText, Shield, Mail } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useBackButton } from "../hooks/useBackButton";
+import { useTranslation } from "react-i18next";
 
 interface HamburgerMenuProps {
   onNavigate: (tab: "business" | "about" | "terms" | "privacy") => void;
@@ -15,6 +16,7 @@ interface HamburgerMenuProps {
  * 데스크톱은 푸터가 같은 역할을 한다.
  */
 export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   useBackButton(open, () => setOpen(false));
 
@@ -29,7 +31,7 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
         whileTap={{ scale: 0.9 }}
         onClick={() => setOpen(true)}
         className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-        aria-label="메뉴"
+        aria-label={t("hamburger.title")}
       >
         <Menu className="w-[22px] h-[22px]" />
       </motion.button>
@@ -54,30 +56,30 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
               className="fixed right-0 top-0 bottom-0 w-full sm:w-[360px] z-[70] bg-[#0a0a0a] border-l border-white/10 shadow-2xl overflow-y-auto"
             >
               <div className="sticky top-0 z-10 flex items-center justify-between p-4 border-b border-white/5 bg-[#0a0a0a]">
-                <h2 className="text-base font-black text-white">메뉴</h2>
+                <h2 className="text-base font-black text-white">{t("hamburger.title")}</h2>
                 <button
                   onClick={() => setOpen(false)}
                   className="p-2 rounded-full hover:bg-white/10 text-gray-300"
-                  aria-label="닫기"
+                  aria-label={t("common.close")}
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
               <div className="p-3">
-                <div className="px-3 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">비즈니스</div>
-                <MenuItem icon={Briefcase} label="비즈니스 문의" sub="광고 · 투자 · 제휴" onClick={() => handleNav("business")} />
-                <MenuItem icon={Building2} label="CREAITE 소개" onClick={() => handleNav("about")} />
+                <div className="px-3 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">{t("hamburger.business")}</div>
+                <MenuItem icon={Briefcase} label={t("business.title")} sub={t("business.subtitle")} onClick={() => handleNav("business")} />
+                <MenuItem icon={Building2} label={t("footer.about")} onClick={() => handleNav("about")} />
 
                 <div className="my-2 border-t border-white/5" />
 
-                <div className="px-3 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">약관·정책</div>
-                <MenuItem icon={FileText} label="이용약관" onClick={() => handleNav("terms")} />
-                <MenuItem icon={Shield} label="개인정보처리방침" onClick={() => handleNav("privacy")} />
+                <div className="px-3 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">{t("footer.terms")}</div>
+                <MenuItem icon={FileText} label={t("footer.terms")} onClick={() => handleNav("terms")} />
+                <MenuItem icon={Shield} label={t("footer.privacy")} onClick={() => handleNav("privacy")} />
 
                 <div className="my-2 border-t border-white/5" />
 
-                <div className="px-3 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">지원</div>
+                <div className="px-3 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">{t("footer.support")}</div>
                 <a
                   href="mailto:support@creaite.net"
                   className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors"
@@ -86,7 +88,7 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
                     <Mail className="w-5 h-5 text-gray-300" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[15px] font-bold text-white">고객센터</p>
+                    <p className="text-[15px] font-bold text-white">{t("footer.contact")}</p>
                     <p className="text-xs text-gray-500 mt-0.5">support@creaite.net</p>
                   </div>
                 </a>
@@ -94,7 +96,7 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
 
               <div className="p-4 border-t border-white/5">
                 <p className="text-[10px] text-gray-600">© {new Date().getFullYear()} CREAITE</p>
-                <p className="text-[10px] text-gray-700 mt-0.5">세계 최초 AI 시네마 OTT</p>
+                <p className="text-[10px] text-gray-700 mt-0.5">{t("footer.tagline")}</p>
               </div>
             </motion.div>
           </>

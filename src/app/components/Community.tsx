@@ -9,6 +9,7 @@ import { CommunityChallengeDetail, Challenge } from "./CommunityChallengeDetail"
 import { useAuth } from "../contexts/AuthContext";
 import { useBackButton } from "../hooks/useBackButton";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 const INITIAL_POSTS: Post[] = [
   {
@@ -120,6 +121,7 @@ const CATEGORY_COLOR: Record<string, string> = {
 };
 
 export function Community() {
+  const { t } = useTranslation();
   const { user, isAuthenticated, profile } = useAuth();
   const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
@@ -161,7 +163,7 @@ export function Community() {
 
   const handleWritePost = async () => {
     if (!writeTitle.trim() || !writeContent.trim()) {
-      toast.error("제목과 내용을 모두 입력해주세요.");
+      toast.error(t("community.titleAndContentRequired"));
       return;
     }
     setSubmitting(true);
@@ -169,23 +171,23 @@ export function Community() {
       // 로컬 상태에 추가 (Supabase community_posts 테이블 연동은 테이블 생성 후 활성화)
       const newPost: Post = {
         id: `local-${Date.now()}`,
-        author: profile?.display_name || user?.name || "익명",
+        author: profile?.display_name || user?.name || t("community.anonymous"),
         avatar: profile?.avatar_url || "",
         title: writeTitle.trim(),
         content: writeContent.trim(),
         category: writeCategory,
         likes: 0,
         comments: 0,
-        timestamp: "방금 전",
+        timestamp: t("community.justNow"),
       };
       setPosts(prev => [newPost, ...prev]);
       setWriteTitle("");
       setWriteContent("");
       setWriteCategory("일반");
       setShowWriteModal(false);
-      toast.success("게시글이 등록됐습니다!");
+      toast.success(t("community.submitSuccess"));
     } catch {
-      toast.error("게시글 등록에 실패했습니다.");
+      toast.error(t("community.submitFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -197,11 +199,11 @@ export function Community() {
     <div className="h-full overflow-y-auto bg-background relative">
       <div className="max-w-4xl mx-auto p-4 md:p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl md:text-3xl font-bold">커뮤니티</h2>
+          <h2 className="text-2xl md:text-3xl font-bold">{t("community.title")}</h2>
           <Button
             onClick={() => {
               if (!isAuthenticated) {
-                toast.error("게시글을 작성하려면 로그인이 필요합니다.");
+                toast.error(t("community.writeRequiresLogin"));
                 return;
               }
               setShowWriteModal(true);
@@ -210,15 +212,15 @@ export function Community() {
             size="sm"
           >
             <Plus className="w-4 h-4" />
-            글쓰기
+            {t("community.write")}
           </Button>
         </div>
 
         <Tabs defaultValue="posts" className="w-full">
           <TabsList className="grid w-full grid-cols-3 bg-card mb-6">
-            <TabsTrigger value="posts">게시글</TabsTrigger>
-            <TabsTrigger value="challenges">챌린지</TabsTrigger>
-            <TabsTrigger value="trending">트렌딩</TabsTrigger>
+            <TabsTrigger value="posts">{t("community.tabPosts")}</TabsTrigger>
+            <TabsTrigger value="challenges">{t("community.tabChallenges")}</TabsTrigger>
+            <TabsTrigger value="trending">{t("community.tabTrending")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="posts" className="mt-0">
@@ -314,18 +316,18 @@ export function Community() {
                           <span>{challenge.prize}</span>
                         </div>
                         <span>•</span>
-                        <span>{challenge.participants}명 참여</span>
+                        <span>{t("community.participants", { count: challenge.participants })}</span>
                       </div>
                     </div>
                   </div>
                   <div className="p-4 flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">마감: {challenge.deadline}</span>
+                    <span className="text-sm text-muted-foreground">{t("community.deadlineLabel", { date: challenge.deadline })}</span>
                     <Button
                       size="sm"
                       onClick={(e) => { e.stopPropagation(); setSelectedChallenge(challenge); }}
                       className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
                     >
-                      자세히 보기
+                      {t("community.viewDetail")}
                     </Button>
                   </div>
                 </div>
@@ -338,7 +340,7 @@ export function Community() {
               <div className="bg-card rounded-lg border border-border p-4">
                 <div className="flex items-center gap-2 mb-4">
                   <TrendingUp className="w-5 h-5 text-[#6366f1]" />
-                  <h3>인기 프롬프트 키워드</h3>
+                  <h3>{t("community.trendingPromptKeywords")}</h3>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {["cyberpunk", "cinematic", "8k", "neon lights", "futuristic", "nature", "abstract", "portrait", "anime style", "realistic"].map((tag) => (
@@ -350,7 +352,7 @@ export function Community() {
               </div>
 
               <div className="bg-card rounded-lg border border-border p-4">
-                <h3 className="mb-4">이번 주 인기 게시글</h3>
+                <h3 className="mb-4">{t("community.weeklyTopPosts")}</h3>
                 <div className="space-y-3">
                   {posts.slice(0, 3).map((post, i) => (
                     <div key={post.id} className="flex items-start gap-3 pb-3 border-b border-border last:border-0 last:pb-0">
@@ -369,16 +371,16 @@ export function Community() {
               <div className="bg-card rounded-lg border border-border p-4">
                 <div className="flex items-center gap-2 mb-4">
                   <Lightbulb className="w-5 h-5 text-[#fbbf24]" />
-                  <h3>이번 주 추천 팁</h3>
+                  <h3>{t("community.weeklyTips")}</h3>
                 </div>
                 <div className="space-y-3">
                   <div className="p-3 bg-gradient-to-r from-[#6366f1]/5 to-[#8b5cf6]/5 rounded-lg border border-[#6366f1]/20">
-                    <p className="text-sm mb-2">💡 프롬프트 작성 시 카메라 앵글을 명시하면 더 극적인 결과를 얻을 수 있습니다</p>
-                    <p className="text-xs text-muted-foreground">예: "low angle shot", "bird's eye view"</p>
+                    <p className="text-sm mb-2">{t("community.tip1")}</p>
+                    <p className="text-xs text-muted-foreground">{t("community.tip1Example")}</p>
                   </div>
                   <div className="p-3 bg-gradient-to-r from-[#6366f1]/5 to-[#8b5cf6]/5 rounded-lg border border-[#6366f1]/20">
-                    <p className="text-sm mb-2">💡 Negative prompt를 활용하여 원하지 않는 요소를 제거하세요</p>
-                    <p className="text-xs text-muted-foreground">예: "no blur, no distortion, no artifacts"</p>
+                    <p className="text-sm mb-2">{t("community.tip2")}</p>
+                    <p className="text-xs text-muted-foreground">{t("community.tip2Example")}</p>
                   </div>
                 </div>
               </div>
@@ -461,7 +463,7 @@ export function Community() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-white">게시글 작성</h3>
+                <h3 className="text-lg font-bold text-white">{t("community.writeModalTitle")}</h3>
                 <button onClick={() => setShowWriteModal(false)} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-gray-400">
                   <X className="w-5 h-5" />
                 </button>
@@ -486,7 +488,7 @@ export function Community() {
 
               <input
                 type="text"
-                placeholder="제목을 입력하세요"
+                placeholder={t("community.titlePlaceholder")}
                 value={writeTitle}
                 onChange={e => setWriteTitle(e.target.value)}
                 maxLength={100}
@@ -494,7 +496,7 @@ export function Community() {
               />
 
               <textarea
-                placeholder="내용을 입력하세요 (최소 10자)"
+                placeholder={t("community.contentPlaceholder")}
                 value={writeContent}
                 onChange={e => setWriteContent(e.target.value)}
                 maxLength={2000}
@@ -506,7 +508,7 @@ export function Community() {
                 <span className="text-xs text-gray-600">{writeContent.length}/2000</span>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => setShowWriteModal(false)} className="border-white/10">
-                    취소
+                    {t("community.cancel")}
                   </Button>
                   <Button
                     size="sm"
@@ -515,7 +517,7 @@ export function Community() {
                     className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] gap-2"
                   >
                     {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    등록
+                    {t("community.submit")}
                   </Button>
                 </div>
               </div>

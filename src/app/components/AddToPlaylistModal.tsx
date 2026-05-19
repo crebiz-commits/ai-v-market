@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Plus, Check, Bookmark, FolderPlus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../utils/supabaseClient";
+import { useTranslation } from "react-i18next";
 
 interface PlaylistRow {
   playlist_id: string;
@@ -27,6 +28,7 @@ interface AddToPlaylistModalProps {
 }
 
 export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChange }: AddToPlaylistModalProps) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [playlists, setPlaylists] = useState<PlaylistRow[]>([]);
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
@@ -45,7 +47,7 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
       if (error) throw error;
       setPlaylists((data as PlaylistRow[]) || []);
     } catch (err: any) {
-      toast.error("플레이리스트 로드 실패: " + (err?.message || err));
+      toast.error(t("addToPlaylist.fetchFailed"));
     } finally {
       setLoading(false);
     }
@@ -75,14 +77,14 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
           p_video_id: videoId,
         });
         if (error) throw error;
-        toast.success(`"${pl.name}"에 추가됨`);
+        toast.success(t("addToPlaylist.addedToast"));
       } else {
         const { error } = await supabase.rpc("remove_from_playlist", {
           p_playlist_id: pl.playlist_id,
           p_video_id: videoId,
         });
         if (error) throw error;
-        toast.success(`"${pl.name}"에서 제거됨`);
+        toast.success(t("addToPlaylist.removedToast"));
       }
       onChange?.();
     } catch (err: any) {
@@ -90,7 +92,7 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
       setPlaylists((arr) =>
         arr.map((p) => (p.playlist_id === pl.playlist_id ? { ...p, contains: pl.contains } : p)),
       );
-      toast.error("실패: " + (err?.message || err));
+      toast.error(err?.message || "Failed");
     } finally {
       setBusyIds((s) => {
         const n = new Set(s);
@@ -115,13 +117,13 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
         p_video_id: videoId,
       });
       if (addErr) throw addErr;
-      toast.success(`"${name}" 플레이리스트 만들고 영상 추가됨`);
+      toast.success(t("addToPlaylist.createSuccess"));
       setNewName("");
       setShowCreate(false);
       await load();
       onChange?.();
     } catch (err: any) {
-      toast.error("플레이리스트 만들기 실패: " + (err?.message || err));
+      toast.error(t("addToPlaylist.createFailed"));
     } finally {
       setCreating(false);
     }
@@ -150,7 +152,7 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FolderPlus className="w-5 h-5 text-[#8b5cf6]" />
-                <h3 className="font-bold text-base">플레이리스트에 추가</h3>
+                <h3 className="font-bold text-base">{t("addToPlaylist.title")}</h3>
               </div>
               <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted">
                 <X className="w-5 h-5" />
@@ -159,7 +161,7 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
 
             {videoTitle && (
               <div className="px-5 py-3 border-b border-border bg-muted/30">
-                <p className="text-xs text-muted-foreground font-medium">영상</p>
+                <p className="text-xs text-muted-foreground font-medium">{t("mypage.tabs.videos")}</p>
                 <p className="text-sm font-bold truncate">{videoTitle}</p>
               </div>
             )}
@@ -172,8 +174,7 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
                 </div>
               ) : playlists.length === 0 ? (
                 <div className="py-8 text-center text-sm text-muted-foreground px-5">
-                  아직 만든 플레이리스트가 없습니다.<br />
-                  아래에서 첫 플레이리스트를 만드세요!
+                  {t("addToPlaylist.empty")}
                 </div>
               ) : (
                 <div className="py-2">
@@ -227,7 +228,7 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
                         setNewName("");
                       }
                     }}
-                    placeholder="플레이리스트 이름"
+                    placeholder={t("addToPlaylist.placeholder")}
                     className="input-base flex-1 text-sm"
                     maxLength={60}
                     disabled={creating}
@@ -237,7 +238,7 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
                     disabled={creating || !newName.trim()}
                     className="px-3 py-2 rounded-lg bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#ec4899] text-white text-xs font-bold disabled:opacity-50 flex items-center gap-1"
                   >
-                    {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "만들기"}
+                    {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : t("addToPlaylist.create")}
                   </button>
                 </div>
               ) : (
@@ -246,7 +247,7 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
                   className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-white/20 hover:border-[#8b5cf6] hover:bg-[#8b5cf6]/5 text-sm font-bold text-white/80 hover:text-white transition-colors"
                 >
                   <Plus className="w-4 h-4" />
-                  새 플레이리스트 만들기
+                  {t("addToPlaylist.createNew")}
                 </button>
               )}
             </div>

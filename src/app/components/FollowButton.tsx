@@ -3,6 +3,7 @@ import { Plus, Check, Loader2, UserPlus, UserCheck } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
 import { useFollows } from "../hooks/useFollows";
+import { useTranslation } from "react-i18next";
 
 interface FollowButtonProps {
   creatorId: string;
@@ -19,6 +20,7 @@ export function FollowButton({
   onChange,
   size = "md",
 }: FollowButtonProps) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { isFollowing, toggleFollow } = useFollows();
   const [loading, setLoading] = useState(false);
@@ -43,8 +45,8 @@ export function FollowButton({
         whileTap={{ scale: 0.85 }}
         onClick={handleClick}
         disabled={loading}
-        title={following ? "팔로잉" : "팔로우"}
-        aria-label={following ? "팔로잉" : "팔로우"}
+        title={following ? t("follow.following") : t("follow.follow")}
+        aria-label={following ? t("follow.following") : t("follow.follow")}
         className="flex-shrink-0"
       >
         <div
@@ -84,12 +86,12 @@ export function FollowButton({
       ) : following ? (
         <>
           <Check className="w-3.5 h-3.5" />
-          팔로잉
+          {t("follow.following")}
         </>
       ) : (
         <>
           <Plus className="w-3.5 h-3.5" />
-          팔로우
+          {t("follow.follow")}
         </>
       )}
     </motion.button>

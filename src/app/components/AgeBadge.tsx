@@ -3,6 +3,7 @@
 // 영상 카드/상세에서 등급 표시
 // ════════════════════════════════════════════════════════════════════════════
 import { Lock } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export type AgeRating = "all" | "13" | "15" | "19";
 
@@ -12,14 +13,15 @@ interface AgeBadgeProps {
   showAll?: boolean; // 'all'(전체관람가)도 표시할지
 }
 
-const RATING_STYLES: Record<string, { label: string; bg: string; text: string }> = {
-  all: { label: "전체", bg: "bg-emerald-500/80", text: "text-white" },
-  "13": { label: "13+", bg: "bg-amber-500/90", text: "text-white" },
-  "15": { label: "15+", bg: "bg-orange-500/90", text: "text-white" },
-  "19": { label: "19+", bg: "bg-red-600", text: "text-white" },
+const RATING_STYLES: Record<string, { labelKey: string; bg: string; text: string }> = {
+  all: { labelKey: "ageBadge.all", bg: "bg-emerald-500/80", text: "text-white" },
+  "13": { labelKey: "ageBadge.age13", bg: "bg-amber-500/90", text: "text-white" },
+  "15": { labelKey: "ageBadge.age15", bg: "bg-orange-500/90", text: "text-white" },
+  "19": { labelKey: "ageBadge.age19", bg: "bg-red-600", text: "text-white" },
 };
 
 export function AgeBadge({ rating, size = "sm", showAll = false }: AgeBadgeProps) {
+  const { t } = useTranslation();
   const r = rating || "all";
   if (!showAll && r === "all") return null;
   const style = RATING_STYLES[r] || RATING_STYLES.all;
@@ -34,7 +36,7 @@ export function AgeBadge({ rating, size = "sm", showAll = false }: AgeBadgeProps
   return (
     <span className={`inline-flex items-center gap-0.5 rounded font-black ${style.bg} ${style.text} ${sizeClass} shadow-sm`}>
       {r === "19" && <Lock className="w-2.5 h-2.5" />}
-      {style.label}
+      {t(style.labelKey)}
     </span>
   );
 }

@@ -5,6 +5,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../utils/supabaseClient";
 import { FollowButton } from "./FollowButton";
 import { CreatorChannel } from "./CreatorChannel";
+import { useTranslation } from "react-i18next";
+import { formatCompactNumber } from "../i18n/numberFormat";
 
 interface ChannelProps {
   onSignInClick?: () => void;
@@ -59,13 +61,10 @@ function mapVideoForDetail(v: FollowingVideo) {
   };
 }
 
-function formatNumber(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
+const formatNumber = formatCompactNumber;
 
 export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCreatorOpened }: ChannelProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<ChannelTab>("subscribed");
   const [selectedCreatorId, setSelectedCreatorId] = useState<string | null>(null);
   const { user, isAuthenticated, loading: authLoading } = useAuth();
@@ -193,9 +192,9 @@ export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCre
           animate={{ opacity: 1, y: 0 }}
           className="mb-6"
         >
-          <h1 className="text-3xl md:text-4xl font-black text-white mb-2">채널</h1>
+          <h1 className="text-3xl md:text-4xl font-black text-white mb-2">{t("channel.title")}</h1>
           <p className="text-gray-400 text-sm md:text-base">
-            구독한 크리에이터의 새 영상과 새로운 채널을 발견하세요
+            {t("channel.subtitle")}
           </p>
         </motion.div>
 
@@ -210,7 +209,7 @@ export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCre
             `}
           >
             <Users className="w-4 h-4" />
-            구독
+            {t("channel.tabFollowing")}
           </button>
           <button
             onClick={() => setActiveTab("explore")}
@@ -221,7 +220,7 @@ export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCre
             `}
           >
             <Compass className="w-4 h-4" />
-            탐색
+            {t("channel.tabExplore")}
           </button>
         </div>
 
@@ -274,21 +273,22 @@ function SubscribedTab({
   onSignInClick?: () => void;
   onProductClick?: (video: any) => void;
 }) {
+  const { t } = useTranslation();
   if (!isAuthenticated) {
     return (
       <div className="bg-[#121212] rounded-2xl border border-white/5 p-8 md:p-12 text-center">
         <div className="inline-flex w-16 h-16 rounded-2xl bg-[#6366f1]/10 items-center justify-center mb-4 border border-[#6366f1]/20">
           <Users className="w-8 h-8 text-[#6366f1]" />
         </div>
-        <h2 className="text-xl font-bold text-white mb-2">로그인이 필요합니다</h2>
+        <h2 className="text-xl font-bold text-white mb-2">{t("channel.signInRequired")}</h2>
         <p className="text-gray-400 text-sm leading-relaxed max-w-md mx-auto mb-6">
-          로그인 후 좋아하는 크리에이터를 구독해 보세요.
+          {t("channel.signInHint")}
         </p>
         <button
           onClick={onSignInClick}
           className="px-6 py-2.5 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
         >
-          로그인 / 회원가입
+          {t("channel.signInButton")}
         </button>
       </div>
     );
@@ -308,10 +308,10 @@ function SubscribedTab({
         <div className="inline-flex w-16 h-16 rounded-2xl bg-[#6366f1]/10 items-center justify-center mb-4 border border-[#6366f1]/20">
           <Users className="w-8 h-8 text-[#6366f1]" />
         </div>
-        <h2 className="text-xl font-bold text-white mb-2">아직 구독한 채널이 없어요</h2>
+        <h2 className="text-xl font-bold text-white mb-2">{t("channel.noFollowingTitle")}</h2>
         <p className="text-gray-400 text-sm leading-relaxed max-w-md mx-auto">
-          "탐색" 탭에서 마음에 드는 크리에이터를 팔로우하면<br />
-          여기에 최신 영상이 모입니다.
+          {t("channel.noFollowingHintLine1")}<br />
+          {t("channel.noFollowingHintLine2")}
         </p>
       </div>
     );
@@ -386,6 +386,7 @@ function ExploreTab({
   onFollowChange: (creatorId: string, following: boolean) => void;
   onCreatorClick: (creatorId: string) => void;
 }) {
+  const { t } = useTranslation();
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -400,9 +401,9 @@ function ExploreTab({
         <div className="inline-flex w-16 h-16 rounded-2xl bg-[#8b5cf6]/10 items-center justify-center mb-4 border border-[#8b5cf6]/20">
           <Compass className="w-8 h-8 text-[#8b5cf6]" />
         </div>
-        <h2 className="text-xl font-bold text-white mb-2">표시할 채널이 없어요</h2>
+        <h2 className="text-xl font-bold text-white mb-2">{t("channel.noChannelsTitle")}</h2>
         <p className="text-gray-400 text-sm leading-relaxed max-w-md mx-auto">
-          영상을 등록한 크리에이터가 늘어나면 이곳에서 추천이 시작됩니다.
+          {t("channel.noChannelsHint")}
         </p>
       </div>
     );
@@ -442,9 +443,9 @@ function ExploreTab({
                 {c.creator_name}
               </h3>
               <div className="flex items-center gap-2 text-[11px] text-gray-500 font-medium">
-                <span>영상 {c.video_count}개</span>
+                <span>{t("channel.videosCount", { count: c.video_count })}</span>
                 <span className="w-1 h-1 rounded-full bg-gray-700" />
-                <span>팔로워 {formatNumber(c.follower_count)}</span>
+                <span>{t("channel.followers", { count: formatNumber(c.follower_count) })}</span>
                 <span className="w-1 h-1 rounded-full bg-gray-700" />
                 <span className="inline-flex items-center gap-0.5">
                   <Eye className="w-3 h-3" />

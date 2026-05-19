@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { useAuth } from "../contexts/AuthContext";
 import { usePayment } from "../hooks/usePayment";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 export type PaywallReason = "ott_block" | "cinema_cutoff";
 
@@ -30,18 +31,19 @@ export function SubscriptionModal({
   onClose,
   onSignInClick,
 }: SubscriptionModalProps) {
+  const { t } = useTranslation();
   const { isAuthenticated, user } = useAuth();
   const { startSubscription } = usePayment();
   const [paying, setPaying] = useState(false);
 
   const messages = {
     ott_block: {
-      title: "프리미엄 OTT 콘텐츠",
-      subtitle: "10분 이상 시네마틱 작품을 시청하려면 구독이 필요합니다.",
+      title: t("productDetail.paywall.premiumOtt"),
+      subtitle: t("subscriptionModal.reasonOttBlock"),
     },
     cinema_cutoff: {
-      title: "미리보기가 끝났어요",
-      subtitle: "구독하시면 이 영상의 전체를 시청할 수 있습니다.",
+      title: t("productDetail.paywall.previewEnded"),
+      subtitle: t("subscriptionModal.reasonCinemaCutoff"),
     },
   };
 
@@ -64,9 +66,9 @@ export function SubscriptionModal({
     } catch (err: any) {
       // 사용자가 결제창에서 취소하거나 SDK 오류
       if (err?.code === "USER_CANCEL") {
-        toast.info("결제를 취소했습니다.");
+        toast.info(t("productDetail.toast.paymentCanceled"));
       } else {
-        toast.error("결제 시작 실패: " + (err?.message || "알 수 없는 오류"));
+        toast.error(t("productDetail.toast.paymentFailed") + (err?.message || t("productDetail.toast.unknownError")));
       }
       setPaying(false);
     }
@@ -100,7 +102,7 @@ export function SubscriptionModal({
                 <button
                   onClick={onClose}
                   className="absolute top-4 right-4 p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 transition-colors"
-                  aria-label="닫기"
+                  aria-label={t("common.close")}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -127,15 +129,15 @@ export function SubscriptionModal({
                   </div>
                   <div className="flex items-baseline gap-1 mb-4">
                     <span className="text-3xl font-black text-white">₩4,900</span>
-                    <span className="text-sm text-gray-500 font-medium">/ 월</span>
+                    <span className="text-sm text-gray-500 font-medium">{t("subscriptionModal.perMonth")}</span>
                   </div>
 
                   <div className="space-y-2.5">
                     {[
-                      "홈 / 시네마 / OTT 모든 영상 무제한",
-                      "10분 이상 시네마틱 작품 풀 시청",
-                      "광고 없이 깔끔한 시청 경험",
-                      "언제든 해지 가능",
+                      t("subscriptionModal.benefit1"),
+                      t("subscriptionModal.benefit2"),
+                      t("subscriptionModal.benefit3"),
+                      t("subscriptionModal.benefit4"),
                     ].map((benefit, idx) => (
                       <div key={idx} className="flex items-start gap-2">
                         <div className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0 mt-0.5">
@@ -156,17 +158,17 @@ export function SubscriptionModal({
                   {paying ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      결제창 여는 중...
+                      {t("subscriptionModal.openingPayment")}
                     </>
                   ) : isAuthenticated ? (
                     <>
                       <Crown className="w-5 h-5" />
-                      구독하기 — 월 ₩4,900
+                      {t("subscriptionModal.subscribeCTA")}
                     </>
                   ) : (
                     <>
                       <LogIn className="w-5 h-5" />
-                      로그인하고 구독하기
+                      {t("subscriptionModal.signInToSubscribe")}
                     </>
                   )}
                 </Button>
@@ -175,7 +177,7 @@ export function SubscriptionModal({
                   onClick={onClose}
                   className="w-full mt-3 text-sm text-gray-500 hover:text-gray-300 font-medium transition-colors py-2"
                 >
-                  나중에 보기
+                  {t("subscriptionModal.later")}
                 </button>
               </div>
             </div>

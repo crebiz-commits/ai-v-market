@@ -23,6 +23,7 @@ import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 export type ReportTargetType = "video" | "comment" | "user" | "community_post";
 
@@ -35,22 +36,15 @@ interface ReportModalProps {
   onSignInClick?: () => void;
 }
 
-const REASONS: Array<{ key: string; label: string; icon: string; desc: string }> = [
-  { key: "spam", label: "스팸 / 광고", icon: "🚫", desc: "광고성 또는 반복적인 콘텐츠" },
-  { key: "inappropriate", label: "음란물 / 성적 내용", icon: "🔞", desc: "성적이거나 부적절한 콘텐츠" },
-  { key: "copyright", label: "저작권 침해", icon: "©️", desc: "타인의 저작물을 무단 사용" },
-  { key: "violence", label: "폭력 / 위험한 행위", icon: "⚠️", desc: "폭력적이거나 위험한 행동" },
-  { key: "harassment", label: "괴롭힘 / 혐오", icon: "😡", desc: "특정 인물·집단에 대한 공격" },
-  { key: "misinformation", label: "허위 정보", icon: "📰", desc: "거짓 정보 또는 사실 왜곡" },
-  { key: "other", label: "기타", icon: "💬", desc: "위 사유에 해당하지 않는 경우" },
+const REASON_KEYS: Array<{ key: string; icon: string }> = [
+  { key: "spam", icon: "🚫" },
+  { key: "inappropriate", icon: "🔞" },
+  { key: "copyright", icon: "©️" },
+  { key: "violence", icon: "⚠️" },
+  { key: "harassment", icon: "😡" },
+  { key: "misinformation", icon: "📰" },
+  { key: "other", icon: "💬" },
 ];
-
-const TARGET_LABELS: Record<ReportTargetType, string> = {
-  video: "영상",
-  comment: "댓글",
-  user: "사용자",
-  community_post: "커뮤니티 글",
-};
 
 export function ReportModal({
   open,
@@ -60,6 +54,7 @@ export function ReportModal({
   onClose,
   onSignInClick,
 }: ReportModalProps) {
+  const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
   const [description, setDescription] = useState("");
@@ -72,7 +67,7 @@ export function ReportModal({
       return;
     }
     if (!selectedReason) {
-      toast.error("신고 사유를 선택해주세요");
+      toast.error(t("reportModal.reasonRequired"));
       return;
     }
 
@@ -88,20 +83,20 @@ export function ReportModal({
       if (error) {
         // 중복 신고는 unique index 위반 에러
         if (error.code === "23505" || error.message?.includes("duplicate")) {
-          toast.error("이미 신고하신 콘텐츠입니다");
+          toast.error(t("reportModal.alreadyReported"));
         } else {
-          toast.error("신고 실패: " + error.message);
+          toast.error(t("reportModal.submitFailed") + " " + error.message);
         }
         setSubmitting(false);
         return;
       }
 
-      toast.success("신고가 접수되었습니다. 검토 후 처리됩니다.");
+      toast.success(t("reportModal.submitSuccess"));
       setSelectedReason(null);
       setDescription("");
       onClose();
     } catch (err: any) {
-      toast.error("신고 실패: " + (err?.message || err));
+      toast.error(t("reportModal.submitFailed") + " " + (err?.message || err));
     } finally {
       setSubmitting(false);
     }
@@ -131,7 +126,7 @@ export function ReportModal({
               <div className="flex items-center gap-2">
                 <Flag className="w-5 h-5 text-red-400" />
                 <div>
-                  <h3 className="font-bold text-base">{TARGET_LABELS[targetType]} 신고</h3>
+                  <h3 className="font-bold text-base">{t("reportModal.title")}</h3>
                   {targetTitle && (
                     <p className="text-xs text-muted-foreground truncate max-w-[260px]">{targetTitle}</p>
                   )}
@@ -145,11 +140,11 @@ export function ReportModal({
             {/* Body */}
             <div className="p-5 space-y-4">
               <p className="text-sm text-muted-foreground">
-                신고 사유를 선택해주세요. 검토 후 가이드라인 위반 시 콘텐츠가 숨김 처리됩니다.
+                {t("reportModal.subtitle")}
               </p>
 
               <div className="space-y-2">
-                {REASONS.map((r) => (
+                {REASON_KEYS.map((r) => (
                   <button
                     key={r.key}
                     onClick={() => setSelectedReason(r.key)}
@@ -161,8 +156,7 @@ export function ReportModal({
                   >
                     <span className="text-xl flex-shrink-0">{r.icon}</span>
                     <div className="min-w-0">
-                      <p className="font-semibold text-sm">{r.label}</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">{r.desc}</p>
+                      <p className="font-semibold text-sm">{t(`reportModal.reason${r.key.charAt(0).toUpperCase()}${r.key.slice(1)}`)}</p>
                     </div>
                   </button>
                 ))}
@@ -171,11 +165,11 @@ export function ReportModal({
               {/* 상세 설명 (선택) */}
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
-                  상세 설명 (선택)
+                  {t("reportModal.details")}
                 </label>
                 <textarea
                   className="input-base min-h-[80px] w-full"
-                  placeholder="추가로 설명할 내용이 있으면 적어주세요"
+                  placeholder={t("reportModal.detailsPlaceholder")}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   maxLength={500}
@@ -187,8 +181,7 @@ export function ReportModal({
 
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
                 <p className="text-[11px] text-amber-200/90 leading-relaxed">
-                  ⚠️ 허위/악성 신고는 계정 제재 사유가 될 수 있습니다.
-                  같은 콘텐츠는 1회만 신고 가능합니다.
+                  ⚠️ False reports may result in account penalties. You can only report the same content once.
                 </p>
               </div>
             </div>
@@ -196,7 +189,7 @@ export function ReportModal({
             {/* Footer */}
             <div className="sticky bottom-0 bg-card border-t border-border p-5 flex gap-2">
               <Button variant="outline" className="flex-1" onClick={onClose}>
-                취소
+                {t("reportModal.cancel")}
               </Button>
               <Button
                 className="flex-1 gap-2 bg-red-500 hover:bg-red-600 text-white"
@@ -206,12 +199,12 @@ export function ReportModal({
                 {submitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    접수 중...
+                    {t("reportModal.submitting")}
                   </>
                 ) : (
                   <>
                     <Flag className="w-4 h-4" />
-                    신고 접수
+                    {t("reportModal.submit")}
                   </>
                 )}
               </Button>

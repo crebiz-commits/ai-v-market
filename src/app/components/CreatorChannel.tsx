@@ -7,6 +7,7 @@ import { FollowButton } from "./FollowButton";
 import { CommentSettings } from "./CommentSettings";
 import { ReportModal } from "./ReportModal";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
+import { useTranslation } from "react-i18next";
 
 interface CreatorChannelProps {
   creatorId: string;
@@ -67,6 +68,7 @@ function mapVideoForDetail(v: CreatorVideo) {
 }
 
 export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClick }: CreatorChannelProps) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [profile, setProfile] = useState<CreatorProfile | null>(null);
   const [videos, setVideos] = useState<CreatorVideo[]>([]);
@@ -143,12 +145,12 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
     return (
       <div className="h-full flex items-center justify-center bg-[#0a0a0a] p-6">
         <div className="text-center max-w-md">
-          <p className="text-gray-400 mb-6">크리에이터 정보를 찾을 수 없습니다.</p>
+          <p className="text-gray-400 mb-6">{t("creatorChannel.notFound")}</p>
           <button
             onClick={onBack}
             className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-bold border border-white/10"
           >
-            ← 돌아가기
+            {t("creatorChannel.back")}
           </button>
         </div>
       </div>
@@ -165,7 +167,7 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
           open={reportOpen}
           targetType="user"
           targetId={creatorId}
-          targetTitle={`${profile.creator_name} 채널`}
+          targetTitle={t("creatorChannel.channelSuffix", { name: profile.creator_name })}
           onClose={() => setReportOpen(false)}
           onSignInClick={onSignInClick}
         />
@@ -173,7 +175,7 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
       {!isMyChannel && blockedHere && (
         <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2">
           <p className="text-xs text-amber-300 text-center">
-            🚫 차단한 채널입니다. 이 채널의 콘텐츠는 회원님의 피드에 보이지 않습니다.
+            {t("creatorChannel.blockedBanner")}
           </p>
         </div>
       )}
@@ -185,7 +187,7 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
             className="flex items-center gap-1.5 text-sm text-gray-300 hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            채널 목록
+            {t("creatorChannel.channelList")}
           </button>
         </div>
       </div>
@@ -225,7 +227,7 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white text-sm font-bold shadow-md shadow-[#8b5cf6]/30 transition-opacity"
                 >
                   <Filter className="w-4 h-4" />
-                  댓글 관리
+                  {t("creatorChannel.commentManage")}
                 </button>
               ) : (
                 <div className="flex items-center gap-2">
@@ -241,7 +243,7 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
                     <button
                       onClick={(e) => { e.stopPropagation(); setMoreMenuOpen((v) => !v); }}
                       className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
-                      aria-label="더보기"
+                      aria-label={t("creatorChannel.more")}
                     >
                       <MoreVertical className="w-4 h-4" />
                     </button>
@@ -255,7 +257,7 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
                           className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-amber-400 transition-colors flex items-center gap-2"
                         >
                           <Flag className="w-3.5 h-3.5" />
-                          채널 신고
+                          {t("creatorChannel.reportChannel")}
                         </button>
                         {blockedHere ? (
                           <button
@@ -263,7 +265,7 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
                             className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-[#10b981] transition-colors flex items-center gap-2"
                           >
                             <UserX className="w-3.5 h-3.5" />
-                            차단 해제
+                            {t("creatorChannel.unblock")}
                           </button>
                         ) : (
                           <button
@@ -271,7 +273,7 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
                             className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-red-400 transition-colors flex items-center gap-2"
                           >
                             <UserX className="w-3.5 h-3.5" />
-                            이 채널 차단
+                            {t("creatorChannel.blockChannel")}
                           </button>
                         )}
                       </div>
@@ -287,16 +289,16 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
               </p>
             )}
             <div className="grid grid-cols-3 gap-3 md:gap-4 max-w-md">
-              <Stat icon={Film} label="영상" value={profile.video_count} color="text-[#6366f1]" />
-              <Stat icon={Users} label="팔로워" value={profile.follower_count} color="text-[#8b5cf6]" />
-              <Stat icon={Eye} label="총 조회수" value={profile.total_views} color="text-[#10b981]" />
+              <Stat icon={Film} label={t("creatorChannel.statVideos")} value={profile.video_count} color="text-[#6366f1]" />
+              <Stat icon={Users} label={t("creatorChannel.statFollowers")} value={profile.follower_count} color="text-[#8b5cf6]" />
+              <Stat icon={Eye} label={t("creatorChannel.statViews")} value={profile.total_views} color="text-[#10b981]" />
             </div>
           </div>
         </motion.div>
 
         {/* 영상 그리드 헤더: 제목 + 정렬 토글 */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-white">등록 영상</h2>
+          <h2 className="text-lg font-bold text-white">{t("creatorChannel.registeredVideos")}</h2>
           {videos.length > 1 && (
             <div className="flex items-center gap-1 p-1 bg-[#1c1c1e] rounded-lg border border-white/5">
               <button
@@ -307,7 +309,7 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
                     : "text-gray-400 hover:text-gray-200"
                 }`}
               >
-                최신순
+                {t("creatorChannel.sortLatest")}
               </button>
               <button
                 onClick={() => setSortOrder("oldest")}
@@ -317,7 +319,7 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
                     : "text-gray-400 hover:text-gray-200"
                 }`}
               >
-                오래된순
+                {t("creatorChannel.sortOldest")}
               </button>
             </div>
           )}
@@ -325,7 +327,7 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
         {videos.length === 0 ? (
           <div className="bg-[#121212] rounded-2xl border border-white/5 p-8 md:p-12 text-center">
             <Film className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-400 text-sm">등록된 영상이 없습니다.</p>
+            <p className="text-gray-400 text-sm">{t("creatorChannel.noVideos")}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">

@@ -204,7 +204,7 @@ function AppContent() {
         .eq("id", videoId)
         .single();
       if (error || !data) {
-        toast.error("영상을 찾을 수 없습니다");
+        toast.error(t("app.videoNotFound"));
         return;
       }
       setSelectedProduct({
@@ -231,7 +231,7 @@ function AppContent() {
         highlightEnd: data.highlight_end || 15,
       } as VideoProduct);
     } catch (err: any) {
-      toast.error("영상 조회 실패: " + (err?.message || err));
+      toast.error(t("app.videoFetchFailed", { message: err?.message || err }));
     }
   };
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -295,7 +295,7 @@ function AppContent() {
     // 비로그인 시: 로그인 모달 띄우고 항목을 보류 → 로그인 후 자동 추가
     if (!isAuthenticated || !user) {
       setPendingCartAdd({ product, licenseType });
-      toast.info("로그인 후 자동으로 장바구니에 담깁니다.");
+      toast.info(t("app.cartPending"));
       setShowAuthModal(true);
       return false;
     }
@@ -318,10 +318,10 @@ function AppContent() {
     if (error) {
       // 23505 = unique constraint (이미 담긴 항목)
       if ((error as any).code === "23505") {
-        toast.info("이미 장바구니에 담겨 있습니다.");
+        toast.info(t("app.alreadyInCart"));
       } else {
         console.error("[addToCart]", error);
-        toast.error("장바구니 추가에 실패했습니다.");
+        toast.error(t("app.cartAddFailed"));
       }
       return false;
     }
@@ -336,9 +336,9 @@ function AppContent() {
       price,
     };
     setCartItems(prev => [...prev, newItem]);
-    toast.success("장바구니에 담았습니다!", {
+    toast.success(t("app.cartAddSuccess"), {
       action: {
-        label: "장바구니 보기",
+        label: t("common.viewCart"),
         onClick: () => setActivePanel("cart"),
       },
     });
@@ -348,7 +348,7 @@ function AppContent() {
   const removeFromCart = useCallback(async (itemId: string) => {
     const { error } = await supabase.from("cart_items").delete().eq("id", itemId);
     if (error) {
-      toast.error("삭제에 실패했습니다.");
+      toast.error(t("app.cartDeleteFailed"));
       return;
     }
     setCartItems(prev => prev.filter(item => item.id !== itemId));
@@ -427,7 +427,7 @@ function AppContent() {
           >
             <span className="text-white font-bold text-2xl">AI</span>
           </motion.div>
-          <p className="text-muted-foreground font-medium">로딩 중...</p>
+          <p className="text-muted-foreground font-medium">{t("app.loading")}</p>
         </motion.div>
       </div>
     );
@@ -557,7 +557,7 @@ function AppContent() {
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setActiveTab("admin")}
                 className="p-2 transition-colors"
-                title="광고관리"
+                title={t("app.adManage")}
               >
                 <ShieldCheck className={`w-[22px] h-[22px] ${activeTab === "admin" ? "text-[#8b5cf6]" : "text-muted-foreground"}`} />
               </motion.button>
@@ -817,7 +817,7 @@ function AppContent() {
               whileTap={{ scale: 0.92 }}
               onClick={() => { setActivePanel(null); setActiveTab("upload"); }}
               className="relative -mt-8 outline-none group"
-              aria-label="업로드"
+              aria-label={t("app.uploadAria")}
             >
               <div className={`w-14 h-14 rounded-full transition-all duration-300 border-[3px] border-background flex items-center justify-center
                 ${activeTab === "upload"

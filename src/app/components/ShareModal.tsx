@@ -13,6 +13,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Copy, Check, Send } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 interface ShareModalProps {
   open: boolean;
@@ -79,6 +80,7 @@ const TARGETS: ShareTarget[] = [
 ];
 
 export function ShareModal({ open, url, title, text, onClose }: ShareModalProps) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const shareText = text || `CREAITE: ${title}`;
 
@@ -86,10 +88,10 @@ export function ShareModal({ open, url, title, text, onClose }: ShareModalProps)
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      toast.success("링크가 복사되었습니다");
+      toast.success(t("shareModal.linkCopied"));
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("복사 실패 — 직접 선택해서 복사해주세요");
+      toast.error(t("shareModal.copyFailed"));
     }
   };
 
@@ -97,12 +99,11 @@ export function ShareModal({ open, url, title, text, onClose }: ShareModalProps)
     const shareUrl = target.getUrl(url, shareText);
 
     if (shareUrl === null) {
-      // 카카오톡 등 — 링크 복사 + 안내
       try {
         await navigator.clipboard.writeText(`${shareText}\n${url}`);
-        toast.success(`${target.label}로 보내려면 링크가 복사됐어요. 직접 붙여넣기 해주세요!`);
+        toast.success(t("shareModal.linkCopied"));
       } catch {
-        toast.error("복사 실패");
+        toast.error(t("shareModal.copyFailed"));
       }
       return;
     }
@@ -134,7 +135,7 @@ export function ShareModal({ open, url, title, text, onClose }: ShareModalProps)
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-[#6366f1]" />
-                <h3 className="font-bold text-base">공유</h3>
+                <h3 className="font-bold text-base">{t("shareModal.title")}</h3>
               </div>
               <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted">
                 <X className="w-5 h-5" />
@@ -148,7 +149,7 @@ export function ShareModal({ open, url, title, text, onClose }: ShareModalProps)
 
             {/* Link Copy */}
             <div className="px-5 py-4 border-b border-border">
-              <label className="block text-xs font-bold text-muted-foreground mb-1.5">링크</label>
+              <label className="block text-xs font-bold text-muted-foreground mb-1.5">{t("common.copy")}</label>
               <div className="flex gap-2">
                 <input
                   readOnly
@@ -167,12 +168,12 @@ export function ShareModal({ open, url, title, text, onClose }: ShareModalProps)
                   {copied ? (
                     <>
                       <Check className="w-3.5 h-3.5" />
-                      복사됨
+                      {t("common.copied")}
                     </>
                   ) : (
                     <>
                       <Copy className="w-3.5 h-3.5" />
-                      복사
+                      {t("common.copy")}
                     </>
                   )}
                 </button>
@@ -181,7 +182,7 @@ export function ShareModal({ open, url, title, text, onClose }: ShareModalProps)
 
             {/* SNS Buttons */}
             <div className="px-5 py-4">
-              <label className="block text-xs font-bold text-muted-foreground mb-2.5">SNS 공유</label>
+              <label className="block text-xs font-bold text-muted-foreground mb-2.5">{t("shareModal.title")}</label>
               <div className="grid grid-cols-5 gap-2">
                 {TARGETS.map((t) => (
                   <button
@@ -196,7 +197,7 @@ export function ShareModal({ open, url, title, text, onClose }: ShareModalProps)
                 ))}
               </div>
               <p className="text-[10px] text-muted-foreground/70 mt-3 text-center">
-                💬 카카오톡은 링크가 복사된 후 직접 붙여넣기로 공유해주세요
+                💬 Kakao requires copying the link and pasting it manually
               </p>
             </div>
           </motion.div>

@@ -3,6 +3,7 @@ import { X, Bell, Heart, MessageCircle, ShoppingBag, TrendingUp, Zap, CheckCheck
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
+import { useTranslation } from "react-i18next";
 
 interface Notification {
   id: string;
@@ -73,7 +74,8 @@ interface NotificationPanelProps {
 }
 
 export function NotificationPanel({ onClose, onUnreadCountChange }: NotificationPanelProps) {
-  const { isAuthenticated, user } = useAuth();
+  const { t } = useTranslation();
+  const { isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -137,7 +139,7 @@ export function NotificationPanel({ onClose, onUnreadCountChange }: Notification
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
         <div className="flex items-center gap-2">
           <Bell className="w-5 h-5 text-[#8b5cf6]" />
-          <span className="font-semibold text-white">알림</span>
+          <span className="font-semibold text-white">{t("notificationPanel.title")}</span>
           {unreadCount > 0 && (
             <span className="px-1.5 py-0.5 bg-[#ef4444] rounded-full text-xs text-white font-bold">
               {unreadCount}
@@ -149,7 +151,7 @@ export function NotificationPanel({ onClose, onUnreadCountChange }: Notification
             <button
               onClick={markAllRead}
               className="p-1.5 rounded-full hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
-              title="모두 읽음"
+              title={t("notificationPanel.markAllRead")}
             >
               <CheckCheck className="w-4 h-4" />
             </button>
@@ -172,7 +174,7 @@ export function NotificationPanel({ onClose, onUnreadCountChange }: Notification
         ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <Bell className="w-10 h-10 text-gray-600 mb-3" />
-            <p className="text-gray-500 text-sm">알림이 없습니다</p>
+            <p className="text-gray-500 text-sm">{t("notificationPanel.empty")}</p>
           </div>
         ) : (
           <AnimatePresence initial={false}>

@@ -56,15 +56,15 @@ export class ErrorBoundary extends Component<Props, State> {
                 </svg>
               </div>
               <h1 className="text-2xl font-bold text-white mb-2">
-                앱 오류가 발생했습니다
+                Something went wrong
               </h1>
               <p className="text-muted-foreground mb-6">
-                일시적인 문제가 발생했습니다. 페이지를 새로고침해주세요.
+                A temporary issue occurred. Please refresh the page.
               </p>
               {this.state.error && (
                 <details className="text-left mb-6 p-4 bg-muted/20 rounded-lg border border-border">
                   <summary className="cursor-pointer text-sm font-medium text-muted-foreground mb-2">
-                    에러 세부정보
+                    Error details
                   </summary>
                   <pre className="text-xs text-red-400 overflow-auto max-h-40">
                     {this.state.error.toString()}
@@ -77,7 +77,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   onClick={() => window.location.reload()}
                   className="px-6 py-3 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
                 >
-                  새로고침
+                  Refresh
                 </button>
                 <button
                   onClick={() => {
@@ -86,7 +86,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   }}
                   className="px-6 py-3 bg-muted/20 text-white rounded-lg font-medium hover:bg-muted/30 transition-colors border border-border"
                 >
-                  초기화 후 새로고침
+                  Reset & refresh
                 </button>
               </div>
             </div>

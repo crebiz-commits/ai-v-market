@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 
 interface FooterProps {
   onNavigate: (tab: "business" | "about" | "terms" | "privacy") => void;
@@ -10,6 +11,7 @@ interface FooterProps {
  * 외부 광고주·투자자가 메인 페이지 어디에서나 도달할 수 있도록 모든 페이지 하단에 노출.
  */
 export function Footer({ onNavigate }: FooterProps) {
+  const { t } = useTranslation();
   return (
     <motion.footer
       initial={{ opacity: 0 }}
@@ -21,14 +23,14 @@ export function Footer({ onNavigate }: FooterProps) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-6">
           {/* 비즈니스 */}
           <div>
-            <h3 className="text-xs font-black text-white uppercase tracking-widest mb-3">비즈니스</h3>
+            <h3 className="text-xs font-black text-white uppercase tracking-widest mb-3">{t("footer.business")}</h3>
             <ul className="space-y-2">
               <li>
                 <button
                   onClick={() => onNavigate("business")}
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  광고 문의
+                  {t("business.categoryAd")}
                 </button>
               </li>
               <li>
@@ -36,7 +38,7 @@ export function Footer({ onNavigate }: FooterProps) {
                   onClick={() => onNavigate("business")}
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  투자 / IR
+                  Investor / IR
                 </button>
               </li>
               <li>
@@ -44,7 +46,7 @@ export function Footer({ onNavigate }: FooterProps) {
                   onClick={() => onNavigate("business")}
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  사업 제휴
+                  {t("business.categoryPartnership")}
                 </button>
               </li>
               <li>
@@ -52,7 +54,7 @@ export function Footer({ onNavigate }: FooterProps) {
                   onClick={() => onNavigate("business")}
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  B2B 라이선스
+                  {t("business.categoryLicense")}
                 </button>
               </li>
             </ul>
@@ -60,14 +62,14 @@ export function Footer({ onNavigate }: FooterProps) {
 
           {/* 회사 */}
           <div>
-            <h3 className="text-xs font-black text-white uppercase tracking-widest mb-3">회사</h3>
+            <h3 className="text-xs font-black text-white uppercase tracking-widest mb-3">{t("footer.company")}</h3>
             <ul className="space-y-2">
               <li>
                 <button
                   onClick={() => onNavigate("about")}
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  CREAITE 소개
+                  {t("footer.about")}
                 </button>
               </li>
               <li>
@@ -75,7 +77,7 @@ export function Footer({ onNavigate }: FooterProps) {
                   onClick={() => onNavigate("about")}
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  비전
+                  Vision
                 </button>
               </li>
               <li>
@@ -83,7 +85,7 @@ export function Footer({ onNavigate }: FooterProps) {
                   onClick={() => onNavigate("about")}
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  채용 (준비 중)
+                  Careers (coming soon)
                 </button>
               </li>
             </ul>
@@ -91,14 +93,14 @@ export function Footer({ onNavigate }: FooterProps) {
 
           {/* 약관·정책 */}
           <div>
-            <h3 className="text-xs font-black text-white uppercase tracking-widest mb-3">약관·정책</h3>
+            <h3 className="text-xs font-black text-white uppercase tracking-widest mb-3">{t("footer.terms")}</h3>
             <ul className="space-y-2">
               <li>
                 <button
                   onClick={() => onNavigate("terms")}
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  이용약관
+                  {t("footer.terms")}
                 </button>
               </li>
               <li>
@@ -106,7 +108,7 @@ export function Footer({ onNavigate }: FooterProps) {
                   onClick={() => onNavigate("privacy")}
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  개인정보처리방침
+                  {t("footer.privacy")}
                 </button>
               </li>
               <li>
@@ -114,7 +116,7 @@ export function Footer({ onNavigate }: FooterProps) {
                   onClick={() => onNavigate("terms")}
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  크리에이터 가이드
+                  Creator Guide
                 </button>
               </li>
             </ul>
@@ -122,14 +124,14 @@ export function Footer({ onNavigate }: FooterProps) {
 
           {/* 지원 */}
           <div>
-            <h3 className="text-xs font-black text-white uppercase tracking-widest mb-3">지원</h3>
+            <h3 className="text-xs font-black text-white uppercase tracking-widest mb-3">{t("footer.support")}</h3>
             <ul className="space-y-2">
               <li>
                 <a
                   href="mailto:support@creaite.net"
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  고객센터
+                  {t("footer.contact")}
                 </a>
               </li>
               <li>
@@ -150,13 +152,13 @@ export function Footer({ onNavigate }: FooterProps) {
               © {new Date().getFullYear()} CREAITE. All rights reserved.
             </p>
             <p className="text-[11px] text-gray-600 mt-1">
-              세계 최초 AI 시네마 OTT — 크리에이터를 위한 영상 플랫폼
+              {t("footer.tagline")}
             </p>
           </div>
           <div className="flex items-center gap-3 text-[10px] text-gray-600">
-            <span>사업자등록번호: 미발급</span>
+            <span>Business reg: N/A</span>
             <span>·</span>
-            <span>대표: 미정</span>
+            <span>CEO: TBD</span>
           </div>
         </div>
       </div>

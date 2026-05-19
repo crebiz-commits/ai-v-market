@@ -14,9 +14,11 @@ import { CommentSettings } from "./CommentSettings";
 import { CreatorDashboard } from "./CreatorDashboard";
 import { VideoEditModal } from "./VideoEditModal";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
+import { formatCompactNumber } from "../i18n/numberFormat";
 
 // Phase 27: 데이터 다운로드 섹션 (개인정보보호법 데이터 이동권)
 function DataDownloadSection() {
+  const { t } = useTranslation();
   const [downloading, setDownloading] = useState(false);
 
   const handleDownload = async () => {
@@ -35,10 +37,10 @@ function DataDownloadSection() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success("데이터를 다운로드했습니다.");
+      toast.success(t("mypage.data.downloadSuccess"));
     } catch (e: any) {
       console.error("[DataDownload] error:", e);
-      toast.error("다운로드에 실패했습니다.");
+      toast.error(t("mypage.data.downloadFailed"));
     } finally {
       setDownloading(false);
     }
@@ -48,11 +50,10 @@ function DataDownloadSection() {
     <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
       <div className="flex items-center gap-2 mb-4">
         <Download className="w-5 h-5 text-[#10b981]" />
-        <h3 className="font-bold text-white">내 데이터 다운로드</h3>
+        <h3 className="font-bold text-white">{t("mypage.data.downloadTitle")}</h3>
       </div>
       <p className="text-xs text-gray-500 leading-relaxed mb-4">
-        프로필 · 영상 · 댓글 · 좋아요 · 시청 기록 · 구매 내역 · 플레이리스트 · 차단·금칙어 등
-        회원님의 모든 데이터를 JSON 파일로 다운로드합니다 (개인정보보호법 데이터 이동권).
+        {t("mypage.data.downloadDescription")}
       </p>
       <Button
         onClick={handleDownload}
@@ -61,7 +62,7 @@ function DataDownloadSection() {
         variant="outline"
       >
         {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-        {downloading ? "준비 중..." : "JSON 파일로 다운로드"}
+        {downloading ? t("mypage.data.downloading") : t("mypage.data.downloadButton")}
       </Button>
     </div>
   );
@@ -76,6 +77,7 @@ interface DeletionStatus {
 }
 
 function DangerZoneSection({ onSignOut }: { onSignOut: () => void }) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<DeletionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -92,28 +94,28 @@ function DangerZoneSection({ onSignOut }: { onSignOut: () => void }) {
   useEffect(() => { refresh(); }, []);
 
   const handleRequest = async () => {
-    if (!confirm("정말 계정 삭제를 요청하시겠습니까?\n30일 후 모든 데이터가 영구 삭제됩니다.\n그 전에는 언제든 취소할 수 있습니다.")) return;
+    if (!confirm(t("mypage.danger.confirmRequest"))) return;
     setSubmitting(true);
     const { error } = await supabase.rpc("request_account_deletion", { p_reason: reason.trim() || null });
     setSubmitting(false);
     if (error) {
-      toast.error("요청에 실패했습니다.");
+      toast.error(t("mypage.danger.requestFailed"));
       return;
     }
-    toast.success("계정 삭제가 요청됐습니다. 30일 후 영구 삭제됩니다.");
+    toast.success(t("mypage.danger.requestSuccess"));
     setShowConfirm(false);
     setReason("");
     refresh();
   };
 
   const handleCancel = async () => {
-    if (!confirm("계정 삭제 요청을 취소할까요?")) return;
+    if (!confirm(t("mypage.danger.confirmCancel"))) return;
     const { error } = await supabase.rpc("cancel_account_deletion");
     if (error) {
-      toast.error("취소에 실패했습니다.");
+      toast.error(t("mypage.danger.cancelFailed"));
       return;
     }
-    toast.success("계정 삭제 요청을 취소했습니다.");
+    toast.success(t("mypage.danger.cancelSuccess"));
     refresh();
   };
 
@@ -125,21 +127,21 @@ function DangerZoneSection({ onSignOut }: { onSignOut: () => void }) {
       <div className="bg-red-500/10 border-2 border-red-500/30 p-5 md:p-6 rounded-2xl shadow-sm">
         <div className="flex items-center gap-2 mb-3">
           <AlertTriangle className="w-5 h-5 text-red-400" />
-          <h3 className="font-bold text-red-300">계정 삭제 예정</h3>
+          <h3 className="font-bold text-red-300">{t("mypage.danger.scheduledTitle")}</h3>
         </div>
         <p className="text-sm text-gray-300 leading-relaxed mb-2">
-          <span className="font-bold text-red-300">{status.days_left}일 후</span> 계정과 모든 데이터가 영구 삭제됩니다.
+          <span className="font-bold text-red-300">{t("mypage.danger.daysLeft", { days: status.days_left })}</span> {t("mypage.danger.scheduledIn")}.
         </p>
         <p className="text-xs text-gray-500 mb-4">
-          삭제 예정일: {new Date(status.scheduled_at).toLocaleDateString("ko-KR")}
-          {status.reason && ` · 사유: ${status.reason}`}
+          {t("mypage.danger.scheduledDate", { date: new Date(status.scheduled_at).toLocaleDateString() })}
+          {status.reason && t("mypage.danger.reasonLine", { reason: status.reason })}
         </p>
         <Button
           onClick={handleCancel}
           className="bg-white text-black hover:bg-gray-100 font-bold gap-2"
         >
           <X className="w-4 h-4" />
-          삭제 요청 취소
+          {t("mypage.danger.cancelDeletion")}
         </Button>
       </div>
     );
@@ -149,11 +151,10 @@ function DangerZoneSection({ onSignOut }: { onSignOut: () => void }) {
     <div className="bg-red-500/5 border-2 border-red-500/20 p-5 md:p-6 rounded-2xl shadow-sm">
       <div className="flex items-center gap-2 mb-3">
         <AlertTriangle className="w-5 h-5 text-red-400" />
-        <h3 className="font-bold text-red-300">위험 영역</h3>
+        <h3 className="font-bold text-red-300">{t("mypage.danger.title")}</h3>
       </div>
       <p className="text-xs text-gray-500 leading-relaxed mb-4">
-        계정 삭제를 요청하면 <span className="text-red-300 font-bold">30일 유예 기간</span> 후 모든 데이터가 영구 삭제됩니다.
-        업로드한 영상·댓글·구매 기록·구독 등 복구할 수 없습니다. 유예 기간 내에는 언제든 취소할 수 있습니다.
+        {t("mypage.danger.description")}
       </p>
 
       {!showConfirm ? (
@@ -163,16 +164,16 @@ function DangerZoneSection({ onSignOut }: { onSignOut: () => void }) {
           className="bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30 font-bold gap-2"
         >
           <Trash2 className="w-4 h-4" />
-          계정 삭제 요청
+          {t("mypage.danger.requestButton")}
         </Button>
       ) : (
         <div className="space-y-3 pt-2 border-t border-red-500/20">
           <div>
-            <label className="text-xs font-bold text-gray-400 mb-1.5 block">탈퇴 사유 (선택)</label>
+            <label className="text-xs font-bold text-gray-400 mb-1.5 block">{t("mypage.danger.reasonLabel")}</label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="서비스 개선에 도움이 됩니다 (선택 사항)"
+              placeholder={t("mypage.danger.reasonPlaceholder")}
               rows={2}
               maxLength={300}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-400 resize-none"
@@ -184,7 +185,7 @@ function DangerZoneSection({ onSignOut }: { onSignOut: () => void }) {
               variant="outline"
               className="flex-1 bg-white/5 text-gray-300 border-white/10 hover:bg-white/10"
             >
-              취소
+              {t("mypage.danger.cancelButton")}
             </Button>
             <Button
               onClick={handleRequest}
@@ -192,7 +193,7 @@ function DangerZoneSection({ onSignOut }: { onSignOut: () => void }) {
               className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold gap-2"
             >
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-              30일 후 삭제 요청
+              {t("mypage.danger.submitDeletion")}
             </Button>
           </div>
         </div>
@@ -203,6 +204,7 @@ function DangerZoneSection({ onSignOut }: { onSignOut: () => void }) {
 
 // Phase 24: 차단한 사용자 관리 섹션
 function BlockedUsersSection() {
+  const { t } = useTranslation();
   const { unblockUser } = useBlockedUsers();
   const [list, setList] = useState<{ blocked_user_id: string; display_name: string | null; avatar_url: string | null; blocked_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -217,7 +219,7 @@ function BlockedUsersSection() {
   useEffect(() => { refresh(); }, []);
 
   const handleUnblock = async (id: string, name: string | null) => {
-    if (!confirm(`${name || "이 사용자"} 차단을 해제할까요?`)) return;
+    if (!confirm(t("mypage.blocks.confirmUnblock", { name: name || t("mypage.blocks.thisUser") }))) return;
     const ok = await unblockUser(id);
     if (ok) refresh();
   };
@@ -226,11 +228,11 @@ function BlockedUsersSection() {
     <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
       <div className="flex items-center gap-2 mb-4">
         <UserX className="w-5 h-5 text-red-400" />
-        <h3 className="font-bold text-white">차단한 사용자</h3>
-        <span className="text-xs text-gray-500">{list.length}명</span>
+        <h3 className="font-bold text-white">{t("mypage.blocks.title")}</h3>
+        <span className="text-xs text-gray-500">{t("mypage.blocks.count", { count: list.length })}</span>
       </div>
       <p className="text-xs text-gray-500 leading-relaxed mb-4">
-        차단한 사용자의 영상·댓글·커뮤니티 글이 회원님 화면에 보이지 않습니다.
+        {t("mypage.blocks.description")}
       </p>
 
       {loading ? (
@@ -238,7 +240,7 @@ function BlockedUsersSection() {
           <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
         </div>
       ) : list.length === 0 ? (
-        <p className="text-center text-sm text-gray-500 py-6">차단한 사용자가 없습니다.</p>
+        <p className="text-center text-sm text-gray-500 py-6">{t("mypage.blocks.empty")}</p>
       ) : (
         <div className="space-y-2">
           {list.map((u) => (
@@ -251,14 +253,14 @@ function BlockedUsersSection() {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{u.display_name || "알 수 없는 사용자"}</p>
-                <p className="text-[10px] text-gray-500 mt-0.5">{new Date(u.blocked_at).toLocaleDateString("ko-KR")} 차단</p>
+                <p className="text-sm font-semibold text-white truncate">{u.display_name || t("mypage.blocks.unknownUser")}</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">{new Date(u.blocked_at).toLocaleDateString()}{t("mypage.blocks.blockedSuffix")}</p>
               </div>
               <button
                 onClick={() => handleUnblock(u.blocked_user_id, u.display_name)}
                 className="px-3 py-1.5 text-xs font-bold text-gray-300 bg-white/5 hover:bg-white/10 rounded-md border border-white/10 transition-colors"
               >
-                차단 해제
+                {t("mypage.blocks.unblock")}
               </button>
             </div>
           ))}
@@ -308,6 +310,7 @@ function ModeSelectScreen({
   onSelectUser: () => void;
   onSelectCreator: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="h-full flex items-center justify-center bg-[#0a0a0a] p-6">
       <motion.div
@@ -316,10 +319,10 @@ function ModeSelectScreen({
         className="max-w-2xl w-full"
       >
         <h2 className="text-2xl md:text-3xl font-black text-white text-center mb-2">
-          어떤 코너를 보시겠어요?
+          {t("mypage.modeSelect.title")}
         </h2>
         <p className="text-sm text-gray-400 text-center mb-8">
-          언제든 다시 선택할 수 있어요
+          {t("mypage.modeSelect.subtitle")}
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <motion.button
@@ -331,9 +334,9 @@ function ModeSelectScreen({
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center mb-5 shadow-lg">
               <ShoppingBag className="w-7 h-7 text-white" />
             </div>
-            <h3 className="text-xl font-black text-white mb-1.5">일반 사용자</h3>
+            <h3 className="text-xl font-black text-white mb-1.5">{t("mypage.modeSelect.userCorner")}</h3>
             <p className="text-sm text-gray-400 leading-relaxed">
-              구매 내역, 시청 기록, 계정 설정을 관리합니다
+              {t("mypage.modeSelect.userCornerDesc")}
             </p>
           </motion.button>
 
@@ -347,13 +350,13 @@ function ModeSelectScreen({
               <Crown className="w-7 h-7 text-white" />
             </div>
             <h3 className="text-xl font-black text-white mb-1.5 flex items-center gap-2">
-              크리에이터
+              {t("mypage.modeSelect.creatorCorner")}
               {!isCreator && <Lock className="w-4 h-4 text-amber-400/70" />}
             </h3>
             <p className="text-sm text-gray-400 leading-relaxed">
               {isCreator
-                ? '등록 영상, 수익, 정산 정보를 확인합니다'
-                : '영상을 업로드하면 자동으로 활성화됩니다'}
+                ? t("mypage.modeSelect.creatorCornerEnabled")
+                : t("mypage.modeSelect.creatorCornerDisabled")}
             </p>
             <Crown className="absolute -right-6 -bottom-6 w-28 h-28 text-amber-500/5 rotate-12" />
           </motion.button>
@@ -365,6 +368,7 @@ function ModeSelectScreen({
 
 // 영상 0개 크리에이터 안내 화면
 function CreatorOnboardingScreen({ onBack }: { onBack: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="h-full flex items-center justify-center bg-[#0a0a0a] p-6">
       <motion.div
@@ -376,18 +380,18 @@ function CreatorOnboardingScreen({ onBack }: { onBack: () => void }) {
           <Crown className="w-10 h-10 text-amber-400" />
         </div>
         <h2 className="text-2xl font-black text-white mb-3">
-          크리에이터 코너 준비 중
+          {t("mypage.creatorEmpty.title")}
         </h2>
         <p className="text-sm text-gray-400 leading-relaxed mb-8">
-          영상을 업로드하면 자동으로 크리에이터 코너가 오픈됩니다.<br />
-          하단 중앙의 업로드 버튼으로 첫 작품을 등록해 주세요.
+          {t("mypage.creatorEmpty.descriptionLine1")}<br />
+          {t("mypage.creatorEmpty.descriptionLine2")}
         </p>
         <Button
           onClick={onBack}
           variant="outline"
           className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-medium"
         >
-          다른 코너 보기
+          {t("mypage.creatorEmpty.viewOtherCorner")}
         </Button>
       </motion.div>
     </div>
@@ -455,11 +459,11 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
   const handleAvatarUpload = async (file: File) => {
     if (!user) return;
     if (file.size > 2 * 1024 * 1024) {
-      toast.error("아바타는 2MB 이하여야 합니다.");
+      toast.error(t("mypage.profileEditModal.avatarTooLarge"));
       return;
     }
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      toast.error("JPEG, PNG, WebP 이미지만 업로드 가능합니다.");
+      toast.error(t("mypage.profileEditModal.imageOnly"));
       return;
     }
     setUploadingAvatar(true);
@@ -473,9 +477,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
       const { data: urlData } = supabase.storage.from('user-avatars').getPublicUrl(path);
       const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
       setEditAvatarUrl(publicUrl);
-      toast.success("아바타가 업로드됐습니다.");
+      toast.success(t("mypage.profileEditModal.avatarUploadSuccess"));
     } catch (err: any) {
-      toast.error(err?.message || "아바타 업로드에 실패했습니다.");
+      toast.error(err?.message || t("mypage.profileEditModal.avatarUploadFailed"));
     } finally {
       setUploadingAvatar(false);
     }
@@ -484,11 +488,11 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
   const handleBannerUpload = async (file: File) => {
     if (!user) return;
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("배너 이미지는 5MB 이하여야 합니다.");
+      toast.error(t("mypage.profileEditModal.bannerTooLarge"));
       return;
     }
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      toast.error("JPEG, PNG, WebP 이미지만 업로드 가능합니다.");
+      toast.error(t("mypage.profileEditModal.imageOnly"));
       return;
     }
     setUploadingBanner(true);
@@ -503,9 +507,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
       // 캐시 무력화 — Storage가 같은 경로에 덮어쓰면 브라우저가 옛 이미지 캐시
       const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
       setEditBannerUrl(publicUrl);
-      toast.success("배너가 업로드됐습니다.");
+      toast.success(t("mypage.profileEditModal.bannerUploadSuccess"));
     } catch (err: any) {
-      toast.error(err?.message || "배너 업로드에 실패했습니다.");
+      toast.error(err?.message || t("mypage.profileEditModal.bannerUploadFailed"));
     } finally {
       setUploadingBanner(false);
     }
@@ -547,7 +551,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
           license: item.license_type,
           price: item.amount,
           date: new Date(item.created_at).toLocaleDateString('ko-KR'),
-          status: "다운로드 가능"
+          status: t("mypage.purchases.statusAvailable")
         })));
       }
     } catch (err) {
@@ -591,7 +595,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
           views: parseInt(item.views || "0"),
           sales: salesCount,
           revenue: revenue,
-          status: item.status || "판매중"
+          status: item.status || t("mypage.statusOnSale")
         };
       });
       setMyProducts(products);
@@ -610,7 +614,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
       videoData.forEach((video: any) => {
         (video.orders || []).forEach((order: any) => {
           const date = new Date(order.created_at);
-          const key = `${date.getMonth() + 1}월`;
+          const key = t("mypage.chartMonth", { n: date.getMonth() + 1 });
           monthMap[key] = (monthMap[key] || 0) + (order.amount || 0);
         });
       });
@@ -625,7 +629,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
         const now = new Date();
         for (let i = 5; i >= 0; i--) {
           const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          defaultData.push({ month: `${d.getMonth() + 1}월`, sales: 0 });
+          defaultData.push({ month: t("mypage.chartMonth", { n: d.getMonth() + 1 }), sales: 0 });
         }
         setMonthlySales(defaultData);
       } else {
@@ -688,7 +692,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
 
     // 예상치 못한 예외만 사용자에게 알림 (개별 테이블 누락은 무시)
     if (unexpectedError) {
-      toast.error("일부 데이터를 불러오지 못했습니다.");
+      toast.error(t("mypage.fetchPartialFail"));
     }
 
     setLoading(false);
@@ -717,19 +721,19 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
   }, [activeTab, isAuthenticated]);
 
   const handleDeleteHistoryItem = async (videoId: string) => {
-    if (!confirm('이 영상의 시청 기록을 삭제하시겠습니까?')) return;
+    if (!confirm(t("mypage.watchHistory.confirmDeleteOne"))) return;
     const { error } = await supabase.rpc('delete_my_watch_history', { p_video_id: videoId });
-    if (error) return toast.error('삭제 실패: ' + error.message);
+    if (error) return toast.error(t("mypage.watchHistory.deleteFailed", { message: error.message }));
     setWatchHistory(prev => prev.filter(h => h.video_id !== videoId));
-    toast.success('시청 기록 삭제됨');
+    toast.success(t("mypage.watchHistory.deleteSuccess"));
   };
 
   const handleClearAllHistory = async () => {
-    if (!confirm('전체 시청 기록을 삭제하시겠습니까?\n(이 작업은 되돌릴 수 없습니다)')) return;
+    if (!confirm(t("mypage.watchHistory.confirmDeleteAll"))) return;
     const { error } = await supabase.rpc('delete_my_watch_history', { p_video_id: null });
-    if (error) return toast.error('삭제 실패: ' + error.message);
+    if (error) return toast.error(t("mypage.watchHistory.deleteFailed", { message: error.message }));
     setWatchHistory([]);
-    toast.success('전체 시청 기록 삭제됨');
+    toast.success(t("mypage.watchHistory.clearAllSuccess"));
   };
 
   // Phase 18: 플레이리스트 탭 활성 시 로드
@@ -760,7 +764,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
       setPlaylistVideosLoading(true);
       const { data, error } = await supabase.rpc('get_playlist_videos', { p_playlist_id: activePlaylistId });
       if (error) {
-        toast.error('영상 로드 실패: ' + error.message);
+        toast.error(t("mypage.playlist.videoLoadFailed", { message: error.message }));
         setPlaylistVideos([]);
       } else {
         setPlaylistVideos(data || []);
@@ -771,22 +775,22 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
 
   const handleDeletePlaylist = async (playlistId: string, name: string, isWatchLater: boolean) => {
     if (isWatchLater) {
-      toast.info('"나중에 보기"는 삭제할 수 없습니다');
+      toast.info(t("mypage.playlist.watchLaterUndeletable"));
       return;
     }
-    if (!confirm(`"${name}" 플레이리스트를 삭제하시겠습니까?`)) return;
+    if (!confirm(t("mypage.playlist.confirmDelete", { name }))) return;
     const { error } = await supabase.rpc('delete_playlist', { p_playlist_id: playlistId });
-    if (error) return toast.error('삭제 실패: ' + error.message);
-    toast.success('플레이리스트 삭제됨');
+    if (error) return toast.error(t("mypage.playlist.deleteFailed", { message: error.message }));
+    toast.success(t("mypage.playlist.deleteSuccess"));
     await loadPlaylists();
   };
 
   const handleRemoveFromPlaylist = async (videoId: string) => {
     if (!activePlaylistId) return;
     const { error } = await supabase.rpc('remove_from_playlist', { p_playlist_id: activePlaylistId, p_video_id: videoId });
-    if (error) return toast.error('제거 실패: ' + error.message);
+    if (error) return toast.error(t("mypage.playlist.removeFailed", { message: error.message }));
     setPlaylistVideos(prev => prev.filter(v => v.id !== videoId));
-    toast.success('영상 제거됨');
+    toast.success(t("mypage.playlist.removeSuccess"));
   };
 
   const totalRevenue = useMemo(() => myProducts.reduce((sum, p) => sum + p.revenue, 0), [myProducts]);
@@ -827,9 +831,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
 
   // 구독 등급 표시용 메타
   const tierMeta = {
-    free: { label: 'FREE', color: 'from-gray-500 to-gray-600', icon: User, desc: '하이라이트 미리보기' },
-    basic: { label: 'BASIC', color: 'from-[#6366f1] to-[#8b5cf6]', icon: Sparkles, desc: '풀 영상 시청 가능' },
-    premium: { label: 'PREMIUM', color: 'from-amber-500 to-orange-500', icon: Crown, desc: '풀 영상 + 광고 제거' },
+    free: { label: 'FREE', color: 'from-gray-500 to-gray-600', icon: User, desc: t("mypage.subscription.freeDesc") },
+    basic: { label: 'BASIC', color: 'from-[#6366f1] to-[#8b5cf6]', icon: Sparkles, desc: t("mypage.subscription.basicDesc") },
+    premium: { label: 'PREMIUM', color: 'from-amber-500 to-orange-500', icon: Crown, desc: t("mypage.subscription.premiumDesc") },
   }[subscriptionTier];
   const TierIcon = tierMeta.icon;
 
@@ -873,7 +877,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
   };
 
   const handleSaveProfile = async () => {
-    if (!editName.trim()) { toast.error("이름을 입력해주세요."); return; }
+    if (!editName.trim()) { toast.error(t("mypage.profileEditModal.nameRequired")); return; }
     if (!user) return;
     setSavingProfile(true);
     try {
@@ -894,28 +898,28 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
         });
       if (profileErr) throw profileErr;
 
-      toast.success("프로필이 업데이트됐습니다!");
+      toast.success(t("mypage.profileEditModal.saveSuccess"));
       setShowProfileEdit(false);
     } catch (err: any) {
-      toast.error(err.message || "저장에 실패했습니다.");
+      toast.error(err.message || t("mypage.profileEditModal.saveFailed"));
     } finally {
       setSavingProfile(false);
     }
   };
 
   const handleChangePassword = async () => {
-    if (!pwNew.trim()) { toast.error("새 비밀번호를 입력해주세요."); return; }
-    if (pwNew.length < 6) { toast.error("비밀번호는 6자 이상이어야 합니다."); return; }
-    if (pwNew !== pwConfirm) { toast.error("새 비밀번호가 일치하지 않습니다."); return; }
+    if (!pwNew.trim()) { toast.error(t("mypage.passwordModal.passwordRequired")); return; }
+    if (pwNew.length < 6) { toast.error(t("mypage.passwordModal.passwordTooShort")); return; }
+    if (pwNew !== pwConfirm) { toast.error(t("mypage.passwordModal.passwordMismatch")); return; }
     setSavingPassword(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: pwNew });
       if (error) throw error;
-      toast.success("비밀번호가 변경됐습니다!");
+      toast.success(t("mypage.passwordModal.changeSuccess"));
       setPwNew(""); setPwConfirm("");
       setShowPasswordChange(false);
     } catch (err: any) {
-      toast.error(err.message || "비밀번호 변경에 실패했습니다.");
+      toast.error(err.message || t("mypage.passwordModal.changeFailed"));
     } finally {
       setSavingPassword(false);
     }
@@ -936,17 +940,17 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
           >
             <User className="w-12 h-12 text-white" />
           </motion.div>
-          <h2 className="text-3xl font-extrabold mb-3 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">로그인이 필요합니다</h2>
+          <h2 className="text-3xl font-extrabold mb-3 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">{t("mypage.loginRequiredTitle")}</h2>
           <p className="text-muted-foreground mb-8 text-[15px]">
-            마이페이지를 이용하려면 먼저 로그인해주세요.<br/>
-            데스크톱에서는 우측 상단의 로그인 버튼을 클릭하세요.
+            {t("mypage.loginRequiredDescLine1")}<br/>
+            {t("mypage.loginRequiredDescLine2")}
           </p>
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button 
+            <Button
               onClick={onSignInClick}
               className="w-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 transition-opacity py-7 text-lg font-bold shadow-[0_10px_20px_-10px_rgba(99,102,241,0.5)] border border-white/10 rounded-xl"
             >
-              로그인 / 회원가입
+              {t("mypage.loginButton")}
             </Button>
           </motion.div>
         </motion.div>
@@ -969,7 +973,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
           >
             <Loader2 className="w-10 h-10" />
           </motion.div>
-          <p className="text-muted-foreground font-medium">내 정보를 불러오는 중...</p>
+          <p className="text-muted-foreground font-medium">{t("mypage.profileLoading")}</p>
         </motion.div>
       </div>
     );
@@ -1020,7 +1024,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
             {pageMode === 'creator' ? <Crown className="w-4 h-4 text-white" /> : <ShoppingBag className="w-4 h-4 text-white" />}
           </div>
           <span className="text-sm font-bold text-white">
-            {pageMode === 'creator' ? '크리에이터 코너' : '일반 사용자 코너'}
+            {pageMode === 'creator' ? t("mypage.header.creatorCorner") : t("mypage.header.userCorner")}
           </span>
         </div>
         <button
@@ -1028,7 +1032,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
           className="text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5"
         >
           <ChevronRight className="w-3.5 h-3.5 rotate-180" />
-          다른 코너
+          {t("mypage.header.otherCorner")}
         </button>
       </div>
 
@@ -1063,7 +1067,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                     className="bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#ec4899] hover:opacity-90 text-white font-semibold rounded-lg shadow-md shadow-[#8b5cf6]/30 gap-2 border-0"
                   >
                     <Tv className="w-4 h-4" />
-                    내 채널
+                    {t("mypage.header.myChannel")}
                   </Button>
                 </motion.div>
               )}
@@ -1080,7 +1084,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                   className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-semibold rounded-lg shadow-sm gap-2"
                 >
                   <Pencil className="w-4 h-4" />
-                  프로필 편집
+                  {t("mypage.header.editProfile")}
                 </Button>
               </motion.div>
             </div>
@@ -1097,9 +1101,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
             className="grid grid-cols-3 gap-3 md:gap-5"
           >
             {[
-              { label: '총 판매', value: totalSales, color: 'text-[#6366f1]' },
-              { label: '등록 상품', value: myProducts.length, color: 'text-[#8b5cf6]' },
-              { label: '평점', value: '4.8', color: 'text-[#10b981]' },
+              { label: t("mypage.statsTotalSales"), value: totalSales, color: 'text-[#6366f1]' },
+              { label: t("mypage.statsProducts"), value: myProducts.length, color: 'text-[#8b5cf6]' },
+              { label: t("mypage.statsRating"), value: '4.8', color: 'text-[#10b981]' },
             ].map((stat, idx) => (
               <motion.div 
                 key={idx}
@@ -1169,7 +1173,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                 <div className={`relative bg-gradient-to-br ${tierMeta.color} p-5 md:p-6 rounded-2xl border border-white/10 shadow-md overflow-hidden`}>
                   <div className="relative z-10 flex items-center justify-between">
                     <div>
-                      <p className="text-[11px] font-bold text-white/70 uppercase tracking-widest mb-2">현재 구독 등급</p>
+                      <p className="text-[11px] font-bold text-white/70 uppercase tracking-widest mb-2">{t("mypage.subscription.currentTier")}</p>
                       <p className="text-2xl font-black text-white drop-shadow-sm flex items-center gap-2">
                         <TierIcon className="w-6 h-6" />
                         {tierMeta.label}
@@ -1177,7 +1181,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                       <p className="text-xs font-medium text-white/80 mt-1">{tierMeta.desc}</p>
                       {isSubscriber && profile?.subscription_expires_at && (
                         <p className="text-[11px] text-white/60 mt-2">
-                          만료일: {new Date(profile.subscription_expires_at).toLocaleDateString('ko-KR')}
+                          {t("mypage.subscription.expiresAt", { date: new Date(profile.subscription_expires_at).toLocaleDateString() })}
                         </p>
                       )}
                     </div>
@@ -1185,10 +1189,10 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => toast.info("구독 결제는 곧 출시됩니다.")}
+                        onClick={() => toast.info(t("mypage.subscription.upgradeComingSoon"))}
                         className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-lg text-sm font-bold border border-white/20 transition-colors shadow-sm"
                       >
-                        업그레이드
+                        {t("mypage.subscription.upgrade")}
                       </motion.button>
                     )}
                   </div>
@@ -1196,27 +1200,27 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                 </div>
 
                 <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
-                  <h3 className="text-lg font-bold text-white mb-5 flex items-center"><User className="w-5 h-5 mr-2 text-[#6366f1]" />계정 정보</h3>
+                  <h3 className="text-lg font-bold text-white mb-5 flex items-center"><User className="w-5 h-5 mr-2 text-[#6366f1]" />{t("mypage.account.title")}</h3>
                   <div className="space-y-4">
                     <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5 flex flex-col md:flex-row md:items-center justify-between group hover:border-white/10 transition-colors">
                       <div>
-                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">이메일</p>
+                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t("mypage.account.email")}</p>
                         <p className="text-gray-200 font-medium">{user?.email}</p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 hidden md:block" />
                     </div>
                     <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5 flex flex-col md:flex-row md:items-center justify-between group hover:border-white/10 transition-colors">
                       <div>
-                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">이름</p>
+                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t("mypage.account.name")}</p>
                         <p className="text-gray-200 font-medium">{user?.name}</p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 hidden md:block" />
                     </div>
                     <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5 flex flex-col md:flex-row md:items-center justify-between group hover:border-white/10 transition-colors">
                       <div>
-                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">계정 유형</p>
+                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t("mypage.account.accountType")}</p>
                         <p className="inline-flex items-center gap-2 text-gray-200 font-medium">
-                          {isCreator ? '크리에이터' : '일반 회원'}
+                          {isCreator ? t("mypage.account.creator") : t("mypage.account.regular")}
                           {isCreator && (
                             <span className="px-2 py-0.5 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white rounded text-[10px] font-black tracking-wider shadow-sm">
                               CREATOR
@@ -1232,7 +1236,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                 {/* 정산 계좌 — 크리에이터에게만 노출 */}
                 {isCreator && (
                   <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
-                    <h3 className="text-lg font-bold text-white mb-5 flex items-center"><CreditCard className="w-5 h-5 mr-2 text-[#8b5cf6]" />정산 계좌</h3>
+                    <h3 className="text-lg font-bold text-white mb-5 flex items-center"><CreditCard className="w-5 h-5 mr-2 text-[#8b5cf6]" />{t("mypage.payout.title")}</h3>
                     <div className="bg-[#1c1c1e] p-5 rounded-xl border border-white/5 flex items-center justify-between relative overflow-hidden group">
                       <div className="relative z-10">
                         {profile?.payout_info?.bank_name ? (
@@ -1242,18 +1246,18 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                           </>
                         ) : (
                           <>
-                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">미등록</p>
-                            <p className="text-sm text-gray-400 font-medium">정산 받으려면 계좌를 등록해주세요</p>
+                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t("mypage.payout.notRegistered")}</p>
+                            <p className="text-sm text-gray-400 font-medium">{t("mypage.payout.registerHint")}</p>
                           </>
                         )}
                       </div>
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => toast.info("정산 계좌 등록은 곧 출시됩니다.")}
+                        onClick={() => toast.info(t("mypage.payout.comingSoon"))}
                         className="relative z-10 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-bold border border-white/10 transition-colors shadow-sm"
                       >
-                        {profile?.payout_info?.bank_name ? '변경' : '등록'}
+                        {profile?.payout_info?.bank_name ? t("mypage.payout.change") : t("mypage.payout.register")}
                       </motion.button>
                       <CreditCard className="absolute -right-4 -bottom-4 w-24 h-24 text-white/5 rotate-12 group-hover:text-white/10 transition-colors" />
                     </div>
@@ -1264,7 +1268,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
               <TabsContent value="purchases" className="space-y-4 m-0">
                 <div className="bg-gradient-to-r from-[#1E1E24] to-[#121212] p-6 rounded-2xl border border-white/5 shadow-md mb-6 relative overflow-hidden">
                   <div className="relative z-10">
-                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">총 구매 금액</p>
+                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t("mypage.purchases.totalSpent")}</p>
                     <p className="text-3xl font-black text-white drop-shadow-sm">₩{purchaseHistory.reduce((sum, p) => sum + p.price, 0).toLocaleString()}</p>
                   </div>
                   <ShoppingBag className="absolute right-4 top-1/2 -translate-y-1/2 w-20 h-20 text-[#6366f1]/20 rotate-[-15deg]" />
@@ -1294,7 +1298,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                         
                         <div className="flex gap-2 mt-auto">
                           <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-1 bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2 rounded-lg transition-colors border border-white/5">
-                            다운로드
+                            {t("mypage.purchases.download")}
                           </motion.button>
                         </div>
                       </div>
@@ -1302,7 +1306,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                   ))}
                   {purchaseHistory.length === 0 && (
                     <div className="col-span-full py-10 text-center text-gray-500 font-medium bg-[#121212] rounded-2xl border border-white/5">
-                      아직 구매한 내역이 없습니다.
+                      {t("mypage.purchases.empty")}
                     </div>
                   )}
                 </motion.div>
@@ -1316,16 +1320,16 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                 <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-2 gap-4">
                   <motion.div variants={itemVariants} className="bg-[#121212] p-5 rounded-2xl border border-white/5 relative overflow-hidden group">
                     <div className="relative z-10">
-                      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">총 매출</p>
+                      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t("mypage.sales.totalRevenue")}</p>
                       <p className="text-2xl font-black text-white">₩{totalRevenue.toLocaleString()}</p>
                     </div>
                     <DollarSign className="absolute right-2 bottom-2 w-16 h-16 text-[#6366f1]/10 group-hover:scale-110 transition-transform duration-500" />
                   </motion.div>
                   <motion.div variants={itemVariants} className="bg-[#121212] p-5 rounded-2xl border border-white/5 relative overflow-hidden group">
                     <div className="relative z-10">
-                      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">실 정산액</p>
+                      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t("mypage.sales.netPayout")}</p>
                       <p className="text-2xl font-black text-[#8b5cf6]">₩{expectedPayout.toLocaleString()}</p>
-                      <p className="text-[10px] text-gray-500 font-medium mt-1">수수료 {Math.round((1 - CREATOR_SHARE_SALE) * 100)}% 공제</p>
+                      <p className="text-[10px] text-gray-500 font-medium mt-1">{t("mypage.sales.feeNote", { rate: Math.round((1 - CREATOR_SHARE_SALE) * 100) })}</p>
                     </div>
                     <TrendingUp className="absolute right-2 bottom-2 w-16 h-16 text-[#8b5cf6]/10 group-hover:scale-110 transition-transform duration-500" />
                   </motion.div>
@@ -1336,17 +1340,17 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                   <div className="flex items-center justify-between mb-5">
                     <h3 className="font-bold text-white flex items-center gap-2">
                       <Sparkles className="w-5 h-5 text-amber-400" />
-                      광고 수익
+                      {t("mypage.sales.adRevenue")}
                     </h3>
-                    <span className="text-[10px] text-gray-500 font-medium">CPM ₩{AD_CPM_KRW.toLocaleString()} · 영상별 분배율 가중평균 약 {Math.round(avgAdShare * 100)}%</span>
+                    <span className="text-[10px] text-gray-500 font-medium">{t("mypage.sales.adRevenueDetail", { cpm: AD_CPM_KRW.toLocaleString(), share: Math.round(avgAdShare * 100) })}</span>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="bg-[#1c1c1e] p-3 rounded-xl border border-white/5 text-center">
-                      <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">노출수</p>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">{t("mypage.sales.impressions")}</p>
                       <p className="text-lg font-black text-white">{adStats.impressions.toLocaleString()}</p>
                     </div>
                     <div className="bg-[#1c1c1e] p-3 rounded-xl border border-white/5 text-center">
-                      <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">클릭</p>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">{t("mypage.sales.clicks")}</p>
                       <p className="text-lg font-black text-white">{adStats.clicks.toLocaleString()}</p>
                     </div>
                     <div className="bg-[#1c1c1e] p-3 rounded-xl border border-white/5 text-center">
@@ -1354,7 +1358,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                       <p className="text-lg font-black text-white">{adCTR.toFixed(2)}%</p>
                     </div>
                     <div className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 p-3 rounded-xl border border-amber-500/30 text-center">
-                      <p className="text-[10px] text-amber-300/80 font-bold uppercase mb-1">예상 수익</p>
+                      <p className="text-[10px] text-amber-300/80 font-bold uppercase mb-1">{t("mypage.sales.estimatedRevenue")}</p>
                       <p className="text-lg font-black text-amber-300">₩{adCreatorPayout.toLocaleString()}</p>
                     </div>
                   </div>
@@ -1367,32 +1371,32 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                       <CreditCard className="w-5 h-5 text-[#6366f1]" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-white mb-1">다음 정산 예정</h4>
+                      <h4 className="font-bold text-white mb-1">{t("mypage.sales.nextPayoutTitle")}</h4>
                       <p className="text-[13px] text-gray-300 font-medium mb-1">
                         {(() => {
                           const now = new Date();
                           const nextPayout = new Date(now.getFullYear(), now.getDate() <= 15 ? now.getMonth() : now.getMonth() + 1, 15);
-                          return `${nextPayout.getFullYear()}년 ${nextPayout.getMonth() + 1}월 ${nextPayout.getDate()}일`;
+                          return t("mypage.sales.payoutDate", { year: nextPayout.getFullYear(), month: nextPayout.getMonth() + 1, day: nextPayout.getDate() });
                         })()} • <span className="font-bold text-[#8b5cf6]">₩{expectedPayout.toLocaleString()}</span>
                       </p>
-                      <p className="text-[11px] text-gray-500">매월 15일에 전월 매출이 자동 정산됩니다</p>
+                      <p className="text-[11px] text-gray-500">{t("mypage.sales.payoutSchedule")}</p>
                     </div>
                   </div>
                 </motion.div>
 
                 {/* Sales Chart */}
                 <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }} className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
-                  <h3 className="font-bold text-white mb-6">월별 매출 추이</h3>
+                  <h3 className="font-bold text-white mb-6">{t("mypage.sales.monthlyRevenueTrend")}</h3>
                   <div className="h-[250px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={monthlySales} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
                         <XAxis dataKey="month" stroke="#666" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 500 }} dy={10} />
-                        <YAxis stroke="#666" axisLine={false} tickLine={false} tickFormatter={(val) => `₩${val/10000}만`} tick={{ fontSize: 12, fontWeight: 500 }} />
+                        <YAxis stroke="#666" axisLine={false} tickLine={false} tickFormatter={(val) => `₩${formatCompactNumber(val)}`} tick={{ fontSize: 12, fontWeight: 500 }} />
                         <Tooltip 
                           contentStyle={{ backgroundColor: '#1a1a1c', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', color: '#fff' }}
                           itemStyle={{ color: '#fff', fontWeight: 'bold' }}
-                          formatter={(value: number) => [`₩${value.toLocaleString()}`, '매출']}
+                          formatter={(value: number) => [`₩${value.toLocaleString()}`, t("mypage.sales.revenue")]}
                           cursor={{ stroke: '#333', strokeWidth: 2 }}
                         />
                         <Line type="monotone" dataKey="sales" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#8b5cf6', strokeWidth: 2, stroke: '#121212' }} activeDot={{ r: 6, strokeWidth: 0 }} />
@@ -1404,8 +1408,8 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                 {/* Product List */}
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
                   <h3 className="font-bold text-white mb-5 flex items-center justify-between">
-                    등록 상품
-                    <span className="px-2.5 py-1 bg-white/5 text-gray-400 rounded-md text-[11px]">{myProducts.length}개</span>
+                    {t("mypage.sales.registeredProducts")}
+                    <span className="px-2.5 py-1 bg-white/5 text-gray-400 rounded-md text-[11px]">{t("mypage.sales.productsCount", { count: myProducts.length })}</span>
                   </h3>
                   <div className="space-y-4">
                     {myProducts.map((product) => (
@@ -1421,15 +1425,15 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                           <h4 className="font-bold text-gray-200 mb-2 line-clamp-1">{product.title}</h4>
                           <div className="grid grid-cols-3 gap-2 text-[11px] text-gray-500 mb-2 bg-[#1c1c1e] p-2 rounded-lg border border-white/5">
                             <div className="text-center">
-                              <p className="mb-0.5">조회수</p>
+                              <p className="mb-0.5">{t("mypage.sales.viewsLabel")}</p>
                               <p className="text-white font-bold">{product.views.toLocaleString()}</p>
                             </div>
                             <div className="text-center border-x border-white/5">
-                              <p className="mb-0.5">판매</p>
-                              <p className="text-white font-bold">{product.sales}건</p>
+                              <p className="mb-0.5">{t("mypage.sales.salesLabel")}</p>
+                              <p className="text-white font-bold">{t("mypage.sales.salesCount", { count: product.sales })}</p>
                             </div>
                             <div className="text-center">
-                              <p className="mb-0.5">매출</p>
+                              <p className="mb-0.5">{t("mypage.sales.salesRevenue")}</p>
                               <p className="text-[#8b5cf6] font-bold">₩{product.revenue.toLocaleString()}</p>
                             </div>
                           </div>
@@ -1442,7 +1446,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                               className="flex items-center gap-1 text-[10px] font-bold text-gray-400 hover:text-white px-2 py-1 rounded bg-white/5 hover:bg-white/10 transition-colors"
                             >
                               <Pencil className="w-3 h-3" />
-                              편집
+                              {t("mypage.sales.edit")}
                             </button>
                           </div>
                         </div>
@@ -1450,7 +1454,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                     ))}
                     {myProducts.length === 0 && (
                        <div className="py-8 text-center text-gray-500 font-medium">
-                         등록한 비디오가 없습니다.
+                         {t("mypage.sales.noProducts")}
                        </div>
                     )}
                   </div>
@@ -1460,29 +1464,29 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
                   <h3 className="font-bold text-white mb-4 flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-[#6366f1]" />
-                    수익 창출 가이드
+                    {t("mypage.sales.guideTitle")}
                   </h3>
                   <div className="space-y-3 text-sm">
                     <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5">
-                      <p className="font-bold text-white mb-1.5">💰 두 가지 수익원</p>
+                      <p className="font-bold text-white mb-1.5">{t("mypage.sales.guideRevenueSources")}</p>
                       <p className="text-gray-400 text-[13px] leading-relaxed">
-                        <span className="text-white font-medium">라이선스 판매</span>: 다른 사용자가 영상 라이선스를 구매할 때마다 매출의 <span className="text-[#8b5cf6] font-bold">{Math.round(CREATOR_SHARE_SALE * 100)}%</span> 정산<br />
-                        <span className="text-white font-medium">광고 수익</span>: 본인 영상 시청 전 광고 노출 시 영상 등급별 분배 — 홈 <span className="text-amber-300 font-bold">{Math.round(CREATOR_SHARE_HOME * 100)}%</span> / 시네마 <span className="text-amber-300 font-bold">{Math.round(CREATOR_SHARE_CINEMA * 100)}%</span> / OTT <span className="text-amber-300 font-bold">{Math.round(CREATOR_SHARE_OTT * 100)}%</span> (CPM 기준)
+                        <span className="text-white font-medium">{t("mypage.sales.guideRevenueSources1")}</span>: <span className="text-[#8b5cf6] font-bold">{Math.round(CREATOR_SHARE_SALE * 100)}%</span><br />
+                        <span className="text-white font-medium">{t("mypage.sales.guideRevenueSources2")}</span>: Home <span className="text-amber-300 font-bold">{Math.round(CREATOR_SHARE_HOME * 100)}%</span> / Cinema <span className="text-amber-300 font-bold">{Math.round(CREATOR_SHARE_CINEMA * 100)}%</span> / OTT <span className="text-amber-300 font-bold">{Math.round(CREATOR_SHARE_OTT * 100)}%</span>
                       </p>
                     </div>
                     <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5">
-                      <p className="font-bold text-white mb-1.5">📅 정산 주기</p>
+                      <p className="font-bold text-white mb-1.5">{t("mypage.sales.guidePayoutCycle")}</p>
                       <p className="text-gray-400 text-[13px] leading-relaxed">
-                        매월 <span className="text-white font-medium">15일</span>에 전월 매출이 등록 계좌로 자동 정산됩니다. 최소 정산 금액은 <span className="text-white font-medium">₩{PAYOUT_MIN_KRW.toLocaleString()}</span> 이상이며, 미달 시 다음 달로 이월됩니다.
+                        {t("mypage.sales.payoutSchedule")} (Min ₩{PAYOUT_MIN_KRW.toLocaleString()})
                       </p>
                     </div>
                     <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5">
-                      <p className="font-bold text-white mb-1.5">🚀 수익 늘리기 팁</p>
+                      <p className="font-bold text-white mb-1.5">{t("mypage.sales.guideTips")}</p>
                       <ul className="text-gray-400 text-[13px] leading-relaxed space-y-1 list-disc list-inside">
-                        <li>고품질 영상 + 명확한 메타데이터 (태그, 카테고리)</li>
-                        <li>시네마 메타데이터 작성 (감독, 출연, 시놉시스 등)</li>
-                        <li>정기적인 업로드로 시청자 충성도 확보</li>
-                        <li>SNS 공유로 본인 영상 시청수 증가 → 광고 노출 ↑</li>
+                        <li>{t("mypage.sales.guideTip1")}</li>
+                        <li>{t("mypage.sales.guideTip2")}</li>
+                        <li>{t("mypage.sales.guideTip3")}</li>
+                        <li>{t("mypage.sales.guideTip4")}</li>
                       </ul>
                     </div>
                   </div>
@@ -1492,42 +1496,42 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-amber-500/20 shadow-sm">
                   <h3 className="font-bold text-white mb-4 flex items-center gap-2">
                     <Lock className="w-5 h-5 text-amber-400" />
-                    크리에이터 주의사항
+                    {t("mypage.sales.warningTitle")}
                   </h3>
                   <div className="space-y-3 text-[13px]">
                     <div className="flex gap-3">
                       <div className="w-1 bg-amber-500/50 rounded-full shrink-0" />
                       <div>
-                        <p className="font-bold text-white mb-0.5">저작권 준수</p>
-                        <p className="text-gray-400 leading-relaxed">모든 업로드 영상은 본인이 제작했거나 정당한 사용 권한을 보유한 콘텐츠여야 합니다. 타인의 저작물을 무단 사용 시 영상 삭제 + 계정 정지 + 법적 책임이 따를 수 있습니다.</p>
+                        <p className="font-bold text-white mb-0.5">{t("mypage.sales.warningCopyrightTitle")}</p>
+                        <p className="text-gray-400 leading-relaxed">{t("mypage.sales.warningCopyrightDesc")}</p>
                       </div>
                     </div>
                     <div className="flex gap-3">
                       <div className="w-1 bg-amber-500/50 rounded-full shrink-0" />
                       <div>
-                        <p className="font-bold text-white mb-0.5">AI 생성 표시</p>
-                        <p className="text-gray-400 leading-relaxed">AI로 생성된 영상은 사용한 AI 도구(ai_tool), 모델 버전(ai_model_version), 시드(seed) 등을 명확히 기재해야 합니다. 미기재 시 노출 제한 가능.</p>
+                        <p className="font-bold text-white mb-0.5">{t("mypage.sales.warningAiTitle")}</p>
+                        <p className="text-gray-400 leading-relaxed">{t("mypage.sales.warningAiDesc")}</p>
                       </div>
                     </div>
                     <div className="flex gap-3">
                       <div className="w-1 bg-red-500/50 rounded-full shrink-0" />
                       <div>
-                        <p className="font-bold text-white mb-0.5">금지 콘텐츠</p>
-                        <p className="text-gray-400 leading-relaxed">음란물, 폭력적·잔혹한 묘사, 차별·혐오 표현, 미성년자에게 부적절한 콘텐츠, 실존 인물의 명예훼손 콘텐츠는 즉시 삭제 처리됩니다.</p>
+                        <p className="font-bold text-white mb-0.5">{t("mypage.sales.warningProhibitedTitle")}</p>
+                        <p className="text-gray-400 leading-relaxed">{t("mypage.sales.warningProhibitedDesc")}</p>
                       </div>
                     </div>
                     <div className="flex gap-3">
                       <div className="w-1 bg-amber-500/50 rounded-full shrink-0" />
                       <div>
-                        <p className="font-bold text-white mb-0.5">정산 정보 정확성</p>
-                        <p className="text-gray-400 leading-relaxed">정확한 본인 명의 계좌 정보 등록이 필수입니다. 타인 명의 계좌 등록 시 정산 보류 + 환수 조치될 수 있습니다.</p>
+                        <p className="font-bold text-white mb-0.5">{t("mypage.sales.warningPayoutAccuracyTitle")}</p>
+                        <p className="text-gray-400 leading-relaxed">{t("mypage.sales.warningPayoutAccuracyDesc")}</p>
                       </div>
                     </div>
                     <div className="flex gap-3">
                       <div className="w-1 bg-gray-500/50 rounded-full shrink-0" />
                       <div>
-                        <p className="font-bold text-white mb-0.5">위반 시 단계별 조치</p>
-                        <p className="text-gray-400 leading-relaxed">1차 경고 → 2차 영상 비공개 + 수익 보류 → 3차 계정 정지 + 정산 환수 (사안 경중에 따라 즉시 정지 가능)</p>
+                        <p className="font-bold text-white mb-0.5">{t("mypage.sales.warningStagedTitle")}</p>
+                        <p className="text-gray-400 leading-relaxed">{t("mypage.sales.warningStagedDesc")}</p>
                       </div>
                     </div>
                   </div>
@@ -1542,26 +1546,26 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                       <MessageSquare className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-white">댓글 관리</h3>
-                      <p className="text-xs text-gray-500 mt-0.5">금칙어·차단 사용자 설정과 자동 필터된 댓글 검토</p>
+                      <h3 className="font-bold text-white">{t("mypage.commentsTab.title")}</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">{t("mypage.commentsTab.subtitle")}</p>
                     </div>
                   </div>
 
                   <div className="grid sm:grid-cols-3 gap-3 mb-5">
                     <div className="bg-white/5 rounded-xl p-4 border border-white/5">
                       <Filter className="w-5 h-5 text-[#8b5cf6] mb-2" />
-                      <p className="text-sm font-bold text-white mb-1">금칙어</p>
-                      <p className="text-xs text-gray-500 leading-relaxed">금칙어 포함 댓글을 자동 숨김</p>
+                      <p className="text-sm font-bold text-white mb-1">{t("mypage.commentsTab.filterWords")}</p>
+                      <p className="text-xs text-gray-500 leading-relaxed">{t("mypage.commentsTab.filterWordsDesc")}</p>
                     </div>
                     <div className="bg-white/5 rounded-xl p-4 border border-white/5">
                       <Lock className="w-5 h-5 text-[#f43f5e] mb-2" />
-                      <p className="text-sm font-bold text-white mb-1">사용자 차단</p>
-                      <p className="text-xs text-gray-500 leading-relaxed">특정 사용자의 댓글 일괄 차단</p>
+                      <p className="text-sm font-bold text-white mb-1">{t("mypage.commentsTab.blockedUsers")}</p>
+                      <p className="text-xs text-gray-500 leading-relaxed">{t("mypage.commentsTab.blockedUsersDesc")}</p>
                     </div>
                     <div className="bg-white/5 rounded-xl p-4 border border-white/5">
                       <Eye className="w-5 h-5 text-amber-400 mb-2" />
-                      <p className="text-sm font-bold text-white mb-1">필터 검토</p>
-                      <p className="text-xs text-gray-500 leading-relaxed">자동 숨김된 댓글 복원 가능</p>
+                      <p className="text-sm font-bold text-white mb-1">{t("mypage.commentsTab.filterReview")}</p>
+                      <p className="text-xs text-gray-500 leading-relaxed">{t("mypage.commentsTab.filterReviewDesc")}</p>
                     </div>
                   </div>
 
@@ -1570,11 +1574,11 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                     className="w-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white font-bold rounded-xl py-3 gap-2"
                   >
                     <Filter className="w-4 h-4" />
-                    댓글 관리 열기
+                    {t("mypage.commentsTab.openButton")}
                   </Button>
 
                   <p className="text-[11px] text-gray-600 text-center mt-3">
-                    영상 페이지의 댓글에서 핀 고정·❤️ 표시·차단도 직접 가능합니다.
+                    {t("mypage.commentsTab.directHint")}
                   </p>
                 </div>
               </TabsContent>
@@ -1585,14 +1589,14 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-bold text-white flex items-center">
                       <Clock className="w-5 h-5 mr-2 text-gray-400" />
-                      시청 기록
+                      {t("mypage.watchHistory.title")}
                     </h3>
                     {watchHistory.length > 0 && (
                       <button
                         onClick={handleClearAllHistory}
                         className="text-xs text-red-400 hover:text-red-300 font-medium"
                       >
-                        전체 삭제
+                        {t("mypage.watchHistory.clearAll")}
                       </button>
                     )}
                   </div>
@@ -1604,15 +1608,15 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                   ) : watchHistory.length === 0 ? (
                     <div className="text-center py-12 text-gray-500">
                       <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                      <p className="text-sm">아직 시청 기록이 없습니다</p>
-                      <p className="text-xs mt-1 text-gray-600">영상을 시청하면 여기에 자동으로 기록됩니다</p>
+                      <p className="text-sm">{t("mypage.watchHistory.empty")}</p>
+                      <p className="text-xs mt-1 text-gray-600">{t("mypage.watchHistory.emptyHint")}</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       {watchHistory.map((h: any) => {
                         const pct = h.watch_ratio ? Math.round(h.watch_ratio * 100) : 0;
                         const date = new Date(h.occurred_at);
-                        const dateStr = date.toLocaleString('ko-KR', {
+                        const dateStr = date.toLocaleString(undefined, {
                           month: 'short', day: 'numeric',
                           hour: '2-digit', minute: '2-digit'
                         });
@@ -1637,9 +1641,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                                 </div>
                               )}
                               <div className="min-w-0 flex-1">
-                                <p className="text-sm font-semibold text-white truncate">{h.title || '제목 없음'}</p>
+                                <p className="text-sm font-semibold text-white truncate">{h.title || t("mypage.watchHistory.noTitle")}</p>
                                 <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-                                  {h.creator_name || '이름 없음'} · {dateStr}
+                                  {h.creator_name || t("mypage.watchHistory.nameless")} · {dateStr}
                                 </p>
                                 <div className="flex items-center gap-2 mt-1.5">
                                   <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
@@ -1657,7 +1661,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                             <button
                               onClick={() => handleDeleteHistoryItem(h.video_id)}
                               className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-red-500/15 text-red-400 self-start"
-                              title="기록 삭제"
+                              title={t("mypage.watchHistory.deleteEntry")}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1678,12 +1682,12 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                       <button
                         onClick={() => setActivePlaylistId(null)}
                         className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-                        title="플레이리스트 목록으로"
+                        title={t("mypage.playlist.backToList")}
                       >
                         <ArrowLeft className="w-5 h-5 text-white" />
                       </button>
                       <h3 className="font-bold text-white text-lg flex-1 truncate">{activePlaylistName}</h3>
-                      <span className="text-xs text-gray-500 font-bold">{playlistVideos.length}개</span>
+                      <span className="text-xs text-gray-500 font-bold">{t("mypage.playlist.videosCount", { count: playlistVideos.length })}</span>
                     </div>
 
                     {playlistVideosLoading ? (
@@ -1692,7 +1696,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                       </div>
                     ) : playlistVideos.length === 0 ? (
                       <div className="py-12 text-center text-sm text-gray-500">
-                        이 플레이리스트는 비어있습니다
+                        {t("mypage.playlist.playlistEmpty")}
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -1701,7 +1705,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                             <button
                               onClick={() => onVideoClick?.(v.id)}
                               className="relative flex-shrink-0 w-24 aspect-video rounded-lg overflow-hidden bg-black group/thumb"
-                              title="재생"
+                              title={t("mypage.playlist.playVideo")}
                             >
                               {v.thumbnail ? (
                                 <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover" />
@@ -1727,7 +1731,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                             <button
                               onClick={() => handleRemoveFromPlaylist(v.id)}
                               className="p-2 rounded-lg hover:bg-red-500/10 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-                              title="플레이리스트에서 제거"
+                              title={t("mypage.playlist.removeFromPlaylist")}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1742,9 +1746,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                     <div className="flex items-center justify-between mb-5">
                       <h3 className="font-bold text-white flex items-center">
                         <FolderPlus className="w-5 h-5 mr-2 text-[#8b5cf6]" />
-                        내 플레이리스트
+                        {t("mypage.playlist.myPlaylists")}
                       </h3>
-                      <span className="text-xs text-gray-500 font-bold">{playlists.length}개</span>
+                      <span className="text-xs text-gray-500 font-bold">{t("mypage.playlist.count", { count: playlists.length })}</span>
                     </div>
 
                     {playlistsLoading ? (
@@ -1754,8 +1758,8 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                     ) : playlists.length === 0 ? (
                       <div className="py-12 text-center">
                         <FolderPlus className="w-12 h-12 mx-auto text-gray-600 mb-3" />
-                        <p className="text-sm text-gray-400 mb-1">아직 플레이리스트가 없습니다</p>
-                        <p className="text-xs text-gray-500">영상 상세 페이지에서 <Bookmark className="w-3 h-3 inline" /> 버튼으로 저장하세요</p>
+                        <p className="text-sm text-gray-400 mb-1">{t("mypage.playlist.empty")}</p>
+                        <p className="text-xs text-gray-500">{t("mypage.playlist.emptyHint")}</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -1778,13 +1782,13 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                                 )}
                                 {/* 영상 개수 뱃지 */}
                                 <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/80 backdrop-blur-sm rounded text-white text-[11px] font-bold">
-                                  {pl.video_count}개
+                                  {t("mypage.playlist.count", { count: pl.video_count })}
                                 </div>
                                 {/* Watch Later 표시 */}
                                 {pl.is_watch_later && (
                                   <div className="absolute top-2 left-2 px-2 py-0.5 bg-[#ec4899]/90 backdrop-blur-sm rounded-full text-white text-[10px] font-black flex items-center gap-1">
                                     <Bookmark className="w-3 h-3 fill-white" />
-                                    나중에 보기
+                                    {t("mypage.playlist.watchLaterLabel")}
                                   </div>
                                 )}
                               </div>
@@ -1800,7 +1804,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                                   handleDeletePlaylist(pl.id, pl.name, pl.is_watch_later);
                                 }}
                                 className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/70 hover:bg-red-500/80 text-white opacity-0 group-hover:opacity-100 transition-all"
-                                title="플레이리스트 삭제"
+                                title={t("mypage.playlist.deletePlaylist")}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1815,13 +1819,13 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
 
               <TabsContent value="settings" className="space-y-4 m-0">
                 <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
-                  <h3 className="font-bold text-white mb-5 flex items-center"><Bell className="w-5 h-5 mr-2 text-gray-400" />알림 설정</h3>
+                  <h3 className="font-bold text-white mb-5 flex items-center"><Bell className="w-5 h-5 mr-2 text-gray-400" />{t("mypage.settings.notifications")}</h3>
                   <div className="space-y-4">
                     {[
-                      { label: "새로운 판매 알림", checked: true },
-                      { label: "댓글 알림", checked: true },
-                      { label: "좋아요 알림", checked: false },
-                      { label: "마케팅 정보 수신", checked: false }
+                      { label: t("mypage.settings.notifySales"), checked: true },
+                      { label: t("mypage.settings.notifyComments"), checked: true },
+                      { label: t("mypage.settings.notifyLikes"), checked: false },
+                      { label: t("mypage.settings.notifyMarketing"), checked: false }
                     ].map((item, idx) => (
                       <div key={idx} className="flex items-center justify-between p-3 bg-[#1c1c1e] rounded-xl border border-white/5">
                         <span className="font-medium text-gray-300 text-sm">{item.label}</span>
@@ -1841,7 +1845,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                 <DataDownloadSection />
 
                 <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
-                  <h3 className="font-bold text-white mb-5">계정 보안</h3>
+                  <h3 className="font-bold text-white mb-5">{t("mypage.settings.accountSecurity")}</h3>
                   <div className="space-y-3">
                     <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
                       <Button
@@ -1849,17 +1853,17 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                         onClick={() => { setPwNew(""); setPwConfirm(""); setShowPasswordChange(true); }}
                         className="w-full justify-between bg-[#1c1c1e] text-gray-300 border-white/5 hover:bg-white/5 hover:text-white font-medium rounded-xl h-12 shadow-sm"
                       >
-                        <span className="flex items-center gap-2"><Lock className="w-4 h-4" />비밀번호 변경</span>
+                        <span className="flex items-center gap-2"><Lock className="w-4 h-4" />{t("mypage.settings.changePassword")}</span>
                         <ChevronRight className="w-4 h-4" />
                       </Button>
                     </motion.div>
                     <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
                       <Button
                         variant="outline"
-                        onClick={() => toast.info("2단계 인증은 준비 중입니다.")}
+                        onClick={() => toast.info(t("mypage.settings.twoFactorComingSoon"))}
                         className="w-full justify-between bg-[#1c1c1e] text-gray-300 border-white/5 hover:bg-white/5 hover:text-white font-medium rounded-xl h-12 shadow-sm"
                       >
-                        <span>2단계 인증 설정</span>
+                        <span>{t("mypage.settings.twoFactorAuth")}</span>
                         <ChevronRight className="w-4 h-4" />
                       </Button>
                     </motion.div>
@@ -1873,11 +1877,11 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                       className="w-full gap-2 h-14 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 rounded-xl font-bold transition-all shadow-sm" 
                       onClick={() => {
                         signOut();
-                        toast.success("로그아웃 되었습니다.");
+                        toast.success(t("mypage.settings.signOutSuccess"));
                       }}
                     >
                       <LogOut className="w-5 h-5" />
-                      로그아웃
+                      {t("mypage.settings.signOut")}
                     </Button>
                   </motion.div>
 
@@ -1910,17 +1914,17 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-5">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2"><Pencil className="w-5 h-5 text-[#8b5cf6]" />프로필 편집</h3>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2"><Pencil className="w-5 h-5 text-[#8b5cf6]" />{t("mypage.profileEditModal.title")}</h3>
                 <button onClick={() => setShowProfileEdit(false)} className="p-1.5 hover:bg-white/10 rounded-full text-gray-400"><X className="w-5 h-5" /></button>
               </div>
               <div className="mb-4">
-                <label className="block text-xs font-semibold text-gray-400 mb-1.5">이메일</label>
+                <label className="block text-xs font-semibold text-gray-400 mb-1.5">{t("mypage.profileEditModal.emailLabel")}</label>
                 <p className="px-4 py-3 bg-white/5 rounded-xl text-sm text-gray-500 border border-white/5">{user?.email}</p>
               </div>
 
               {/* 아바타 업로드 (Phase 6.6) */}
               <div className="mb-4">
-                <label className="block text-xs font-semibold text-gray-400 mb-1.5">프로필 사진</label>
+                <label className="block text-xs font-semibold text-gray-400 mb-1.5">{t("mypage.profileEditModal.avatarLabel")}</label>
                 <div className="flex items-center gap-3">
                   <label className="relative w-20 h-20 rounded-full cursor-pointer bg-gradient-to-br from-[#1E1E24] to-[#2B2B36] border-2 border-white/10 overflow-hidden hover:border-white/20 transition-colors shrink-0">
                     <input
@@ -1948,14 +1952,14 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                     )}
                   </label>
                   <div className="flex-1">
-                    <p className="text-[11px] text-gray-500 mb-1">정사각형 권장 · 최대 2MB · JPG/PNG/WebP</p>
+                    <p className="text-[11px] text-gray-500 mb-1">{t("mypage.profileEditModal.avatarHint")}</p>
                     {editAvatarUrl && !uploadingAvatar && (
                       <button
                         type="button"
                         onClick={() => setEditAvatarUrl('')}
                         className="text-[11px] text-red-400 hover:text-red-300 font-medium"
                       >
-                        제거
+                        {t("mypage.profileEditModal.remove")}
                       </button>
                     )}
                   </div>
@@ -1963,30 +1967,30 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
               </div>
 
               <div className="mb-4">
-                <label className="block text-xs font-semibold text-gray-400 mb-1.5">표시 이름</label>
+                <label className="block text-xs font-semibold text-gray-400 mb-1.5">{t("mypage.profileEditModal.displayNameLabel")}</label>
                 <input
                   type="text"
                   value={editName}
                   onChange={e => setEditName(e.target.value)}
                   maxLength={30}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors"
-                  placeholder="이름을 입력하세요"
+                  placeholder={t("mypage.profileEditModal.displayNamePlaceholder")}
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-xs font-semibold text-gray-400 mb-1.5">자기소개</label>
+                <label className="block text-xs font-semibold text-gray-400 mb-1.5">{t("mypage.profileEditModal.bioLabel")}</label>
                 <textarea
                   value={editBio}
                   onChange={e => setEditBio(e.target.value)}
                   maxLength={200}
                   rows={3}
-                  placeholder="채널 페이지에 표시될 자기소개를 작성하세요"
+                  placeholder={t("mypage.profileEditModal.bioPlaceholder")}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors resize-none"
                 />
                 <p className="text-[11px] text-gray-500 mt-1">{editBio.length}/200</p>
               </div>
               <div className="mb-5">
-                <label className="block text-xs font-semibold text-gray-400 mb-1.5">채널 배너</label>
+                <label className="block text-xs font-semibold text-gray-400 mb-1.5">{t("mypage.profileEditModal.bannerLabel")}</label>
                 <label className="relative block aspect-[3/1] cursor-pointer rounded-xl border border-white/10 border-dashed bg-white/5 overflow-hidden hover:bg-white/10 transition-colors">
                   <input
                     type="file"
@@ -2004,7 +2008,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 text-xs gap-1.5">
                       <ImagePlus className="w-6 h-6" />
-                      <span>클릭해서 이미지 업로드</span>
+                      <span>{t("mypage.profileEditModal.bannerUploadPrompt")}</span>
                     </div>
                   )}
                   {uploadingBanner && (
@@ -2014,23 +2018,23 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                   )}
                 </label>
                 <div className="flex items-center justify-between mt-1.5">
-                  <p className="text-[11px] text-gray-500">JPG/PNG/WebP · 최대 5MB · 권장 1500×500 (3:1)</p>
+                  <p className="text-[11px] text-gray-500">{t("mypage.profileEditModal.bannerHint")}</p>
                   {editBannerUrl && !uploadingBanner && (
                     <button
                       type="button"
                       onClick={() => setEditBannerUrl('')}
                       className="text-[11px] text-red-400 hover:text-red-300 font-medium"
                     >
-                      제거
+                      {t("mypage.profileEditModal.remove")}
                     </button>
                   )}
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setShowProfileEdit(false)} className="flex-1 border-white/10">취소</Button>
+                <Button variant="outline" size="sm" onClick={() => setShowProfileEdit(false)} className="flex-1 border-white/10">{t("mypage.profileEditModal.cancel")}</Button>
                 <Button size="sm" onClick={handleSaveProfile} disabled={savingProfile || !editName.trim()}
                   className="flex-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]">
-                  {savingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : "저장"}
+                  {savingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : t("mypage.profileEditModal.save")}
                 </Button>
               </div>
             </motion.div>
@@ -2054,15 +2058,15 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-5">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2"><Lock className="w-5 h-5 text-[#8b5cf6]" />비밀번호 변경</h3>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2"><Lock className="w-5 h-5 text-[#8b5cf6]" />{t("mypage.passwordModal.title")}</h3>
                 <button onClick={() => setShowPasswordChange(false)} className="p-1.5 hover:bg-white/10 rounded-full text-gray-400"><X className="w-5 h-5" /></button>
               </div>
               <div className="space-y-3 mb-5">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">새 비밀번호</label>
+                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">{t("mypage.passwordModal.newPasswordLabel")}</label>
                   <div className="relative">
                     <input type={showPwNew ? "text" : "password"} value={pwNew} onChange={e => setPwNew(e.target.value)}
-                      placeholder="6자 이상"
+                      placeholder={t("mypage.passwordModal.newPasswordPlaceholder")}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors" />
                     <button onClick={() => setShowPwNew(!showPwNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
                       {showPwNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -2070,18 +2074,18 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">새 비밀번호 확인</label>
+                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">{t("mypage.passwordModal.confirmPasswordLabel")}</label>
                   <input type="password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)}
-                    placeholder="비밀번호 재입력"
+                    placeholder={t("mypage.passwordModal.confirmPasswordPlaceholder")}
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors" />
                 </div>
               </div>
-              <p className="text-xs text-gray-600 mb-4">* 소셜 로그인 계정은 비밀번호 변경이 제한될 수 있습니다.</p>
+              <p className="text-xs text-gray-600 mb-4">{t("mypage.passwordModal.socialHint")}</p>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setShowPasswordChange(false)} className="flex-1 border-white/10">취소</Button>
+                <Button variant="outline" size="sm" onClick={() => setShowPasswordChange(false)} className="flex-1 border-white/10">{t("mypage.passwordModal.cancel")}</Button>
                 <Button size="sm" onClick={handleChangePassword} disabled={savingPassword || !pwNew || !pwConfirm}
                   className="flex-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]">
-                  {savingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : "변경"}
+                  {savingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : t("mypage.passwordModal.change")}
                 </Button>
               </div>
             </motion.div>

@@ -2,6 +2,7 @@ import { X, ShoppingCart, Trash2, CreditCard, Package } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 export interface CartItem {
   id: string;
@@ -19,17 +20,18 @@ interface CartPanelProps {
   onClose: () => void;
 }
 
-const LICENSE_LABELS: Record<string, string> = {
-  standard: "스탠다드",
-  commercial: "상업용",
-  extended: "확장",
-};
-
 export function CartPanel({ items, onRemove, onClose }: CartPanelProps) {
+  const { t } = useTranslation();
   const total = items.reduce((sum, item) => sum + item.price, 0);
 
+  const LICENSE_LABELS: Record<string, string> = {
+    standard: "Standard",
+    commercial: "Commercial",
+    extended: "Extended",
+  };
+
   const handleCheckout = () => {
-    toast.info("결제 기능은 준비 중입니다. 곧 오픈됩니다!", {
+    toast.info(t("subscriptionModal.comingSoon"), {
       duration: 3000,
     });
   };
@@ -40,7 +42,7 @@ export function CartPanel({ items, onRemove, onClose }: CartPanelProps) {
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
         <div className="flex items-center gap-2">
           <ShoppingCart className="w-5 h-5 text-[#8b5cf6]" />
-          <span className="font-semibold text-white">장바구니</span>
+          <span className="font-semibold text-white">{t("cartPanel.title")}</span>
           {items.length > 0 && (
             <span className="px-1.5 py-0.5 bg-[#6366f1] rounded-full text-xs text-white font-bold">
               {items.length}
@@ -62,8 +64,7 @@ export function CartPanel({ items, onRemove, onClose }: CartPanelProps) {
             <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
               <Package className="w-8 h-8 text-gray-600" />
             </div>
-            <p className="text-gray-400 font-medium">장바구니가 비어있습니다</p>
-            <p className="text-gray-600 text-sm mt-1">마음에 드는 영상을 담아보세요</p>
+            <p className="text-gray-400 font-medium">{t("cartPanel.empty")}</p>
           </div>
         ) : (
           <AnimatePresence initial={false}>
@@ -109,7 +110,7 @@ export function CartPanel({ items, onRemove, onClose }: CartPanelProps) {
       {items.length > 0 && (
         <div className="flex-shrink-0 border-t border-white/10 px-4 py-4">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-gray-400 text-sm">총 {items.length}개</span>
+            <span className="text-gray-400 text-sm">{t("cartPanel.totalLabel")} ({items.length})</span>
             <span className="text-white font-bold text-lg">₩{total.toLocaleString()}</span>
           </div>
           <Button
@@ -117,9 +118,9 @@ export function CartPanel({ items, onRemove, onClose }: CartPanelProps) {
             className="w-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 font-bold gap-2 shadow-lg shadow-[#6366f1]/20"
           >
             <CreditCard className="w-4 h-4" />
-            구매하기
+            {t("cartPanel.checkout")}
           </Button>
-          <p className="text-center text-xs text-gray-600 mt-2">결제 기능 준비 중</p>
+          <p className="text-center text-xs text-gray-600 mt-2">{t("subscriptionModal.comingSoon")}</p>
         </div>
       )}
     </div>

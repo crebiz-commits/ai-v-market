@@ -3,12 +3,14 @@ import { Film, TrendingUp, ShieldCheck } from "lucide-react";
 import { Button } from "./ui/button";
 import { CreaiteText } from "./CreaiteText";
 import { CreaiteLogo } from "./CreaiteLogo";
+import { useTranslation } from "react-i18next";
 
 interface SplashScreenProps {
   onComplete: () => void;
 }
 
 export function SplashScreen({ onComplete }: SplashScreenProps) {
+  const { t } = useTranslation();
   return (
     <div className="h-[100dvh] bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {/* Animated Background */}
@@ -32,9 +34,9 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
             <CreaiteText className="text-4xl font-extrabold" />
           </h1>
           <p className="text-base font-bold bg-gradient-to-r from-[#6366f1] via-[#ec4899] to-[#06b6d4] bg-clip-text text-transparent mb-1">
-            세계 최초 AI 시네마 OTT 서비스
+            {t("footer.tagline")}
           </p>
-          <p className="text-sm text-muted-foreground">AI 시네마 × 크리에이터 마켓</p>
+          <p className="text-sm text-muted-foreground">{t("splash.tagline")}</p>
         </motion.div>
 
         {/* Features */}
@@ -49,9 +51,9 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               <Film className="w-5 h-5 text-[#6366f1]" />
             </div>
             <div>
-              <h3 className="font-medium mb-1">큐레이션 시네마</h3>
+              <h3 className="font-medium mb-1">Curated Cinema</h3>
               <p className="text-sm text-muted-foreground">
-                크리에이터가 만든 AI 영화를 시네마처럼 감상
+                Watch AI films from creators like you'd watch a movie
               </p>
             </div>
           </div>
@@ -61,9 +63,9 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               <TrendingUp className="w-5 h-5 text-[#8b5cf6]" />
             </div>
             <div>
-              <h3 className="font-medium mb-1">크리에이터 수익</h3>
+              <h3 className="font-medium mb-1">Creator Earnings</h3>
               <p className="text-sm text-muted-foreground">
-                내 AI 영화로 조회·광고 수익과 작품 판매 수익까지
+                Earn from views, ads, and license sales of your AI films
               </p>
             </div>
           </div>
@@ -73,9 +75,9 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               <ShieldCheck className="w-5 h-5 text-[#3b82f6]" />
             </div>
             <div>
-              <h3 className="font-medium mb-1">올인원 라이선스</h3>
+              <h3 className="font-medium mb-1">All-in-One License</h3>
               <p className="text-sm text-muted-foreground">
-                모든 용도 포함 단일 라이선스 + 저작권 확인·에스크로
+                Single license covering all use cases + copyright verification & escrow
               </p>
             </div>
           </div>
@@ -91,10 +93,10 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
             onClick={onComplete}
             className="w-full h-12 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:from-[#5558e3] hover:to-[#7c4ee5] text-lg"
           >
-            시작하기
+            {t("auth.signIn")}
           </Button>
           <p className="text-xs text-muted-foreground mt-4">
-            감상하고, 창작하고, 거래하는 AI 시네마
+            {t("footer.tagline")}
           </p>
         </motion.div>
       </div>
