@@ -484,7 +484,7 @@ const MovieSection = memo(({
             onFullscreen(video);
           }}
           className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white pointer-events-auto"
-          aria-label="전체화면"
+          aria-label={t("videoFullscreen.fullscreen")}
         >
           <Maximize2 className="w-4 h-4" />
         </button>

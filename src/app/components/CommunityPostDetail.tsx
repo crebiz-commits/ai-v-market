@@ -64,7 +64,7 @@ export function CommunityPostDetail({
 
   const handleShare = async () => {
     const url = `${window.location.origin}?post=${post.id}`;
-    const shareData = { title: post.title, text: `CREAITE 커뮤니티: ${post.title}`, url };
+    const shareData = { title: post.title, text: `CREAITE Community: ${post.title}`, url };
     try {
       if (navigator.share && navigator.canShare?.(shareData)) {
         await navigator.share(shareData);

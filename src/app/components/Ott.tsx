@@ -70,7 +70,7 @@ function toProduct(v: CarouselVideo): Product {
     id: v.id,
     thumbnail: v.thumbnail || "",
     title: v.title,
-    creator: v.creator_display_name || v.creator || "이름 없음",
+    creator: v.creator_display_name || v.creator || "Unknown",
     creatorId: v.creator_id ?? undefined,
     price: v.price_standard || 0,
     duration: v.duration || "",

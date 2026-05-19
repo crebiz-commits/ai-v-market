@@ -151,7 +151,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
           const repMap: Record<string, Comment[]> = {};
           repData.forEach((r: any) => {
             if (!repMap[r.parent_id]) repMap[r.parent_id] = [];
-            repMap[r.parent_id].push({ ...r, author_name: r.author_name || "익명" });
+            repMap[r.parent_id].push({ ...r, author_name: r.author_name || t("community.anonymous") });
           });
           enriched.forEach((c) => {
             c.replies = repMap[c.id] || [];
@@ -205,7 +205,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
     try {
       const payload: any = {
         user_id: user!.id,
-        author_name: user!.name || "익명",
+        author_name: user!.name || t("community.anonymous"),
         content: text.trim(),
         likes_count: 0,
       };

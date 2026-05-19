@@ -35,7 +35,7 @@ export function CommunityChallengeDetail({ challenge, onClose }: CommunityChalle
 
   const handleShare = async () => {
     const url = `${window.location.origin}?challenge=${challenge.id}`;
-    const shareData = { title: challenge.title, text: `CREAITE 챌린지: ${challenge.title} - 상금 ${challenge.prize}`, url };
+    const shareData = { title: challenge.title, text: `CREAITE Challenge: ${challenge.title} - Prize ${challenge.prize}`, url };
     try {
       if (navigator.share && navigator.canShare?.(shareData)) {
         await navigator.share(shareData);
@@ -45,7 +45,7 @@ export function CommunityChallengeDetail({ challenge, onClose }: CommunityChalle
       }
     } catch (err: any) {
       if (err.name !== "AbortError") {
-        try { await navigator.clipboard.writeText(url); toast.success("링크가 클립보드에 복사됐습니다!"); } catch {}
+        try { await navigator.clipboard.writeText(url); toast.success(t("shareModal.linkCopied")); } catch {}
       }
     }
   };
