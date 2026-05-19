@@ -15,7 +15,7 @@ interface Notification {
 }
 
 // 미인증 시 보여줄 샘플 알림
-const SAMPLE_NOTIFICATIONS: Notification[] = [
+const SAMPLE_KO: Notification[] = [
   {
     id: "s1",
     type: "system",
@@ -42,6 +42,33 @@ const SAMPLE_NOTIFICATIONS: Notification[] = [
   },
 ];
 
+const SAMPLE_EN: Notification[] = [
+  {
+    id: "s1",
+    type: "system",
+    title: "Welcome to CREAITE!",
+    body: "Sign in to receive personalized notifications.",
+    read: false,
+    created_at: new Date(Date.now() - 60000).toISOString(),
+  },
+  {
+    id: "s2",
+    type: "challenge",
+    title: "New Challenge: Future City video contest",
+    body: "Prize ₩5,000,000! Join now.",
+    read: false,
+    created_at: new Date(Date.now() - 3600000).toISOString(),
+  },
+  {
+    id: "s3",
+    type: "system",
+    title: "15 new AI videos just uploaded",
+    body: "Check them out on the Home tab.",
+    read: true,
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+  },
+];
+
 const TYPE_ICON: Record<string, React.ReactNode> = {
   like: <Heart className="w-4 h-4 text-red-400" />,
   comment: <MessageCircle className="w-4 h-4 text-blue-400" />,
@@ -60,12 +87,18 @@ const TYPE_BG: Record<string, string> = {
   challenge: "bg-orange-500/10",
 };
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string, isKo: boolean): string {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-  if (diff < 60) return "방금 전";
-  if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
-  return `${Math.floor(diff / 86400)}일 전`;
+  if (isKo) {
+    if (diff < 60) return "방금 전";
+    if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+    return `${Math.floor(diff / 86400)}일 전`;
+  }
+  if (diff < 60) return "now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
 }
 
 interface NotificationPanelProps {
@@ -74,14 +107,16 @@ interface NotificationPanelProps {
 }
 
 export function NotificationPanel({ onClose, onUnreadCountChange }: NotificationPanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isKo = (i18n.language || "en").startsWith("ko");
+  const SAMPLE = isKo ? SAMPLE_KO : SAMPLE_EN;
   const { isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = useCallback(async () => {
     if (!isAuthenticated) {
-      setNotifications(SAMPLE_NOTIFICATIONS);
+      setNotifications(SAMPLE);
       setLoading(false);
       return;
     }
@@ -95,14 +130,14 @@ export function NotificationPanel({ onClose, onUnreadCountChange }: Notification
 
       if (error) throw error;
       const notifs = (data as Notification[]) || [];
-      setNotifications(notifs.length > 0 ? notifs : SAMPLE_NOTIFICATIONS);
+      setNotifications(notifs.length > 0 ? notifs : SAMPLE);
       onUnreadCountChange?.(notifs.filter((n) => !n.read).length);
     } catch {
-      setNotifications(SAMPLE_NOTIFICATIONS);
+      setNotifications(SAMPLE);
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, onUnreadCountChange]);
+  }, [isAuthenticated, onUnreadCountChange, SAMPLE]);
 
   useEffect(() => {
     fetchNotifications();
@@ -198,7 +233,7 @@ export function NotificationPanel({ onClose, onUnreadCountChange }: Notification
                   {notif.body && (
                     <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{notif.body}</p>
                   )}
-                  <p className="text-[11px] text-gray-600 mt-1">{timeAgo(notif.created_at)}</p>
+                  <p className="text-[11px] text-gray-600 mt-1">{timeAgo(notif.created_at, isKo)}</p>
                 </div>
                 {!notif.read && (
                   <div className="w-2 h-2 rounded-full bg-[#6366f1] mt-1.5 flex-shrink-0" />
