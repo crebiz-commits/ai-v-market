@@ -29,6 +29,16 @@ const CATEGORY_COLOR: Record<string, string> = {
   "질문": "bg-[#06b6d4]/20 text-[#06b6d4]",
 };
 
+const COMMUNITY_CATEGORY_KEY: Record<string, string> = {
+  "팁": "communityCategory.tip",
+  "챌린지": "communityCategory.challenge",
+  "비교": "communityCategory.compare",
+  "프롬프트": "communityCategory.prompt",
+  "튜토리얼": "communityCategory.tutorial",
+  "일반": "communityCategory.general",
+  "질문": "communityCategory.question",
+};
+
 interface CommunityPostDetailProps {
   post: Post;
   isLiked: boolean;
@@ -120,7 +130,7 @@ export function CommunityPostDetail({
             <p className="text-xs text-muted-foreground">{post.timestamp}</p>
           </div>
           <span className={`px-3 py-1 rounded-full text-xs font-medium ${CATEGORY_COLOR[post.category] || "bg-[#6366f1]/20 text-[#6366f1]"}`}>
-            {post.category}
+            {COMMUNITY_CATEGORY_KEY[post.category] ? t(COMMUNITY_CATEGORY_KEY[post.category]) : post.category}
           </span>
         </div>
 
