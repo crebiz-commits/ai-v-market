@@ -22,6 +22,8 @@ import { ShareModal } from "./ShareModal";
 import { NextVideoOverlay } from "./NextVideoOverlay";
 import { AddToPlaylistModal } from "./AddToPlaylistModal";
 import { supabase } from "../utils/supabaseClient";
+import { useTranslation } from "react-i18next";
+import { getCategoryLabel } from "../i18n/categoryLabels";
 
 // Bunny Stream 라이브러리 ID (env 변수). 클라이언트에 노출되어도 안전.
 const BUNNY_LIBRARY_ID = (import.meta as any).env?.VITE_BUNNY_LIBRARY_ID || "";
@@ -93,6 +95,7 @@ interface ProductDetailProps {
 }
 
 export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, onViewCreator, onNavigateToVideo }: ProductDetailProps) {
+  const { t } = useTranslation();
   const [isLiked, setIsLiked] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
   // Phase 22: 영상 편집 모달 + 챕터/자막 fetch
@@ -153,7 +156,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
       "@context": "https://schema.org",
       "@type": "VideoObject",
       name: product.title,
-      description: `AI 시네마 — ${creatorName} | CREAITE`,
+      description: t("productDetail.jsonLdDescription", { creator: creatorName }),
       thumbnailUrl: product.thumbnail,
       uploadDate: new Date().toISOString(),
       duration: isoDuration,
@@ -243,7 +246,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
       }
     } catch (err) {
       setIsLiked(!next);
-      toast.error("좋아요 처리에 실패했습니다.");
+      toast.error(t("productDetail.toast.likeFailed"));
       console.error("[ProductDetail] toggleLike error:", err);
     } finally {
       setLikeBusy(false);
@@ -529,7 +532,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
       return;
     }
     if (!product.price || product.price <= 0) {
-      toast.error("이 영상은 라이선스 판매 대상이 아닙니다.");
+      toast.error(t("productDetail.toast.notLicensable"));
       return;
     }
 
@@ -545,9 +548,9 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
       // 토스 결제창으로 이동 — 여기 이후 코드는 실행 안 됨
     } catch (err: any) {
       if (err?.code === "USER_CANCEL") {
-        toast.info("결제를 취소했습니다.");
+        toast.info(t("productDetail.toast.paymentCanceled"));
       } else {
-        toast.error("결제 시작 실패: " + (err?.message || "알 수 없는 오류"));
+        toast.error(t("productDetail.toast.paymentFailed") + (err?.message || t("productDetail.toast.unknownError")));
       }
       setBuyingLicense(false);
     }
@@ -625,12 +628,12 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                   {ottBlocked ? <Crown className="w-8 h-8 text-white" /> : <Lock className="w-8 h-8 text-white" />}
                 </div>
                 <h3 className="text-xl md:text-2xl font-black text-white mb-2">
-                  {ottBlocked ? "프리미엄 OTT 콘텐츠" : "미리보기가 끝났어요"}
+                  {ottBlocked ? t("productDetail.paywall.premiumOtt") : t("productDetail.paywall.previewEnded")}
                 </h3>
                 <p className="text-sm text-gray-300 mb-5 max-w-md">
                   {ottBlocked
-                    ? "이 영상은 구독자 전용입니다. 월 ₩4,900으로 모든 OTT 영상을 무제한으로 시청하세요."
-                    : "구독하시면 이 영상의 전체를 시청하실 수 있습니다. 월 ₩4,900."}
+                    ? t("productDetail.paywall.ottDescription")
+                    : t("productDetail.paywall.cinemaDescription")}
                 </p>
                 <Button
                   onClick={() => {
@@ -640,7 +643,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                   className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black px-6 h-11 shadow-lg shadow-amber-500/20 rounded-xl border border-white/10"
                 >
                   <Crown className="w-4 h-4" />
-                  구독하기
+                  {t("productDetail.paywall.subscribe")}
                 </Button>
               </div>
             </div>
@@ -664,7 +667,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               />
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="px-4 py-2 bg-black/60 backdrop-blur-md rounded-lg text-white text-sm">
-                  영상을 재생할 수 없습니다 (라이브러리 설정 누락)
+                  {t("productDetail.paywall.cannotPlay")}
                 </div>
               </div>
             </div>
@@ -675,7 +678,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
           {cinemaPaywallNeeded && !iframeBlocked && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-amber-500/90 backdrop-blur-sm rounded-full text-white text-xs font-black shadow-lg flex items-center gap-1.5 pointer-events-none">
               <Lock className="w-3.5 h-3.5" />
-              3분 미리보기 — 구독 시 풀 영상
+              {t("productDetail.paywall.cinemaPreviewBadge")}
             </div>
           )}
 
@@ -735,8 +738,8 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                     <button
                       onClick={() => setEditOpen(true)}
                       className="w-9 h-9 rounded-full backdrop-blur-xl flex items-center justify-center border-2 border-white/30 bg-white/10 hover:bg-white/20 text-white transition-colors"
-                      aria-label="영상 편집"
-                      title="영상 편집"
+                      aria-label={t("productDetail.action.editVideo")}
+                      title={t("productDetail.action.editVideo")}
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
@@ -755,15 +758,15 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
             {/* Specs */}
             <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-card rounded-lg border border-border">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">해상도</p>
+                <p className="text-xs text-muted-foreground mb-1">{t("productDetail.meta.resolution")}</p>
                 <p className="font-medium">{product.resolution || "4K"}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">길이</p>
+                <p className="text-xs text-muted-foreground mb-1">{t("productDetail.meta.duration")}</p>
                 <p className="font-medium">{product.duration}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">AI 툴</p>
+                <p className="text-xs text-muted-foreground mb-1">{t("productDetail.meta.aiTool")}</p>
                 <p className="font-medium">{product.tool}</p>
               </div>
             </div>
@@ -773,8 +776,8 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               <div className="mb-6 bg-[#121212] rounded-xl border border-white/5 overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-white/5 flex items-center gap-2">
                   <ClockIcon className="w-4 h-4 text-[#a78bfa]" />
-                  <span className="text-sm font-bold text-white">챕터</span>
-                  <span className="text-[10px] text-gray-500">{videoMeta.chapters.length}개</span>
+                  <span className="text-sm font-bold text-white">{t("productDetail.meta.chapters")}</span>
+                  <span className="text-[10px] text-gray-500">{t("productDetail.meta.chaptersCount", { count: videoMeta.chapters.length })}</span>
                 </div>
                 <div className="max-h-48 overflow-y-auto scrollbar-hide">
                   {videoMeta.chapters.map((c, idx) => {
@@ -799,7 +802,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
             {videoMeta.subtitle_url && (
               <div className="mb-4 px-3 py-2 bg-[#10b981]/10 border border-[#10b981]/20 rounded-lg flex items-center gap-2">
                 <FileText className="w-4 h-4 text-[#10b981]" />
-                <span className="text-xs text-[#10b981]">자막 파일이 등록되어 있습니다 (CC)</span>
+                <span className="text-xs text-[#10b981]">{t("productDetail.meta.subtitleAvailable")}</span>
               </div>
             )}
 
@@ -808,12 +811,12 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               <div className="flex flex-wrap gap-2 mb-6">
                 {product.category && (
                   <span className="px-3 py-1 bg-[#6366f1]/15 border border-[#6366f1]/30 rounded-full text-xs font-medium text-[#a78bfa]">
-                    {product.category}
+                    {getCategoryLabel(product.category, t)}
                   </span>
                 )}
                 {product.genre && (
                   <span className="px-3 py-1 bg-[#8b5cf6]/15 border border-[#8b5cf6]/30 rounded-full text-xs font-medium text-[#a78bfa]">
-                    {product.genre}
+                    {getCategoryLabel(product.genre, t)}
                   </span>
                 )}
               </div>
@@ -821,26 +824,26 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
 
             {/* License (단일 통합) */}
             <div className="mb-6">
-              <h3 className="mb-4">영상 라이선스 구매</h3>
+              <h3 className="mb-4">{t("productDetail.license.title")}</h3>
               <div className="p-5 rounded-lg border-2 border-[#6366f1] bg-[#6366f1]/5">
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
                   <div>
                     <p className="font-bold">All-in-One License</p>
-                    <p className="text-sm text-muted-foreground">유튜브·SNS·기업 마케팅·독점 사용권 모두 포함</p>
+                    <p className="text-sm text-muted-foreground">{t("productDetail.license.subtitle")}</p>
                   </div>
                   <p className="text-xl font-black text-[#6366f1]">₩{product.price.toLocaleString()}</p>
                 </div>
                 <ul className="space-y-2">
                   {[
-                    "유튜브, 인스타그램, 모든 SNS 게시물 사용 가능",
-                    "상업·기업 마케팅 용도 사용 가능",
-                    "독점 사용권 부여 (구매 시 마켓에서 즉시 판매 종료)",
-                    "구매자 명의의 팀·조직 내 자유 사용",
-                    "편집·변형 후 재배포 가능",
-                    "구매 완료 시 모든 라이선스 및 사용권이 구매자에게 영구 양도",
-                    "원본 영상 파일 제공",
-                    "라이선스 영구 유효 (사용 기간 제한 없음)",
-                    "표시 가격은 부가세(VAT) 포함",
+                    t("productDetail.license.item1"),
+                    t("productDetail.license.item2"),
+                    t("productDetail.license.item3"),
+                    t("productDetail.license.item4"),
+                    t("productDetail.license.item5"),
+                    t("productDetail.license.item6"),
+                    t("productDetail.license.item7"),
+                    t("productDetail.license.item8"),
+                    t("productDetail.license.item9"),
                   ].map((feature, idx) => (
                     <li key={idx} className="text-sm text-foreground/80 flex items-start gap-2">
                       <Check className="w-4 h-4 text-[#10b981] mt-0.5 flex-shrink-0" />
@@ -852,10 +855,10 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
 
               {/* 주의 사항 */}
               <div className="mt-4 p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                <p className="text-sm font-bold text-amber-200 mb-2">⚠️ 구매 전 안내</p>
+                <p className="text-sm font-bold text-amber-200 mb-2">{t("productDetail.license.purchaseWarning")}</p>
                 <ul className="space-y-1 text-xs text-amber-100/80 leading-relaxed">
-                  <li>• 영상 콘텐츠 특성상 구매 후 환불·반품이 불가능합니다</li>
-                  <li>• 결제 전 미리보기를 통해 충분히 확인해 주시기 바랍니다</li>
+                  <li>• {t("productDetail.license.purchaseWarning1")}</li>
+                  <li>• {t("productDetail.license.purchaseWarning2")}</li>
                 </ul>
               </div>
             </div>
@@ -863,7 +866,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
             {/* Product Description */}
             {product.description && (
               <div className="mb-6">
-                <h3 className="mb-3">상품 설명</h3>
+                <h3 className="mb-3">{t("productDetail.description")}</h3>
                 <div className="bg-card p-4 rounded-lg border border-border">
                   <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line">
                     {product.description}
@@ -875,7 +878,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
             {/* Tags */}
             {product.tags && product.tags.length > 0 && (
               <div className="mb-6">
-                <h3 className="mb-3">태그</h3>
+                <h3 className="mb-3">{t("productDetail.tags")}</h3>
                 <div className="flex flex-wrap gap-2">
                   {product.tags.map((tag, i) => (
                     <span
@@ -892,49 +895,49 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
             {/* 시네마 크레딧 */}
             {(product.director || product.writer || product.composer || product.castCredits || product.productionYear || product.language) && (
               <div className="mb-6">
-                <h3 className="mb-3">🎬 시네마 크레딧</h3>
+                <h3 className="mb-3">{t("productDetail.cinemaCredits")}</h3>
                 <div className="bg-card p-4 rounded-lg border border-border space-y-3">
                   <div className="grid grid-cols-2 gap-4">
                     {product.director && (
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">감독</p>
+                        <p className="text-xs text-muted-foreground mb-1">{t("productDetail.credits.director")}</p>
                         <p className="text-sm font-medium">{product.director}</p>
                       </div>
                     )}
                     {product.writer && (
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">각본</p>
+                        <p className="text-xs text-muted-foreground mb-1">{t("productDetail.credits.writer")}</p>
                         <p className="text-sm font-medium">{product.writer}</p>
                       </div>
                     )}
                     {product.composer && (
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">음악</p>
+                        <p className="text-xs text-muted-foreground mb-1">{t("productDetail.credits.music")}</p>
                         <p className="text-sm font-medium">{product.composer}</p>
                       </div>
                     )}
                     {product.productionYear && (
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">제작 연도</p>
+                        <p className="text-xs text-muted-foreground mb-1">{t("productDetail.credits.productionYear")}</p>
                         <p className="text-sm font-medium">{product.productionYear}</p>
                       </div>
                     )}
                     {product.language && (
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">언어</p>
+                        <p className="text-xs text-muted-foreground mb-1">{t("productDetail.credits.language")}</p>
                         <p className="text-sm font-medium">{product.language}</p>
                       </div>
                     )}
                     {product.subtitleLanguage && (
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">자막</p>
+                        <p className="text-xs text-muted-foreground mb-1">{t("productDetail.credits.subtitles")}</p>
                         <p className="text-sm font-medium">{product.subtitleLanguage}</p>
                       </div>
                     )}
                   </div>
                   {product.castCredits && (
                     <div className="pt-3 border-t border-border">
-                      <p className="text-xs text-muted-foreground mb-1">출연 / 가상 캐릭터</p>
+                      <p className="text-xs text-muted-foreground mb-1">{t("productDetail.credits.cast")}</p>
                       <p className="text-sm font-medium">{product.castCredits}</p>
                     </div>
                   )}
@@ -944,23 +947,23 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
 
             {/* AI 제작 상세 */}
             <div className="mb-6">
-              <h3 className="mb-3">🤖 AI 제작 상세</h3>
+              <h3 className="mb-3">{t("productDetail.aiProduction.title")}</h3>
               <div className="bg-card p-4 rounded-lg border border-border space-y-3">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1">사용된 AI 툴</p>
+                    <p className="text-xs text-muted-foreground mb-1">{t("productDetail.aiProduction.aiTools")}</p>
                     <p className="text-sm font-medium">{product.tool}</p>
                   </div>
                   {product.aiModelVersion && (
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">모델 버전</p>
+                      <p className="text-xs text-muted-foreground mb-1">{t("productDetail.aiProduction.modelVersion")}</p>
                       <p className="text-sm font-medium">{product.aiModelVersion}</p>
                     </div>
                   )}
                 </div>
                 {product.prompt && (
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1">사용한 프롬프트</p>
+                    <p className="text-xs text-muted-foreground mb-1">{t("productDetail.aiProduction.prompt")}</p>
                     <p className="text-xs font-mono bg-background/50 p-2 rounded leading-relaxed text-foreground/80 whitespace-pre-wrap">
                       {product.prompt}
                     </p>
@@ -968,7 +971,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                 )}
                 {product.seed && (
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1">시드값 (재현·저작권 증거)</p>
+                    <p className="text-xs text-muted-foreground mb-1">{t("productDetail.aiProduction.seed")}</p>
                     <p className="text-xs font-mono bg-background/50 p-2 rounded text-foreground/80">
                       {product.seed}
                     </p>
@@ -976,7 +979,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                 )}
                 <div className="flex items-center gap-2 text-xs text-[#10b981] pt-2 border-t border-border">
                   <Check className="w-4 h-4" />
-                  <span>저작권 확인 완료 • 상업적 이용 가능</span>
+                  <span>{t("productDetail.aiProduction.copyrightConfirmed")}</span>
                 </div>
               </div>
             </div>
@@ -992,7 +995,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               onClick={handleToggleLike}
               disabled={likeBusy}
               className="flex flex-col items-center"
-              aria-label="좋아요"
+              aria-label={t("common.like")}
             >
               <div
                 className={`w-10 h-10 rounded-full backdrop-blur-xl flex items-center justify-center border-2 transition-all ${
@@ -1015,7 +1018,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
               onClick={() => setShowComments(!showComments)}
               className="flex flex-col items-center"
-              aria-label="댓글"
+              aria-label={t("common.comment")}
             >
               <div className={`w-10 h-10 rounded-full backdrop-blur-xl border-2 flex items-center justify-center transition-all ${
                 showComments
@@ -1032,7 +1035,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               whileHover={{ rotate: 15 }}
               onClick={handleShare}
               className="flex flex-col items-center"
-              aria-label="공유"
+              aria-label={t("common.share")}
             >
               <div className="w-10 h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.4)]">
                 <Send className="w-[18px] h-[18px] text-foreground -rotate-12" strokeWidth={1.8} />
@@ -1050,8 +1053,8 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                 setPlaylistOpen(true);
               }}
               className="flex flex-col items-center"
-              aria-label="플레이리스트에 저장"
-              title="플레이리스트에 저장 / 나중에 보기"
+              aria-label={t("productDetail.action.saveAriaLabel")}
+              title={t("productDetail.action.saveTitle")}
             >
               <div className={`w-10 h-10 rounded-full backdrop-blur-xl border-2 flex items-center justify-center transition-all ${
                 isSaved
@@ -1070,8 +1073,8 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               whileTap={{ scale: 0.85 }}
               onClick={() => setReportOpen(true)}
               className="flex flex-col items-center"
-              aria-label="신고"
-              title="이 영상 신고"
+              aria-label={t("common.report")}
+              title={t("productDetail.action.reportTitle")}
             >
               <div className="w-10 h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center hover:bg-red-500/20 hover:border-red-400/60 transition-colors">
                 <Flag className="w-[18px] h-[18px] text-foreground" strokeWidth={1.8} />
@@ -1080,7 +1083,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
 
             <div className="flex-1" />
             <div className="text-right">
-              <p className="text-xs text-muted-foreground">All-in-One 라이선스</p>
+              <p className="text-xs text-muted-foreground">{t("productDetail.cart.allInOneLicense")}</p>
               <p className="text-2xl font-medium text-[#6366f1]">₩{product.price.toLocaleString()}</p>
             </div>
           </div>
@@ -1094,12 +1097,12 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               {addedToCart ? (
                 <>
                   <Check className="w-5 h-5" />
-                  담김
+                  {t("productDetail.cart.added")}
                 </>
               ) : (
                 <>
                   <ShoppingCart className="w-5 h-5" />
-                  장바구니
+                  {t("productDetail.cart.addToCart")}
                 </>
               )}
             </Button>
@@ -1111,12 +1114,12 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               {buyingLicense ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  결제창 열기
+                  {t("productDetail.cart.openPayment")}
                 </>
               ) : (
                 <>
                   <Download className="w-5 h-5" />
-                  구매하기
+                  {t("productDetail.cart.purchase")}
                 </>
               )}
             </Button>
@@ -1226,14 +1229,14 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
           <div className="w-16 h-16 rounded-2xl bg-red-600 flex items-center justify-center mb-4">
             <Lock className="w-8 h-8 text-white" />
           </div>
-          <h3 className="text-xl font-black text-white mb-2">19+ 콘텐츠</h3>
-          <p className="text-sm text-gray-400 mb-6 max-w-xs">이 영상은 만 19세 이상만 시청할 수 있습니다. 본인 인증을 진행해 주세요.</p>
+          <h3 className="text-xl font-black text-white mb-2">{t("productDetail.ageGate.title")}</h3>
+          <p className="text-sm text-gray-400 mb-6 max-w-xs">{t("productDetail.ageGate.description")}</p>
           <div className="flex gap-2">
             <Button onClick={onClose} variant="outline" className="bg-white/5 text-gray-300 border-white/10 hover:bg-white/10">
-              돌아가기
+              {t("productDetail.ageGate.back")}
             </Button>
             <Button onClick={() => setAgeGateOpen(true)} className="bg-red-600 hover:bg-red-700 text-white font-bold gap-2">
-              <Lock className="w-4 h-4" /> 본인 인증
+              <Lock className="w-4 h-4" /> {t("productDetail.ageGate.verify")}
             </Button>
           </div>
         </div>

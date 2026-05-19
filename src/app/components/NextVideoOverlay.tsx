@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Play, X, SkipForward } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface SimilarVideo {
   id: string;
@@ -32,6 +33,7 @@ export function NextVideoOverlay({
   onPlayNow,
   onCancel,
 }: NextVideoOverlayProps) {
+  const { t } = useTranslation();
   const [remaining, setRemaining] = useState(countdownSeconds);
 
   useEffect(() => {
@@ -95,13 +97,13 @@ export function NextVideoOverlay({
             <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
               <div className="flex items-center gap-1.5">
                 <SkipForward className="w-3.5 h-3.5 text-[#8b5cf6]" />
-                <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider">다음 영상</span>
-                <span className="text-[10px] font-black text-[#ec4899]">· {remaining}초</span>
+                <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider">{t("nextVideo.label")}</span>
+                <span className="text-[10px] font-black text-[#ec4899]">{t("nextVideo.countdownSuffix", { seconds: remaining })}</span>
               </div>
               <button
                 onClick={onCancel}
                 className="p-1 rounded-md hover:bg-white/10 text-white/60 hover:text-white transition-colors"
-                title="자동재생 취소 (Esc)"
+                title={t("nextVideo.cancelAutoplayTitle")}
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -113,7 +115,7 @@ export function NextVideoOverlay({
               <button
                 onClick={onPlayNow}
                 className="relative flex-shrink-0 w-28 aspect-video bg-black overflow-hidden rounded-lg group"
-                title="지금 재생 (N키)"
+                title={t("nextVideo.playNowTitle")}
               >
                 {nextVideo.thumbnail ? (
                   <img
@@ -151,14 +153,14 @@ export function NextVideoOverlay({
                     onClick={onCancel}
                     className="flex-1 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[11px] font-bold transition-colors"
                   >
-                    취소
+                    {t("nextVideo.cancel")}
                   </button>
                   <button
                     onClick={onPlayNow}
                     className="flex-1 py-1.5 rounded-lg bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#ec4899] hover:opacity-90 text-white text-[11px] font-bold flex items-center justify-center gap-1"
                   >
                     <Play className="w-3 h-3 fill-white" />
-                    재생
+                    {t("nextVideo.playNow")}
                   </button>
                 </div>
               </div>

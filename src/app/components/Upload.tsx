@@ -21,6 +21,8 @@ import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase, supabaseAnonKey, supabaseUrl } from "../utils/supabaseClient";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import { getCategoryLabel, getAiToolLabel, getLanguageLabel } from "../i18n/categoryLabels";
 
 const aiTools = ["Sora", "Runway Gen-3", "Runway Gen-2", "Pika Labs", "Luma Dream Machine", "Kling AI", "기타"];
 const categories = ["AI영화", "AI드라마", "AI애니메이션", "AI다큐멘터리", "AI뮤직비디오", "SF", "액션", "로맨스", "공포", "판타지", "드라마", "코미디", "자연/풍경", "추상", "기타"];
@@ -34,6 +36,7 @@ interface UploadProps {
 }
 
 export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
+  const { t } = useTranslation();
   const { user, accessToken } = useAuth();
   const [step, setStep] = useState(1);
   const [uploadMethod, setUploadMethod] = useState<"single" | "bulk" | null>(null);
@@ -114,11 +117,11 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     const trimmed = tag.trim();
     if (!trimmed) return;
     if (tagsList.includes(trimmed)) {
-      toast.info("이미 추가된 태그입니다.");
+      toast.info(t("upload.toast.alreadyTag"));
       return;
     }
     if (tagsList.length >= 10) {
-      toast.warning("태그는 최대 10개까지 추가할 수 있습니다.");
+      toast.warning(t("upload.toast.maxTagsReached"));
       return;
     }
     setFormData((prev) => ({ ...prev, tags: [...tagsList, trimmed].join(",") }));
@@ -163,10 +166,10 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
         return;
       }
 
-      toast.info("이전에 작성하던 업로드가 있습니다.", {
-        description: `${new Date(draft.savedAt).toLocaleString()} 자동 저장됨`,
+      toast.info(t("upload.draftFoundTitle"), {
+        description: t("upload.draftFoundDesc", { time: new Date(draft.savedAt).toLocaleString() }),
         action: {
-          label: "이어 작성",
+          label: t("upload.draftContinue"),
           onClick: () => {
             setStep(draft.step || 1);
             setUploadMethod(draft.uploadMethod || null);
@@ -217,10 +220,10 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
   };
 
   const formatTime = (seconds: number): string => {
-    if (!seconds || !isFinite(seconds) || seconds < 0) return "계산 중...";
-    if (seconds < 60) return `${Math.round(seconds)}초`;
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}분 ${Math.round(seconds % 60)}초`;
-    return `${Math.floor(seconds / 3600)}시간 ${Math.floor((seconds % 3600) / 60)}분`;
+    if (!seconds || !isFinite(seconds) || seconds < 0) return t("upload.toast.calculating");
+    if (seconds < 60) return t("upload.toast.secondsShort", { n: Math.round(seconds) });
+    if (seconds < 3600) return t("upload.toast.minutesSeconds", { m: Math.floor(seconds / 60), s: Math.round(seconds % 60) });
+    return t("upload.toast.hoursMinutes", { h: Math.floor(seconds / 3600), m: Math.floor((seconds % 3600) / 60) });
   };
 
   // 영상 타임스탬프 (mm:ss.s) — 하이라이트 구간 표시용
@@ -243,14 +246,14 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
 
     if (!validMimeTypes.includes(file.type) && !hasValidExtension) {
-      toast.error('지원하지 않는 파일 형식입니다. MP4, MOV, AVI 파일만 업로드 가능합니다.');
+      toast.error(t("upload.toast.unsupportedFile"));
       return;
     }
 
     // 파일 크기 검증 (5GB)
     const maxSize = 5 * 1024 * 1024 * 1024;
     if (file.size > maxSize) {
-      toast.error('파일 크기가 5GB를 초과합니다.');
+      toast.error(t("upload.toast.fileTooLarge"));
       return;
     }
 
@@ -306,7 +309,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
 
       setFormData(prev => ({ ...prev, duration: formattedDuration, resolution }));
       setForceUpdate(prev => prev + 1);
-      toast.success(`영상 정보: ${resolution}, ${formattedDuration}`);
+      toast.success(t("upload.toast.videoInfo", { resolution, duration: formattedDuration }));
 
       // 2.5. 하이라이트 기본 구간 설정 (영상 중간 15초)
       setVideoDurationSec(duration);
@@ -368,7 +371,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     video.onerror = () => {
       clearTimeout(cleanupTimeout);
       URL.revokeObjectURL(objectUrl);
-      toast.warning('동영상 정보를 자동으로 가져오지 못했습니다. 직접 입력해 주세요.');
+      toast.warning(t("upload.toast.videoInfoFailed"));
     };
   };
 
@@ -377,11 +380,11 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      toast.error('이미지 파일만 업로드 가능합니다.');
+      toast.error(t("upload.toast.imageOnly"));
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('썸네일은 5MB 이하만 가능합니다.');
+      toast.error(t("upload.toast.thumbnailTooLarge"));
       return;
     }
     const reader = new FileReader();
@@ -402,15 +405,15 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mx-auto mb-6 flex items-center justify-center">
             <UploadIcon className="w-10 h-10 text-white" />
           </div>
-          <h2 className="text-2xl mb-3">로그인이 필요합니다</h2>
+          <h2 className="text-2xl mb-3">{t("upload.loginRequiredTitle")}</h2>
           <p className="text-muted-foreground mb-6">
-            영상을 업로드하고 마켓에 등록하려면 먼저 로그인해주세요.
+            {t("upload.loginRequiredHint")}
           </p>
-          <Button 
+          <Button
             onClick={onSignInClick}
             className="w-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] py-6 text-lg"
           >
-            로그인 / 회원가입
+            {t("upload.signInButton")}
           </Button>
         </div>
       </div>
@@ -541,11 +544,11 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!agreedToTerms) {
-      toast.error('저작권 서약에 동의해 주세요.');
+      toast.error(t("upload.toast.copyrightRequired"));
       return;
     }
     if (!selectedFile) {
-      toast.error('파일을 선택해주세요.');
+      toast.error(t("upload.toast.fileRequired"));
       return;
     }
     setShowPreview(true);
@@ -556,12 +559,12 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     setShowPreview(false);
 
     if (!user || !accessToken) {
-      toast.error('로그인이 필요합니다.');
+      toast.error(t("upload.toast.loginRequired"));
       return;
     }
 
     if (!selectedFile) {
-      toast.error('파일을 선택해주세요.');
+      toast.error(t("upload.toast.fileRequired"));
       return;
     }
 
@@ -577,7 +580,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
       
       if (!currentToken) {
         console.error('No current token found');
-        throw new Error('인증 토큰을 찾을 수 없습니다. 다시 로그인해 주세요.');
+        throw new Error(t("upload.toast.tokenMissing"));
       }
 
       const publicAnonKey = supabaseAnonKey;
@@ -609,7 +612,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
       if (!createResponse.ok) {
         const errorData = await createResponse.json().catch(() => ({}));
         console.error('Video creation failed:', errorData);
-        toast.error(`업로드 서버 오류: ${errorData.error || createResponse.statusText}`);
+        toast.error(t("upload.toast.uploadServerError", { message: errorData.error || createResponse.statusText }));
         throw new Error(errorData.error || `Failed to create video (${createResponse.status})`);
       }
 
@@ -628,13 +631,13 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
       // 실패해도 Bunny 자동 썸네일이 폴백되므로 치명적이지 않음
       if (selectedThumbnail) {
         console.log('Setting custom thumbnail on Bunny...');
-        toast.info('썸네일 처리 중...');
+        toast.info(t("upload.toast.thumbnailProcessing"));
         try {
           await setBunnyThumbnail(videoId, libraryId, serverApiKey, selectedThumbnail);
           console.log('Custom thumbnail set successfully');
         } catch (thumbErr) {
           console.warn('Thumbnail upload failed, falling back to Bunny default:', thumbErr);
-          toast.warning('썸네일 업로드 실패 — 자동 생성 썸네일이 사용됩니다.');
+          toast.warning(t("upload.toast.thumbnailUploadFailed"));
         }
       }
 
@@ -699,15 +702,15 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
       if (!saveResponse.ok) {
         const errorData = await saveResponse.json().catch(() => ({}));
         console.error('Metadata saving failed:', errorData);
-        throw new Error(errorData.error || `데이터 저장 실패 (${saveResponse.status})`);
+        throw new Error(errorData.error || t("upload.toast.saveError", { status: saveResponse.status }));
       }
 
       console.log('Metadata saved successfully via Edge Function');
       setUploadComplete(true);
-      toast.success('영상이 성공적으로 업로드되었습니다!');
+      toast.success(t("upload.toast.uploadSuccess"));
     } catch (error: any) {
       console.error('Upload error:', error);
-      toast.error(error.message || '업로드 중 오류가 발생했습니다.');
+      toast.error(error.message || t("upload.toast.uploadError"));
     } finally {
       setIsUploading(false);
     }
@@ -777,25 +780,25 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mx-auto mb-6 flex items-center justify-center">
             <CheckCircle2 className="w-10 h-10 text-white" />
           </div>
-          <h2 className="text-2xl mb-3">업로드 완료!</h2>
+          <h2 className="text-2xl mb-3">{t("upload.uploadSuccessTitle")}</h2>
           <p className="text-muted-foreground mb-6">
-            영상이 성공적으로 등록되었습니다.<br />
-            현재 AI가 홈 피드를 위한 <strong>최적의 하이라이트 구간</strong>을 분석하고 있습니다.<br />
-            분석이 완료되면 마켓과 홈 피드에 자동으로 게시됩니다.
+            {t("upload.uploadSuccessHint1")}<br />
+            {t("upload.uploadSuccessHint2")}<br />
+            {t("upload.uploadSuccessHint3")}
           </p>
           <div className="flex gap-3">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={resetForm}
               className="flex-1"
             >
-              계속 업로드
+              {t("upload.continueUpload")}
             </Button>
-            <Button 
+            <Button
               className="flex-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
               onClick={onViewMyProducts}
             >
-              내 상품 보기
+              {t("upload.viewMyProducts")}
             </Button>
           </div>
         </motion.div>
@@ -808,8 +811,8 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
       <div className="h-full flex items-center justify-center bg-background p-6">
         <div className="max-w-2xl w-full mx-auto">
           <div className="text-center mb-8">
-            <h2 className="text-2xl mb-2">영상 업로드</h2>
-            <p className="text-muted-foreground">업로드 방식을 선택하세요</p>
+            <h2 className="text-2xl mb-2">{t("upload.modeTitle")}</h2>
+            <p className="text-muted-foreground">{t("upload.modeSubtitle")}</p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
@@ -822,9 +825,9 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 flex items-center justify-center group-hover:scale-110 transition-transform">
                 <Video className="w-6 h-6 text-white" />
               </div>
-              <h3 className="text-lg mb-2">단건 업로드</h3>
+              <h3 className="text-lg mb-2">{t("upload.modeSingle")}</h3>
               <p className="text-sm text-muted-foreground">
-                한 개의 영상을 상세 정보와 함께 등록합니다
+                {t("upload.modeSingleDesc")}
               </p>
             </motion.button>
 
@@ -837,9 +840,9 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#3b82f6] mb-4 flex items-center justify-center group-hover:scale-110 transition-transform">
                 <FileText className="w-6 h-6 text-white" />
               </div>
-              <h3 className="text-lg mb-2">대량 업로드</h3>
+              <h3 className="text-lg mb-2">{t("upload.modeBulk")}</h3>
               <p className="text-sm text-muted-foreground">
-                CSV 파일로 여러 영상을 한번에 등록합니다
+                {t("upload.modeBulkDesc")}
               </p>
             </motion.button>
           </div>
@@ -856,30 +859,30 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
             onClick={() => setUploadMethod(null)}
             className="text-muted-foreground mb-4 hover:text-foreground"
           >
-            ← 뒤로
+            {t("upload.back")}
           </button>
 
-          <h2 className="text-2xl mb-6">대량 업로드</h2>
+          <h2 className="text-2xl mb-6">{t("upload.bulkTitle")}</h2>
 
           <div className="space-y-6">
             <div className="p-6 border-2 border-dashed border-border rounded-lg text-center">
               <UploadIcon className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="mb-2">CSV 템플릿을 다운로드하고 작성해주세요</p>
+              <p className="mb-2">{t("upload.bulkCsvHint")}</p>
               <Button variant="outline" className="mb-4">
-                템플릿 다운로드
+                {t("upload.downloadTemplate")}
               </Button>
-              <p className="text-sm text-muted-foreground mb-4">또는</p>
+              <p className="text-sm text-muted-foreground mb-4">{t("upload.or")}</p>
               <Button className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]">
-                작성한 CSV 업로드
+                {t("upload.uploadCsv")}
               </Button>
             </div>
 
             <div className="bg-card p-6 rounded-lg border border-border">
-              <h3 className="mb-4">CSV 파일 작성 가이드</h3>
+              <h3 className="mb-4">{t("upload.csvGuideTitle")}</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>• 파일명, 제목, 설명, 카테고리, AI 툴, 해상도, 길이 필수 입력</li>
-                <li>• 가격은 Standard, Commercial, Exclusive 순서로 입력</li>
-                <li>• 태그는 쉼표(,)로 구분하여 입력</li>
+                <li>• {t("upload.csvGuide1")}</li>
+                <li>• {t("upload.csvGuide2")}</li>
+                <li>• {t("upload.csvGuide3")}</li>
               </ul>
             </div>
           </div>
@@ -926,9 +929,9 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
           </div>
           <div className="absolute top-4 right-4 z-50 pointer-events-none opacity-20 text-[8px] text-white">v1.1.1-final</div>
           <div className="flex justify-between text-sm text-muted-foreground">
-            <span>파일 업로드</span>
-            <span>상품 정보</span>
-            <span>가격 설정</span>
+            <span>{t("upload.stepFileUpload")}</span>
+            <span>{t("upload.stepProductInfo")}</span>
+            <span>{t("upload.stepPricing")}</span>
           </div>
         </div>
 
@@ -952,14 +955,14 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                   <>
                     <p className="mb-2 text-[#6366f1] font-medium">{selectedFile.name}</p>
                     <p className="text-sm text-muted-foreground mb-4">
-                      크기: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      {t("upload.fileSize", { size: (selectedFile.size / 1024 / 1024).toFixed(2) })}
                     </p>
                   </>
                 ) : (
                   <>
-                    <p className="mb-2">영상 파일을 드래그하거나 클릭하여 업로드</p>
+                    <p className="mb-2">{t("upload.dragOrClickPrompt")}</p>
                     <p className="text-sm text-muted-foreground mb-4">
-                      지원 형식: MP4, MOV, AVI (최대 5GB)
+                      {t("upload.supportedFormats")}
                     </p>
                   </>
                 )}
@@ -971,7 +974,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                   }}
                   className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
                 >
-                  {selectedFile ? '다른 파일 선택' : '파일 선택'}
+                  {selectedFile ? t("upload.selectAnotherFile") : t("upload.selectFile")}
                 </Button>
               </div>
 
@@ -979,9 +982,9 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
               {selectedFile && thumbnailOptions.length > 0 && (
                 <div className="bg-card p-4 rounded-lg border border-border">
                   <Label className="mb-3 block">
-                    썸네일 선택{" "}
+                    {t("upload.thumbnailSelect")}{" "}
                     <span className="text-xs text-muted-foreground font-normal">
-                      (홈 피드/마켓에 표시될 대표 이미지)
+                      {t("upload.thumbnailSelectHint")}
                     </span>
                   </Label>
 
@@ -1003,9 +1006,9 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                               : "border-border hover:border-[#6366f1]/50"
                           }`}
                         >
-                          <img src={frame} alt={`프레임 ${i + 1}`} className="w-full h-full object-cover" />
+                          <img src={frame} alt={`frame ${i + 1}`} className="w-full h-full object-cover" />
                           <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-white text-[10px] font-medium">
-                            {["시작", "중간", "마지막"][i] || `${i + 1}`}
+                            {[t("upload.frameStart"), t("upload.frameMiddle"), t("upload.frameEnd")][i] || `${i + 1}`}
                           </span>
                           {isSelected && (
                             <span className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-[#6366f1] flex items-center justify-center">
@@ -1035,7 +1038,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                     }`}
                   >
                     <ImagePlus className="w-4 h-4" />
-                    {customThumbnail ? "커스텀 썸네일 변경" : "커스텀 이미지 업로드"}
+                    {customThumbnail ? t("upload.customThumbnailChange") : t("upload.customThumbnailButton")}
                   </button>
 
                   {customThumbnail && (
@@ -1050,13 +1053,13 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
               {selectedFile && videoDurationSec > 0 && fileObjectUrlRef.current && (
                 <div className="bg-card p-4 rounded-lg border border-border">
                   <Label className="mb-1 block">
-                    하이라이트 구간{" "}
+                    {t("upload.highlightTitle")}{" "}
                     <span className="text-xs text-muted-foreground font-normal">
-                      (홈 피드/큐레이션에 노출될 5~30초)
+                      {t("upload.highlightHint")}
                     </span>
                   </Label>
                   <p className="text-xs text-muted-foreground mb-3">
-                    홈 피드와 큐레이션 행에서 자동 재생되는 미리보기 구간을 직접 정하세요. 영상의 가장 인상적인 부분을 선택하면 클릭률이 올라갑니다.
+                    {t("upload.highlightDescription")}
                   </p>
 
                   {/* 미리보기 비디오 (드래그 시 시작 시점 프레임 표시) */}
@@ -1102,13 +1105,13 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
 
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">
-                      시작 <span className="text-white font-semibold">{formatSeconds(highlight.start)}</span>
+                      {t("upload.highlightStart")} <span className="text-white font-semibold">{formatSeconds(highlight.start)}</span>
                     </span>
                     <span className="px-2 py-1 rounded bg-[#6366f1]/15 text-[#a78bfa] font-bold">
-                      {(highlight.end - highlight.start).toFixed(1)}초
+                      {(highlight.end - highlight.start).toFixed(1)}{t("upload.secondsSuffix")}
                     </span>
                     <span className="text-muted-foreground">
-                      종료 <span className="text-white font-semibold">{formatSeconds(highlight.end)}</span>
+                      {t("upload.highlightEnd")} <span className="text-white font-semibold">{formatSeconds(highlight.end)}</span>
                     </span>
                   </div>
 
@@ -1129,15 +1132,14 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                     }}
                     className="mt-3 w-full py-2 px-4 rounded-md border border-[#6366f1]/40 bg-[#6366f1]/10 hover:bg-[#6366f1]/20 text-[#a78bfa] text-sm font-medium transition-colors"
                   >
-                    ▶ 선택 구간 미리보기 재생
+                    {t("upload.previewHighlight")}
                   </button>
                 </div>
               )}
 
               <div className="bg-card p-4 rounded-lg border border-border">
                 <p className="text-sm text-muted-foreground">
-                  ℹ️ 업로드된 영상에는 자동으로 CREAITE 워터마크가 삽입됩니다.
-                  구매자는 결제 후 워터마크가 제거된 원본을 다운로드할 수 있습니다.
+                  {t("upload.watermarkNotice")}
                 </p>
               </div>
 
@@ -1147,7 +1149,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                 disabled={!selectedFile}
                 className="w-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] disabled:opacity-50"
               >
-                다음
+                {t("upload.next")}
               </Button>
             </div>
           )}
@@ -1156,7 +1158,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
             <div className="space-y-6">
               <div>
                 <div className="flex items-baseline justify-between mb-2">
-                  <Label htmlFor="title">영상 제목 *</Label>
+                  <Label htmlFor="title">{t("upload.titleLabel")}</Label>
                   <span className={`text-xs ${formData.title.length > 50 ? "text-amber-400" : "text-muted-foreground"}`}>
                     {formData.title.length}/60
                   </span>
@@ -1165,7 +1167,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                   id="title"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="예: 우주를 여행하는 코스믹 저니 — 4K 시네마틱"
+                  placeholder={t("upload.titlePlaceholder")}
                   className="bg-card"
                   maxLength={60}
                   required
@@ -1174,7 +1176,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
 
               <div>
                 <div className="flex items-baseline justify-between mb-2">
-                  <Label htmlFor="description">상품 설명 *</Label>
+                  <Label htmlFor="description">{t("upload.descriptionLabel")}</Label>
                   <span className={`text-xs ${formData.description.length > 450 ? "text-amber-400" : "text-muted-foreground"}`}>
                     {formData.description.length}/500
                   </span>
@@ -1183,7 +1185,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="영상의 특징, 분위기, 활용 가능한 용도, 사용된 AI 툴/기법 등을 자세히 설명해주세요. 잘 작성된 설명은 검색·추천에 도움이 됩니다."
+                  placeholder={t("upload.descriptionPlaceholder")}
                   rows={6}
                   className="bg-card resize-y"
                   maxLength={500}
@@ -1193,7 +1195,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="category" className="mb-2 block">카테고리 *</Label>
+                  <Label htmlFor="category" className="mb-2 block">{t("upload.categoryLabel")}</Label>
                   <select
                     id="category"
                     value={formData.category}
@@ -1201,15 +1203,15 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                     className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm"
                     required
                   >
-                    <option value="">선택</option>
+                    <option value="">{t("upload.selectOption")}</option>
                     {categories.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
+                      <option key={cat} value={cat}>{getCategoryLabel(cat, t)}</option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <Label htmlFor="genre" className="mb-2 block">장르 *</Label>
+                  <Label htmlFor="genre" className="mb-2 block">{t("upload.genreLabel")}</Label>
                   <select
                     id="genre"
                     value={formData.genre}
@@ -1217,9 +1219,9 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                     className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm"
                     required
                   >
-                    <option value="">선택</option>
+                    <option value="">{t("upload.selectOption")}</option>
                     {genres.map(genre => (
-                      <option key={genre} value={genre}>{genre}</option>
+                      <option key={genre} value={genre}>{getCategoryLabel(genre, t)}</option>
                     ))}
                   </select>
                 </div>
@@ -1227,7 +1229,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="aiTool" className="mb-2 block">사용 AI 툴 *</Label>
+                  <Label htmlFor="aiTool" className="mb-2 block">{t("upload.aiToolLabel")}</Label>
                   <select
                     id="aiTool"
                     value={formData.aiTool}
@@ -1235,21 +1237,21 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                     className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm"
                     required
                   >
-                    <option value="">선택</option>
+                    <option value="">{t("upload.selectOption")}</option>
                     {aiTools.map(tool => (
-                      <option key={tool} value={tool}>{tool}</option>
+                      <option key={tool} value={tool}>{getAiToolLabel(tool, t)}</option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <Label htmlFor="aiModelVersion" className="mb-2 block">
-                    모델 버전 <span className="text-xs text-muted-foreground font-normal">(선택)</span>
+                    {t("upload.modelVersionLabel")} <span className="text-xs text-muted-foreground font-normal">{t("upload.modelVersionOptional")}</span>
                   </Label>
                   <Input
                     id="aiModelVersion"
                     value={formData.aiModelVersion}
                     onChange={(e) => setFormData({ ...formData, aiModelVersion: e.target.value })}
-                    placeholder="예: v2.1, Turbo"
+                    placeholder={t("upload.modelVersionPlaceholder")}
                     className="bg-card"
                     maxLength={30}
                   />
@@ -1258,7 +1260,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="resolution" className="mb-2 block">해상도 *</Label>
+                  <Label htmlFor="resolution" className="mb-2 block">{t("upload.resolutionLabel")}</Label>
                   <select
                     key={`resolution-${forceUpdate}`}
                     id="resolution"
@@ -1267,7 +1269,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                     className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm"
                     required
                   >
-                    <option value="">선택</option>
+                    <option value="">{t("upload.selectOption")}</option>
                     {resolutions.map(res => (
                       <option key={res} value={res}>{res}</option>
                     ))}
@@ -1275,12 +1277,12 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="duration" className="mb-2 block">영상 길이 *</Label>
+                  <Label htmlFor="duration" className="mb-2 block">{t("upload.durationLabel")}</Label>
                   <Input
                     id="duration"
                     value={formData.duration}
                     onChange={(e) => setFormData({...formData, duration: e.target.value})}
-                    placeholder="예: 0:15"
+                    placeholder={t("upload.durationPlaceholder")}
                     className="bg-card"
                     required
                   />
@@ -1292,17 +1294,17 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                 <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between hover:bg-card transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="text-base">🤖</span>
-                    <span className="font-semibold">AI 제작 증빙</span>
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-[#6366f1]/15 text-[#a78bfa]">선택</span>
+                    <span className="font-semibold">{t("upload.aiProofHeader")}</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-[#6366f1]/15 text-[#a78bfa]">{t("upload.optionalBadge")}</span>
                   </div>
                   <span className="text-xs text-muted-foreground group-open:rotate-180 transition-transform">▾</span>
                 </summary>
                 <div className="px-4 pb-4 space-y-4 border-t border-border">
                   <p className="text-xs text-muted-foreground pt-3">
-                    AI 제작 증빙은 저작권 분쟁 시 강력한 증거가 되며, 다른 크리에이터에게 영감을 줍니다.
+                    {t("upload.aiProofDescription")}
                   </p>
                   <div>
-                    <Label htmlFor="prompt" className="mb-2 block text-sm">사용한 프롬프트</Label>
+                    <Label htmlFor="prompt" className="mb-2 block text-sm">{t("upload.promptLabel")}</Label>
                     <Textarea
                       id="prompt"
                       value={formData.prompt}
@@ -1315,19 +1317,18 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                   </div>
                   <div>
                     <Label htmlFor="seed" className="mb-2 block text-sm">
-                      시드값 <span className="text-xs text-muted-foreground font-normal">(모르면 비워두세요)</span>
+                      {t("upload.seedLabel")} <span className="text-xs text-muted-foreground font-normal">{t("upload.seedOptionalHint")}</span>
                     </Label>
                     <Input
                       id="seed"
                       value={formData.seed}
                       onChange={(e) => setFormData({ ...formData, seed: e.target.value })}
-                      placeholder="예: 1234567890"
+                      placeholder={t("upload.seedPlaceholder")}
                       className="bg-background"
                       maxLength={50}
                     />
                     <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
-                      AI 툴이 알려준 고유 번호. 같은 영상을 다시 만들거나, 저작권 분쟁 시
-                      "내가 원작자"임을 증명하는 강력한 증거가 됩니다.
+                      {t("upload.seedDescription")}
                     </p>
                   </div>
                 </div>
@@ -1338,34 +1339,34 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                 <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between hover:bg-card transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="text-base">🎬</span>
-                    <span className="font-semibold">시네마 메타데이터</span>
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-[#6366f1]/15 text-[#a78bfa]">선택</span>
+                    <span className="font-semibold">{t("upload.cinemaMetaHeader")}</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-[#6366f1]/15 text-[#a78bfa]">{t("upload.optionalBadge")}</span>
                   </div>
                   <span className="text-xs text-muted-foreground group-open:rotate-180 transition-transform">▾</span>
                 </summary>
                 <div className="px-4 pb-4 space-y-4 border-t border-border">
                   <p className="text-xs text-muted-foreground pt-3">
-                    영화 크레딧처럼 작품 정보를 기록하세요. 작품 페이지에 영화 같은 디테일이 추가됩니다.
+                    {t("upload.cinemaMetaDescription")}
                   </p>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="director" className="mb-2 block text-sm">감독</Label>
+                      <Label htmlFor="director" className="mb-2 block text-sm">{t("upload.directorLabel")}</Label>
                       <Input
                         id="director"
                         value={formData.director}
                         onChange={(e) => setFormData({ ...formData, director: e.target.value })}
-                        placeholder="예: 홍길동"
+                        placeholder={t("upload.directorPlaceholder")}
                         className="bg-background"
                         maxLength={50}
                       />
                     </div>
                     <div>
-                      <Label htmlFor="writer" className="mb-2 block text-sm">각본</Label>
+                      <Label htmlFor="writer" className="mb-2 block text-sm">{t("upload.writerLabel")}</Label>
                       <Input
                         id="writer"
                         value={formData.writer}
                         onChange={(e) => setFormData({ ...formData, writer: e.target.value })}
-                        placeholder="예: 김작가"
+                        placeholder={t("upload.writerPlaceholder")}
                         className="bg-background"
                         maxLength={50}
                       />
@@ -1373,18 +1374,18 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="composer" className="mb-2 block text-sm">음악</Label>
+                      <Label htmlFor="composer" className="mb-2 block text-sm">{t("upload.composerLabel")}</Label>
                       <Input
                         id="composer"
                         value={formData.composer}
                         onChange={(e) => setFormData({ ...formData, composer: e.target.value })}
-                        placeholder="예: AI Suno v3"
+                        placeholder={t("upload.composerPlaceholder")}
                         className="bg-background"
                         maxLength={50}
                       />
                     </div>
                     <div>
-                      <Label htmlFor="productionYear" className="mb-2 block text-sm">제작 연도</Label>
+                      <Label htmlFor="productionYear" className="mb-2 block text-sm">{t("upload.productionYearLabel")}</Label>
                       <Input
                         id="productionYear"
                         type="number"
@@ -1398,39 +1399,39 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="cast" className="mb-2 block text-sm">출연 / 가상 캐릭터</Label>
+                    <Label htmlFor="cast" className="mb-2 block text-sm">{t("upload.castLabel")}</Label>
                     <Input
                       id="cast"
                       value={formData.cast}
                       onChange={(e) => setFormData({ ...formData, cast: e.target.value })}
-                      placeholder="예: Aria, Captain Voss (콤마로 구분)"
+                      placeholder={t("upload.castPlaceholder")}
                       className="bg-background"
                       maxLength={200}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="language" className="mb-2 block text-sm">언어</Label>
+                      <Label htmlFor="language" className="mb-2 block text-sm">{t("upload.languageLabel")}</Label>
                       <select
                         id="language"
                         value={formData.language}
                         onChange={(e) => setFormData({ ...formData, language: e.target.value })}
                         className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
                       >
-                        <option value="">선택</option>
-                        {languages.map((l) => <option key={l} value={l}>{l}</option>)}
+                        <option value="">{t("upload.selectOption")}</option>
+                        {languages.map((l) => <option key={l} value={l}>{getLanguageLabel(l, t)}</option>)}
                       </select>
                     </div>
                     <div>
-                      <Label htmlFor="subtitleLanguage" className="mb-2 block text-sm">자막 언어</Label>
+                      <Label htmlFor="subtitleLanguage" className="mb-2 block text-sm">{t("upload.subtitleLanguageLabel")}</Label>
                       <select
                         id="subtitleLanguage"
                         value={formData.subtitleLanguage}
                         onChange={(e) => setFormData({ ...formData, subtitleLanguage: e.target.value })}
                         className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
                       >
-                        <option value="">없음</option>
-                        {languages.filter(l => l !== "무음/instrumental").map((l) => <option key={l} value={l}>{l}</option>)}
+                        <option value="">{t("upload.subtitleNone")}</option>
+                        {languages.filter(l => l !== "무음/instrumental").map((l) => <option key={l} value={l}>{getLanguageLabel(l, t)}</option>)}
                       </select>
                     </div>
                   </div>
@@ -1439,7 +1440,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
 
               <div>
                 <div className="flex items-baseline justify-between mb-2">
-                  <Label htmlFor="tags">태그</Label>
+                  <Label htmlFor="tags">{t("upload.tagsLabel")}</Label>
                   <span className="text-xs text-muted-foreground">{tagsList.length}/10</span>
                 </div>
                 <div
@@ -1459,7 +1460,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                           removeTag(i);
                         }}
                         className="ml-0.5 hover:text-white transition-colors"
-                        aria-label={`${tag} 삭제`}
+                        aria-label={t("upload.tagDeleteAria", { tag })}
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -1472,12 +1473,12 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={handleTagKeyDown}
                     onBlur={() => tagInput.trim() && addTag(tagInput)}
-                    placeholder={tagsList.length === 0 ? "Enter 또는 쉼표로 추가 (예: 우주, 코스믹)" : ""}
+                    placeholder={tagsList.length === 0 ? t("upload.tagsPlaceholder") : ""}
                     className="flex-1 min-w-[140px] bg-transparent outline-none text-sm placeholder:text-muted-foreground"
                   />
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  Enter나 쉼표로 추가, 빈 칸에서 Backspace로 마지막 태그 삭제
+                  {t("upload.tagsHint")}
                 </p>
               </div>
 
@@ -1488,14 +1489,14 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                   onClick={() => setStep(1)}
                   className="flex-1"
                 >
-                  이전
+                  {t("upload.previous")}
                 </Button>
                 <Button
                   type="button"
                   onClick={() => setStep(3)}
                   className="flex-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
                 >
-                  다음
+                  {t("upload.next")}
                 </Button>
               </div>
             </div>
@@ -1508,7 +1509,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <Loader2 className="w-5 h-5 animate-spin text-[#6366f1]" />
-                      <span className="font-medium">업로드 중...</span>
+                      <span className="font-medium">{t("upload.uploadingState")}</span>
                     </div>
                     <span className="text-2xl font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">
                       {uploadProgress}%
@@ -1524,17 +1525,17 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
 
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="bg-background/50 rounded-md py-2 px-1">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">진행</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t("upload.progress")}</p>
                       <p className="text-xs font-bold text-white">
                         {formatBytes(uploadStats.loaded)} <span className="text-muted-foreground font-normal">/ {formatBytes(uploadStats.total)}</span>
                       </p>
                     </div>
                     <div className="bg-background/50 rounded-md py-2 px-1">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">속도</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t("upload.speed")}</p>
                       <p className="text-xs font-bold text-white">{formatBytes(uploadStats.speed)}/s</p>
                     </div>
                     <div className="bg-background/50 rounded-md py-2 px-1">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">남은 시간</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t("upload.timeLeft")}</p>
                       <p className="text-xs font-bold text-white">{formatTime(uploadStats.eta)}</p>
                     </div>
                   </div>
@@ -1543,16 +1544,16 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
 
               {/* 공개 설정 */}
               <div className="bg-card p-6 rounded-lg border border-border">
-                <h3 className="mb-1">공개 설정</h3>
+                <h3 className="mb-1">{t("upload.visibilityHeader")}</h3>
                 <p className="text-xs text-muted-foreground mb-4">
-                  영상이 누구에게 노출될지 결정합니다. 라이선스 판매 후엔 자동으로 비공개 처리됩니다.
+                  {t("upload.visibilityDescription")}
                 </p>
 
                 <div className="space-y-2">
                   {([
-                    { value: "public", icon: "🌐", label: "전체 공개", desc: "검색·홈 피드·시네마 탭에 모두 노출" },
-                    { value: "unlisted", icon: "🔗", label: "일부 공개", desc: "링크를 받은 사람만 볼 수 있음 (검색 안 됨)" },
-                    { value: "private", icon: "🔒", label: "비공개", desc: "본인과 승인된 구매자만 볼 수 있음" },
+                    { value: "public", icon: "🌐", label: t("upload.visibilityPublic"), desc: t("upload.visibilityPublicDesc") },
+                    { value: "unlisted", icon: "🔗", label: t("upload.visibilityUnlisted"), desc: t("upload.visibilityUnlistedDesc") },
+                    { value: "private", icon: "🔒", label: t("upload.visibilityPrivate"), desc: t("upload.visibilityPrivateDesc") },
                   ] as const).map((opt) => (
                     <label
                       key={opt.value}
@@ -1586,9 +1587,9 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                 const isShortVideo = videoDurationSec > 0 && videoDurationSec < 180;
                 return (
                   <div className="bg-card p-6 rounded-lg border border-border">
-                    <h3 className="mb-1">All-in-One 라이선스 가격</h3>
+                    <h3 className="mb-1">{t("upload.priceHeader")}</h3>
                     <p className="text-xs text-muted-foreground mb-4">
-                      유튜브·SNS·기업 마케팅·독점 사용권이 모두 포함된 단일 라이선스입니다. 구매 시 모든 사용권이 구매자에게 영구 양도되고 마켓에서 즉시 판매 종료됩니다.
+                      {t("upload.priceDescription")}
                     </p>
 
                     {isShortVideo ? (
@@ -1598,16 +1599,16 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                         </div>
                         <div className="flex-1">
                           <p className="text-sm font-bold text-amber-300 mb-1">
-                            3분 미만 영상은 라이선스 판매가 비활성화됩니다
+                            {t("upload.shortVideoNoLicense")}
                           </p>
                           <p className="text-xs text-amber-300/70 leading-relaxed">
-                            홈 피드 숏폼은 광고 수익만 정산됩니다. 라이선스 판매를 원하시면 3분 이상 영상으로 업로드해 주세요.
+                            {t("upload.shortVideoExplain")}
                           </p>
                         </div>
                       </div>
                     ) : (
                       <div>
-                        <Label htmlFor="price" className="mb-2 block">가격 *</Label>
+                        <Label htmlFor="price" className="mb-2 block">{t("upload.priceLabel")}</Label>
                         <Input
                           id="price"
                           type="text"
@@ -1617,7 +1618,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                           className="bg-background"
                         />
                         <p className="text-xs text-muted-foreground mt-1">
-                          표시 가격은 부가세(VAT) 포함입니다.
+                          {t("upload.priceVatNotice")}
                         </p>
                       </div>
                     )}
@@ -1626,8 +1627,8 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
               })()}
 
               <div className="bg-card p-6 rounded-lg border border-border space-y-4">
-                <h3>저작권 서약</h3>
-                
+                <h3>{t("upload.copyrightHeader")}</h3>
+
                 <div className="flex items-center space-x-3">
                   <Checkbox
                     id="terms"
@@ -1636,8 +1637,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                     className="border-zinc-400 dark:border-zinc-300"
                   />
                   <label htmlFor="terms" className="text-sm leading-relaxed">
-                    본 영상은 타인의 저작권을 침해하지 않았으며, 상업적 이용이 가능한 요금제를 사용하여 제작되었음을 확인합니다. 
-                    허위 사실 기재 시 법적 책임은 전적으로 본인에게 있음에 동의합니다.
+                    {t("upload.copyrightPledge")}
                   </label>
                 </div>
               </div>
@@ -1650,7 +1650,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                   disabled={isUploading}
                   className="flex-1"
                 >
-                  이전
+                  {t("upload.previous")}
                 </Button>
                 <Button
                   type="submit"
@@ -1660,10 +1660,10 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                   {isUploading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      업로드 중...
+                      {t("upload.uploadingState")}
                     </>
                   ) : (
-                    '업로드 완료'
+                    t("upload.uploadComplete")
                   )}
                 </Button>
               </div>
@@ -1675,9 +1675,9 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>업로드 전 미리보기</DialogTitle>
+              <DialogTitle>{t("upload.previewTitle")}</DialogTitle>
               <DialogDescription>
-                등록 후 마켓에 이렇게 표시됩니다. 모든 정보가 정확한지 확인하세요.
+                {t("upload.previewDescription")}
               </DialogDescription>
             </DialogHeader>
 
@@ -1688,7 +1688,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                   <img src={selectedThumbnail} alt="thumbnail" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-                    썸네일 없음
+                    {t("upload.noThumbnail")}
                   </div>
                 )}
                 <div className="absolute top-3 left-3">
@@ -1704,7 +1704,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
               </div>
               <div className="p-4 bg-gradient-to-b from-transparent to-[#121212]">
                 <h3 className="font-bold text-white text-[15px] mb-1.5 line-clamp-1">
-                  {formData.title || "제목 없음"}
+                  {formData.title || t("upload.noTitle")}
                 </h3>
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-[#6366f1] to-[#8b5cf6] flex items-center justify-center">
@@ -1715,7 +1715,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                   </span>
                 </div>
                 <p className="text-xs text-gray-300 mb-3 line-clamp-2">
-                  {formData.description || "설명 없음"}
+                  {formData.description || t("upload.noDescription")}
                 </p>
                 <div className="flex items-center justify-between pt-3 border-t border-white/10">
                   <div>
@@ -1737,47 +1737,47 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
             {/* 추가 정보 요약 */}
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="bg-card p-3 rounded border border-border">
-                <p className="text-muted-foreground mb-0.5">공개 설정</p>
+                <p className="text-muted-foreground mb-0.5">{t("upload.summaryVisibility")}</p>
                 <p className="font-semibold">
-                  {formData.visibility === "public" && "🌐 전체 공개"}
-                  {formData.visibility === "unlisted" && "🔗 일부 공개"}
-                  {formData.visibility === "private" && "🔒 비공개"}
+                  {formData.visibility === "public" && `🌐 ${t("upload.visibilityPublic")}`}
+                  {formData.visibility === "unlisted" && `🔗 ${t("upload.visibilityUnlisted")}`}
+                  {formData.visibility === "private" && `🔒 ${t("upload.visibilityPrivate")}`}
                 </p>
               </div>
               <div className="bg-card p-3 rounded border border-border">
-                <p className="text-muted-foreground mb-0.5">하이라이트 구간</p>
+                <p className="text-muted-foreground mb-0.5">{t("upload.summaryHighlight")}</p>
                 <p className="font-semibold">
                   {formatSeconds(highlight.start)} ~ {formatSeconds(highlight.end)}
                   <span className="text-muted-foreground font-normal ml-1">
-                    ({(highlight.end - highlight.start).toFixed(1)}초)
+                    ({(highlight.end - highlight.start).toFixed(1)}{t("upload.secondsSuffix")})
                   </span>
                 </p>
               </div>
               <div className="bg-card p-3 rounded border border-border">
-                <p className="text-muted-foreground mb-0.5">카테고리 / 장르</p>
+                <p className="text-muted-foreground mb-0.5">{t("upload.summaryCategoryGenre")}</p>
                 <p className="font-semibold">
-                  {formData.category || "—"} / {formData.genre || "—"}
+                  {getCategoryLabel(formData.category, t) || "—"} / {getCategoryLabel(formData.genre, t) || "—"}
                 </p>
               </div>
               <div className="bg-card p-3 rounded border border-border">
-                <p className="text-muted-foreground mb-0.5">All-in-One 라이선스</p>
+                <p className="text-muted-foreground mb-0.5">{t("upload.summaryLicense")}</p>
                 <p className="font-semibold">
                   ₩{formData.standardPrice || "0"}
                 </p>
               </div>
               {(formData.director || formData.writer || formData.composer) && (
                 <div className="bg-card p-3 rounded border border-border col-span-2">
-                  <p className="text-muted-foreground mb-0.5">시네마 크레딧</p>
+                  <p className="text-muted-foreground mb-0.5">{t("upload.summaryCinemaCredits")}</p>
                   <p className="font-semibold text-[11px]">
-                    {formData.director && `감독 ${formData.director}`}
-                    {formData.writer && ` · 각본 ${formData.writer}`}
-                    {formData.composer && ` · 음악 ${formData.composer}`}
+                    {formData.director && t("upload.summaryDirector", { name: formData.director })}
+                    {formData.writer && t("upload.summaryWriterSuffix", { name: formData.writer })}
+                    {formData.composer && t("upload.summaryMusicSuffix", { name: formData.composer })}
                   </p>
                 </div>
               )}
               {tagsList.length > 0 && (
                 <div className="bg-card p-3 rounded border border-border col-span-2">
-                  <p className="text-muted-foreground mb-1">태그 ({tagsList.length})</p>
+                  <p className="text-muted-foreground mb-1">{t("upload.summaryTags", { count: tagsList.length })}</p>
                   <div className="flex flex-wrap gap-1">
                     {tagsList.map((tag, i) => (
                       <span key={i} className="px-2 py-0.5 rounded-full bg-[#6366f1]/15 border border-[#6366f1]/30 text-[#a78bfa] text-[10px]">
@@ -1796,7 +1796,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                 onClick={() => setShowPreview(false)}
                 disabled={isUploading}
               >
-                돌아가서 수정
+                {t("upload.backToEdit")}
               </Button>
               <Button
                 type="button"
@@ -1807,10 +1807,10 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                 {isUploading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    업로드 중...
+                    {t("upload.uploadingState")}
                   </>
                 ) : (
-                  "확인하고 업로드"
+                  t("upload.confirmAndUpload")
                 )}
               </Button>
             </DialogFooter>

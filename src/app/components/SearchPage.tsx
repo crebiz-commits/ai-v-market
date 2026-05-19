@@ -11,6 +11,9 @@ import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import { getCategoryLabel, getAiToolLabel } from "../i18n/categoryLabels";
+import { formatCompactNumber } from "../i18n/numberFormat";
 
 function showcaseToVideoResult(s: ShowcaseVideo): VideoResult {
   return {
@@ -98,11 +101,7 @@ const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
   { value: "likes", label: "좋아요순" },
 ];
 
-function formatNumber(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
+const formatNumber = formatCompactNumber;
 
 function loadHistory(): string[] {
   try {
@@ -128,6 +127,7 @@ function saveHistory(query: string) {
 }
 
 export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPageProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState(""); // 실제 검색이 실행된 쿼리
   const [tab, setTab] = useState<Tab>("videos");
@@ -155,6 +155,21 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
   const showcase = shouldShowShowcase(profile?.is_admin);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 옵션 라벨은 언어에 따라 변환 (값은 그대로 유지)
+  const durationLabels = useMemo(() => [
+    t("category.all"),
+    t("searchPage.durationUnder1"),
+    t("searchPage.duration1to5"),
+    t("searchPage.duration5to10"),
+    t("searchPage.duration10plus"),
+  ], [t]);
+  const sortLabels = useMemo<Record<SortOrder, string>>(() => ({
+    relevance: t("searchPage.sortRelevance"),
+    latest: t("searchPage.sortLatest"),
+    views: t("searchPage.sortViews"),
+    likes: t("searchPage.sortLikes"),
+  }), [t]);
 
   // 마운트: 검색 기록 + 인기 검색어 로드
   useEffect(() => {
@@ -210,7 +225,7 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
 
       if (videosRes.error) {
         console.error("[SearchPage] search_videos error:", videosRes.error);
-        toast.error("영상 검색에 실패했습니다.");
+        toast.error(t("searchPage.searchFailed"));
         setVideos([]);
       } else {
         let realVideos = (videosRes.data ?? []) as VideoResult[];
@@ -305,7 +320,7 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
             <button
               onClick={onClose}
               className="p-2 -ml-1 text-gray-400 hover:text-white rounded-lg transition-colors"
-              aria-label="닫기"
+              aria-label={t("searchPage.closeAriaLabel")}
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -320,7 +335,7 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
                 onChange={(e) => setQuery(e.target.value)}
                 onFocus={() => setShowDropdown(true)}
                 onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-                placeholder="영상, 크리에이터, 태그 검색..."
+                placeholder={t("searchPage.placeholder")}
                 className="flex-1 bg-transparent border-0 text-sm text-white placeholder-gray-500 focus:outline-none"
                 autoComplete="off"
               />
@@ -357,7 +372,7 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
                           <Search className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
                           <span className="truncate">{s.suggestion}</span>
                           {s.source === "creator" && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#8b5cf6]/20 text-[#a78bfa] flex-shrink-0">크리에이터</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#8b5cf6]/20 text-[#a78bfa] flex-shrink-0">{t("searchPage.creatorBadge")}</span>
                           )}
                         </button>
                       ))}
@@ -370,13 +385,13 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
                       {history.length > 0 && (
                         <div className="py-1">
                           <div className="flex items-center justify-between px-4 py-2">
-                            <span className="text-[11px] font-bold text-gray-500 uppercase">최근 검색</span>
+                            <span className="text-[11px] font-bold text-gray-500 uppercase">{t("searchPage.recentSearches")}</span>
                             <button
                               type="button"
                               onMouseDown={(e) => { e.preventDefault(); handleClearAllHistory(); }}
                               className="text-[11px] text-gray-500 hover:text-white"
                             >
-                              모두 지우기
+                              {t("searchPage.clearAll")}
                             </button>
                           </div>
                           {history.map((h) => (
@@ -402,7 +417,7 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
                       )}
                       {popular.length > 0 && (
                         <div className="py-1 border-t border-white/5">
-                          <div className="px-4 py-2 text-[11px] font-bold text-gray-500 uppercase">실시간 인기</div>
+                          <div className="px-4 py-2 text-[11px] font-bold text-gray-500 uppercase">{t("searchPage.popularRealtime")}</div>
                           {popular.map((p, i) => (
                             <button
                               key={p.query}
@@ -413,7 +428,7 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
                               <span className="text-xs font-bold text-[#8b5cf6] w-4">{i + 1}</span>
                               <TrendingUp className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
                               <span className="truncate flex-1">{p.query}</span>
-                              <span className="text-[10px] text-gray-600">{p.hit_count}회</span>
+                              <span className="text-[10px] text-gray-600">{t("searchPage.hitCount", { count: p.hit_count })}</span>
                             </button>
                           ))}
                         </div>
@@ -433,7 +448,7 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
                 ? "bg-[#6366f1]/20 border-[#6366f1]/40 text-[#a78bfa]"
                 : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
             }`}
-            aria-label="필터"
+            aria-label={t("searchPage.filterAriaLabel")}
           >
             <Filter className="w-4 h-4" />
           </button>
@@ -449,13 +464,26 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
               className="overflow-hidden border-t border-white/5"
             >
               <div className="max-w-4xl mx-auto px-4 py-4 space-y-3">
-                <FilterChips label="카테고리" options={CATEGORY_OPTIONS} value={category} onChange={setCategory} />
-                <FilterChips label="AI 도구" options={AI_TOOL_OPTIONS} value={aiTool} onChange={setAiTool} />
                 <FilterChips
-                  label="영상 길이"
+                  label={t("searchPage.filterCategoryLabel")}
+                  options={CATEGORY_OPTIONS}
+                  value={category}
+                  onChange={setCategory}
+                  optionLabel={(opt) => opt === "전체" ? t("category.all") : getCategoryLabel(opt, t)}
+                />
+                <FilterChips
+                  label={t("searchPage.filterAiToolLabel")}
+                  options={AI_TOOL_OPTIONS}
+                  value={aiTool}
+                  onChange={setAiTool}
+                  optionLabel={(opt) => getAiToolLabel(opt, t) || opt}
+                />
+                <FilterChips
+                  label={t("searchPage.filterDurationLabel")}
                   options={DURATION_OPTIONS.map((d) => d.label)}
                   value={DURATION_OPTIONS[durationIdx].label}
                   onChange={(label) => setDurationIdx(DURATION_OPTIONS.findIndex((d) => d.label === label))}
+                  optionLabel={(opt) => durationLabels[DURATION_OPTIONS.findIndex((d) => d.label === opt)] ?? opt}
                 />
               </div>
             </motion.div>
@@ -472,7 +500,7 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
                   tab === "videos" ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white" : "text-gray-400 hover:text-white"
                 }`}
               >
-                영상 {visibleVideos.length > 0 && `(${visibleVideos.length})`}
+                {t("searchPage.tabVideos")} {visibleVideos.length > 0 && `(${visibleVideos.length})`}
               </button>
               <button
                 onClick={() => setTab("creators")}
@@ -481,7 +509,7 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
                   tab === "creators" ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white" : "text-gray-400 hover:text-white"
                 }`}
               >
-                크리에이터 {visibleCreators.length > 0 && `(${visibleCreators.length})`}
+                {t("searchPage.tabCreators")} {visibleCreators.length > 0 && `(${visibleCreators.length})`}
               </button>
             </div>
 
@@ -492,7 +520,7 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
                 className="appearance-none bg-white/5 border border-white/10 text-xs text-gray-300 rounded-lg pl-3 pr-7 py-1.5 focus:outline-none focus:border-[#6366f1] cursor-pointer"
               >
                 {SORT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                  <option key={o.value} value={o.value}>{sortLabels[o.value]}</option>
                 ))}
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-gray-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -522,7 +550,7 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
         ) : (
           // creators
           visibleCreators.length === 0 ? (
-            <EmptyResult query={submittedQuery} subject="크리에이터" />
+            <EmptyResult query={submittedQuery} subjectKey="searchPage.subjectCreator" />
           ) : (
             <div className="space-y-2">
               {visibleCreators.map((c) => (
@@ -540,7 +568,7 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
 // 보조 컴포넌트
 // ────────────────────────────────────────────────────────────────────────────
 
-function FilterChips({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: (v: string) => void }) {
+function FilterChips({ label, options, value, onChange, optionLabel }: { label: string; options: string[]; value: string; onChange: (v: string) => void; optionLabel?: (opt: string) => string }) {
   return (
     <div>
       <p className="text-[11px] font-bold text-gray-500 uppercase mb-1.5">{label}</p>
@@ -557,7 +585,7 @@ function FilterChips({ label, options, value, onChange }: { label: string; optio
                   : "bg-white/5 border border-white/10 text-gray-400 hover:text-white"
               }`}
             >
-              {opt}
+              {optionLabel ? optionLabel(opt) : opt}
             </button>
           );
         })}
@@ -603,6 +631,7 @@ function VideoCard({ video, onClick }: { video: VideoResult; onClick: () => void
 }
 
 function CreatorRow({ creator, onClick }: { creator: CreatorResult; onClick: () => void }) {
+  const { t } = useTranslation();
   return (
     <motion.button
       whileHover={{ x: 2 }}
@@ -617,11 +646,11 @@ function CreatorRow({ creator, onClick }: { creator: CreatorResult; onClick: () 
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-white truncate">{creator.display_name || "이름 없음"}</p>
+        <p className="text-sm font-bold text-white truncate">{creator.display_name || t("searchPage.nameless")}</p>
         {creator.bio && <p className="text-xs text-gray-500 truncate mt-0.5">{creator.bio}</p>}
         <div className="flex items-center gap-3 text-[11px] text-gray-500 mt-1">
-          <span className="flex items-center gap-1"><Users className="w-3 h-3" />팔로워 {formatNumber(Number(creator.follower_count))}</span>
-          <span>영상 {formatNumber(Number(creator.video_count))}</span>
+          <span className="flex items-center gap-1"><Users className="w-3 h-3" />{t("searchPage.followers", { count: formatNumber(Number(creator.follower_count)) })}</span>
+          <span>{t("searchPage.videos", { count: formatNumber(Number(creator.video_count)) })}</span>
         </div>
       </div>
     </motion.button>
@@ -629,14 +658,15 @@ function CreatorRow({ creator, onClick }: { creator: CreatorResult; onClick: () 
 }
 
 function EmptyInitial({ popular, onPick }: { popular: PopularQuery[]; onPick: (q: string) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="py-12 text-center">
       <Search className="w-12 h-12 text-gray-700 mx-auto mb-3" />
-      <p className="text-sm text-gray-500 mb-6">영상 제목·태그·크리에이터로 검색해 보세요</p>
+      <p className="text-sm text-gray-500 mb-6">{t("searchPage.introHelper")}</p>
       {popular.length > 0 && (
         <div className="max-w-md mx-auto text-left">
           <p className="text-[11px] font-bold text-gray-500 uppercase mb-2 flex items-center gap-1.5">
-            <TrendingUp className="w-3.5 h-3.5" /> 실시간 인기 검색
+            <TrendingUp className="w-3.5 h-3.5" /> {t("searchPage.trendingHeader")}
           </p>
           <div className="space-y-1">
             {popular.slice(0, 5).map((p, i) => (
@@ -647,7 +677,7 @@ function EmptyInitial({ popular, onPick }: { popular: PopularQuery[]; onPick: (q
               >
                 <span className="text-sm font-bold text-[#8b5cf6] w-4">{i + 1}</span>
                 <span className="text-sm text-gray-300 flex-1 truncate">{p.query}</span>
-                <span className="text-[10px] text-gray-600">{p.hit_count}회</span>
+                <span className="text-[10px] text-gray-600">{t("searchPage.hitCount", { count: p.hit_count })}</span>
               </button>
             ))}
           </div>
@@ -657,15 +687,16 @@ function EmptyInitial({ popular, onPick }: { popular: PopularQuery[]; onPick: (q
   );
 }
 
-function EmptyResult({ query, subject = "영상" }: { query: string; subject?: string }) {
+function EmptyResult({ query, subjectKey = "searchPage.subjectVideo" }: { query: string; subjectKey?: string }) {
+  const { t } = useTranslation();
   return (
     <div className="py-20 text-center">
       <Search className="w-12 h-12 text-gray-700 mx-auto mb-3" />
       <p className="text-sm text-gray-400 mb-1">
-        {query ? `"${query}" 검색 결과가 없습니다` : "검색 결과가 없습니다"}
+        {query ? t("searchPage.emptyTitle", { query }) : t("searchPage.emptyTitleNoQuery")}
       </p>
-      <p className="text-xs text-gray-600">다른 키워드나 필터를 시도해 보세요</p>
-      <p className="text-xs text-gray-700 mt-3">({subject} 결과)</p>
+      <p className="text-xs text-gray-600">{t("searchPage.emptyHint")}</p>
+      <p className="text-xs text-gray-700 mt-3">{t("searchPage.subjectResults", { subject: t(subjectKey) })}</p>
     </div>
   );
 }

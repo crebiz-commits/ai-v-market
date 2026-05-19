@@ -18,6 +18,8 @@ import { CoverFlow } from "./CoverFlow";
 import { Input } from "./ui/input";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
+import { useTranslation } from "react-i18next";
+import { getCategoryLabel } from "../i18n/categoryLabels";
 
 // ShowcaseVideo → CarouselVideo 변환
 function showcaseToCarousel(s: ShowcaseVideo): CarouselVideo {
@@ -115,6 +117,7 @@ function toProduct(v: CarouselVideo): Product {
 }
 
 export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
+  const { t } = useTranslation();
   const { profile } = useAuth();
   const showcase = shouldShowShowcase(profile?.is_admin);
   const [loading, setLoading] = useState(true);
@@ -129,10 +132,10 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
   const [searching, setSearching] = useState(false);
 
   const isOtt = tier === "ott";
-  const heroTitle = isOtt ? "프리미엄 OTT" : "시네마";
+  const heroTitle = isOtt ? t("cinema.heroOttTitle") : t("cinema.heroCinemaTitle");
   const heroSubtitle = isOtt
-    ? "10분+ 장편 콘텐츠 — 프리미엄 구독자 전용"
-    : "3분+ 시네마틱 영상 — 미리보기 3분 무료";
+    ? t("cinema.heroSubtitleOtt")
+    : t("cinema.heroSubtitleCinema");
 
   useEffect(() => {
     async function loadAll() {
@@ -250,7 +253,7 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             className="pl-9 bg-card border-border"
-            placeholder={`${heroTitle} 영상 검색`}
+            placeholder={t("cinema.searchPlaceholder", { tier: heroTitle })}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -266,12 +269,12 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
             </div>
           ) : searchResults.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-8">
-              "{searchQuery}" 검색 결과가 없습니다
+              {t("cinema.noSearchResults", { query: searchQuery })}
             </p>
           ) : (
             <VideoRowCarousel
-              title={`🔍 "${searchQuery}" 검색 결과`}
-              subtitle={`${searchResults.length}개 영상`}
+              title={t("cinema.searchResultsTitle", { query: searchQuery })}
+              subtitle={t("cinema.searchResultsSubtitle", { count: searchResults.length })}
               videos={searchResults}
               onVideoClick={handleClick}
             />
@@ -297,10 +300,10 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
               <div className="mb-8 mt-2">
                 <div className="px-4 md:px-6 mb-3">
                   <h2 className="text-base md:text-lg font-bold flex items-center gap-2">
-                    🎡 추천 큐레이션
+                    {t("cinema.coverflowTitle")}
                   </h2>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    좌우 드래그로 회전 · 클릭으로 시청
+                    {t("cinema.coverflowSubtitle")}
                   </p>
                 </div>
                 <CoverFlow
@@ -313,18 +316,18 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
 
           {/* 추천 (For You) */}
           <VideoRowCarousel
-            title="✨ 당신을 위한 추천"
-            subtitle="좋아요와 시청 이력 기반"
+            title={t("cinema.forYouTitle")}
+            subtitle={t("cinema.forYouSubtitle")}
             videos={recommended}
             onVideoClick={handleClick}
-            emptyMessage="추천을 위해 영상을 좋아요해보세요"
+            emptyMessage={t("cinema.forYouEmpty")}
           />
 
           {/* 이어 보기 */}
           {continueWatching.length > 0 && (
             <VideoRowCarousel
-              title="▶️ 이어 보기"
-              subtitle="중단된 부분부터 다시 시청"
+              title={t("cinema.continueWatchingTitle")}
+              subtitle={t("cinema.continueWatchingSubtitle")}
               videos={continueWatching}
               onVideoClick={handleClick}
               showProgress={true}
@@ -333,36 +336,36 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
 
           {/* 인기 (24h) */}
           <VideoRowCarousel
-            title="🔥 지금 뜨는 시네마"
-            subtitle="최근 24시간 시청 폭증"
+            title={t("cinema.trendingTitle")}
+            subtitle={t("cinema.trendingSubtitle")}
             videos={trending}
             onVideoClick={handleClick}
-            emptyMessage="아직 인기 영상이 모이지 않았습니다"
+            emptyMessage={t("cinema.trendingEmpty")}
           />
 
           {/* 새로 추가됨 */}
           <VideoRowCarousel
-            title="🆕 새로 추가됨"
-            subtitle="최근 14일 업로드"
+            title={t("cinema.newReleasesTitle")}
+            subtitle={t("cinema.newReleasesSubtitle")}
             videos={newReleases}
             onVideoClick={handleClick}
           />
 
           {/* Top 10 */}
           <VideoRowCarousel
-            title="📊 인기 Top 10"
-            subtitle="최근 7일 기준"
+            title={t("cinema.topTenTitle")}
+            subtitle={t("cinema.topTenSubtitle")}
             videos={top10}
             onVideoClick={handleClick}
             showRank={true}
-            emptyMessage="아직 Top 10 데이터가 없습니다"
+            emptyMessage={t("cinema.topTenEmpty")}
           />
 
           {/* 카테고리별 */}
           {categoryRows.map((row) => (
             <VideoRowCarousel
               key={row.category}
-              title={`🎨 ${row.category}`}
+              title={t("cinema.categoryRowTitle", { category: getCategoryLabel(row.category, t) })}
               videos={row.videos}
               onVideoClick={handleClick}
             />
@@ -372,9 +375,9 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
           {recommended.length === 0 && trending.length === 0 && newReleases.length === 0 && (
             <div className="text-center py-16 text-muted-foreground">
               <Film className="w-16 h-16 mx-auto mb-4 opacity-30" />
-              <p className="font-semibold">{heroTitle} 영상이 아직 없습니다</p>
+              <p className="font-semibold">{t("cinema.emptyCinemaTitle", { tier: heroTitle })}</p>
               <p className="text-xs mt-1">
-                {isOtt ? "10분 이상의 장편 영상이 업로드되면 표시됩니다" : "3분 이상의 영상이 업로드되면 표시됩니다"}
+                {isOtt ? t("cinema.emptyCinemaSubtitleOtt") : t("cinema.emptyCinemaSubtitleCinema")}
               </p>
             </div>
           )}

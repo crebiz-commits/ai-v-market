@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, memo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageCircle, MessageSquare, Send, ChevronRight, ExternalLink, Maximize2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import videojs from "video.js";
@@ -185,6 +186,7 @@ const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, 
   onShare: (video: Video) => void;
   commentCount?: number;
 }) => {
+  const { t } = useTranslation();
   const [showRipple, setShowRipple] = useState(false);
 
   const handleLike = (e: React.MouseEvent) => {
@@ -203,7 +205,7 @@ const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, 
         whileTap={{ scale: 0.85 }}
         onClick={handleLike}
         className="flex flex-col items-center relative"
-        aria-label="좋아요"
+        aria-label={t("common.like")}
       >
         <AnimatePresence>
           {showRipple && (
@@ -240,13 +242,13 @@ const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, 
         transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
         onClick={(e) => { e.stopPropagation(); onComment(video); }}
         className="flex flex-col items-center"
-        aria-label="댓글"
+        aria-label={t("common.comment")}
       >
         <div className="w-10 h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.4)]">
           <MessageCircle className="w-[18px] h-[18px] text-white" strokeWidth={1.8} />
         </div>
         <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">
-          {commentCount > 0 ? commentCount.toLocaleString() : "댓글"}
+          {commentCount > 0 ? commentCount.toLocaleString() : t("common.comment")}
         </span>
       </motion.button>
 
@@ -256,12 +258,12 @@ const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, 
         whileHover={{ rotate: 15 }}
         onClick={(e) => { e.stopPropagation(); onShare(video); }}
         className="flex flex-col items-center"
-        aria-label="공유"
+        aria-label={t("common.share")}
       >
         <div className="w-10 h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.4)]">
           <Send className="w-[18px] h-[18px] text-white -rotate-12" strokeWidth={1.8} />
         </div>
-        <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">공유</span>
+        <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">{t("common.share")}</span>
       </motion.button>
     </div>
   );
@@ -304,6 +306,7 @@ const MovieSection = memo(({
   onViewCreator?: (creatorId: string) => void;
   onSignInClick?: () => void;
 }) => {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -505,8 +508,8 @@ const MovieSection = memo(({
           <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center mb-3">
             <Lock className="w-6 h-6 text-white" />
           </div>
-          <p className="text-base font-black text-white mb-1">19+ 인증 필요</p>
-          <p className="text-xs text-gray-300 underline">탭하여 본인 인증</p>
+          <p className="text-base font-black text-white mb-1">{t("video.ageGateLockTitle")}</p>
+          <p className="text-xs text-gray-300 underline">{t("video.ageGateLockHint")}</p>
         </button>
       )}
 
@@ -552,7 +555,7 @@ const MovieSection = memo(({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="flex flex-col">
-                <span className="text-[10px] text-white/50 font-medium leading-none mb-1">다운로드 (소장 · 상업적 사용)</span>
+                <span className="text-[10px] text-white/50 font-medium leading-none mb-1">{t("video.downloadCommercial")}</span>
                 <span className="text-sm font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>
               </div>
             </div>
@@ -560,7 +563,7 @@ const MovieSection = memo(({
               onClick={(e) => { e.stopPropagation(); onVideoClick(video); }}
               className="aurora-btn h-7 px-3 text-white font-bold rounded-full text-[10px] flex items-center gap-1 border border-white/20 shadow-lg"
             >
-              영화 상세 <ChevronRight className="w-2.5 h-2.5" />
+              {t("video.movieDetail")} <ChevronRight className="w-2.5 h-2.5" />
             </button>
           </div>
         </div>

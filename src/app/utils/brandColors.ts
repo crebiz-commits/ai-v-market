@@ -28,10 +28,10 @@ export const BRAND_BADGE_BG = "bg-gradient-to-r from-[#6366f1]/20 to-[#ec4899]/2
 export interface GenreStyle {
   /** DB의 category 값 */
   key: string;
-  /** 사용자에게 보이는 한국어 라벨 */
-  label: string;
-  /** 짧은 설명 (캐러셀 헤더 부제) */
-  subtitle: string;
+  /** i18n 키 (`t(labelKey)` 로 표시) */
+  labelKey: string;
+  /** 부제 i18n 키 (`t(subtitleKey)` 로 표시) */
+  subtitleKey: string;
   /** Tailwind 그라데이션 클래스 (from-XXX to-XXX) */
   gradient: string;
   /** 이모지 또는 아이콘 식별자 */
@@ -41,78 +41,78 @@ export interface GenreStyle {
 export const GENRE_STYLES: Record<string, GenreStyle> = {
   drama: {
     key: "drama",
-    label: "드라마",
-    subtitle: "삶을 비추는 깊은 이야기",
+    labelKey: "category.drama",
+    subtitleKey: "genreSubtitle.drama",
     gradient: "from-amber-700 to-orange-900",
     emoji: "🎭",
   },
   action: {
     key: "action",
-    label: "액션",
-    subtitle: "심장이 뛰는 순간들",
+    labelKey: "category.action",
+    subtitleKey: "genreSubtitle.action",
     gradient: "from-red-700 to-rose-900",
     emoji: "💥",
   },
   thriller: {
     key: "thriller",
-    label: "스릴러",
-    subtitle: "긴장감 가득한 작품",
+    labelKey: "category.thriller",
+    subtitleKey: "genreSubtitle.thriller",
     gradient: "from-slate-700 to-zinc-900",
     emoji: "🔍",
   },
   romance: {
     key: "romance",
-    label: "로맨스",
-    subtitle: "마음을 흔드는 사랑 이야기",
+    labelKey: "category.romance",
+    subtitleKey: "genreSubtitle.romance",
     gradient: "from-rose-700 via-pink-600 to-fuchsia-700",
     emoji: "💕",
   },
   comedy: {
     key: "comedy",
-    label: "코미디",
-    subtitle: "유쾌한 한 편의 시간",
+    labelKey: "category.comedy",
+    subtitleKey: "genreSubtitle.comedy",
     gradient: "from-yellow-600 to-amber-700",
     emoji: "😂",
   },
   horror: {
     key: "horror",
-    label: "호러",
-    subtitle: "서늘한 공포의 미학",
+    labelKey: "category.horror",
+    subtitleKey: "genreSubtitle.horror",
     gradient: "from-gray-900 via-slate-900 to-zinc-950",
     emoji: "👻",
   },
   documentary: {
     key: "documentary",
-    label: "다큐멘터리",
-    subtitle: "진실의 기록",
+    labelKey: "category.documentary",
+    subtitleKey: "genreSubtitle.documentary",
     gradient: "from-blue-700 to-indigo-900",
     emoji: "🎬",
   },
   animation: {
     key: "animation",
-    label: "애니메이션",
-    subtitle: "상상력의 캔버스",
+    labelKey: "category.animation",
+    subtitleKey: "genreSubtitle.animation",
     gradient: "from-teal-600 to-emerald-800",
     emoji: "🎨",
   },
   music: {
     key: "music",
-    label: "음악",
-    subtitle: "선율과 영상의 만남",
+    labelKey: "category.music",
+    subtitleKey: "genreSubtitle.music",
     gradient: "from-violet-700 to-purple-900",
     emoji: "🎵",
   },
   fantasy: {
     key: "fantasy",
-    label: "판타지",
-    subtitle: "마법과 환상의 세계",
+    labelKey: "category.fantasy",
+    subtitleKey: "genreSubtitle.fantasy",
     gradient: "from-violet-700 via-purple-700 to-fuchsia-900",
     emoji: "🌌",
   },
   "sci-fi": {
     key: "sci-fi",
-    label: "SF",
-    subtitle: "미래의 시네마",
+    labelKey: "category.scifi",
+    subtitleKey: "genreSubtitle.scifi",
     gradient: "from-cyan-700 via-blue-700 to-indigo-900",
     emoji: "🚀",
   },
@@ -121,13 +121,33 @@ export const GENRE_STYLES: Record<string, GenreStyle> = {
 /** 알 수 없는 장르 fallback */
 export const DEFAULT_GENRE_STYLE: GenreStyle = {
   key: "default",
-  label: "기타",
-  subtitle: "다양한 작품",
+  labelKey: "category.other",
+  subtitleKey: "genreSubtitle.other",
   gradient: "from-gray-700 to-gray-900",
   emoji: "🎞️",
 };
 
+// 한글 카테고리명 → GENRE_STYLES 키 매핑 (DB가 한글로 저장됨)
+const KOREAN_GENRE_TO_KEY: Record<string, string> = {
+  "드라마": "drama",
+  "액션": "action",
+  "스릴러": "thriller",
+  "로맨스": "romance",
+  "코미디": "comedy",
+  "호러": "horror",
+  "공포": "horror",
+  "다큐멘터리": "documentary",
+  "AI다큐멘터리": "documentary",
+  "애니메이션": "animation",
+  "AI애니메이션": "animation",
+  "음악": "music",
+  "AI뮤직비디오": "music",
+  "판타지": "fantasy",
+  "SF": "sci-fi",
+};
+
 export function getGenreStyle(category: string | null | undefined): GenreStyle {
   if (!category) return DEFAULT_GENRE_STYLE;
-  return GENRE_STYLES[category.toLowerCase()] ?? DEFAULT_GENRE_STYLE;
+  const key = KOREAN_GENRE_TO_KEY[category] ?? category.toLowerCase();
+  return GENRE_STYLES[key] ?? DEFAULT_GENRE_STYLE;
 }

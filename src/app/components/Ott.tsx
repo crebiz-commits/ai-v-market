@@ -17,6 +17,7 @@ import { type CarouselVideo } from "./VideoRowCarousel";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { BRAND_GRADIENT_TEXT, BRAND_BADGE_BG, getGenreStyle } from "../utils/brandColors";
+import { useTranslation } from "react-i18next";
 
 interface Product {
   id: string;
@@ -91,6 +92,7 @@ interface GenreRow {
 }
 
 export function Ott({ onProductClick }: OttProps) {
+  const { t } = useTranslation();
   const { profile } = useAuth();
   const showcase = shouldShowShowcase(profile?.is_admin);
 
@@ -178,7 +180,7 @@ export function Ott({ onProductClick }: OttProps) {
   if (!hero) {
     return (
       <div className="h-full flex items-center justify-center bg-[#0a0a0a] text-gray-500 text-sm">
-        표시할 영상이 없습니다.
+        {t("ott.noVideos")}
       </div>
     );
   }
@@ -197,12 +199,12 @@ export function Ott({ onProductClick }: OttProps) {
       <div className="max-w-7xl mx-auto px-6 mt-16 mb-6">
         <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-3 ${BRAND_BADGE_BG}`}>
           <Wand2 className="w-4 h-4 text-[#a78bfa]" />
-          <span className="text-xs font-bold text-[#a78bfa]">세계 최초 AI 시네마 OTT</span>
+          <span className="text-xs font-bold text-[#a78bfa]">{t("ott.sectionHeaderEyebrow")}</span>
         </div>
         <h2 className={`text-3xl md:text-4xl font-black mb-2 ${BRAND_GRADIENT_TEXT}`}>
-          AI가 만든 영화의 시대
+          {t("ott.sectionHeaderTitle")}
         </h2>
-        <p className="text-sm text-gray-500">장르별 큐레이션으로 만나는 차세대 시네마</p>
+        <p className="text-sm text-gray-500">{t("ott.sectionHeaderSubtitle")}</p>
       </div>
 
       {/* ━━━ 장르별 캐러셀 ━━━ */}
@@ -217,7 +219,7 @@ export function Ott({ onProductClick }: OttProps) {
 
       {genreRows.length === 0 && (
         <div className="max-w-7xl mx-auto px-6 py-12 text-center text-gray-500 text-sm">
-          아직 등록된 장르 콘텐츠가 없습니다.
+          {t("ott.noGenreContent")}
         </div>
       )}
     </div>
@@ -228,6 +230,7 @@ export function Ott({ onProductClick }: OttProps) {
 // 풀블리드 히어로
 // ────────────────────────────────────────────────────────────────────────────
 function HeroSection({ video, onClick }: { video: CarouselVideo; onClick: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="relative h-[70vh] min-h-[500px] overflow-hidden">
       <img src={video.thumbnail || ""} alt="" className="absolute inset-0 w-full h-full object-cover" />
@@ -237,24 +240,24 @@ function HeroSection({ video, onClick }: { video: CarouselVideo; onClick: () => 
       <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12 max-w-2xl">
         <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full mb-3 ${BRAND_BADGE_BG}`}>
           <Wand2 className="w-3 h-3 text-[#a78bfa]" />
-          <span className="text-[10px] font-bold text-[#a78bfa] uppercase tracking-widest">CREAITE 오리지널</span>
+          <span className="text-[10px] font-bold text-[#a78bfa] uppercase tracking-widest">{t("ott.creaiteOriginal")}</span>
         </div>
         <h1 className="text-4xl md:text-6xl font-black mb-4 leading-tight drop-shadow-lg">{video.title}</h1>
         <p className="text-sm md:text-base text-gray-300 mb-6 line-clamp-3 max-w-xl">
-          AI가 만든 새로운 차원의 시네마. {video.creator_display_name || video.creator}의 작품을 지금 만나보세요.
+          {t("ott.heroDescription", { creator: video.creator_display_name || video.creator })}
         </p>
         <div className="flex gap-3">
           <button
             onClick={onClick}
             className="px-6 md:px-8 py-2.5 md:py-3 bg-white text-black font-bold rounded-lg flex items-center gap-2 hover:bg-gray-200 transition-colors text-sm md:text-base"
           >
-            <Play className="w-5 h-5 fill-black" /> 지금 보기
+            <Play className="w-5 h-5 fill-black" /> {t("ott.watchNow")}
           </button>
           <button
             onClick={onClick}
             className="px-6 md:px-8 py-2.5 md:py-3 bg-white/20 backdrop-blur-md text-white font-bold rounded-lg flex items-center gap-2 hover:bg-white/30 transition-colors border border-white/30 text-sm md:text-base"
           >
-            <Info className="w-5 h-5" /> 작품 정보
+            <Info className="w-5 h-5" /> {t("ott.moreInfo")}
           </button>
         </div>
       </div>
@@ -266,10 +269,11 @@ function HeroSection({ video, onClick }: { video: CarouselVideo; onClick: () => 
 // EDITOR'S PICK 매거진 (큰 1 + 작은 4)
 // ────────────────────────────────────────────────────────────────────────────
 function EditorsPick({ videos, onClick }: { videos: CarouselVideo[]; onClick: (v: CarouselVideo) => void }) {
+  const { t } = useTranslation();
   if (videos.length === 0) return null;
   return (
     <div className="max-w-7xl mx-auto px-6 mt-12">
-      <h3 className="text-xs font-bold text-[#a78bfa] uppercase tracking-widest mb-4">EDITOR'S PICK · 이번 주의 시네마</h3>
+      <h3 className="text-xs font-bold text-[#a78bfa] uppercase tracking-widest mb-4">{t("ott.editorsPickHeader")}</h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* 큰 매거진 카드 */}
         <button
@@ -283,7 +287,7 @@ function EditorsPick({ videos, onClick }: { videos: CarouselVideo[]; onClick: (v
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-6">
-            <span className="text-[10px] font-bold text-[#a78bfa] uppercase tracking-widest">시네마틱 단편</span>
+            <span className="text-[10px] font-bold text-[#a78bfa] uppercase tracking-widest">{t("ott.cinematicShort")}</span>
             <h4 className="text-2xl font-black mt-1 mb-1">{videos[0].title}</h4>
             <p className="text-sm text-gray-300">{videos[0].creator_display_name || videos[0].creator}</p>
           </div>
@@ -324,6 +328,7 @@ function GenreCarousel({
   videos: CarouselVideo[];
   onClick: (v: CarouselVideo) => void;
 }) {
+  const { t } = useTranslation();
   const style = getGenreStyle(category);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -343,22 +348,22 @@ function GenreCarousel({
           <div>
             <h4 className="text-xl font-black flex items-center gap-2">
               <span className="text-2xl">{style.emoji}</span>
-              {style.label}
+              {t(style.labelKey)}
             </h4>
-            <p className="text-xs text-white/70 mt-1">{style.subtitle}</p>
+            <p className="text-xs text-white/70 mt-1">{t(style.subtitleKey)}</p>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => scrollBy("left")}
               className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 flex items-center justify-center transition-colors"
-              aria-label="이전"
+              aria-label={t("ott.previous")}
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <button
               onClick={() => scrollBy("right")}
               className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 flex items-center justify-center transition-colors"
-              aria-label="다음"
+              aria-label={t("ott.next")}
             >
               <ChevronRight className="w-5 h-5" />
             </button>

@@ -12,6 +12,9 @@
 import { useRef } from "react";
 import { ChevronLeft, ChevronRight, Play, Crown } from "lucide-react";
 import { motion } from "motion/react";
+import { useTranslation } from "react-i18next";
+import { getCategoryLabel } from "../i18n/categoryLabels";
+import { formatCompactNumber } from "../i18n/numberFormat";
 
 export interface CarouselVideo {
   id: string;
@@ -52,12 +55,7 @@ function fmtDuration(s?: number | null) {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
-function fmtViews(n?: number | null) {
-  if (!n) return "0";
-  if (n >= 10000) return `${(n / 10000).toFixed(1)}만`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}천`;
-  return n.toString();
-}
+const fmtViews = formatCompactNumber;
 
 export function VideoRowCarousel({
   title,
@@ -66,9 +64,11 @@ export function VideoRowCarousel({
   onVideoClick,
   showProgress = false,
   showRank = false,
-  emptyMessage = "영상이 없습니다",
+  emptyMessage,
 }: Props) {
+  const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const emptyText = emptyMessage ?? t("videoRow.empty");
 
   const scroll = (direction: "left" | "right") => {
     const el = scrollRef.current;
@@ -88,7 +88,7 @@ export function VideoRowCarousel({
           {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
         </div>
         <div className="px-4 md:px-6">
-          <p className="text-sm text-muted-foreground/60 italic">{emptyMessage}</p>
+          <p className="text-sm text-muted-foreground/60 italic">{emptyText}</p>
         </div>
       </div>
     );
@@ -110,7 +110,7 @@ export function VideoRowCarousel({
         <button
           onClick={() => scroll("left")}
           className="hidden md:flex absolute left-0 top-0 bottom-0 z-10 w-12 items-center justify-center bg-gradient-to-r from-background/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity"
-          aria-label="이전"
+          aria-label={t("videoRow.previous")}
         >
           <ChevronLeft className="w-8 h-8 text-white" />
         </button>
@@ -185,12 +185,12 @@ export function VideoRowCarousel({
               <div className="mt-1.5 px-0.5">
                 <p className="text-xs font-semibold line-clamp-2 leading-tight">{video.title}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                  {video.creator_display_name || video.creator || "이름 없음"}
-                  {video.views ? ` · 조회 ${fmtViews(video.views)}` : ""}
+                  {video.creator_display_name || video.creator || t("videoRow.nameless")}
+                  {video.views ? ` · ${t("videoRow.viewsPrefix")} ${fmtViews(video.views)}` : ""}
                 </p>
                 {video.category && (
                   <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                    {video.category}
+                    {getCategoryLabel(video.category, t)}
                   </span>
                 )}
               </div>
@@ -202,7 +202,7 @@ export function VideoRowCarousel({
         <button
           onClick={() => scroll("right")}
           className="hidden md:flex absolute right-0 top-0 bottom-0 z-10 w-12 items-center justify-center bg-gradient-to-l from-background/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity"
-          aria-label="다음"
+          aria-label={t("videoRow.next")}
         >
           <ChevronRight className="w-8 h-8 text-white" />
         </button>
