@@ -19,6 +19,35 @@ const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer";
 // ─────────────────────────────────────────────────────────────────
 
 type AdType = "feed_display" | "video_preroll";
+// Phase 28: 광고 형식 (DB의 ads.format 컬럼)
+type AdFormat = "feed" | "preroll" | "midroll" | "overlay" | "postroll" | "bumper";
+type AdTier = "home" | "cinema" | "ott";
+
+// 광고 형식 메타데이터 (UI 표시용)
+const AD_FORMAT_META: Record<AdFormat, { label: string; emoji: string; desc: string }> = {
+  feed:     { label: "홈 피드 카드", emoji: "📰", desc: "홈 피드 영상 사이에 노출" },
+  preroll:  { label: "Pre-roll",     emoji: "▶️", desc: "영상 재생 전 광고" },
+  midroll:  { label: "Mid-roll",     emoji: "⏸",  desc: "재생 중간 광고 (10분+ OTT)" },
+  overlay:  { label: "Overlay",      emoji: "🎯", desc: "재생 중 하단 배너 (1분+)" },
+  postroll: { label: "Post-roll",    emoji: "⏭",  desc: "영상 종료 후 광고" },
+  bumper:   { label: "Bumper",       emoji: "⚡", desc: "6초 SKIP 불가 광고" },
+};
+
+const AD_CATEGORIES = ["AI영화", "AI드라마", "AI애니메이션", "AI다큐멘터리", "AI뮤직비디오", "SF", "액션", "로맨스", "공포", "판타지", "드라마", "코미디", "자연/풍경", "추상", "기타"];
+
+// 기존 ad_type → 새 format 매핑 (호환성)
+const AD_TYPE_TO_FORMAT: Record<AdType, AdFormat> = {
+  feed_display: "feed",
+  video_preroll: "preroll",
+};
+const FORMAT_TO_AD_TYPE: Record<AdFormat, AdType> = {
+  feed: "feed_display",
+  preroll: "video_preroll",
+  midroll: "video_preroll",
+  overlay: "feed_display",
+  postroll: "video_preroll",
+  bumper: "video_preroll",
+};
 
 interface Ad {
   id: string;
@@ -44,6 +73,14 @@ interface Ad {
   // Phase 8.5: 광고 예산 회계
   budget_krw: number | null;
   spent_krw: number;
+  // Phase 28: 광고 형식 다변화
+  format: AdFormat;
+  trigger_position_pct: number | null;
+  duration_seconds: number | null;
+  skip_after_seconds: number | null;
+  target_tiers: AdTier[] | null;
+  target_categories: string[] | null;
+  min_video_duration_sec: number;
 }
 
 const emptyForm = (): Omit<Ad, "id" | "impressions" | "clicks" | "created_at" | "spent_krw"> => ({
@@ -63,7 +100,36 @@ const emptyForm = (): Omit<Ad, "id" | "impressions" | "clicks" | "created_at" | 
   max_duration: 30,
   weight: 1,
   budget_krw: 100000,  // Phase 8.5 — 기본 예산 ₩100,000
+  // Phase 28
+  format: "feed",
+  trigger_position_pct: null,
+  duration_seconds: null,
+  skip_after_seconds: 5,
+  target_tiers: null,
+  target_categories: null,
+  min_video_duration_sec: 0,
 });
+
+// 광고 형식 변경 시 형식별 기본값을 자동 설정
+function applyFormatDefaults(prev: ReturnType<typeof emptyForm>, format: AdFormat): ReturnType<typeof emptyForm> {
+  const base = { ...prev, format, ad_type: FORMAT_TO_AD_TYPE[format] };
+  switch (format) {
+    case "feed":
+      return { ...base, trigger_position_pct: null, duration_seconds: null, skip_after_seconds: null, min_video_duration_sec: 0 };
+    case "preroll":
+      return { ...base, trigger_position_pct: 0, duration_seconds: prev.max_duration || 30, skip_after_seconds: prev.skip_offset ?? 5, min_video_duration_sec: 0 };
+    case "midroll":
+      return { ...base, trigger_position_pct: 50, duration_seconds: 30, skip_after_seconds: 5, target_tiers: ["ott"], min_video_duration_sec: 600 };
+    case "overlay":
+      return { ...base, trigger_position_pct: 30, duration_seconds: 10, skip_after_seconds: null, min_video_duration_sec: 60 };
+    case "postroll":
+      return { ...base, trigger_position_pct: 100, duration_seconds: 15, skip_after_seconds: 5, min_video_duration_sec: 0 };
+    case "bumper":
+      return { ...base, trigger_position_pct: 0, duration_seconds: 6, skip_after_seconds: null, min_video_duration_sec: 0 };
+    default:
+      return base;
+  }
+}
 
 function ctr(impressions: number, clicks: number) {
   if (impressions === 0) return "0%";
@@ -257,6 +323,8 @@ export function AdminDashboard() {
 
   const openEdit = (ad: Ad) => {
     setEditingId(ad.id);
+    // 기존 ad_type 으로 format 추론 (호환성: 마이그레이션 전 데이터)
+    const inferredFormat: AdFormat = ad.format || AD_TYPE_TO_FORMAT[ad.ad_type || "feed_display"] || "feed";
     setForm({
       title: ad.title,
       advertiser: ad.advertiser,
@@ -269,11 +337,19 @@ export function AdminDashboard() {
       is_active: ad.is_active,
       starts_at: ad.starts_at ? ad.starts_at.slice(0, 16) : null,
       ends_at: ad.ends_at ? ad.ends_at.slice(0, 16) : null,
-      ad_type: ad.ad_type || "feed_display",
+      ad_type: ad.ad_type || FORMAT_TO_AD_TYPE[inferredFormat],
       skip_offset: ad.skip_offset ?? 5,
       max_duration: ad.max_duration ?? 30,
       weight: ad.weight ?? 1,
       budget_krw: ad.budget_krw,  // Phase 8.5
+      // Phase 28
+      format: inferredFormat,
+      trigger_position_pct: ad.trigger_position_pct,
+      duration_seconds: ad.duration_seconds,
+      skip_after_seconds: ad.skip_after_seconds,
+      target_tiers: ad.target_tiers,
+      target_categories: ad.target_categories,
+      min_video_duration_sec: ad.min_video_duration_sec ?? 0,
     });
     setShowForm(true);
   };
@@ -281,11 +357,14 @@ export function AdminDashboard() {
   const handleSave = async () => {
     if (!form.title.trim()) { toast.error("광고명을 입력하세요."); return; }
     if (!form.link_url.trim()) { toast.error("랜딩 URL을 입력하세요."); return; }
-    if (form.ad_type === "video_preroll" && !form.video_url?.trim()) {
-      toast.error("Pre-roll 광고는 Bunny 영상 URL이 필수입니다.");
+
+    // Phase 28: 형식별 입력 검증
+    const videoFormats: AdFormat[] = ["preroll", "midroll", "postroll", "bumper"];
+    if (videoFormats.includes(form.format) && !form.video_url?.trim()) {
+      toast.error(`${AD_FORMAT_META[form.format].label} 광고는 Bunny 영상 URL이 필수입니다.`);
       return;
     }
-    if (form.ad_type === "feed_display" && !form.image_url && !form.video_url) {
+    if ((form.format === "feed" || form.format === "overlay") && !form.image_url && !form.video_url) {
       toast.error("이미지 URL 또는 Bunny 영상 URL을 입력하세요.");
       return;
     }
@@ -449,8 +528,20 @@ export function AdminDashboard() {
                       {ad.video_url && (
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#6366f1]/15 text-[#6366f1] font-bold">영상</span>
                       )}
+                      {/* Phase 28: 광고 형식 배지 */}
+                      {ad.format && AD_FORMAT_META[ad.format] && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#8b5cf6]/15 text-[#8b5cf6] font-bold">
+                          {AD_FORMAT_META[ad.format].emoji} {AD_FORMAT_META[ad.format].label}
+                        </span>
+                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{ad.advertiser || "광고주 미설정"} · 매 {ad.interval_count}개마다 노출</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {ad.advertiser || "광고주 미설정"}
+                      {ad.format === "feed" && ` · 매 ${ad.interval_count}개마다 노출`}
+                      {ad.format === "midroll" && ad.trigger_position_pct != null && ` · ${ad.trigger_position_pct}% 지점`}
+                      {ad.format === "overlay" && ad.trigger_position_pct != null && ` · ${ad.trigger_position_pct}% 지점 / ${ad.duration_seconds ?? 10}초`}
+                      {ad.target_tiers && ad.target_tiers.length > 0 && ` · ${ad.target_tiers.join(",")}`}
+                    </p>
                     <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{fmt(ad.impressions)}</span>
                       <span className="flex items-center gap-1"><MousePointerClick className="w-3 h-3" />{fmt(ad.clicks)}</span>
@@ -562,33 +653,28 @@ export function AdminDashboard() {
 
             <div className="flex-1 p-5 space-y-5">
 
-              {/* 광고 타입 선택 */}
-              <Field label="광고 타입 *">
+              {/* Phase 28: 광고 형식 6개 선택 */}
+              <Field label="광고 형식 *">
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setForm(f => ({ ...f, ad_type: "feed_display" }))}
-                    className={`p-3 rounded-lg border-2 text-left transition-all ${
-                      form.ad_type === "feed_display"
-                        ? "border-[#6366f1] bg-[#6366f1]/10"
-                        : "border-border hover:border-[#6366f1]/50"
-                    }`}
-                  >
-                    <div className="font-semibold text-sm mb-0.5">📰 홈 피드 카드</div>
-                    <div className="text-[11px] text-muted-foreground">홈 피드 영상 사이에 노출</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setForm(f => ({ ...f, ad_type: "video_preroll" }))}
-                    className={`p-3 rounded-lg border-2 text-left transition-all ${
-                      form.ad_type === "video_preroll"
-                        ? "border-[#6366f1] bg-[#6366f1]/10"
-                        : "border-border hover:border-[#6366f1]/50"
-                    }`}
-                  >
-                    <div className="font-semibold text-sm mb-0.5">▶️ 영상 Pre-roll</div>
-                    <div className="text-[11px] text-muted-foreground">영상 재생 전 자동 광고</div>
-                  </button>
+                  {(Object.keys(AD_FORMAT_META) as AdFormat[]).map(fmt => {
+                    const meta = AD_FORMAT_META[fmt];
+                    const active = form.format === fmt;
+                    return (
+                      <button
+                        key={fmt}
+                        type="button"
+                        onClick={() => setForm(f => applyFormatDefaults(f, fmt))}
+                        className={`p-3 rounded-lg border-2 text-left transition-all ${
+                          active
+                            ? "border-[#6366f1] bg-[#6366f1]/10"
+                            : "border-border hover:border-[#6366f1]/50"
+                        }`}
+                      >
+                        <div className="font-semibold text-sm mb-0.5">{meta.emoji} {meta.label}</div>
+                        <div className="text-[11px] text-muted-foreground">{meta.desc}</div>
+                      </button>
+                    );
+                  })}
                 </div>
               </Field>
 
@@ -766,8 +852,8 @@ export function AdminDashboard() {
                 </p>
               </Field>
 
-              {/* 홈피드 광고 — 노출 간격 */}
-              {form.ad_type === "feed_display" && (
+              {/* Feed — 노출 간격 */}
+              {form.format === "feed" && (
                 <Field label={`노출 간격: 매 ${form.interval_count}개 영상마다`}>
                   <input
                     type="range" min={2} max={10} step={1}
@@ -782,14 +868,14 @@ export function AdminDashboard() {
                 </Field>
               )}
 
-              {/* 비디오 Pre-roll 전용 옵션 */}
-              {form.ad_type === "video_preroll" && (
+              {/* Pre-roll 전용 옵션 */}
+              {form.format === "preroll" && (
                 <>
                   <Field label={`SKIP 가능 시점: ${form.skip_offset}초 후`}>
                     <input
                       type="range" min={0} max={15} step={1}
                       value={form.skip_offset}
-                      onChange={e => setForm(f => ({ ...f, skip_offset: Number(e.target.value) }))}
+                      onChange={e => setForm(f => ({ ...f, skip_offset: Number(e.target.value), skip_after_seconds: Number(e.target.value) }))}
                       className="w-full accent-[#6366f1]"
                     />
                     <div className="flex justify-between text-xs text-muted-foreground mt-1">
@@ -802,7 +888,7 @@ export function AdminDashboard() {
                     <input
                       type="range" min={5} max={60} step={5}
                       value={form.max_duration}
-                      onChange={e => setForm(f => ({ ...f, max_duration: Number(e.target.value) }))}
+                      onChange={e => setForm(f => ({ ...f, max_duration: Number(e.target.value), duration_seconds: Number(e.target.value) }))}
                       className="w-full accent-[#6366f1]"
                     />
                     <div className="flex justify-between text-xs text-muted-foreground mt-1">
@@ -824,6 +910,177 @@ export function AdminDashboard() {
                   </Field>
                 </>
               )}
+
+              {/* Mid-roll 전용 옵션 */}
+              {form.format === "midroll" && (
+                <>
+                  <Field label={`삽입 시점: 영상의 ${form.trigger_position_pct ?? 50}% 지점`}>
+                    <input
+                      type="range" min={20} max={80} step={5}
+                      value={form.trigger_position_pct ?? 50}
+                      onChange={e => setForm(f => ({ ...f, trigger_position_pct: Number(e.target.value) }))}
+                      className="w-full accent-[#6366f1]"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                      <span>20% (앞쪽)</span>
+                      <span>80% (뒤쪽)</span>
+                    </div>
+                  </Field>
+                  <Field label={`광고 길이: ${form.duration_seconds ?? 30}초`}>
+                    <input
+                      type="range" min={5} max={60} step={5}
+                      value={form.duration_seconds ?? 30}
+                      onChange={e => setForm(f => ({ ...f, duration_seconds: Number(e.target.value) }))}
+                      className="w-full accent-[#6366f1]"
+                    />
+                  </Field>
+                  <Field label={`SKIP 가능 시점: ${form.skip_after_seconds ?? 5}초 후`}>
+                    <input
+                      type="range" min={0} max={15} step={1}
+                      value={form.skip_after_seconds ?? 5}
+                      onChange={e => setForm(f => ({ ...f, skip_after_seconds: Number(e.target.value) }))}
+                      className="w-full accent-[#6366f1]"
+                    />
+                  </Field>
+                  <p className="text-xs text-amber-300/80">
+                    💡 Mid-roll은 10분 이상 영상(OTT tier)에만 권장됩니다.
+                  </p>
+                </>
+              )}
+
+              {/* Overlay 전용 옵션 */}
+              {form.format === "overlay" && (
+                <>
+                  <Field label={`노출 시점: 영상의 ${form.trigger_position_pct ?? 30}% 지점`}>
+                    <input
+                      type="range" min={10} max={80} step={5}
+                      value={form.trigger_position_pct ?? 30}
+                      onChange={e => setForm(f => ({ ...f, trigger_position_pct: Number(e.target.value) }))}
+                      className="w-full accent-[#6366f1]"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                      <span>10% (앞쪽)</span>
+                      <span>80% (뒤쪽)</span>
+                    </div>
+                  </Field>
+                  <Field label={`노출 시간: ${form.duration_seconds ?? 10}초`}>
+                    <input
+                      type="range" min={3} max={30} step={1}
+                      value={form.duration_seconds ?? 10}
+                      onChange={e => setForm(f => ({ ...f, duration_seconds: Number(e.target.value) }))}
+                      className="w-full accent-[#6366f1]"
+                    />
+                  </Field>
+                  <p className="text-xs text-amber-300/80">
+                    💡 Overlay는 1분 이상 영상에서만 노출됩니다 (아래 "최소 영상 길이" 60초로 기본 설정).
+                  </p>
+                </>
+              )}
+
+              {/* Post-roll 전용 옵션 */}
+              {form.format === "postroll" && (
+                <>
+                  <Field label={`광고 길이: ${form.duration_seconds ?? 15}초`}>
+                    <input
+                      type="range" min={5} max={30} step={5}
+                      value={form.duration_seconds ?? 15}
+                      onChange={e => setForm(f => ({ ...f, duration_seconds: Number(e.target.value) }))}
+                      className="w-full accent-[#6366f1]"
+                    />
+                  </Field>
+                  <Field label={`SKIP 가능 시점: ${form.skip_after_seconds ?? 5}초 후`}>
+                    <input
+                      type="range" min={0} max={15} step={1}
+                      value={form.skip_after_seconds ?? 5}
+                      onChange={e => setForm(f => ({ ...f, skip_after_seconds: Number(e.target.value) }))}
+                      className="w-full accent-[#6366f1]"
+                    />
+                  </Field>
+                </>
+              )}
+
+              {/* Bumper 전용 옵션 */}
+              {form.format === "bumper" && (
+                <div className="p-3 rounded-lg bg-[#6366f1]/10 border border-[#6366f1]/30 text-sm space-y-2">
+                  <p className="font-semibold">⚡ Bumper 광고 (6초 고정)</p>
+                  <p className="text-xs text-muted-foreground">
+                    • 무료 사용자: SKIP 불가 (6초 시청 강제)
+                    <br />• BASIC 사용자: 5초 후 SKIP 가능
+                    <br />• PREMIUM 사용자: 광고 자동 제거
+                  </p>
+                </div>
+              )}
+
+              {/* Phase 28: 공통 타겟팅 — tier */}
+              <Field label="노출 영상 tier (체크한 tier에만 노출, 모두 해제 시 전체)">
+                <div className="flex gap-2 flex-wrap">
+                  {(["home", "cinema", "ott"] as AdTier[]).map(tier => {
+                    const selected = form.target_tiers?.includes(tier) ?? false;
+                    return (
+                      <button
+                        key={tier}
+                        type="button"
+                        onClick={() => setForm(f => {
+                          const cur = f.target_tiers || [];
+                          const next = selected ? cur.filter(t => t !== tier) : [...cur, tier];
+                          return { ...f, target_tiers: next.length === 0 ? null : next };
+                        })}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all ${
+                          selected
+                            ? "border-[#6366f1] bg-[#6366f1]/15 text-[#6366f1]"
+                            : "border-border text-muted-foreground hover:border-[#6366f1]/40"
+                        }`}
+                      >
+                        {tier === "home" && "🏠 Home (<3분)"}
+                        {tier === "cinema" && "🎬 Cinema (3~10분)"}
+                        {tier === "ott" && "📺 OTT (10분+)"}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field>
+
+              {/* Phase 28: 공통 타겟팅 — 카테고리 */}
+              <Field label="노출 카테고리 (체크한 카테고리만, 모두 해제 시 전체)">
+                <div className="flex gap-1.5 flex-wrap">
+                  {AD_CATEGORIES.map(cat => {
+                    const selected = form.target_categories?.includes(cat) ?? false;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setForm(f => {
+                          const cur = f.target_categories || [];
+                          const next = selected ? cur.filter(c => c !== cat) : [...cur, cat];
+                          return { ...f, target_categories: next.length === 0 ? null : next };
+                        })}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
+                          selected
+                            ? "border-[#8b5cf6] bg-[#8b5cf6]/15 text-[#8b5cf6]"
+                            : "border-border text-muted-foreground hover:border-[#8b5cf6]/40"
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field>
+
+              {/* Phase 28: 최소 영상 길이 */}
+              <Field label={`최소 영상 길이: ${form.min_video_duration_sec}초`}>
+                <input
+                  type="number"
+                  min={0}
+                  step={30}
+                  className="input-base"
+                  value={form.min_video_duration_sec}
+                  onChange={e => setForm(f => ({ ...f, min_video_duration_sec: Math.max(0, Number(e.target.value) || 0) }))}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  이 길이 미만의 영상에는 광고를 노출하지 않습니다. (Overlay 권장: 60, Mid-roll 권장: 600)
+                </p>
+              </Field>
 
               {/* 기간 */}
               <Field label="노출 기간" icon={<Calendar className="w-4 h-4 text-muted-foreground" />}>

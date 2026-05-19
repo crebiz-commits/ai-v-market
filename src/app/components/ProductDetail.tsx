@@ -24,6 +24,18 @@ import { AddToPlaylistModal } from "./AddToPlaylistModal";
 import { supabase } from "../utils/supabaseClient";
 import { useTranslation } from "react-i18next";
 import { getCategoryLabel } from "../i18n/categoryLabels";
+import { AdOverlayBanner } from "./AdOverlayBanner";
+import { AdMidrollPlayer } from "./AdMidrollPlayer";
+import { fetchAdForVideo, recordAdImpression, type AdRpcResult } from "../utils/adFetch";
+
+const BUNNY_PLAYER_ORIGIN = "https://iframe.mediadelivery.net";
+function postBunnyCommand(iframe: HTMLIFrameElement | null, method: "play" | "pause") {
+  if (!iframe) return;
+  iframe.contentWindow?.postMessage(
+    JSON.stringify({ context: "player.js", version: "0.0.1", method }),
+    BUNNY_PLAYER_ORIGIN,
+  );
+}
 
 // Bunny Stream 라이브러리 ID (env 변수). 클라이언트에 노출되어도 안전.
 const BUNNY_LIBRARY_ID = (import.meta as any).env?.VITE_BUNNY_LIBRARY_ID || "";
@@ -86,6 +98,12 @@ interface ProductDetailProps {
 
     // 채널 진입용 (Phase 6.5)
     creatorId?: string;
+
+    // Phase 28: Sponsorship
+    sponsorBrand?: string | null;
+    sponsorLogoUrl?: string | null;
+    sponsorDisclosure?: string | null;
+    sponsorLinkUrl?: string | null;
   };
   onClose: () => void;
   onAddToCart?: (product: any, licenseType: "standard" | "commercial" | "extended") => Promise<boolean> | boolean | void;
@@ -119,7 +137,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
   const creatorName = (product.creatorId ? creatorInfo[product.creatorId]?.name : null) ?? product.creator;
 
   // Phase 4: 페이월 게이트
-  const { isSubscriber, isAuthenticated, user, profile } = useAuth();
+  const { isSubscriber, isPremium, subscriptionTier, isAuthenticated, user, profile } = useAuth();
   // Phase 9: 라이선스 결제
   const { startLicensePurchase } = usePayment();
   const [buyingLicense, setBuyingLicense] = useState(false);
@@ -403,13 +421,195 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
   // iframe 실제 노출 여부 — 페이월 게이트 + Phase 26: 19+ 미인증 차단
   const iframeBlocked = ottBlocked || cinemaCutoffTriggered || isAgeLocked;
 
+  // ── Phase 28: Overlay 광고 (재생 중 30% 지점, 1분+ 영상만) ──
+  const [overlayAd, setOverlayAd] = useState<AdRpcResult | null>(null);
+  // 영상 변경 시 광고 상태 초기화
+  useEffect(() => {
+    setOverlayAd(null);
+  }, [product.id]);
+
+  useEffect(() => {
+    if (iframeBlocked) return;
+    if (!product.id || !durationSeconds || durationSeconds < 60) return;  // 1분 미만 제외
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const LISTENER_ID = "creaite-overlay-ad";
+    const BUNNY_ORIGIN = "https://iframe.mediadelivery.net";
+    let fired = false;
+
+    const subscribe = () => {
+      iframe.contentWindow?.postMessage(
+        JSON.stringify({
+          context: "player.js",
+          version: "0.0.1",
+          method: "addEventListener",
+          value: "timeupdate",
+          listener: LISTENER_ID,
+        }),
+        BUNNY_ORIGIN,
+      );
+    };
+
+    const handleMessage = async (e: MessageEvent) => {
+      if (e.origin !== BUNNY_ORIGIN) return;
+      let data: any;
+      try {
+        data = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+      } catch {
+        return;
+      }
+      if (data?.context !== "player.js") return;
+      if (data?.event === "ready") {
+        subscribe();
+        return;
+      }
+      if (data?.event !== "timeupdate" || data?.listener !== LISTENER_ID) return;
+      if (fired) return;
+
+      const seconds = data?.value?.seconds ?? 0;
+      // 광고가 등록한 trigger_position_pct를 따라야 하지만, RPC 전에는 알 수 없으니
+      // 일단 25% 지점부터 광고를 fetch해보고 (RPC가 광고의 trigger_position_pct를 반환),
+      // 광고의 실제 지점 도달 시 노출. 영상이 짧으면 부담스러우니 1차 fetch는 25% 지점에서 1회.
+      const checkPct = (seconds / durationSeconds) * 100;
+      if (checkPct < 25) return;
+      fired = true;
+      const ad = await fetchAdForVideo(product.id, "overlay");
+      if (!ad) return;
+      // 광고가 지정한 trigger_position_pct에 아직 도달 안 했으면 그 지점까지 대기
+      const targetPct = ad.trigger_position_pct ?? 30;
+      const currentPct = (seconds / durationSeconds) * 100;
+      const delaySec = currentPct >= targetPct ? 0 : (durationSeconds * (targetPct - currentPct)) / 100;
+      setTimeout(() => {
+        setOverlayAd(ad);
+        recordAdImpression(ad.ad_id, product.id, "overlay", { positionSeconds: Math.floor(seconds + delaySec) });
+      }, delaySec * 1000);
+    };
+
+    const initialSubscribe = setTimeout(subscribe, 500);
+    window.addEventListener("message", handleMessage);
+    return () => {
+      clearTimeout(initialSubscribe);
+      window.removeEventListener("message", handleMessage);
+    };
+  }, [product.id, durationSeconds, iframeBlocked]);
+
+  // ── Phase 28: Mid-roll 광고 (10분+ OTT 영상에 한정) ──
+  const [midrollAd, setMidrollAd] = useState<AdRpcResult | null>(null);
+  useEffect(() => {
+    setMidrollAd(null);
+  }, [product.id]);
+
+  useEffect(() => {
+    if (iframeBlocked) return;
+    if (!product.id || !durationSeconds || durationSeconds < OTT_THRESHOLD_SECONDS) return;  // 10분+
+    if (isSubscriber) return;  // 구독자(PREMIUM)는 광고 제거 — Step 6 정책과 동일
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const LISTENER_ID = "creaite-midroll-ad";
+    let fired = false;
+
+    const subscribe = () => {
+      iframe.contentWindow?.postMessage(
+        JSON.stringify({
+          context: "player.js",
+          version: "0.0.1",
+          method: "addEventListener",
+          value: "timeupdate",
+          listener: LISTENER_ID,
+        }),
+        BUNNY_PLAYER_ORIGIN,
+      );
+    };
+
+    const handleMessage = async (e: MessageEvent) => {
+      if (e.origin !== BUNNY_PLAYER_ORIGIN) return;
+      let data: any;
+      try {
+        data = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+      } catch { return; }
+      if (data?.context !== "player.js") return;
+      if (data?.event === "ready") { subscribe(); return; }
+      if (data?.event !== "timeupdate" || data?.listener !== LISTENER_ID) return;
+      if (fired) return;
+
+      const seconds = data?.value?.seconds ?? 0;
+      const pct = (seconds / durationSeconds) * 100;
+      // 50% 지점 도달 직전(48%)부터 fetch 시도 — 실제 trigger_position_pct는 광고가 들고 옴
+      if (pct < 48) return;
+      fired = true;
+      const ad = await fetchAdForVideo(product.id, "midroll");
+      if (!ad) return;
+      const targetPct = ad.trigger_position_pct ?? 50;
+      const currentPct = (seconds / durationSeconds) * 100;
+      const delaySec = currentPct >= targetPct ? 0 : (durationSeconds * (targetPct - currentPct)) / 100;
+      setTimeout(() => {
+        postBunnyCommand(iframeRef.current, "pause");
+        setMidrollAd(ad);
+      }, delaySec * 1000);
+    };
+
+    const initialSubscribe = setTimeout(subscribe, 500);
+    window.addEventListener("message", handleMessage);
+    return () => {
+      clearTimeout(initialSubscribe);
+      window.removeEventListener("message", handleMessage);
+    };
+  }, [product.id, durationSeconds, iframeBlocked, isSubscriber]);
+
+  // ── Phase 28: Sponsorship 배지 (영상 시작 시 5초간 우상단 노출) ──
+  const [showSponsorBadge, setShowSponsorBadge] = useState(false);
+  useEffect(() => {
+    setShowSponsorBadge(false);
+    if (!product.sponsorBrand || iframeBlocked) return;
+    if (bumperAd || midrollAd || postrollAd) return;  // 광고 표시 중에는 숨김
+    // 영상 시작 후 5초간 노출 (마운트와 동시에 시작 — Bunny ready 이벤트가 빠르게 옴)
+    setShowSponsorBadge(true);
+    const timer = setTimeout(() => setShowSponsorBadge(false), 5000);
+    return () => clearTimeout(timer);
+    // bumperAd 등이 바뀔 때마다 재실행 (광고 끝나면 배지가 다시 안 떠야 함 — 5초는 영상 시작 시 1회만)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id, product.sponsorBrand, iframeBlocked]);
+
+  const handleSponsorClick = () => {
+    if (!product.sponsorLinkUrl) return;
+    window.open(product.sponsorLinkUrl, "_blank", "noopener,noreferrer");
+  };
+
+  // ── Phase 28: Bumper 광고 (영상 시작 직후 6초, 구독자 tier별 SKIP 차등) ──
+  // 정책: Free=SKIP 불가 / Basic=5초 후 SKIP / Premium=광고 제거
+  const [bumperAd, setBumperAd] = useState<AdRpcResult | null>(null);
+  useEffect(() => {
+    setBumperAd(null);
+  }, [product.id]);
+
+  useEffect(() => {
+    if (iframeBlocked) return;
+    if (isPremium) return;  // Premium은 광고 제거
+    if (!product.id) return;
+    let cancelled = false;
+    (async () => {
+      const ad = await fetchAdForVideo(product.id, "bumper");
+      if (cancelled || !ad) return;
+      // Tier별 SKIP 정책 override
+      const skipOverride = subscriptionTier === "basic" ? 5 : null;  // free=null(SKIP 불가)
+      postBunnyCommand(iframeRef.current, "pause");
+      setBumperAd({ ...ad, skip_after_seconds: skipOverride });
+    })();
+    return () => { cancelled = true; };
+  }, [product.id, iframeBlocked, isPremium, subscriptionTier]);
+
   // ── Phase 16: 연속 재생 (영상 종료 → 다음 영상 카운트다운) ──
   const [nextVideo, setNextVideo] = useState<{ id: string; title: string; thumbnail?: string | null; creator?: string | null; duration?: string | null; views?: number | null } | null>(null);
   const [showNextOverlay, setShowNextOverlay] = useState(false);
+  // Phase 28: Post-roll 광고 (영상 종료 후, NextVideoOverlay 직전)
+  const [postrollAd, setPostrollAd] = useState<AdRpcResult | null>(null);
   // 영상 변경 시 오버레이 초기화 (다른 영상 연속 재생할 때 잔류 방지)
   useEffect(() => {
     setShowNextOverlay(false);
     setNextVideo(null);
+    setPostrollAd(null);
   }, [product.id]);
 
   // Bunny `ended` 이벤트 구독 + timeupdate 폴백 → 추천 영상 로드 → 오버레이 표시
@@ -479,6 +679,15 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
           duration: v.duration,
           views: Number(v.views || 0),
         });
+
+        // Phase 28: Post-roll 광고 시도 (구독자는 광고 제거)
+        if (!isSubscriber) {
+          const ad = await fetchAdForVideo(product.id, "postroll");
+          if (ad) {
+            setPostrollAd(ad);  // 광고 종료 콜백에서 setShowNextOverlay(true) 호출
+            return;
+          }
+        }
         setShowNextOverlay(true);
       } catch {
         // 추천 로드 실패는 조용히 무시 (영상 시청 흐름 방해 안 함)
@@ -520,7 +729,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
       clearTimeout(initialSubscribe);
       window.removeEventListener("message", handleMessage);
     };
-  }, [product.id, iframeBlocked, onNavigateToVideo, durationSeconds]);
+  }, [product.id, iframeBlocked, onNavigateToVideo, durationSeconds, isSubscriber]);
 
   // 뒤로가기로 댓글 패널 닫기
   useBackButton(showComments, () => setShowComments(false));
@@ -682,6 +891,54 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
             </div>
           )}
 
+          {/* Phase 28: Overlay 광고 (재생 중 하단 배너) */}
+          {overlayAd && !iframeBlocked && !midrollAd && (
+            <AdOverlayBanner
+              ad={overlayAd}
+              videoId={product.id}
+              onDismiss={() => setOverlayAd(null)}
+            />
+          )}
+
+          {/* Phase 28: Mid-roll 광고 (영상 중간 풀스크린 광고) */}
+          {midrollAd && !iframeBlocked && (
+            <AdMidrollPlayer
+              ad={midrollAd}
+              videoId={product.id}
+              format="midroll"
+              onComplete={() => {
+                setMidrollAd(null);
+                postBunnyCommand(iframeRef.current, "play");
+              }}
+            />
+          )}
+
+          {/* Phase 28: Post-roll 광고 (영상 종료 후, NextVideoOverlay 직전) */}
+          {postrollAd && !iframeBlocked && (
+            <AdMidrollPlayer
+              ad={postrollAd}
+              videoId={product.id}
+              format="postroll"
+              onComplete={() => {
+                setPostrollAd(null);
+                setShowNextOverlay(true);
+              }}
+            />
+          )}
+
+          {/* Phase 28: Bumper 광고 (Free/Basic 시작 직후 6초, Premium은 표시 안 함) */}
+          {bumperAd && !iframeBlocked && (
+            <AdMidrollPlayer
+              ad={bumperAd}
+              videoId={product.id}
+              format="bumper"
+              onComplete={() => {
+                setBumperAd(null);
+                postBunnyCommand(iframeRef.current, "play");
+              }}
+            />
+          )}
+
           {/* Phase 16: 다음 영상 오버레이 (영상 종료 시) */}
           <NextVideoOverlay
             open={showNextOverlay}
@@ -700,6 +957,24 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
           <div className="absolute top-4 right-4 px-3 py-1 bg-black/70 backdrop-blur-sm rounded-full text-white text-sm">
             {product.duration}
           </div>
+
+          {/* Phase 28: Sponsorship 배지 (시작 5초간) */}
+          {showSponsorBadge && product.sponsorBrand && (
+            <motion.button
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              onClick={handleSponsorClick}
+              disabled={!product.sponsorLinkUrl}
+              className="absolute top-16 right-4 z-20 flex items-center gap-2 px-3 py-1.5 bg-amber-500/95 backdrop-blur-sm rounded-full text-white text-xs font-bold shadow-xl border border-amber-300/50 hover:bg-amber-500 disabled:cursor-default transition-colors"
+            >
+              {product.sponsorLogoUrl && (
+                <img src={product.sponsorLogoUrl} alt={product.sponsorBrand} className="w-4 h-4 rounded-full object-cover bg-white/20" />
+              )}
+              <span>{product.sponsorDisclosure || "유료 광고 포함"}</span>
+              <span className="opacity-80">· {product.sponsorBrand}</span>
+            </motion.button>
+          )}
 
           <button
             onClick={onClose}

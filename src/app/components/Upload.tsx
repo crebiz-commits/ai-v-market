@@ -74,6 +74,11 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     commercialPrice: "",
     exclusivePrice: "",
     tags: "",
+    // Phase 28: Sponsorship (협찬 정보)
+    sponsorBrand: "",
+    sponsorLogoUrl: "",
+    sponsorDisclosure: "유료 광고 포함",
+    sponsorLinkUrl: "",
   });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [uploadComplete, setUploadComplete] = useState(false);
@@ -680,6 +685,11 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
         // 하이라이트 구간 (홈 피드/큐레이션 노출용)
         highlightStart: highlight.start,
         highlightEnd: highlight.end,
+        // Phase 28: Sponsorship
+        sponsorBrand: formData.sponsorBrand?.trim() || null,
+        sponsorLogoUrl: formData.sponsorLogoUrl?.trim() || null,
+        sponsorDisclosure: formData.sponsorBrand?.trim() ? (formData.sponsorDisclosure?.trim() || "유료 광고 포함") : null,
+        sponsorLinkUrl: formData.sponsorLinkUrl?.trim() || null,
         status: 'ready'
       };
 
@@ -1434,6 +1444,67 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                         {languages.filter(l => l !== "무음/instrumental").map((l) => <option key={l} value={l}>{getLanguageLabel(l, t)}</option>)}
                       </select>
                     </div>
+                  </div>
+                </div>
+              </details>
+
+              {/* Phase 28: Sponsorship — 협찬·후원 정보 (선택) */}
+              <details className="group rounded-lg border border-border bg-card/50 overflow-hidden">
+                <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between hover:bg-card transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🤝</span>
+                    <span className="font-semibold">{t("upload.sponsorHeader", "협찬·후원 정보")}</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">{t("upload.optionalBadge")}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground group-open:rotate-180 transition-transform">▾</span>
+                </summary>
+                <div className="px-4 pb-4 space-y-4 border-t border-border">
+                  <p className="text-xs text-muted-foreground pt-3">
+                    {t("upload.sponsorDescription", "협찬·후원이 있는 콘텐츠는 공정거래법에 따라 영상 시작 시 표시 문구를 노출합니다.")}
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="sponsorBrand" className="mb-2 block text-sm">{t("upload.sponsorBrandLabel", "후원 브랜드명")}</Label>
+                      <Input
+                        id="sponsorBrand"
+                        value={formData.sponsorBrand}
+                        onChange={(e) => setFormData({ ...formData, sponsorBrand: e.target.value })}
+                        placeholder={t("upload.sponsorBrandPlaceholder", "예: Samsung, Coca-Cola")}
+                        className="bg-background"
+                        maxLength={50}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="sponsorDisclosure" className="mb-2 block text-sm">{t("upload.sponsorDisclosureLabel", "표시 문구")}</Label>
+                      <Input
+                        id="sponsorDisclosure"
+                        value={formData.sponsorDisclosure}
+                        onChange={(e) => setFormData({ ...formData, sponsorDisclosure: e.target.value })}
+                        placeholder="유료 광고 포함"
+                        className="bg-background"
+                        maxLength={30}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="sponsorLogoUrl" className="mb-2 block text-sm">{t("upload.sponsorLogoLabel", "후원 로고 URL (선택)")}</Label>
+                    <Input
+                      id="sponsorLogoUrl"
+                      value={formData.sponsorLogoUrl}
+                      onChange={(e) => setFormData({ ...formData, sponsorLogoUrl: e.target.value })}
+                      placeholder="https://..."
+                      className="bg-background"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="sponsorLinkUrl" className="mb-2 block text-sm">{t("upload.sponsorLinkLabel", "클릭 시 이동 URL (선택)")}</Label>
+                    <Input
+                      id="sponsorLinkUrl"
+                      value={formData.sponsorLinkUrl}
+                      onChange={(e) => setFormData({ ...formData, sponsorLinkUrl: e.target.value })}
+                      placeholder="https://..."
+                      className="bg-background"
+                    />
                   </div>
                 </div>
               </details>

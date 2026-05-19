@@ -229,6 +229,11 @@ function AppContent() {
         seed: data.seed || "",
         highlightStart: data.highlight_start || 0,
         highlightEnd: data.highlight_end || 15,
+        // Phase 28: Sponsorship
+        sponsorBrand: data.sponsor_brand || null,
+        sponsorLogoUrl: data.sponsor_logo_url || null,
+        sponsorDisclosure: data.sponsor_disclosure || null,
+        sponsorLinkUrl: data.sponsor_link_url || null,
       } as VideoProduct);
     } catch (err: any) {
       toast.error(t("app.videoFetchFailed", { message: err?.message || err }));

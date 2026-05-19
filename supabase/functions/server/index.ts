@@ -313,6 +313,11 @@ app.post("/videos/save-metadata", async (c) => {
         // 하이라이트 구간
         highlight_start: highlightStartNum,
         highlight_end: highlightEndNum,
+        // Phase 28: Sponsorship
+        sponsor_brand: metadata.sponsorBrand || null,
+        sponsor_logo_url: metadata.sponsorLogoUrl || null,
+        sponsor_disclosure: metadata.sponsorDisclosure || null,
+        sponsor_link_url: metadata.sponsorLinkUrl || null,
       });
 
     if (dbError) {
