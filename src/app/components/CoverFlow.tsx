@@ -5,6 +5,7 @@ import 'video.js/dist/video-js.css';
 import Player from 'video.js/dist/types/player';
 import { useCreatorInfo } from '../hooks/useCreatorInfo';
 import { CreatorAvatar } from './CreatorAvatar';
+import { useTranslation } from 'react-i18next';
 
 interface Video {
   id: string;
@@ -30,6 +31,7 @@ interface CoverFlowProps {
 }
 
 export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps) {
+  const { t } = useTranslation();
   const [rotation, setRotation] = useState(0);
   const creatorInfo = useCreatorInfo(videos.map((v) => v.creatorId));
   const [isDragging, setIsDragging] = useState(false);
@@ -630,15 +632,15 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
                 {/* Video Specs - Right */}
                 <div className="flex gap-2 md:gap-3">
                   <div className="text-center">
-                    <div className="text-white/50 text-[9px] md:text-[10px] mb-0.5">해상도</div>
+                    <div className="text-white/50 text-[9px] md:text-[10px] mb-0.5">{t("productDetail.meta.resolution")}</div>
                     <div className="text-white text-xs md:text-sm font-medium">{selectedVideo.resolution || '4K'}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-white/50 text-[9px] md:text-[10px] mb-0.5">길이</div>
+                    <div className="text-white/50 text-[9px] md:text-[10px] mb-0.5">{t("productDetail.meta.duration")}</div>
                     <div className="text-white text-xs md:text-sm font-medium">{selectedVideo.duration || '0:30'}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-white/50 text-[9px] md:text-[10px] mb-0.5">AI 툴</div>
+                    <div className="text-white/50 text-[9px] md:text-[10px] mb-0.5">{t("productDetail.meta.aiTool")}</div>
                     <div className="text-white text-xs md:text-sm font-medium">{selectedVideo.tool || 'Sora'}</div>
                   </div>
                 </div>
@@ -646,7 +648,7 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
 
               {/* License Tabs */}
               <div className="mb-3 md:mb-4">
-                <div className="text-white/70 text-[10px] md:text-xs mb-1.5 md:mb-2">라이선스 선택</div>
+                <div className="text-white/70 text-[10px] md:text-xs mb-1.5 md:mb-2">{t("productDetail.license.title")}</div>
                 <div className="grid grid-cols-3 gap-1.5 md:gap-2">
                   <button
                     onClick={() => setSelectedLicense('standard')}
@@ -660,7 +662,7 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
                     <div className={`text-[10px] md:text-xs ${
                       selectedLicense === 'standard' ? 'text-[#6366f1]' : 'text-white/50'
                     }`}>
-                      개인/소규모
+                      Personal / Small
                     </div>
                   </button>
                   <button
@@ -675,7 +677,7 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
                     <div className={`text-[10px] md:text-xs ${
                       selectedLicense === 'commercial' ? 'text-[#6366f1]' : 'text-white/50'
                     }`}>
-                      상업용
+                      Commercial
                     </div>
                   </button>
                   <button
@@ -690,7 +692,7 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
                     <div className={`text-[10px] md:text-xs ${
                       selectedLicense === 'exclusive' ? 'text-[#6366f1]' : 'text-white/50'
                     }`}>
-                      독점 라이선스
+                      Exclusive
                     </div>
                   </button>
                 </div>
@@ -699,13 +701,13 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
               {/* Price & Purchase Button */}
               <div className="flex items-center justify-between gap-2 md:gap-4">
                 <div>
-                  <div className="text-white/50 text-[10px] md:text-xs mb-0.5 md:mb-1">가격</div>
+                  <div className="text-white/50 text-[10px] md:text-xs mb-0.5 md:mb-1">{t("upload.priceLabel").replace(" *", "")}</div>
                   <div className="text-white text-xl md:text-2xl font-bold">
                     ₩{getPrice().toLocaleString()}
                   </div>
                 </div>
                 <button className="flex-1 max-w-[180px] md:max-w-xs px-4 md:px-8 py-2.5 md:py-3 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white text-sm md:text-lg font-bold rounded-full hover:shadow-lg hover:shadow-[#6366f1]/50 transition-all">
-                  구매하기
+                  {t("productDetail.cart.purchase")}
                 </button>
               </div>
             </div>

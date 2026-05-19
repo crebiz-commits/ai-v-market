@@ -30,15 +30,15 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
     try {
       if (mode === "signin") {
         await signIn(email, password);
-        toast.success("로그인 성공!");
+        toast.success(t("auth.loginSuccess"));
         onClose();
       } else {
         await signUp(email, password, name);
-        toast.success("회원가입 완료! 자동으로 로그인되었습니다.");
+        toast.success(t("auth.loginSuccess"));
         onClose();
       }
     } catch (error: any) {
-      toast.error(error.message || "오류가 발생했습니다.");
+      toast.error(error.message || t("auth.loginFail"));
     } finally {
       setLoading(false);
     }
@@ -49,9 +49,8 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
       setLoading(true);
       await signInWithGoogle();
     } catch (err: any) {
-      const msg: string = err.message || "Google 로그인에 실패했습니다.";
-      // WebView 안내는 duration을 길게
-      const isWebViewError = msg.includes("앱 내 브라우저");
+      const msg: string = err.message || "Google sign-in failed.";
+      const isWebViewError = msg.includes("in-app");
       toast.error(msg, { duration: isWebViewError ? 8000 : 4000 });
       setLoading(false);
     }
@@ -62,7 +61,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
       setLoading(true);
       await signInWithKakao();
     } catch (err: any) {
-      toast.error(err.message || "Kakao 로그인에 실패했습니다.");
+      toast.error(err.message || "Kakao sign-in failed.");
       setLoading(false);
     }
   };
@@ -239,7 +238,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="password" title="로그인 후 이메일 찾기 또는 비밀번호 재설정" className="text-gray-700 font-bold">{t("auth.password")}</Label>
+                    <Label htmlFor="password" title="Find email / reset password after sign-in" className="text-gray-700 font-bold">{t("auth.password")}</Label>
                     <Input
                       id="password"
                       type="password"
