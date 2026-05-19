@@ -7,6 +7,7 @@ import { FollowButton } from "./FollowButton";
 import { CreatorChannel } from "./CreatorChannel";
 import { useTranslation } from "react-i18next";
 import { formatCompactNumber } from "../i18n/numberFormat";
+import { getCategoryLabel, getAiToolLabel } from "../i18n/categoryLabels";
 
 interface ChannelProps {
   onSignInClick?: () => void;
@@ -352,12 +353,12 @@ function SubscribedTab({
             <div className="flex items-center gap-2 flex-wrap">
               {v.category && (
                 <span className="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[10px] font-medium text-gray-400">
-                  {v.category}
+                  {getCategoryLabel(v.category, t)}
                 </span>
               )}
               {v.ai_tool && (
                 <span className="px-2 py-0.5 bg-[#8b5cf6]/10 border border-[#8b5cf6]/20 rounded text-[10px] font-medium text-[#8b5cf6]">
-                  {v.ai_tool}
+                  {getAiToolLabel(v.ai_tool, t) || v.ai_tool}
                 </span>
               )}
             </div>

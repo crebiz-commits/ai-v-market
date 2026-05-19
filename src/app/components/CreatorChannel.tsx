@@ -8,6 +8,7 @@ import { CommentSettings } from "./CommentSettings";
 import { ReportModal } from "./ReportModal";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { useTranslation } from "react-i18next";
+import { getCategoryLabel, getAiToolLabel } from "../i18n/categoryLabels";
 
 interface CreatorChannelProps {
   creatorId: string;
@@ -361,12 +362,12 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
                   <div className="flex items-center gap-2 flex-wrap mt-2">
                     {v.category && (
                       <span className="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[10px] font-medium text-gray-400">
-                        {v.category}
+                        {getCategoryLabel(v.category, t)}
                       </span>
                     )}
                     {v.ai_tool && (
                       <span className="px-2 py-0.5 bg-[#8b5cf6]/10 border border-[#8b5cf6]/20 rounded text-[10px] font-medium text-[#8b5cf6]">
-                        {v.ai_tool}
+                        {getAiToolLabel(v.ai_tool, t) || v.ai_tool}
                       </span>
                     )}
                   </div>
