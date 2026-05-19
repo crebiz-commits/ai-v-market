@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { CommentPanel } from "./CommentPanel";
 import { useBackButton } from "../hooks/useBackButton";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export interface Post {
   id: string;
@@ -45,6 +46,7 @@ export function CommunityPostDetail({
   onBookmark,
   onClose,
 }: CommunityPostDetailProps) {
+  const { t } = useTranslation();
   const [showComments, setShowComments] = useState(false);
 
   // 뒤로가기로 댓글 패널 → 상세 페이지 → 목록 순서로 닫힘
@@ -58,15 +60,15 @@ export function CommunityPostDetail({
         await navigator.share(shareData);
       } else {
         await navigator.clipboard.writeText(url);
-        toast.success("링크가 클립보드에 복사됐습니다!");
+        toast.success(t("shareModal.linkCopied"));
       }
     } catch (err: any) {
       if (err.name !== "AbortError") {
         try {
           await navigator.clipboard.writeText(url);
-          toast.success("링크가 클립보드에 복사됐습니다!");
+          toast.success(t("shareModal.linkCopied"));
         } catch {
-          toast.error("공유에 실패했습니다.");
+          toast.error(t("shareModal.copyFailed"));
         }
       }
     }
@@ -86,16 +88,16 @@ export function CommunityPostDetail({
           <button
             onClick={onClose}
             className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors text-foreground"
-            aria-label="뒤로가기"
+            aria-label={t("creatorChannel.back")}
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <span className="font-semibold">게시글</span>
+          <span className="font-semibold">{t("community.tabPosts")}</span>
           <div className="flex-1" />
           <button
             onClick={handleShare}
             className="p-2 -mr-2 rounded-full hover:bg-white/10 transition-colors text-foreground"
-            aria-label="공유"
+            aria-label={t("common.share")}
           >
             <Share2 className="w-5 h-5" />
           </button>
@@ -145,11 +147,11 @@ export function CommunityPostDetail({
         <div className="flex items-center gap-5 py-4 border-y border-white/10 text-sm text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <Heart className="w-4 h-4" />
-            <span>{post.likes + (isLiked ? 1 : 0)} 좋아요</span>
+            <span>{post.likes + (isLiked ? 1 : 0)} {t("common.like")}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <MessageCircle className="w-4 h-4" />
-            <span>{post.comments} 댓글</span>
+            <span>{post.comments} {t("common.comment")}</span>
           </div>
         </div>
 
@@ -159,7 +161,7 @@ export function CommunityPostDetail({
           className="mt-6 w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
         >
           <MessageCircle className="w-4 h-4" />
-          댓글 보기 / 작성하기
+          {t("common.comment")}
         </button>
       </article>
 
@@ -173,7 +175,7 @@ export function CommunityPostDetail({
                 ? "bg-red-500/20 text-red-400"
                 : "hover:bg-white/10 text-muted-foreground hover:text-foreground"
             }`}
-            aria-label="좋아요"
+            aria-label={t("common.like")}
           >
             <Heart className={`w-5 h-5 ${isLiked ? "fill-red-400" : ""}`} />
             <span className="text-sm font-medium">{post.likes + (isLiked ? 1 : 0)}</span>
@@ -181,7 +183,7 @@ export function CommunityPostDetail({
           <button
             onClick={() => setShowComments(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-full hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
-            aria-label="댓글"
+            aria-label={t("common.comment")}
           >
             <MessageCircle className="w-5 h-5" />
             <span className="text-sm font-medium">{post.comments}</span>
@@ -194,14 +196,14 @@ export function CommunityPostDetail({
                 ? "bg-[#6366f1]/20 text-[#6366f1]"
                 : "hover:bg-white/10 text-muted-foreground hover:text-foreground"
             }`}
-            aria-label="북마크"
+            aria-label="Bookmark"
           >
             <Bookmark className={`w-5 h-5 ${isBookmarked ? "fill-[#6366f1]" : ""}`} />
           </button>
           <button
             onClick={handleShare}
             className="p-2.5 rounded-full hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
-            aria-label="공유"
+            aria-label={t("common.share")}
           >
             <Send className="w-5 h-5 -rotate-12" />
           </button>

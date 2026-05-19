@@ -2,6 +2,7 @@ import { motion } from "motion/react";
 import { ArrowLeft, Trophy, Users, Calendar, Share2, Sparkles, Award, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
+import { useTranslation } from "react-i18next";
 
 export interface Challenge {
   id: string;
@@ -29,6 +30,7 @@ function getDaysLeft(deadline: string): number {
 }
 
 export function CommunityChallengeDetail({ challenge, onClose }: CommunityChallengeDetailProps) {
+  const { t } = useTranslation();
   const daysLeft = getDaysLeft(challenge.deadline);
 
   const handleShare = async () => {
@@ -39,7 +41,7 @@ export function CommunityChallengeDetail({ challenge, onClose }: CommunityChalle
         await navigator.share(shareData);
       } else {
         await navigator.clipboard.writeText(url);
-        toast.success("링크가 클립보드에 복사됐습니다!");
+        toast.success(t("shareModal.linkCopied"));
       }
     } catch (err: any) {
       if (err.name !== "AbortError") {
@@ -49,7 +51,7 @@ export function CommunityChallengeDetail({ challenge, onClose }: CommunityChalle
   };
 
   const handleParticipate = () => {
-    toast.info("챌린지 참여 기능은 곧 오픈됩니다!", { duration: 3000 });
+    toast.info(t("communityChallengeDetail.comingSoon"), { duration: 3000 });
   };
 
   return (
@@ -66,16 +68,16 @@ export function CommunityChallengeDetail({ challenge, onClose }: CommunityChalle
           <button
             onClick={onClose}
             className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors text-foreground"
-            aria-label="뒤로가기"
+            aria-label={t("creatorChannel.back")}
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <span className="font-semibold">챌린지</span>
+          <span className="font-semibold">{t("community.tabChallenges")}</span>
           <div className="flex-1" />
           <button
             onClick={handleShare}
             className="p-2 -mr-2 rounded-full hover:bg-white/10 transition-colors text-foreground"
-            aria-label="공유"
+            aria-label={t("common.share")}
           >
             <Share2 className="w-5 h-5" />
           </button>
@@ -88,7 +90,7 @@ export function CommunityChallengeDetail({ challenge, onClose }: CommunityChalle
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
         <div className="absolute bottom-4 left-0 right-0 px-4 md:px-6 max-w-3xl mx-auto">
           <span className="inline-block px-3 py-1 bg-[#8b5cf6]/30 backdrop-blur-md border border-[#8b5cf6]/50 rounded-full text-xs font-bold text-white mb-2 uppercase tracking-wider">
-            🏆 진행 중
+            🏆 Active
           </span>
           <h1 className="text-2xl md:text-4xl font-extrabold text-white leading-tight drop-shadow-lg">
             {challenge.title}
@@ -102,19 +104,19 @@ export function CommunityChallengeDetail({ challenge, onClose }: CommunityChalle
         <div className="grid grid-cols-3 gap-3 mb-6">
           <div className="bg-card border border-border rounded-xl p-3 text-center">
             <Trophy className="w-5 h-5 text-amber-400 mx-auto mb-1" />
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">상금</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{t("communityChallengeDetail.prizeLabel")}</p>
             <p className="font-extrabold text-foreground">{challenge.prize}</p>
           </div>
           <div className="bg-card border border-border rounded-xl p-3 text-center">
             <Users className="w-5 h-5 text-[#6366f1] mx-auto mb-1" />
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">참여자</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{t("communityChallengeDetail.participantsLabel")}</p>
             <p className="font-extrabold text-foreground">{challenge.participants.toLocaleString()}</p>
           </div>
           <div className="bg-card border border-border rounded-xl p-3 text-center">
             <Clock className={`w-5 h-5 mx-auto mb-1 ${daysLeft <= 3 ? "text-red-400" : "text-[#10b981]"}`} />
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">남은 기간</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{t("communityChallengeDetail.deadlineLabel")}</p>
             <p className={`font-extrabold ${daysLeft <= 3 ? "text-red-400" : "text-foreground"}`}>
-              {daysLeft > 0 ? `D-${daysLeft}` : "종료"}
+              {daysLeft > 0 ? `D-${daysLeft}` : "Ended"}
             </p>
           </div>
         </div>
@@ -122,18 +124,18 @@ export function CommunityChallengeDetail({ challenge, onClose }: CommunityChalle
         {/* 마감일 */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
           <Calendar className="w-4 h-4" />
-          <span>마감일: {challenge.deadline}</span>
+          <span>{t("community.deadlineLabel", { date: challenge.deadline })}</span>
         </div>
 
         {/* 설명 */}
         <section className="mb-6">
           <h2 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-[#a78bfa]" />
-            챌린지 소개
+            {t("communityChallengeDetail.details")}
           </h2>
           <div className="text-base leading-relaxed text-foreground/90 whitespace-pre-line bg-card rounded-xl border border-border p-4">
             {challenge.description ||
-              `${challenge.title}에 참여하세요!\n\nAI 영상 제작 실력을 뽐내고 ${challenge.prize}의 상금을 획득할 기회입니다. 창의적이고 독특한 영상을 만들어 다른 크리에이터들과 경쟁해 보세요.\n\n우수작은 메인 피드에 노출되며, 1위 작품은 마켓 전면에 일주일 동안 무료 프로모션으로 게재됩니다.`}
+              `Join ${challenge.title}!\n\nShow off your AI video skills for a chance to win ${challenge.prize}. Compete with other creators with your unique creations.\n\nTop entries get featured on the home feed; the 1st place gets a free week-long promo on the market.`}
           </div>
         </section>
 
@@ -141,16 +143,16 @@ export function CommunityChallengeDetail({ challenge, onClose }: CommunityChalle
         <section className="mb-6">
           <h2 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
             <Award className="w-5 h-5 text-amber-400" />
-            참여 규칙
+            Rules
           </h2>
           <ul className="space-y-2 bg-card rounded-xl border border-border p-4">
             {[
-              "15초 이내의 AI 생성 영상 제출",
-              "주제에 맞는 창의적인 컨셉",
-              "9:16 또는 16:9 해상도, 최소 1080p 화질",
-              "원본 프롬프트 함께 제출 (선택)",
-              "한 사람당 최대 3개 작품 제출 가능",
-              "표절·저작권 침해 콘텐츠 자동 실격",
+              "Submit AI-generated video within 15 seconds",
+              "Creative concept matching the theme",
+              "9:16 or 16:9 resolution, at least 1080p quality",
+              "Submit original prompts (optional)",
+              "Up to 3 entries per person",
+              "Plagiarism / copyright infringement = auto disqualified",
             ].map((rule, i) => (
               <li key={i} className="flex items-start gap-2.5 text-sm text-foreground/90">
                 <span className="flex-shrink-0 w-5 h-5 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-[10px] font-bold text-white mt-0.5">
@@ -166,13 +168,13 @@ export function CommunityChallengeDetail({ challenge, onClose }: CommunityChalle
         <section>
           <h2 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
             <Trophy className="w-5 h-5 text-amber-400" />
-            시상 내역
+            Prizes
           </h2>
           <div className="space-y-2">
             {[
-              { rank: "1위", emoji: "🥇", prize: challenge.prize, perk: "메인 피드 1주 노출" },
-              { rank: "2위", emoji: "🥈", prize: "100만원", perk: "프리미엄 크리에이터 인증" },
-              { rank: "3위", emoji: "🥉", prize: "50만원", perk: "다음 챌린지 우선 심사" },
+              { rank: "1st", emoji: "🥇", prize: challenge.prize, perk: "1-week home feed featuring" },
+              { rank: "2nd", emoji: "🥈", prize: "₩1,000,000", perk: "Premium creator verification" },
+              { rank: "3rd", emoji: "🥉", prize: "₩500,000", perk: "Priority review for next challenge" },
             ].map((item) => (
               <div key={item.rank} className="bg-card border border-border rounded-xl p-3 flex items-center gap-3">
                 <span className="text-2xl">{item.emoji}</span>
@@ -194,7 +196,7 @@ export function CommunityChallengeDetail({ challenge, onClose }: CommunityChalle
             disabled={daysLeft === 0}
             className="w-full py-6 text-base font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 disabled:opacity-50 shadow-lg"
           >
-            {daysLeft === 0 ? "마감된 챌린지" : `🚀 참여하기 (D-${daysLeft})`}
+            {daysLeft === 0 ? "Closed" : `🚀 ${t("communityChallengeDetail.joinChallenge")} (D-${daysLeft})`}
           </Button>
         </div>
       </footer>

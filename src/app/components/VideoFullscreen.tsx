@@ -6,6 +6,7 @@ import "video.js/dist/video-js.css";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { CreatorAvatar } from "./CreatorAvatar";
 import { trackVideoView } from "../utils/viewTracking";
+import { useTranslation } from "react-i18next";
 
 interface VideoFullscreenProps {
   video: {
@@ -41,6 +42,7 @@ export function VideoFullscreen({
   onComment,
   onShare,
 }: VideoFullscreenProps) {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -313,7 +315,7 @@ export function VideoFullscreen({
                 <button
                   onClick={(e) => { e.stopPropagation(); onClose(); }}
                   className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white"
-                  aria-label="닫기"
+                  aria-label={t("common.close")}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -335,7 +337,7 @@ export function VideoFullscreen({
               transition={{ duration: 0.15 }}
               onClick={(e) => { e.stopPropagation(); togglePlay(); }}
               className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-20 h-20 rounded-full bg-black/40 backdrop-blur-md border-2 border-white/30 flex items-center justify-center text-white"
-              aria-label={isPlaying ? "일시정지" : "재생"}
+              aria-label={t("videoFullscreen.playPause")}
             >
               {isPlaying ? (
                 <Pause className="w-10 h-10 fill-white" />
@@ -355,7 +357,7 @@ export function VideoFullscreen({
               <button
                 onClick={(e) => { e.stopPropagation(); onToggleLike(); setShowControls(true); }}
                 className="flex flex-col items-center"
-                aria-label="좋아요"
+                aria-label={t("common.like")}
               >
                 <div className={`w-11 h-11 rounded-full backdrop-blur-xl border-2 flex items-center justify-center transition-all ${
                   isLiked ? "bg-red-500/30 border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.6)]" : "bg-white/10 border-white/30"
@@ -367,22 +369,22 @@ export function VideoFullscreen({
               <button
                 onClick={(e) => { e.stopPropagation(); onComment(); }}
                 className="flex flex-col items-center"
-                aria-label="댓글"
+                aria-label={t("common.comment")}
               >
                 <div className="w-11 h-11 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center">
                   <MessageCircle className="w-5 h-5 text-white" strokeWidth={1.8} />
                 </div>
-                <span className="text-[10px] font-bold text-white mt-1 drop-shadow">{commentCount > 0 ? commentCount.toLocaleString() : "댓글"}</span>
+                <span className="text-[10px] font-bold text-white mt-1 drop-shadow">{commentCount > 0 ? commentCount.toLocaleString() : t("common.comment")}</span>
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onShare(); }}
                 className="flex flex-col items-center"
-                aria-label="공유"
+                aria-label={t("common.share")}
               >
                 <div className="w-11 h-11 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center">
                   <Send className="w-5 h-5 text-white -rotate-12" strokeWidth={1.8} />
                 </div>
-                <span className="text-[10px] font-bold text-white mt-1 drop-shadow">공유</span>
+                <span className="text-[10px] font-bold text-white mt-1 drop-shadow">{t("common.share")}</span>
               </button>
             </motion.div>
 
@@ -425,7 +427,7 @@ export function VideoFullscreen({
                   <button
                     onClick={togglePlay}
                     className="w-9 h-9 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-colors"
-                    aria-label={isPlaying ? "일시정지" : "재생"}
+                    aria-label={t("videoFullscreen.playPause")}
                   >
                     {isPlaying ? <Pause className="w-5 h-5 fill-white" /> : <Play className="w-5 h-5 fill-white ml-0.5" />}
                   </button>
@@ -435,7 +437,7 @@ export function VideoFullscreen({
                   <button
                     onClick={toggleMute}
                     className="w-9 h-9 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-colors"
-                    aria-label={isMuted ? "음소거 해제" : "음소거"}
+                    aria-label={isMuted ? t("videoFullscreen.unmute") : t("videoFullscreen.mute")}
                   >
                     {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
                   </button>
@@ -447,8 +449,8 @@ export function VideoFullscreen({
                     <button
                       onClick={(e) => { e.stopPropagation(); setShowRateMenu(v => !v); setShowControls(true); }}
                       className="h-9 px-2.5 rounded-full flex items-center gap-1 text-white hover:bg-white/10 transition-colors text-xs font-bold"
-                      aria-label="재생 속도"
-                      title="재생 속도 (단축키: < >)"
+                      aria-label={t("videoFullscreen.speed")}
+                      title={t("videoFullscreen.speed")}
                     >
                       <Gauge className="w-4 h-4" />
                       {playbackRate}x
@@ -468,7 +470,7 @@ export function VideoFullscreen({
                                 : "text-white/80 hover:bg-white/10"
                             }`}
                           >
-                            {r}x {r === 1 && "(기본)"}
+                            {r}x {r === 1 && "(default)"}
                           </button>
                         ))}
                       </div>
@@ -482,8 +484,8 @@ export function VideoFullscreen({
                       className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
                         isPiP ? "bg-[#6366f1]/30 text-[#8b5cf6]" : "text-white hover:bg-white/10"
                       }`}
-                      aria-label="화면 속 화면 (PiP)"
-                      title="화면 속 화면 (단축키: P)"
+                      aria-label={t("videoFullscreen.pip")}
+                      title={t("videoFullscreen.pip")}
                     >
                       <PictureInPicture2 className="w-5 h-5" />
                     </button>
@@ -492,7 +494,7 @@ export function VideoFullscreen({
                   <button
                     onClick={(e) => { e.stopPropagation(); onClose(); }}
                     className="w-9 h-9 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-colors"
-                    aria-label="전체화면 종료"
+                    aria-label={t("videoFullscreen.exitFullscreen")}
                   >
                     <Minimize2 className="w-5 h-5" />
                   </button>

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Download, X, Smartphone, Share2, Plus, Check } from "lucide-react";
 import { Button } from "./ui/button";
 import { usePWAInstall } from "../hooks/usePWAInstall";
+import { useTranslation } from "react-i18next";
 
 const DISMISS_KEY = "creaite_install_banner_dismissed";
 const DISMISS_DAYS = 7;
@@ -11,6 +12,7 @@ const DISMISS_DAYS = 7;
 // 데스크탑 헤더용 작은 설치 버튼
 // ──────────────────────────────────────────────
 export function InstallButtonHeader() {
+  const { t } = useTranslation();
   const { canShowInstall, canInstallProgrammatic, install, isIOSSafari } = usePWAInstall();
   const [showIOSGuide, setShowIOSGuide] = useState(false);
 
@@ -35,7 +37,7 @@ export function InstallButtonHeader() {
         className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#6366f1]/15 to-[#8b5cf6]/15 border border-[#6366f1]/30 text-sm font-semibold text-[#a78bfa] hover:from-[#6366f1]/25 hover:to-[#8b5cf6]/25 transition-colors"
       >
         <Download className="w-4 h-4" />
-        앱 설치
+        {t("installPrompt.install")}
       </motion.button>
 
       <IOSInstallGuideModal open={showIOSGuide} onClose={() => setShowIOSGuide(false)} />
@@ -47,6 +49,7 @@ export function InstallButtonHeader() {
 // 모바일 하단 슬라이드인 배너 (첫 방문자용)
 // ──────────────────────────────────────────────
 export function InstallBannerMobile() {
+  const { t } = useTranslation();
   const { canShowInstall, canInstallProgrammatic, install, isIOSSafari } = usePWAInstall();
   const [show, setShow] = useState(false);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
@@ -98,7 +101,7 @@ export function InstallBannerMobile() {
             <button
               onClick={dismiss}
               className="absolute top-2 right-2 w-7 h-7 rounded-full hover:bg-white/10 flex items-center justify-center text-muted-foreground"
-              aria-label="닫기"
+              aria-label={t("common.close")}
             >
               <X className="w-4 h-4" />
             </button>
@@ -107,14 +110,13 @@ export function InstallBannerMobile() {
                 <Smartphone className="w-5 h-5 text-white" />
               </div>
               <div className="flex-1">
-                <p className="font-bold text-sm mb-0.5">CREAITE를 앱처럼 사용하기</p>
+                <p className="font-bold text-sm mb-0.5">{t("installPrompt.title")}</p>
                 <p className="text-xs text-muted-foreground mb-2">
-                  더 빠른 로딩 · 홈 화면 바로가기 · 자동 업데이트
+                  {t("installPrompt.description")}
                 </p>
                 {!isIOSSafari && (
                   <p className="text-[11px] text-amber-300/80 mb-2 leading-relaxed">
-                    💡 Android는 진짜 앱으로 설치되어 1~3분 정도 걸려요.
-                    백그라운드에서 자동 진행됩니다.
+                    💡 Installation may take 1–3 min on Android (a real WebAPK is generated).
                   </p>
                 )}
                 <div className="flex gap-2">
@@ -123,7 +125,7 @@ export function InstallBannerMobile() {
                     onClick={handleInstall}
                     className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white text-xs h-8 px-3"
                   >
-                    {isIOSSafari ? "설치 방법 보기" : "지금 설치"}
+                    {t("installPrompt.install")}
                   </Button>
                   <Button
                     variant="ghost"
@@ -131,7 +133,7 @@ export function InstallBannerMobile() {
                     onClick={dismiss}
                     className="text-xs h-8 px-3 text-muted-foreground"
                   >
-                    나중에
+                    {t("installPrompt.later")}
                   </Button>
                 </div>
               </div>
@@ -149,10 +151,11 @@ export function InstallBannerMobile() {
 // MyPage용 상세 안내 카드
 // ──────────────────────────────────────────────
 export function InstallGuideCard() {
+  const { t } = useTranslation();
   const { canShowInstall, canInstallProgrammatic, isInstalled, isIOS, isIOSSafari, isAndroid, install } = usePWAInstall();
   const [showIOSGuide, setShowIOSGuide] = useState(false);
 
-  const platformLabel = isIOS ? "iOS" : isAndroid ? "Android" : "데스크탑";
+  const platformLabel = isIOS ? "iOS" : isAndroid ? "Android" : "Desktop";
 
   return (
     <>
@@ -162,30 +165,30 @@ export function InstallGuideCard() {
             <Smartphone className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="font-bold">앱으로 사용하기</h3>
-            <p className="text-xs text-muted-foreground">현재 환경: {platformLabel}</p>
+            <h3 className="font-bold">{t("installPrompt.guideTitle")}</h3>
+            <p className="text-xs text-muted-foreground">Platform: {platformLabel}</p>
           </div>
         </div>
 
         {isInstalled ? (
           <div className="flex items-center gap-2 p-3 rounded-lg bg-[#10b981]/10 border border-[#10b981]/30">
             <Check className="w-5 h-5 text-[#10b981]" />
-            <p className="text-sm font-medium text-[#10b981]">이미 앱으로 설치되어 사용 중입니다</p>
+            <p className="text-sm font-medium text-[#10b981]">{t("installPrompt.guideInstalled")}</p>
           </div>
         ) : (
           <>
             <ul className="space-y-2 text-sm text-muted-foreground mb-4">
               <li className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-[#10b981] mt-0.5 flex-shrink-0" />
-                <span>홈 화면 바로가기로 1초 만에 실행</span>
+                <span>Launch in 1 second from home screen</span>
               </li>
               <li className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-[#10b981] mt-0.5 flex-shrink-0" />
-                <span>풀스크린 — 브라우저 주소창 없이 깔끔하게</span>
+                <span>Fullscreen — no browser address bar</span>
               </li>
               <li className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-[#10b981] mt-0.5 flex-shrink-0" />
-                <span>업데이트 자동 적용 — 앱스토어 심사 X</span>
+                <span>Auto-updates — no app store review</span>
               </li>
             </ul>
 
@@ -193,10 +196,8 @@ export function InstallGuideCard() {
             {isAndroid && canInstallProgrammatic && (
               <div className="mb-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
                 <p className="text-xs text-amber-100/90 leading-relaxed">
-                  💡 <strong>설치에 1~3분 정도 걸립니다.</strong>
-                  Android Chrome은 진짜 앱(WebAPK)을 생성해서 설치하기 때문에
-                  Google 서버에서 패키지를 만들어 받아오는 시간이 필요해요.
-                  설치 시작 후 다른 앱 사용하셔도 백그라운드에서 자동 진행됩니다.
+                  💡 <strong>Installation may take 1–3 minutes.</strong>
+                  Android Chrome generates a real WebAPK from Google's servers. You can use other apps during install; it continues in the background.
                 </p>
               </div>
             )}
@@ -207,7 +208,7 @@ export function InstallGuideCard() {
                 className="w-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] gap-2"
               >
                 <Download className="w-4 h-4" />
-                지금 설치
+                {t("installPrompt.install")}
               </Button>
             ) : isIOSSafari ? (
               <Button
@@ -216,17 +217,15 @@ export function InstallGuideCard() {
                 className="w-full gap-2 border-[#6366f1]/40"
               >
                 <Smartphone className="w-4 h-4" />
-                iOS 설치 방법 보기
+                {t("installPrompt.ios")}
               </Button>
             ) : isIOS ? (
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-100/90">
-                iOS에서는 <strong>Safari 브라우저</strong>로 접속해야 설치 가능합니다.
-                Chrome·Firefox 등 다른 앱 내 브라우저는 미지원.
+                On iOS, you must access via <strong>Safari</strong>. In-app browsers (Chrome, Firefox, KakaoTalk, etc.) are not supported.
               </div>
             ) : !canShowInstall ? (
               <div className="p-3 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground">
-                현재 브라우저는 PWA 설치를 지원하지 않거나, 이미 설치 가능 조건을 만족하지 않습니다.
-                Chrome·Edge·Safari 최신 버전을 사용하시면 설치 옵션이 나타납니다.
+                Current browser does not support PWA installation. Use the latest Chrome / Edge / Safari to see the install option.
               </div>
             ) : null}
           </>
@@ -242,6 +241,7 @@ export function InstallGuideCard() {
 // iOS Safari 수동 설치 안내 모달 (공통)
 // ──────────────────────────────────────────────
 function IOSInstallGuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
   return (
     <AnimatePresence>
       {open && (
@@ -262,13 +262,13 @@ function IOSInstallGuideModal({ open, onClose }: { open: boolean; onClose: () =>
             <button
               onClick={onClose}
               className="absolute top-3 right-3 w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center"
-              aria-label="닫기"
+              aria-label={t("common.close")}
             >
               <X className="w-4 h-4" />
             </button>
-            <h3 className="font-bold text-lg mb-1">📱 iOS에서 설치하기</h3>
+            <h3 className="font-bold text-lg mb-1">📱 Install on iOS</h3>
             <p className="text-xs text-muted-foreground mb-5">
-              Safari 브라우저에서 아래 3단계로 설치하세요. (즉시 완료)
+              Install in 3 steps from Safari. (Instant.)
             </p>
 
             <ol className="space-y-4">
@@ -276,37 +276,37 @@ function IOSInstallGuideModal({ open, onClose }: { open: boolean; onClose: () =>
                 <div className="w-7 h-7 rounded-full bg-[#6366f1]/20 border border-[#6366f1]/40 flex items-center justify-center text-sm font-bold text-[#a78bfa] flex-shrink-0">1</div>
                 <div>
                   <p className="text-sm font-semibold mb-0.5 flex items-center gap-2">
-                    하단 <Share2 className="w-4 h-4 inline" /> 공유 버튼 탭
+                    Tap the <Share2 className="w-4 h-4 inline" /> share button at bottom
                   </p>
-                  <p className="text-xs text-muted-foreground">Safari 화면 하단 중앙의 사각형+화살표 아이콘</p>
+                  <p className="text-xs text-muted-foreground">Square + arrow icon at Safari's bottom center</p>
                 </div>
               </li>
               <li className="flex items-start gap-3">
                 <div className="w-7 h-7 rounded-full bg-[#6366f1]/20 border border-[#6366f1]/40 flex items-center justify-center text-sm font-bold text-[#a78bfa] flex-shrink-0">2</div>
                 <div>
                   <p className="text-sm font-semibold mb-0.5 flex items-center gap-2">
-                    "<Plus className="w-3 h-3 inline" /> 홈 화면에 추가" 선택
+                    Select "<Plus className="w-3 h-3 inline" /> Add to Home Screen"
                   </p>
-                  <p className="text-xs text-muted-foreground">메뉴를 아래로 스크롤하면 보입니다</p>
+                  <p className="text-xs text-muted-foreground">Scroll the menu down to find it</p>
                 </div>
               </li>
               <li className="flex items-start gap-3">
                 <div className="w-7 h-7 rounded-full bg-[#6366f1]/20 border border-[#6366f1]/40 flex items-center justify-center text-sm font-bold text-[#a78bfa] flex-shrink-0">3</div>
                 <div>
-                  <p className="text-sm font-semibold mb-0.5">우측 상단 "추가" 탭</p>
-                  <p className="text-xs text-muted-foreground">홈 화면에 CREAITE 아이콘이 추가됩니다</p>
+                  <p className="text-sm font-semibold mb-0.5">Tap "Add" at top right</p>
+                  <p className="text-xs text-muted-foreground">CREAITE icon will appear on your home screen</p>
                 </div>
               </li>
             </ol>
 
             <div className="mt-5 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
               <p className="text-xs text-amber-100/90 leading-relaxed">
-                <strong>중요:</strong> Chrome·Firefox 등 다른 브라우저나 카카오톡·인스타그램 인앱 브라우저에서는 설치가 안 됩니다. <strong>반드시 Safari 앱</strong>으로 접속해주세요.
+                <strong>Important:</strong> Installation only works in <strong>Safari</strong>. Chrome, Firefox, KakaoTalk, Instagram in-app browsers etc. are not supported.
               </p>
             </div>
 
             <Button onClick={onClose} className="w-full mt-5 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]">
-              확인
+              {t("common.confirm")}
             </Button>
           </motion.div>
         </motion.div>

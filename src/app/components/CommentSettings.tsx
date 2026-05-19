@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 interface CommentSettingsProps {
   open: boolean;
@@ -38,6 +39,7 @@ interface FilteredComment {
 }
 
 export function CommentSettings({ open, onClose }: CommentSettingsProps) {
+  const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   const [tab, setTab] = useState<Tab>("filter");
 
@@ -57,7 +59,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
     setLoadingWords(true);
     const { data, error } = await supabase.rpc("creator_get_filter_words");
     if (error) {
-      toast.error("금칙어 목록을 불러오지 못했습니다.");
+      toast.error(t("commentSettings.deleteFailed", { message: "" }));
       setFilterWords([]);
     } else {
       setFilterWords((data ?? []) as FilterWord[]);
@@ -69,7 +71,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
     setLoadingBlocked(true);
     const { data, error } = await supabase.rpc("creator_get_blocked_users");
     if (error) {
-      toast.error("차단 목록을 불러오지 못했습니다.");
+      toast.error(t("commentSettings.deleteFailed", { message: "" }));
       setBlocked([]);
     } else {
       setBlocked((data ?? []) as BlockedUser[]);
@@ -81,7 +83,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
     setLoadingFiltered(true);
     const { data, error } = await supabase.rpc("creator_get_filtered_comments");
     if (error) {
-      toast.error("자동 필터된 댓글을 불러오지 못했습니다.");
+      toast.error(t("commentSettings.deleteFailed", { message: "" }));
       setFiltered([]);
     } else {
       setFiltered((data ?? []) as FilteredComment[]);
@@ -106,10 +108,10 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
     });
     setSubmittingWord(false);
     if (error) {
-      toast.error("금칙어 등록에 실패했습니다.");
+      toast.error(t("commentSettings.saveFailed", { message: "" }));
       return;
     }
-    toast.success(`"${w}" 금칙어를 등록했습니다.`);
+    toast.success(w);
     setNewWord("");
     fetchFilterWords();
   };
@@ -121,50 +123,50 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
       p_match_mode: nextMode,
     });
     if (error) {
-      toast.error("매칭 모드 변경에 실패했습니다.");
+      toast.error(t("commentSettings.saveFailed", { message: "" }));
       return;
     }
     fetchFilterWords();
   };
 
   const handleRemoveWord = async (id: string, word: string) => {
-    if (!confirm(`"${word}" 금칙어를 제거할까요?\n(이미 숨겨진 댓글은 자동 복원되지 않습니다.)`)) return;
+    if (!confirm(word)) return;
     const { error } = await supabase.rpc("creator_remove_filter_word", { p_word_id: id });
     if (error) {
-      toast.error("금칙어 제거에 실패했습니다.");
+      toast.error(t("commentSettings.deleteFailed", { message: "" }));
       return;
     }
-    toast.success("금칙어를 제거했습니다.");
+    toast.success(t("commentSettings.filterDelete"));
     fetchFilterWords();
   };
 
   const handleUnblock = async (userId: string, name: string | null) => {
-    if (!confirm(`${name || "이 사용자"}의 차단을 해제할까요?\n(차단으로 숨긴 댓글은 자동 복원됩니다.)`)) return;
+    if (!confirm(t("mypage.blocks.confirmUnblock", { name: name || t("mypage.blocks.thisUser") }))) return;
     const { error } = await supabase.rpc("creator_unblock_user", { p_target_user_id: userId });
     if (error) {
-      toast.error("차단 해제에 실패했습니다.");
+      toast.error(t("commentSettings.deleteFailed", { message: "" }));
       return;
     }
-    toast.success("차단을 해제했습니다.");
+    toast.success(t("common.unblock"));
     fetchBlocked();
   };
 
   const handleRestore = async (commentId: string) => {
     const { error } = await supabase.rpc("creator_restore_comment", { p_comment_id: commentId });
     if (error) {
-      toast.error("복원에 실패했습니다.");
+      toast.error(t("commentSettings.restoreFailed", { message: "" }));
       return;
     }
-    toast.success("댓글을 복원했습니다.");
+    toast.success(t("commentSettings.restore"));
     setFiltered((prev) => prev.filter((c) => c.id !== commentId));
   };
 
   if (!open) return null;
 
   const tabs: { id: Tab; label: string; icon: any }[] = [
-    { id: "filter", label: "금칙어", icon: Filter },
-    { id: "blocked", label: "차단 사용자", icon: Ban },
-    { id: "review", label: "자동 필터 검토", icon: AlertTriangle },
+    { id: "filter", label: t("commentSettings.tabFilter"), icon: Filter },
+    { id: "blocked", label: t("commentSettings.tabBlocked"), icon: Ban },
+    { id: "review", label: t("commentSettings.tabHidden"), icon: AlertTriangle },
   ];
 
   return (
@@ -188,7 +190,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center">
                 <Filter className="w-4 h-4 text-white" />
               </div>
-              <h2 className="text-base font-bold text-white">댓글 관리</h2>
+              <h2 className="text-base font-bold text-white">{t("commentSettings.title")}</h2>
             </div>
             <button
               onClick={onClose}
@@ -223,11 +225,11 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
             {tab === "filter" && (
               <div className="space-y-4">
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  금칙어가 포함된 새 댓글은 자동으로 숨김 처리되며, 기존 댓글에도 소급 적용됩니다.
+                  {t("commentSettings.filterDesc")}
                   <br />
-                  <strong className="text-gray-400">부분 일치</strong>: "바보" → "바보같다"도 차단 (한국어/일본어/중국어 권장)
+                  <strong className="text-gray-400">{t("commentSettings.modeContains")}</strong>: {t("commentSettings.containsHint")}
                   <br />
-                  <strong className="text-gray-400">단어 경계</strong>: "ass" → "class" 미차단 (영어/유럽어 권장)
+                  <strong className="text-gray-400">{t("commentSettings.modeWordBoundary")}</strong>: {t("commentSettings.wordBoundaryHint")}
                 </p>
 
                 {/* 매칭 모드 선택 */}
@@ -241,7 +243,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
                         : "text-gray-400 hover:text-white"
                     }`}
                   >
-                    부분 일치
+                    {t("commentSettings.modeContains")}
                   </button>
                   <button
                     type="button"
@@ -252,7 +254,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
                         : "text-gray-400 hover:text-white"
                     }`}
                   >
-                    단어 경계
+                    {t("commentSettings.modeWordBoundary")}
                   </button>
                 </div>
 
@@ -262,7 +264,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
                     value={newWord}
                     onChange={(e) => setNewWord(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleAddWord()}
-                    placeholder="금칙어를 입력하세요..."
+                    placeholder={t("commentSettings.filterPlaceholder")}
                     maxLength={100}
                     className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#6366f1] transition-colors"
                   />
@@ -272,7 +274,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
                     className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white text-sm font-bold disabled:opacity-40 transition-opacity flex items-center gap-1.5"
                   >
                     {submittingWord ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                    추가
+                    {t("commentSettings.filterAdd")}
                   </button>
                 </div>
 
@@ -281,7 +283,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
                     <Loader2 className="w-6 h-6 animate-spin text-[#8b5cf6]" />
                   </div>
                 ) : filterWords.length === 0 ? (
-                  <p className="text-center text-sm text-gray-500 py-10">등록된 금칙어가 없습니다.</p>
+                  <p className="text-center text-sm text-gray-500 py-10">{t("commentSettings.filterEmpty")}</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {filterWords.map((w) => (
@@ -292,14 +294,14 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
                         <span>{w.word}</span>
                         <button
                           onClick={() => handleToggleMode(w.id, w.match_mode)}
-                          title="매칭 모드 전환"
+                          title={t("commentSettings.matchMode")}
                           className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-colors ${
                             w.match_mode === "word_boundary"
                               ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500/30"
                               : "bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30"
                           }`}
                         >
-                          {w.match_mode === "word_boundary" ? "경계" : "포함"}
+                          {w.match_mode === "word_boundary" ? t("commentSettings.modeWordBoundary") : t("commentSettings.modeContains")}
                         </button>
                         <button
                           onClick={() => handleRemoveWord(w.id, w.word)}
@@ -317,8 +319,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
             {tab === "blocked" && (
               <div className="space-y-4">
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  차단한 사용자가 작성한 댓글은 자동으로 숨겨집니다. 댓글 작성자 이름을 길게 누르거나
-                  댓글 메뉴에서 직접 차단할 수 있습니다.
+                  {t("commentSettings.blockedDesc")}
                 </p>
                 {loadingBlocked ? (
                   <div className="flex justify-center py-10">
@@ -327,7 +328,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
                 ) : blocked.length === 0 ? (
                   <div className="text-center py-10 text-gray-500">
                     <Ban className="w-10 h-10 mx-auto mb-2 text-gray-700" />
-                    <p className="text-sm">차단한 사용자가 없습니다.</p>
+                    <p className="text-sm">{t("commentSettings.blockedEmpty")}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -347,7 +348,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-white truncate">
-                            {b.display_name || "알 수 없는 사용자"}
+                            {b.display_name || t("mypage.blocks.unknownUser")}
                           </p>
                           {b.reason && <p className="text-xs text-gray-500 truncate mt-0.5">{b.reason}</p>}
                         </div>
@@ -355,7 +356,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
                           onClick={() => handleUnblock(b.blocked_user_id, b.display_name)}
                           className="px-3 py-1.5 text-xs font-bold text-gray-300 bg-white/5 hover:bg-white/10 rounded-md border border-white/10 transition-colors"
                         >
-                          차단 해제
+                          {t("common.unblock")}
                         </button>
                       </div>
                     ))}
@@ -367,7 +368,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
             {tab === "review" && (
               <div className="space-y-4">
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  자동 필터로 숨김 처리된 댓글입니다. 정상 댓글이라 판단되면 복원할 수 있습니다.
+                  {t("commentSettings.hiddenDesc")}
                 </p>
                 {loadingFiltered ? (
                   <div className="flex justify-center py-10">
@@ -376,7 +377,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
                 ) : filtered.length === 0 ? (
                   <div className="text-center py-10 text-gray-500">
                     <Search className="w-10 h-10 mx-auto mb-2 text-gray-700" />
-                    <p className="text-sm">자동 필터된 댓글이 없습니다.</p>
+                    <p className="text-sm">{t("commentSettings.hiddenEmpty")}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -386,7 +387,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="text-sm font-semibold text-white truncate">{c.author_name}</span>
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 flex-shrink-0">
-                              {c.filter_reason === "blocked_user" ? "차단" : "금칙어"}
+                              {c.filter_reason === "blocked_user" ? t("common.block") : t("commentSettings.tabFilter")}
                             </span>
                           </div>
                           <button
@@ -394,7 +395,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
                             className="px-2.5 py-1 text-xs font-bold text-[#6366f1] hover:text-white bg-white/5 hover:bg-[#6366f1]/30 rounded-md border border-[#6366f1]/30 transition-colors flex items-center gap-1 flex-shrink-0"
                           >
                             <RotateCcw className="w-3 h-3" />
-                            복원
+                            {t("commentSettings.restore")}
                           </button>
                         </div>
                         <p className="text-sm text-gray-300 leading-relaxed break-words">{c.content}</p>

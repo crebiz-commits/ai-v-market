@@ -189,7 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || '로그인에 실패했습니다.');
+        throw new Error(data.error || 'Sign in failed.');
       }
 
       // Supabase SDK에 세션 동기화 — onAuthStateChange 리스너가 발동되어
@@ -227,7 +227,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || '회원가입에 실패했습니다.');
+        throw new Error(data.error || 'Sign up failed.');
       }
 
       // 테스트 모드: 이메일 자동 확인되므로 바로 로그인
@@ -255,7 +255,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // fallback: 그냥 주소를 클립보드에 안내
       }
       throw new Error(
-        'Google 로그인은 앱 내 브라우저에서 지원되지 않습니다.\n\nChrome 또는 Safari 브라우저에서 사이트를 열어 로그인해 주세요.'
+        'Google sign-in is not supported in in-app browsers. Please open the site in Chrome or Safari.'
       );
     }
 
@@ -278,7 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error: any) {
       console.error('Google 로그인 에러:', error);
-      throw new Error(error.message || 'Google 로그인에 실패했습니다.');
+      throw new Error(error.message || 'Google sign-in failed.');
     }
   };
 
@@ -300,7 +300,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error: any) {
       console.error('Kakao 로그인 에러:', error);
-      throw new Error(error.message || 'Kakao 로그인에 실패했습니다.');
+      throw new Error(error.message || 'Kakao sign-in failed.');
     }
   };
 

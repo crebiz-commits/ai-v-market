@@ -7,6 +7,8 @@ import { DollarSign, Eye, Heart, TrendingUp, Calendar, Loader2, Users, CheckCirc
 import { motion } from "motion/react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, Cell } from "recharts";
 import { supabase } from "../utils/supabaseClient";
+import { useTranslation } from "react-i18next";
+import { formatCompactNumber } from "../i18n/numberFormat";
 
 interface Summary {
   total_revenue: number;
@@ -44,27 +46,25 @@ interface RetentionBucket {
 }
 type TopMetric = "views" | "likes" | "watch_ratio";
 
+// labels resolved via i18n in component
 const RANGE_OPTIONS = [
-  { days: 7, label: "7일" },
-  { days: 14, label: "14일" },
-  { days: 30, label: "30일" },
+  { days: 7, key: "creatorDashboard.rangeLast7" },
+  { days: 14, key: "creatorDashboard.rangeLast14" },
+  { days: 30, key: "creatorDashboard.rangeLast30" },
 ];
 
-function formatNumber(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
+const formatNumber = formatCompactNumber;
 
 function formatDay(iso: string, days: number): string {
   const d = new Date(iso);
   const m = d.getMonth() + 1;
   const day = d.getDate();
-  if (days <= 7) return `${m}/${day} (${["일", "월", "화", "수", "목", "금", "토"][d.getDay()]})`;
+  if (days <= 7) return `${m}/${day} (${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()]})`;
   return `${m}/${day}`;
 }
 
 export function CreatorDashboard() {
+  const { t } = useTranslation();
   const [days, setDays] = useState(30);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [revenue, setRevenue] = useState<DailyRevenue[]>([]);
@@ -166,26 +166,26 @@ export function CreatorDashboard() {
   const retentionColors = ["#ef4444", "#f59e0b", "#10b981", "#6366f1"];
 
   const TOP_METRIC_LABELS: Record<TopMetric, string> = {
-    views: "조회수순",
-    likes: "좋아요순",
-    watch_ratio: "시청률순",
+    views: t("creatorDashboard.metricViews"),
+    likes: t("creatorDashboard.metricLikes"),
+    watch_ratio: t("creatorDashboard.metricWatchRatio"),
   };
 
   const formatSeconds = (s: number): string => {
-    if (s < 60) return `${s}초`;
+    if (s < 60) return `${s}s`;
     const m = Math.floor(s / 60);
     const sec = s % 60;
-    return `${m}분 ${sec}초`;
+    return `${m}m ${sec}s`;
   };
 
   return (
     <div className="space-y-4">
       {/* KPI 4개 (누적) */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard icon={DollarSign} label="누적 수익" value={`₩${(summary?.total_revenue ?? 0).toLocaleString()}`} color="text-[#6366f1]" bgColor="bg-[#6366f1]/10" />
-        <KpiCard icon={Eye} label="총 조회수" value={formatNumber(summary?.total_views ?? 0)} color="text-[#10b981]" bgColor="bg-[#10b981]/10" />
-        <KpiCard icon={Heart} label="총 좋아요" value={formatNumber(summary?.total_likes ?? 0)} color="text-[#ec4899]" bgColor="bg-[#ec4899]/10" />
-        <KpiCard icon={TrendingUp} label="RPM (30일)" value={`₩${(summary?.rpm ?? 0).toLocaleString()}`} color="text-amber-400" bgColor="bg-amber-400/10" tooltip="1000회 시청당 평균 수익" />
+        <KpiCard icon={DollarSign} label={t("creatorDashboard.kpiRevenue")} value={`₩${(summary?.total_revenue ?? 0).toLocaleString()}`} color="text-[#6366f1]" bgColor="bg-[#6366f1]/10" />
+        <KpiCard icon={Eye} label={t("creatorDashboard.kpiViews")} value={formatNumber(summary?.total_views ?? 0)} color="text-[#10b981]" bgColor="bg-[#10b981]/10" />
+        <KpiCard icon={Heart} label={t("creatorDashboard.kpiLikes")} value={formatNumber(summary?.total_likes ?? 0)} color="text-[#ec4899]" bgColor="bg-[#ec4899]/10" />
+        <KpiCard icon={TrendingUp} label={t("creatorDashboard.kpiRpm")} value={`₩${(summary?.rpm ?? 0).toLocaleString()}`} color="text-amber-400" bgColor="bg-amber-400/10" tooltip="Average revenue per 1000 views" />
       </motion.div>
 
       {/* Phase 20: 시청자 인사이트 (선택 기간 기준) */}
@@ -193,27 +193,27 @@ export function CreatorDashboard() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <KpiCard
             icon={Percent}
-            label={`평균 시청률 (${days}일)`}
+            label={t("creatorDashboard.kpiWatchRatio")}
             value={`${Math.round((audience.avg_watch_ratio || 0) * 100)}%`}
             color="text-cyan-400" bgColor="bg-cyan-400/10"
-            tooltip="유효 시청 1건당 평균 시청한 비율"
+            tooltip="Average ratio watched per valid view"
           />
           <KpiCard
             icon={CheckCircle2}
-            label={`완주율 (${days}일)`}
+            label={t("creatorDashboard.kpiCompletion")}
             value={`${Math.round((audience.completion_rate || 0) * 100)}%`}
             color="text-[#10b981]" bgColor="bg-[#10b981]/10"
-            tooltip="90%+ 시청한 비율"
+            tooltip="Ratio watching 90%+ of the video"
           />
           <KpiCard
             icon={Users}
-            label={`고유 시청자 (${days}일)`}
+            label={t("creatorDashboard.kpiUniqueViewers")}
             value={formatNumber(audience.unique_viewers)}
             color="text-[#a78bfa]" bgColor="bg-[#a78bfa]/10"
           />
           <KpiCard
             icon={ClockIcon}
-            label={`평균 시청 시간 (${days}일)`}
+            label={t("creatorDashboard.kpiAvgWatchTime")}
             value={formatSeconds(audience.avg_watch_seconds)}
             color="text-orange-400" bgColor="bg-orange-400/10"
           />
@@ -227,10 +227,10 @@ export function CreatorDashboard() {
             <Calendar className="w-5 h-5 text-[#a78bfa]" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-white mb-0.5">다음 정산 예정</p>
+            <p className="text-sm font-bold text-white mb-0.5">{t("creatorDashboard.nextPayoutTitle")}</p>
             <p className="text-xs text-gray-400">
               {new Date(summary.next_settlement_date).toLocaleDateString("ko-KR", { month: "long", day: "numeric" })} ·
-              <span className="font-bold text-[#a78bfa] ml-1">₩{summary.pending_payout.toLocaleString()}</span> 대기 중
+              <span className="font-bold text-[#a78bfa] ml-1">₩{summary.pending_payout.toLocaleString()}</span> pending
             </p>
           </div>
         </motion.div>
@@ -238,7 +238,7 @@ export function CreatorDashboard() {
 
       {/* 시간 범위 셀렉터 */}
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-bold text-white">활동 추이</h3>
+        <h3 className="text-base font-bold text-white">{t("creatorDashboard.dailyChartTitle")}</h3>
         <div className="flex gap-1 bg-white/5 rounded-lg p-0.5 border border-white/10">
           {RANGE_OPTIONS.map(opt => (
             <button
@@ -251,17 +251,17 @@ export function CreatorDashboard() {
                   : "text-gray-400 hover:text-white"
               }`}
             >
-              {opt.label}
+              {t(opt.key)}
             </button>
           ))}
         </div>
       </div>
 
-      {/* 일별 수익 차트 */}
+      {/* Daily revenue */}
       <div className="bg-[#121212] p-5 rounded-2xl border border-white/5 relative">
         <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
           <DollarSign className="w-4 h-4 text-[#6366f1]" />
-          일별 수익
+          {t("creatorDashboard.dailyChartTitle")}
         </h4>
         {chartLoading && (
           <div className="absolute right-5 top-5">
@@ -273,10 +273,10 @@ export function CreatorDashboard() {
             <LineChart data={formattedRevenue} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
               <XAxis dataKey="day" stroke="#666" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis stroke="#666" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 10000 ? `${v/10000}만` : `${v}`} />
+              <YAxis stroke="#666" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => formatCompactNumber(v)} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#1a1a1c', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: 12 }}
-                formatter={(v: any) => [`₩${Number(v).toLocaleString()}`, "수익"]}
+                formatter={(v: any) => [`₩${Number(v).toLocaleString()}`, t("creatorDashboard.kpiRevenue")]}
               />
               <Line type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#8b5cf6' }} />
             </LineChart>
@@ -288,7 +288,7 @@ export function CreatorDashboard() {
       <div className="bg-[#121212] p-5 rounded-2xl border border-white/5 relative">
         <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
           <Eye className="w-4 h-4 text-[#10b981]" />
-          일별 조회수 · 좋아요
+          {t("creatorDashboard.engagementChartTitle")}
         </h4>
         {chartLoading && (
           <div className="absolute right-5 top-5">
@@ -305,8 +305,8 @@ export function CreatorDashboard() {
                 contentStyle={{ backgroundColor: '#1a1a1c', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: 12 }}
               />
               <Legend wrapperStyle={{ fontSize: 11, color: '#999' }} iconType="circle" />
-              <Line type="monotone" dataKey="views" name="조회수" stroke="#10b981" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-              <Line type="monotone" dataKey="likes" name="좋아요" stroke="#ec4899" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+              <Line type="monotone" dataKey="views" name={t("creatorDashboard.kpiViews")} stroke="#10b981" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+              <Line type="monotone" dataKey="likes" name={t("creatorDashboard.kpiLikes")} stroke="#ec4899" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -316,7 +316,7 @@ export function CreatorDashboard() {
       <div className="bg-[#121212] p-5 rounded-2xl border border-white/5 relative">
         <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
           <Users className="w-4 h-4 text-[#a78bfa]" />
-          일별 팔로워 (누적)
+          {t("creatorDashboard.followersChartTitle")}
         </h4>
         {chartLoading && (
           <div className="absolute right-5 top-5"><Loader2 className="w-4 h-4 animate-spin text-gray-500" /></div>
@@ -332,8 +332,8 @@ export function CreatorDashboard() {
                 formatter={(v: any, name: any) => [Number(v).toLocaleString(), name]}
               />
               <Legend wrapperStyle={{ fontSize: 11, color: '#999' }} iconType="circle" />
-              <Line type="monotone" dataKey="total" name="누적 팔로워" stroke="#a78bfa" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-              <Line type="monotone" dataKey="gained" name="당일 신규" stroke="#10b981" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
+              <Line type="monotone" dataKey="total" name={t("creatorDashboard.cumulativeFollowers")} stroke="#a78bfa" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+              <Line type="monotone" dataKey="gained" name={t("creatorDashboard.newFollowers")} stroke="#10b981" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -344,9 +344,9 @@ export function CreatorDashboard() {
         <div className="bg-[#121212] p-5 rounded-2xl border border-white/5 relative">
           <h4 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-cyan-400" />
-            영상 길이별 평균 시청률
+            {t("creatorDashboard.retentionChartTitle")}
           </h4>
-          <p className="text-[10px] text-gray-500 mb-4">어떤 길이의 영상이 가장 끝까지 시청되는지</p>
+          <p className="text-[10px] text-gray-500 mb-4">Which video lengths are watched to completion most</p>
           {chartLoading && <div className="absolute right-5 top-5"><Loader2 className="w-4 h-4 animate-spin text-gray-500" /></div>}
           <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -358,8 +358,8 @@ export function CreatorDashboard() {
                 <Tooltip
                   contentStyle={{ backgroundColor: '#1a1a1c', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: 12 }}
                   formatter={(v: any, _name: any, p: any) => [
-                    `${Math.round(Number(v) * 100)}% (${p.payload.view_count}회 시청)`,
-                    "평균 시청률"
+                    `${Math.round(Number(v) * 100)}% (${p.payload.view_count} views)`,
+                    t("creatorDashboard.kpiWatchRatio")
                   ]}
                 />
                 <Bar dataKey="avg_watch_ratio" radius={[6, 6, 0, 0]}>
@@ -378,7 +378,7 @@ export function CreatorDashboard() {
         <div className="flex items-center justify-between mb-4">
           <h4 className="text-sm font-bold text-white flex items-center gap-2">
             <Award className="w-4 h-4 text-amber-400" />
-            Top 영상 5
+            {t("creatorDashboard.topVideosTitle")}
           </h4>
           <div className="flex gap-1 bg-white/5 rounded-lg p-0.5 border border-white/10">
             {(["views", "likes", "watch_ratio"] as TopMetric[]).map(m => (
@@ -398,7 +398,7 @@ export function CreatorDashboard() {
           </div>
         </div>
         {topVideos.length === 0 ? (
-          <p className="text-center text-xs text-gray-500 py-6">아직 시청 데이터가 없습니다.</p>
+          <p className="text-center text-xs text-gray-500 py-6">{t("creatorDashboard.noData")}</p>
         ) : (
           <div className="space-y-2">
             {topVideos.map((v, idx) => (

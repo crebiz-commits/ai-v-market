@@ -7,6 +7,7 @@ import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { ReportModal } from "./ReportModal";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 interface Comment {
   id: string;
@@ -49,11 +50,11 @@ function timeAgo(dateStr: string): string {
   const now = new Date();
   const date = new Date(dateStr);
   const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
-  if (diff < 60) return "방금 전";
-  if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}일 전`;
-  return date.toLocaleDateString("ko-KR");
+  if (diff < 60) return "now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
+  return date.toLocaleDateString();
 }
 
 function getInitials(name: string): string {
@@ -83,6 +84,7 @@ function Avatar({ name, src, size = 36 }: { name: string; src?: string; size?: n
 }
 
 export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onCommentPosted, onViewCreator, mode = "sheet" }: CommentPanelProps) {
+  const { t } = useTranslation();
   const { user, isAuthenticated, profile } = useAuth();
   const isVideoOwner = !!(videoId && videoCreatorId && user?.id === videoCreatorId);
 
@@ -131,7 +133,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
 
       const enriched: Comment[] = (data || []).map((c: any) => ({
         ...c,
-        author_name: c.author_name || "익명",
+        author_name: c.author_name || t("community.anonymous"),
         replies: [],
       }));
 
@@ -196,7 +198,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
   const handleSubmit = async () => {
     if (!text.trim()) return;
     if (!isAuthenticated) {
-      toast.error("댓글을 작성하려면 로그인이 필요합니다.");
+      toast.error(t("comment.loginToComment"));
       return;
     }
     setSubmitting(true);
@@ -223,7 +225,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
 
       // 자동 필터로 숨김된 경우 안내 + 추가하지 않음
       if (inserted.is_hidden) {
-        toast.error("작성하신 댓글이 이 채널의 자동 필터에 의해 숨겨졌습니다.");
+        toast.error(t("comment.filtered"));
         setText("");
         setReplyTo(null);
         return;
@@ -252,7 +254,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
       setText("");
       setReplyTo(null);
     } catch (err: any) {
-      toast.error("댓글 작성에 실패했습니다.");
+      toast.error(t("commentPanel.postFailed"));
       console.error("[CommentPanel] submit error:", err);
     } finally {
       setSubmitting(false);
@@ -273,13 +275,13 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
         setComments(prev => prev.filter(c => c.id !== commentId));
       }
     } catch {
-      toast.error("삭제에 실패했습니다.");
+      toast.error(t("commentPanel.deleteFailed"));
     }
   };
 
   const handleLike = async (commentId: string) => {
     if (!isAuthenticated) {
-      toast.error("로그인이 필요합니다.");
+      toast.error(t("auth.loginRequired"));
       return;
     }
     const alreadyLiked = likedComments.has(commentId);
@@ -319,7 +321,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
         else next.delete(commentId);
         return next;
       });
-      toast.error("좋아요 처리에 실패했습니다.");
+      toast.error(t("productDetail.toast.likeFailed"));
       return;
     }
 
@@ -343,11 +345,11 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
   const handleTogglePin = async (commentId: string) => {
     const { data, error } = await supabase.rpc("toggle_pin_comment", { p_comment_id: commentId });
     if (error) {
-      toast.error("핀 고정에 실패했습니다.");
+      toast.error(t("commentPanel.pinFailed"));
       return;
     }
     const newPinned = !!data;
-    toast.success(newPinned ? "댓글을 핀 고정했습니다." : "핀 고정을 해제했습니다.");
+    toast.success(newPinned ? t("commentPanel.pinned") : t("commentPanel.unpin"));
     setComments((prev) => {
       // 다른 댓글의 핀 해제 + 대상 댓글 토글
       const next = prev.map((c) => ({
@@ -367,7 +369,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
   const handleToggleHeart = async (commentId: string, parentId?: string) => {
     const { data, error } = await supabase.rpc("toggle_creator_heart", { p_comment_id: commentId });
     if (error) {
-      toast.error("하트 처리에 실패했습니다.");
+      toast.error(t("commentPanel.heart"));
       return;
     }
     const newHearted = !!data;
@@ -388,16 +390,16 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
   };
 
   const handleBlockUser = async (targetUserId: string, name: string) => {
-    if (!confirm(`${name} 사용자를 차단할까요?\n앞으로 이 사용자의 댓글이 자동 숨김 처리됩니다.`)) return;
+    if (!confirm(t("mypage.blocks.confirmUnblock", { name }))) return;
     const { error } = await supabase.rpc("creator_block_user", {
       p_target_user_id: targetUserId,
-      p_reason: "댓글 패널에서 차단",
+      p_reason: "Blocked from comment panel",
     });
     if (error) {
-      toast.error("차단에 실패했습니다.");
+      toast.error(t("commentPanel.block"));
       return;
     }
-    toast.success(`${name} 사용자를 차단했습니다.`);
+    toast.success(t("commentPanel.block"));
     fetchComments();
   };
 
@@ -428,7 +430,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
           <button
             onClick={() => onViewCreator(comment.user_id)}
             className="flex-shrink-0 hover:opacity-80 transition-opacity"
-            aria-label={`${comment.author_name} 채널 보기`}
+            aria-label={comment.author_name}
           >
             <Avatar
               name={comment.author_name}
@@ -447,7 +449,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
           {comment.is_pinned && !isReply && (
             <div className="flex items-center gap-1 text-[11px] text-[#8b5cf6] font-bold mb-1">
               <Pin className="w-3 h-3" />
-              크리에이터 고정
+              {t("commentPanel.pinned")}
             </div>
           )}
           <div className="flex items-baseline gap-2 flex-wrap">
@@ -463,7 +465,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
             )}
             {isCommentByCreator && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold">
-                크리에이터
+                {t("mypage.account.creator")}
               </span>
             )}
             <span className="text-xs text-gray-500">{timeAgo(comment.created_at)}</span>
@@ -481,7 +483,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
             </button>
 
             {comment.creator_hearted && (
-              <span title="크리에이터가 하트를 줬어요" className="relative inline-flex items-center">
+              <span title={t("commentPanel.creatorHearted")} className="relative inline-flex items-center">
                 <Heart className="w-3.5 h-3.5 fill-pink-500 text-pink-500" />
               </span>
             )}
@@ -494,7 +496,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
                 }}
                 className="text-xs text-gray-500 hover:text-[#8b5cf6] transition-colors"
               >
-                답글
+                {t("commentPanel.reply")}
               </button>
             )}
 
@@ -505,7 +507,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
                 className={`flex items-center gap-1 text-xs transition-colors ${
                   comment.is_pinned ? "text-[#8b5cf6]" : "text-gray-500 hover:text-[#8b5cf6]"
                 }`}
-                title={comment.is_pinned ? "핀 고정 해제" : "핀 고정"}
+                title={comment.is_pinned ? t("commentPanel.unpin") : t("commentPanel.pin")}
               >
                 <Pin className={`w-3.5 h-3.5 ${comment.is_pinned ? "fill-[#8b5cf6]" : ""}`} />
               </button>
@@ -516,7 +518,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
                 className={`flex items-center gap-1 text-xs transition-colors ${
                   comment.creator_hearted ? "text-pink-500" : "text-gray-500 hover:text-pink-500"
                 }`}
-                title={comment.creator_hearted ? "하트 취소" : "크리에이터 하트"}
+                title={comment.creator_hearted ? t("commentPanel.unheart") : t("commentPanel.heart")}
               >
                 <Heart className={`w-3.5 h-3.5 ${comment.creator_hearted ? "fill-pink-500" : ""}`} />
               </button>
@@ -528,7 +530,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
                 className="text-xs text-gray-600 hover:text-red-400 transition-colors flex items-center gap-0.5"
               >
                 <Trash2 className="w-3 h-3" />
-                삭제
+                {t("common.delete")}
               </button>
             )}
 
@@ -540,7 +542,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
                     setOpenMenu(menuOpen ? null : comment.id);
                   }}
                   className="text-gray-600 hover:text-gray-300 transition-colors"
-                  title="더보기"
+                  title={t("creatorChannel.more")}
                 >
                   <MoreVertical className="w-3.5 h-3.5" />
                 </button>
@@ -557,7 +559,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
                       className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-amber-400 transition-colors flex items-center gap-2"
                     >
                       <Flag className="w-3.5 h-3.5" />
-                      댓글 신고
+                      {t("comment.reportComment")}
                     </button>
                     <button
                       onClick={() => {
@@ -567,7 +569,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
                       className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-red-400 transition-colors flex items-center gap-2"
                     >
                       <UserX className="w-3.5 h-3.5" />
-                      이 사용자 차단
+                      {t("commentPanel.block")}
                     </button>
                     {canCreatorBlock && (
                       <button
@@ -578,7 +580,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
                         className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-red-400 transition-colors flex items-center gap-2 border-t border-white/5 mt-1 pt-2"
                       >
                         <Ban className="w-3.5 h-3.5" />
-                        이 채널에서 차단
+                        {t("commentPanel.blockHere")}
                       </button>
                     )}
                   </div>
@@ -603,7 +605,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
         <div className="flex items-center gap-2">
           <MessageCircle className="w-5 h-5 text-[#8b5cf6]" />
           <span className="font-semibold text-white">
-            댓글 {!loading && totalCount > 0 ? totalCount : ""}
+            {t("commentPanel.title")} {!loading && totalCount > 0 ? totalCount : ""}
           </span>
         </div>
         <button
@@ -623,7 +625,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
         ) : visibleComments.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[200px]">
             <MessageCircle className="w-10 h-10 text-gray-600 mb-3" />
-            <p className="text-gray-500 text-sm">첫 번째 댓글을 남겨보세요!</p>
+            <p className="text-gray-500 text-sm">{t("commentPanel.empty")}</p>
           </div>
         ) : (
           <AnimatePresence initial={false}>
@@ -650,7 +652,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
                       ) : (
                         <ChevronDown className="w-3.5 h-3.5" />
                       )}
-                      답글 {comment.replies.length}개
+                      {t("commentPanel.reply")} {comment.replies.length}
                     </button>
                     <AnimatePresence>
                       {expandedReplies.has(comment.id) &&
@@ -670,7 +672,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
       <div className="flex-shrink-0 border-t border-white/10 px-4 py-3">
         {replyTo && (
           <div className="flex items-center justify-between text-xs text-[#8b5cf6] mb-2 bg-[#6366f1]/10 px-3 py-1.5 rounded-lg">
-            <span>@{replyTo.name}에게 답글</span>
+            <span>{t("commentPanel.replyTo", { name: `@${replyTo.name}` })}</span>
             <button onClick={() => setReplyTo(null)} className="hover:text-white">
               <X className="w-3.5 h-3.5" />
             </button>
@@ -689,7 +691,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
                   handleSubmit();
                 }
               }}
-              placeholder={isAuthenticated ? "댓글 추가..." : "로그인하여 댓글을 작성하세요"}
+              placeholder={isAuthenticated ? t("commentPanel.placeholder") : t("commentPanel.loginToComment")}
               disabled={!isAuthenticated || submitting}
               rows={1}
               className="w-full bg-white/5 border border-white/10 rounded-full px-4 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-[#6366f1] transition-colors disabled:opacity-50 leading-9"
@@ -715,7 +717,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
         open={!!reportTarget}
         targetType="comment"
         targetId={reportTarget?.id || ""}
-        targetTitle={reportTarget ? `${reportTarget.name}의 댓글` : undefined}
+        targetTitle={reportTarget ? reportTarget.name : undefined}
         onClose={() => setReportTarget(null)}
       />
     </div>

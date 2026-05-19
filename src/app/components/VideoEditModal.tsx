@@ -9,6 +9,7 @@ import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 interface Chapter {
   title: string;
@@ -26,11 +27,11 @@ interface VideoEditModalProps {
   onSaved?: (updates: { thumbnail?: string; chapters?: Chapter[]; subtitleUrl?: string | null; ageRating?: string }) => void;
 }
 
-const AGE_OPTIONS: { value: string; label: string; color: string }[] = [
-  { value: "all", label: "전체관람가", color: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" },
-  { value: "13",  label: "13+",       color: "border-amber-500/40 bg-amber-500/10 text-amber-300" },
-  { value: "15",  label: "15+",       color: "border-orange-500/40 bg-orange-500/10 text-orange-300" },
-  { value: "19",  label: "19+ (성인)", color: "border-red-500/40 bg-red-500/10 text-red-300" },
+const AGE_OPTIONS: { value: string; labelKey: string; color: string }[] = [
+  { value: "all", labelKey: "videoEditModal.ageRatingAll", color: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" },
+  { value: "13",  labelKey: "videoEditModal.ageRating13", color: "border-amber-500/40 bg-amber-500/10 text-amber-300" },
+  { value: "15",  labelKey: "videoEditModal.ageRating15", color: "border-orange-500/40 bg-orange-500/10 text-orange-300" },
+  { value: "19",  labelKey: "videoEditModal.ageRating19", color: "border-red-500/40 bg-red-500/10 text-red-300" },
 ];
 
 // HH:MM:SS or MM:SS → seconds
@@ -64,6 +65,7 @@ export function VideoEditModal({
   onClose,
   onSaved,
 }: VideoEditModalProps) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string>(initialThumbnail || "");
@@ -113,7 +115,7 @@ export function VideoEditModal({
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("썸네일 파일은 5MB 이하만 가능합니다.");
+      toast.error(t("videoEditModal.thumbnailTooLarge"));
       return;
     }
     setThumbnailFile(file);
@@ -126,12 +128,12 @@ export function VideoEditModal({
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 1 * 1024 * 1024) {
-      toast.error("자막 파일은 1MB 이하만 가능합니다.");
+      toast.error(t("videoEditModal.subtitleTooLarge"));
       return;
     }
     const name = file.name.toLowerCase();
     if (!name.endsWith(".vtt")) {
-      toast.error(".vtt 형식의 WebVTT 자막 파일만 지원합니다.");
+      toast.error(t("videoEditModal.subtitleFormatHint"));
       return;
     }
     setSubtitleFile(file);
@@ -142,16 +144,16 @@ export function VideoEditModal({
   const handleAddChapter = () => {
     const seconds = parseTimeInput(newChapterTime);
     if (seconds === null) {
-      toast.error("시간을 올바르게 입력해주세요 (예: 1:30 또는 0:00:45)");
+      toast.error(t("videoEditModal.chapterTime"));
       return;
     }
     if (!newChapterTitle.trim()) {
-      toast.error("챕터 제목을 입력해주세요.");
+      toast.error(t("videoEditModal.chapterTitle"));
       return;
     }
     // 중복 시간 체크
     if (chapters.some(c => c.time_seconds === seconds)) {
-      toast.error("같은 시각의 챕터가 이미 있습니다.");
+      toast.error(t("videoEditModal.chapterTime"));
       return;
     }
     const next = [...chapters, { title: newChapterTitle.trim(), time_seconds: seconds }];
@@ -169,7 +171,7 @@ export function VideoEditModal({
   // 저장 (Storage 업로드 + RPC 호출)
   const handleSave = async () => {
     if (!user?.id) {
-      toast.error("로그인이 필요합니다.");
+      toast.error(t("auth.loginRequired"));
       return;
     }
     setSaving(true);
@@ -187,7 +189,7 @@ export function VideoEditModal({
         const { error: upErr } = await supabase.storage
           .from("video-thumbnails")
           .upload(path, thumbnailFile, { upsert: true });
-        if (upErr) throw new Error("썸네일 업로드 실패: " + upErr.message);
+        if (upErr) throw new Error(upErr.message);
         const { data: urlData } = supabase.storage.from("video-thumbnails").getPublicUrl(path);
         finalThumbnail = urlData.publicUrl;
         setUploadingThumbnail(false);
@@ -200,7 +202,7 @@ export function VideoEditModal({
         const { error: upErr } = await supabase.storage
           .from("video-subtitles")
           .upload(path, subtitleFile, { upsert: true, contentType: "text/vtt" });
-        if (upErr) throw new Error("자막 업로드 실패: " + upErr.message);
+        if (upErr) throw new Error(upErr.message);
         const { data: urlData } = supabase.storage.from("video-subtitles").getPublicUrl(path);
         finalSubtitleUrl = urlData.publicUrl;
         willClearSubtitle = false;
@@ -218,7 +220,7 @@ export function VideoEditModal({
       });
       if (rpcErr) throw rpcErr;
 
-      toast.success("영상 정보를 저장했습니다.");
+      toast.success(t("videoEditModal.saveSuccess"));
       onSaved?.({
         thumbnail: finalThumbnail,
         chapters,
@@ -228,7 +230,7 @@ export function VideoEditModal({
       onClose();
     } catch (err: any) {
       console.error("[VideoEdit] save error:", err);
-      toast.error(err?.message || "저장에 실패했습니다.");
+      toast.error(err?.message || t("videoEditModal.saveFailed"));
     } finally {
       setSaving(false);
       setUploadingThumbnail(false);
@@ -261,7 +263,7 @@ export function VideoEditModal({
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center">
                 <FileText className="w-4 h-4 text-white" />
               </div>
-              <h2 className="text-base font-bold text-white">영상 편집</h2>
+              <h2 className="text-base font-bold text-white">{t("videoEditModal.title")}</h2>
             </div>
             <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
               <X className="w-5 h-5" />
@@ -274,9 +276,9 @@ export function VideoEditModal({
             <section>
               <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
                 <ImageIcon className="w-4 h-4 text-[#8b5cf6]" />
-                썸네일
+                {t("videoEditModal.thumbnailHeader")}
               </h3>
-              <p className="text-xs text-gray-500 mb-3">권장 비율 16:9 · 최대 5MB · JPG/PNG/WEBP</p>
+              <p className="text-xs text-gray-500 mb-3">{t("videoEditModal.thumbnailHint")}</p>
               <div className="flex gap-3">
                 <div className="w-48 aspect-video rounded-lg overflow-hidden bg-black/30 border border-white/10 flex-shrink-0">
                   {thumbnailPreview ? (
@@ -302,7 +304,7 @@ export function VideoEditModal({
                       className="bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 gap-2 w-fit"
                     >
                       <UploadIcon className="w-4 h-4" />
-                      {thumbnailFile ? "다른 이미지 선택" : "이미지 선택"}
+                      {t("videoEditModal.thumbnailUpload")}
                     </Button>
                     {thumbnailFile && (
                       <Button
@@ -311,17 +313,17 @@ export function VideoEditModal({
                         className="bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-red-400 gap-2 w-fit"
                       >
                         <X className="w-4 h-4" />
-                        변경 취소
+                        {t("videoEditModal.thumbnailCancel")}
                       </Button>
                     )}
                   </div>
                   {thumbnailFile ? (
                     <p className="text-[11px] text-[#10b981]">
-                      ✓ {thumbnailFile.name} ({Math.round(thumbnailFile.size / 1024)}KB) — 저장 시 적용
+                      ✓ {thumbnailFile.name} ({Math.round(thumbnailFile.size / 1024)}KB)
                     </p>
                   ) : (
                     <p className="text-[11px] text-gray-600">
-                      이미지를 새로 선택하면 저장 시 교체됩니다. "변경 취소"로 원본 유지 가능.
+                      {t("videoEditModal.thumbnailHint")}
                     </p>
                   )}
                 </div>
@@ -332,9 +334,9 @@ export function VideoEditModal({
             <section>
               <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
                 <ClockIcon className="w-4 h-4 text-[#8b5cf6]" />
-                챕터
+                {t("videoEditModal.chaptersHeader")}
               </h3>
-              <p className="text-xs text-gray-500 mb-3">시청자가 원하는 장면으로 점프할 수 있습니다 (예: 0:00 인트로, 1:30 본편)</p>
+              <p className="text-xs text-gray-500 mb-3">{t("videoEditModal.chaptersHint")}</p>
 
               {chapters.length > 0 && (
                 <div className="space-y-1.5 mb-3">
@@ -345,7 +347,7 @@ export function VideoEditModal({
                       <button
                         onClick={() => handleRemoveChapter(idx)}
                         className="p-1 text-gray-500 hover:text-red-400 transition-colors"
-                        aria-label="제거"
+                        aria-label={t("videoEditModal.chapterRemove")}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -367,7 +369,7 @@ export function VideoEditModal({
                   value={newChapterTitle}
                   onChange={e => setNewChapterTitle(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleAddChapter()}
-                  placeholder="챕터 제목"
+                  placeholder={t("videoEditModal.chapterTitle")}
                   maxLength={50}
                   className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]"
                 />
@@ -377,7 +379,7 @@ export function VideoEditModal({
                   variant="outline"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  추가
+                  {t("videoEditModal.chapterAdd")}
                 </Button>
               </div>
             </section>
@@ -386,9 +388,9 @@ export function VideoEditModal({
             <section>
               <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-red-400" />
-                연령 등급
+                {t("videoEditModal.ageRatingHeader")}
               </h3>
-              <p className="text-xs text-gray-500 mb-3">콘텐츠 무드에 맞는 등급을 선택해주세요. 19+ 영상은 본인 인증된 사용자만 시청 가능합니다.</p>
+              <p className="text-xs text-gray-500 mb-3">{t("productDetail.ageGate.description")}</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {AGE_OPTIONS.map(opt => {
                   const active = ageRating === opt.value;
@@ -402,7 +404,7 @@ export function VideoEditModal({
                           : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
                       }`}
                     >
-                      {opt.label}
+                      {t(opt.labelKey)}
                     </button>
                   );
                 })}
@@ -413,19 +415,19 @@ export function VideoEditModal({
             <section>
               <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-[#8b5cf6]" />
-                자막
+                {t("videoEditModal.subtitleHeader")}
               </h3>
-              <p className="text-xs text-gray-500 mb-3">WebVTT (.vtt) 파일 · 최대 1MB. <a href="https://en.wikipedia.org/wiki/WebVTT" target="_blank" rel="noopener" className="text-[#a78bfa] hover:underline">WebVTT 형식이란?</a></p>
+              <p className="text-xs text-gray-500 mb-3">{t("videoEditModal.subtitleHint")} <a href="https://en.wikipedia.org/wiki/WebVTT" target="_blank" rel="noopener" className="text-[#a78bfa] hover:underline">WebVTT?</a></p>
 
               {hasSubtitle && !hasNewSubtitleFile && (
                 <div className="flex items-center gap-2 p-2 bg-[#10b981]/10 border border-[#10b981]/20 rounded-lg mb-2">
                   <FileText className="w-4 h-4 text-[#10b981]" />
-                  <span className="text-xs text-[#10b981] flex-1 truncate">현재 자막 파일이 등록되어 있습니다</span>
+                  <span className="text-xs text-[#10b981] flex-1 truncate">{t("videoEditModal.subtitleCurrent")}</span>
                   <button
                     onClick={() => setClearSubtitle(true)}
                     className="text-xs text-gray-400 hover:text-red-400 underline"
                   >
-                    제거
+                    {t("videoEditModal.subtitleRemove")}
                   </button>
                 </div>
               )}
@@ -433,12 +435,12 @@ export function VideoEditModal({
               {clearSubtitle && (
                 <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg mb-2">
                   <AlertCircle className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs text-amber-300 flex-1">저장 시 자막이 제거됩니다</span>
+                  <span className="text-xs text-amber-300 flex-1">{t("videoEditModal.subtitleRemove")}</span>
                   <button
                     onClick={() => setClearSubtitle(false)}
                     className="text-xs text-gray-400 hover:text-white underline"
                   >
-                    되돌리기
+                    {t("common.cancel")}
                   </button>
                 </div>
               )}
@@ -456,7 +458,7 @@ export function VideoEditModal({
                 className="bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 gap-2 w-fit"
               >
                 <UploadIcon className="w-4 h-4" />
-                {hasSubtitle || hasNewSubtitleFile ? ".vtt 파일 교체" : ".vtt 파일 업로드"}
+                {t("videoEditModal.subtitleUpload")}
               </Button>
               {subtitleFile && (
                 <p className="text-[11px] text-[#10b981] mt-2">
@@ -474,7 +476,7 @@ export function VideoEditModal({
               className="bg-white/5 text-gray-300 border-white/10 hover:bg-white/10"
               disabled={saving}
             >
-              취소
+              {t("common.cancel")}
             </Button>
             <Button
               onClick={handleSave}
@@ -482,7 +484,7 @@ export function VideoEditModal({
               className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white font-bold gap-2"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {uploadingThumbnail ? "썸네일 업로드 중..." : uploadingSubtitle ? "자막 업로드 중..." : saving ? "저장 중..." : "저장"}
+              {uploadingThumbnail || uploadingSubtitle || saving ? t("videoEditModal.saving") : t("videoEditModal.save")}
             </Button>
           </div>
         </motion.div>

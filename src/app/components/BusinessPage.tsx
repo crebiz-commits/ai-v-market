@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 type Category = "advertising" | "investment" | "partnership" | "b2b_license";
 
@@ -22,34 +23,35 @@ const CATEGORIES: Array<{
   {
     id: "advertising",
     icon: Briefcase,
-    title: "광고 문의",
-    desc: "브랜드 캠페인, 인비디오 광고, 스폰서십",
+    title: "Advertising Inquiry",
+    desc: "Brand campaigns, in-video ads, sponsorships",
     color: "from-amber-500 to-orange-500",
   },
   {
     id: "investment",
     icon: TrendingUp,
-    title: "투자 / IR",
-    desc: "VC, 엔젤, 사모펀드 등 투자 제안",
+    title: "Investment / IR",
+    desc: "Investment proposals from VC, angel, PE funds",
     color: "from-emerald-500 to-teal-500",
   },
   {
     id: "partnership",
     icon: Handshake,
-    title: "사업 제휴",
-    desc: "콘텐츠 파트너, 채널 협업, 공동 기획",
+    title: "Partnership",
+    desc: "Content partners, channel collaboration, joint planning",
     color: "from-[#6366f1] to-[#8b5cf6]",
   },
   {
     id: "b2b_license",
     icon: Layers,
-    title: "B2B 라이선스",
-    desc: "기업 영상 라이선스, API, 화이트라벨",
+    title: "B2B License",
+    desc: "Enterprise video license, API, white-label",
     color: "from-rose-500 to-pink-500",
   },
 ];
 
 export function BusinessPage({ onBack }: BusinessPageProps) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [category, setCategory] = useState<Category>("advertising");
   const [companyName, setCompanyName] = useState("");
@@ -63,11 +65,11 @@ export function BusinessPage({ onBack }: BusinessPageProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!companyName.trim() || !contactName.trim() || !email.trim() || !message.trim()) {
-      toast.error("필수 항목을 모두 입력해주세요.");
+      toast.error(t("business.requiredFields"));
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error("올바른 이메일 형식이 아닙니다.");
+      toast.error("Invalid email format.");
       return;
     }
     setSubmitting(true);
@@ -85,9 +87,9 @@ export function BusinessPage({ onBack }: BusinessPageProps) {
       });
       if (error) throw error;
       setSubmitted(true);
-      toast.success("문의가 접수됐습니다. 영업일 기준 2~3일 내 답변드리겠습니다.");
+      toast.success(t("business.submitSuccess"));
     } catch (err: any) {
-      toast.error(err?.message || "문의 전송에 실패했습니다.");
+      toast.error(err?.message || t("business.submitFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -104,17 +106,17 @@ export function BusinessPage({ onBack }: BusinessPageProps) {
           <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center mb-6">
             <CheckCircle2 className="w-10 h-10 text-emerald-400" />
           </div>
-          <h2 className="text-2xl font-black text-white mb-3">문의가 접수됐습니다</h2>
+          <h2 className="text-2xl font-black text-white mb-3">{t("business.submitSuccess")}</h2>
           <p className="text-sm text-gray-400 leading-relaxed mb-8">
-            영업일 기준 2~3일 내에 입력하신<br />
-            <span className="text-white font-bold">{email}</span>로 답변드리겠습니다.
+            We'll reply within 2–3 business days to<br />
+            <span className="text-white font-bold">{email}</span>
           </p>
           <Button
             onClick={onBack}
             variant="outline"
             className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-medium"
           >
-            메인으로 돌아가기
+            {t("creatorChannel.back")}
           </Button>
         </motion.div>
       </div>
@@ -129,13 +131,13 @@ export function BusinessPage({ onBack }: BusinessPageProps) {
           className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          돌아가기
+          {t("creatorChannel.back")}
         </button>
 
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-black text-white mb-2">비즈니스 문의</h1>
+          <h1 className="text-3xl md:text-4xl font-black text-white mb-2">{t("business.title")}</h1>
           <p className="text-gray-400 text-sm md:text-base leading-relaxed">
-            광고·투자·제휴·B2B 등 비즈니스 문의를 받습니다. 영업일 기준 2~3일 내 답변드립니다.
+            {t("business.subtitle")}
           </p>
         </motion.div>
 
@@ -167,44 +169,44 @@ export function BusinessPage({ onBack }: BusinessPageProps) {
 
         {/* 문의 폼 */}
         <form onSubmit={handleSubmit} className="space-y-4 bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5">
-          <Field label="회사명" required>
+          <Field label={t("business.companyLabel")} required>
             <input
               type="text"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
               maxLength={100}
               required
-              placeholder="회사 또는 단체명"
+              placeholder={t("business.companyPlaceholder")}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors"
             />
           </Field>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="담당자" required>
+            <Field label={t("business.nameLabel")} required>
               <input
                 type="text"
                 value={contactName}
                 onChange={(e) => setContactName(e.target.value)}
                 maxLength={50}
                 required
-                placeholder="이름"
+                placeholder={t("business.namePlaceholder")}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors"
               />
             </Field>
 
-            <Field label="연락처 (선택)">
+            <Field label={t("business.phoneLabel")}>
               <input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 maxLength={20}
-                placeholder="010-0000-0000"
+                placeholder={t("business.phonePlaceholder")}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors"
               />
             </Field>
           </div>
 
-          <Field label="이메일" required>
+          <Field label={t("business.emailLabel")} required>
             <input
               type="email"
               value={email}
@@ -215,14 +217,14 @@ export function BusinessPage({ onBack }: BusinessPageProps) {
             />
           </Field>
 
-          <Field label="문의 내용" required>
+          <Field label={t("business.messageLabel")} required>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               maxLength={2000}
               rows={6}
               required
-              placeholder="제안 또는 문의 내용을 자세히 적어주세요. (예산, 일정, 규모 등 구체적일수록 빠른 답변 가능)"
+              placeholder={t("business.messagePlaceholder")}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors resize-none"
             />
             <p className="text-[11px] text-gray-500 text-right mt-1">{message.length}/2000</p>
@@ -236,19 +238,19 @@ export function BusinessPage({ onBack }: BusinessPageProps) {
             {submitting ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                전송 중...
+                {t("business.submitting")}
               </>
             ) : (
               <>
                 <Send className="w-4 h-4 mr-2" />
-                문의 전송
+                {t("business.submit")}
               </>
             )}
           </Button>
 
           <p className="text-[11px] text-gray-500 text-center leading-relaxed">
-            제출 시 입력하신 정보는 문의 응대 목적으로만 사용되며,<br />
-            업무 처리 완료 후 별도 보관 동의가 없으면 1년 내 파기됩니다.
+            Your information is used only for responding to your inquiry<br />
+            and will be deleted within 1 year after handling unless you consent to retention.
           </p>
         </form>
       </div>
