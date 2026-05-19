@@ -11,7 +11,8 @@ import { useBackButton } from "../hooks/useBackButton";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
-const INITIAL_POSTS: Post[] = [
+// 카테고리 값은 한글로 통일 (DB 저장값과 일치). 표시 시점에 i18n 변환.
+const POSTS_KO: Post[] = [
   {
     id: "1",
     author: "AI Creator Pro",
@@ -72,13 +73,74 @@ const INITIAL_POSTS: Post[] = [
   }
 ];
 
+const POSTS_EN: Post[] = [
+  {
+    id: "1",
+    author: "AI Creator Pro",
+    avatar: "https://images.unsplash.com/photo-1595745688820-1a8bca9dd00f?w=100&h=100&fit=crop",
+    title: "5 prompt tips for cinematic Sora videos",
+    content: "1. Specify camera movement (dolly zoom, crane shot, etc.)\n2. Define lighting style (cinematic lighting, golden hour)\n3. Use emotional adjectives...",
+    category: "팁",
+    likes: 342,
+    comments: 28,
+    timestamp: "2h ago",
+    image: "https://images.unsplash.com/photo-1612000656409-16fcf948b2d9?w=400&h=300&fit=crop"
+  },
+  {
+    id: "2",
+    author: "VideoMaster",
+    avatar: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=100&h=100&fit=crop",
+    title: "March Challenge: 'Future City' theme video contest",
+    content: "Total prize ₩5,000,000! Create a 15-second AI video on Cyberpunk, neon, or future city themes. Top entries get featured on the home feed.",
+    category: "챌린지",
+    likes: 891,
+    comments: 156,
+    timestamp: "1d ago"
+  },
+  {
+    id: "3",
+    author: "NatureLover",
+    avatar: "https://images.unsplash.com/photo-1551728715-88730314d185?w=100&h=100&fit=crop",
+    title: "Runway Gen-3 vs Pika Labs realism comparison",
+    content: "I tried the same prompt on both tools. Interesting results — Runway has better detail, while Pika produces more natural motion.",
+    category: "비교",
+    likes: 567,
+    comments: 89,
+    timestamp: "3d ago",
+    image: "https://images.unsplash.com/photo-1551728715-88730314d185?w=400&h=300&fit=crop"
+  },
+  {
+    id: "4",
+    author: "PromptWizard",
+    avatar: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=100&h=100&fit=crop",
+    title: "Prompt: Neon cyberpunk city at night",
+    content: '"Neon-lit cyberpunk city at night, flying cars, holographic billboards, rain-soaked streets, cinematic wide shot, blade runner style, 8k ultra detailed" — this prompt produced amazing results!',
+    category: "프롬프트",
+    likes: 1203,
+    comments: 234,
+    timestamp: "5d ago"
+  },
+  {
+    id: "5",
+    author: "AnimationStudio",
+    avatar: "https://images.unsplash.com/photo-1772371272174-392cf9cfabae?w=100&h=100&fit=crop",
+    title: "Sharing my AI animation workflow",
+    content: "From character design → AI generation → editing → post-production, sharing the full process. Questions welcome!",
+    category: "튜토리얼",
+    likes: 678,
+    comments: 92,
+    timestamp: "1w ago",
+    image: "https://images.unsplash.com/photo-1772371272174-392cf9cfabae?w=400&h=300&fit=crop"
+  }
+];
+
 const getNextDeadline = (offsetDays: number) => {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 };
 
-const challenges: Challenge[] = [
+const CHALLENGES_KO: Challenge[] = [
   {
     id: "1",
     title: "미래 도시 챌린지",
@@ -108,7 +170,47 @@ const challenges: Challenge[] = [
   },
 ];
 
+const CHALLENGES_EN: Challenge[] = [
+  {
+    id: "1",
+    title: "Future City Challenge",
+    prize: "₩5,000,000",
+    participants: 342,
+    deadline: getNextDeadline(15),
+    image: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=400&h=200&fit=crop",
+    description: "Create a 15-second AI video on Cyberpunk, neon, or future city themes.\n\nDraw inspiration from Blade Runner, Cyberpunk 2077, or Ghost in the Shell, and express your own vision of the future city. Whether dystopia or utopia, the vision is yours.\n\nTop entries will be featured on CREAITE's home feed for one week, free of charge.",
+  },
+  {
+    id: "2",
+    title: "Nature Documentary",
+    prize: "₩3,000,000",
+    participants: 189,
+    deadline: getNextDeadline(20),
+    image: "https://images.unsplash.com/photo-1551728715-88730314d185?w=400&h=200&fit=crop",
+    description: "Make a cinematic nature documentary in the style of BBC Earth.\n\nFrom the wonders of vast landscapes, to the lively moments of wildlife, to the microcosm of tiny insects — any subject works. Cinematic direction and emotional impact are the key criteria.",
+  },
+  {
+    id: "3",
+    title: "Abstract Art Visuals",
+    prize: "₩2,000,000",
+    participants: 267,
+    deadline: getNextDeadline(25),
+    image: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=400&h=200&fit=crop",
+    description: "Create an experimental video using abstract visuals, color, motion, and pattern.\n\nNo specific subject required. Feel free to express yourself with music visualization, abstract expressionism, psychedelic art, and more. Visual quality and originality are the evaluation criteria.",
+  },
+];
+
 const CATEGORIES = ["팁", "챌린지", "비교", "프롬프트", "튜토리얼", "일반", "질문"];
+
+const COMMUNITY_CATEGORY_KEY: Record<string, string> = {
+  "팁": "communityCategory.tip",
+  "챌린지": "communityCategory.challenge",
+  "비교": "communityCategory.compare",
+  "프롬프트": "communityCategory.prompt",
+  "튜토리얼": "communityCategory.tutorial",
+  "일반": "communityCategory.general",
+  "질문": "communityCategory.question",
+};
 
 const CATEGORY_COLOR: Record<string, string> = {
   "챌린지": "bg-[#8b5cf6]/20 text-[#8b5cf6]",
@@ -121,9 +223,11 @@ const CATEGORY_COLOR: Record<string, string> = {
 };
 
 export function Community() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isKo = (i18n.language || "en").startsWith("ko");
   const { user, isAuthenticated, profile } = useAuth();
-  const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
+  const [posts, setPosts] = useState<Post[]>(isKo ? POSTS_KO : POSTS_EN);
+  const challenges = isKo ? CHALLENGES_KO : CHALLENGES_EN;
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [bookmarkedPosts, setBookmarkedPosts] = useState<Set<string>>(new Set());
   const [commentPostId, setCommentPostId] = useState<string | null>(null);
@@ -249,7 +353,7 @@ export function Community() {
                           <p className="text-xs text-muted-foreground">{post.timestamp}</p>
                         </div>
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${CATEGORY_COLOR[post.category] || "bg-[#6366f1]/20 text-[#6366f1]"}`}>
-                          {post.category}
+                          {COMMUNITY_CATEGORY_KEY[post.category] ? t(COMMUNITY_CATEGORY_KEY[post.category]) : post.category}
                         </span>
                       </div>
 
@@ -481,7 +585,7 @@ export function Community() {
                         : "bg-white/5 text-gray-400 hover:bg-white/10"
                     }`}
                   >
-                    {cat}
+                    {COMMUNITY_CATEGORY_KEY[cat] ? t(COMMUNITY_CATEGORY_KEY[cat]) : cat}
                   </button>
                 ))}
               </div>
