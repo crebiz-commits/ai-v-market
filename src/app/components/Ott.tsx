@@ -8,8 +8,8 @@
 //   2. EDITOR'S PICK 매거진 (큰 1 + 작은 4)
 //   3. 장르별 캐러셀 (좌/우 화살표로 슬라이드) — 상위 5개 장르
 // ════════════════════════════════════════════════════════════════════════════
-import { useEffect, useState, useRef } from "react";
-import { Play, Info, Wand2, Heart, Sparkles, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { Play, Info, Wand2, Heart, Sparkles, ChevronLeft, ChevronRight, Loader2, Lock } from "lucide-react";
 import { motion } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -18,6 +18,8 @@ import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { BRAND_GRADIENT_TEXT, BRAND_BADGE_BG, getGenreStyle } from "../utils/brandColors";
 import { useTranslation } from "react-i18next";
+import { AgeBadge, shouldBlur } from "./AgeBadge";
+import { useAgeRatings } from "../hooks/useAgeRatings";
 
 interface Product {
   id: string;
@@ -93,12 +95,29 @@ interface GenreRow {
 
 export function Ott({ onProductClick }: OttProps) {
   const { t } = useTranslation();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const showcase = shouldShowShowcase(profile?.is_admin);
+  const ageVerified = profile?.age_verified ?? false;
 
   const [loading, setLoading] = useState(true);
   const [trending, setTrending] = useState<CarouselVideo[]>([]);
   const [genreRows, setGenreRows] = useState<GenreRow[]>([]);
+
+  // Phase 26 보강: 카드용 age_rating 일괄 조회
+  const allVideoIds = useMemo(() => {
+    const ids = new Set<string>();
+    trending.forEach(v => ids.add(v.id));
+    genreRows.forEach(r => r.videos.forEach(v => ids.add(v.id)));
+    return Array.from(ids).filter(id => !id.startsWith("demo-"));
+  }, [trending, genreRows]);
+  const ageRatings = useAgeRatings(allVideoIds);
+
+  // 카드 단계 잠금 가드
+  const ageGuard = (v: CarouselVideo) => {
+    const rating = ageRatings[v.id];
+    const isMyVideo = !!user?.id && !!v.creator_id && user.id === v.creator_id;
+    return { rating, isAgeLocked: !isMyVideo && shouldBlur(rating, ageVerified) };
+  };
 
   useEffect(() => {
     async function loadAll() {
@@ -185,14 +204,25 @@ export function Ott({ onProductClick }: OttProps) {
     );
   }
 
+  const heroGuard = ageGuard(hero);
+
   return (
     <div className="h-full overflow-y-auto bg-black pb-12">
       {/* ━━━ 풀블리드 히어로 ━━━ */}
-      <HeroSection video={hero} onClick={() => onProductClick(toProduct(hero))} />
+      <HeroSection
+        video={hero}
+        onClick={() => onProductClick(toProduct(hero))}
+        rating={heroGuard.rating}
+        isAgeLocked={heroGuard.isAgeLocked}
+      />
 
       {/* ━━━ EDITOR'S PICK 매거진 ━━━ */}
       {featured.length > 0 && (
-        <EditorsPick videos={featured} onClick={(v) => onProductClick(toProduct(v))} />
+        <EditorsPick
+          videos={featured}
+          onClick={(v) => onProductClick(toProduct(v))}
+          ageGuard={ageGuard}
+        />
       )}
 
       {/* ━━━ AI 시네마 소개 헤더 ━━━ */}
@@ -214,6 +244,7 @@ export function Ott({ onProductClick }: OttProps) {
           category={row.category}
           videos={row.videos}
           onClick={(v) => onProductClick(toProduct(v))}
+          ageGuard={ageGuard}
         />
       ))}
 
@@ -229,13 +260,44 @@ export function Ott({ onProductClick }: OttProps) {
 // ────────────────────────────────────────────────────────────────────────────
 // 풀블리드 히어로
 // ────────────────────────────────────────────────────────────────────────────
-function HeroSection({ video, onClick }: { video: CarouselVideo; onClick: () => void }) {
+function HeroSection({
+  video,
+  onClick,
+  rating,
+  isAgeLocked,
+}: {
+  video: CarouselVideo;
+  onClick: () => void;
+  rating?: string;
+  isAgeLocked?: boolean;
+}) {
   const { t } = useTranslation();
   return (
     <div className="relative h-[70vh] min-h-[500px] overflow-hidden">
-      <img src={video.thumbnail || ""} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      <img src={video.thumbnail || ""} alt="" className={`absolute inset-0 w-full h-full object-cover ${isAgeLocked ? "blur-2xl scale-110" : ""}`} />
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/30 to-transparent" />
+
+      {/* Phase 26 보강: 19+ 잠금 오버레이 */}
+      {isAgeLocked && (
+        <button
+          onClick={onClick}
+          className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center bg-black/55 hover:bg-black/65 transition-colors"
+        >
+          <div className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center mb-3 shadow-2xl">
+            <Lock className="w-8 h-8 text-white" />
+          </div>
+          <p className="text-2xl font-black text-white mb-1">{t("video.ageGateLockTitle")}</p>
+          <p className="text-sm text-gray-300 underline">{t("video.ageGateLockHint")}</p>
+        </button>
+      )}
+
+      {/* Phase 26 보강: 연령 등급 배지 (우상단) */}
+      {rating && rating !== "all" && (
+        <div className="absolute top-4 right-4 z-10">
+          <AgeBadge rating={rating} size="md" />
+        </div>
+      )}
 
       <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12 max-w-2xl">
         <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full mb-3 ${BRAND_BADGE_BG}`}>
@@ -268,9 +330,18 @@ function HeroSection({ video, onClick }: { video: CarouselVideo; onClick: () => 
 // ────────────────────────────────────────────────────────────────────────────
 // EDITOR'S PICK 매거진 (큰 1 + 작은 4)
 // ────────────────────────────────────────────────────────────────────────────
-function EditorsPick({ videos, onClick }: { videos: CarouselVideo[]; onClick: (v: CarouselVideo) => void }) {
+function EditorsPick({
+  videos,
+  onClick,
+  ageGuard,
+}: {
+  videos: CarouselVideo[];
+  onClick: (v: CarouselVideo) => void;
+  ageGuard: (v: CarouselVideo) => { rating?: string; isAgeLocked: boolean };
+}) {
   const { t } = useTranslation();
   if (videos.length === 0) return null;
+  const bigGuard = ageGuard(videos[0]);
   return (
     <div className="max-w-7xl mx-auto px-6 mt-12">
       <h3 className="text-xs font-bold text-[#a78bfa] uppercase tracking-widest mb-4">{t("ott.editorsPickHeader")}</h3>
@@ -283,9 +354,22 @@ function EditorsPick({ videos, onClick }: { videos: CarouselVideo[]; onClick: (v
           <img
             src={videos[0].thumbnail || ""}
             alt=""
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+            className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${bigGuard.isAgeLocked ? "blur-2xl scale-110" : ""}`}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+          {bigGuard.isAgeLocked && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-center px-4">
+              <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center mb-2">
+                <Lock className="w-6 h-6 text-white" />
+              </div>
+              <p className="text-base font-black text-white">{t("video.ageGateLockTitle")}</p>
+            </div>
+          )}
+          {bigGuard.rating && bigGuard.rating !== "all" && (
+            <div className="absolute top-3 right-3">
+              <AgeBadge rating={bigGuard.rating} size="sm" />
+            </div>
+          )}
           <div className="absolute bottom-0 left-0 right-0 p-6">
             <span className="text-[10px] font-bold text-[#a78bfa] uppercase tracking-widest">{t("ott.cinematicShort")}</span>
             <h4 className="text-2xl font-black mt-1 mb-1">{videos[0].title}</h4>
@@ -293,7 +377,9 @@ function EditorsPick({ videos, onClick }: { videos: CarouselVideo[]; onClick: (v
           </div>
         </button>
         {/* 작은 카드 4개 */}
-        {videos.slice(1, 5).map((v) => (
+        {videos.slice(1, 5).map((v) => {
+          const g = ageGuard(v);
+          return (
           <button
             key={v.id}
             onClick={() => onClick(v)}
@@ -302,15 +388,29 @@ function EditorsPick({ videos, onClick }: { videos: CarouselVideo[]; onClick: (v
             <img
               src={v.thumbnail || ""}
               alt=""
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+              className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${g.isAgeLocked ? "blur-xl scale-110" : ""}`}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+            {g.isAgeLocked && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-center">
+                <div className="w-9 h-9 rounded-full bg-red-600 flex items-center justify-center mb-1.5">
+                  <Lock className="w-5 h-5 text-white" />
+                </div>
+                <p className="text-xs font-black text-white">{t("video.ageGateLockTitle")}</p>
+              </div>
+            )}
+            {g.rating && g.rating !== "all" && (
+              <div className="absolute top-2 right-2">
+                <AgeBadge rating={g.rating} size="xs" />
+              </div>
+            )}
             <div className="absolute bottom-0 left-0 right-0 p-4">
               <h4 className="text-sm font-bold line-clamp-1">{v.title}</h4>
               <p className="text-[11px] text-gray-400">{v.creator_display_name || v.creator}</p>
             </div>
           </button>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -323,10 +423,12 @@ function GenreCarousel({
   category,
   videos,
   onClick,
+  ageGuard,
 }: {
   category: string;
   videos: CarouselVideo[];
   onClick: (v: CarouselVideo) => void;
+  ageGuard: (v: CarouselVideo) => { rating?: string; isAgeLocked: boolean };
 }) {
   const { t } = useTranslation();
   const style = getGenreStyle(category);
@@ -379,7 +481,9 @@ function GenreCarousel({
         className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory scroll-smooth"
         style={{ scrollbarWidth: "none" }}
       >
-        {videos.map((v) => (
+        {videos.map((v) => {
+          const g = ageGuard(v);
+          return (
           <motion.button
             key={v.id}
             whileTap={{ scale: 0.98 }}
@@ -390,9 +494,9 @@ function GenreCarousel({
               <img
                 src={v.thumbnail || ""}
                 alt=""
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${g.isAgeLocked ? "blur-xl scale-110" : ""}`}
               />
-              {v.ai_tool && (
+              {!g.isAgeLocked && v.ai_tool && (
                 <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/70 backdrop-blur rounded text-[9px] font-bold flex items-center gap-1">
                   <Wand2 className="w-2.5 h-2.5" /> {v.ai_tool}
                 </div>
@@ -402,17 +506,34 @@ function GenreCarousel({
                   {v.duration}
                 </div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                <p className="text-xs text-gray-300 flex items-center gap-1">
-                  <Heart className="w-3 h-3 fill-pink-500 text-pink-500" />
-                  {((v as any).likes || 0).toLocaleString()}
-                </p>
-              </div>
+              {/* Phase 26 보강: 19+ 잠금 */}
+              {g.isAgeLocked && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 text-center pointer-events-none">
+                  <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center mb-1.5">
+                    <Lock className="w-5 h-5 text-white" />
+                  </div>
+                  <p className="text-xs font-black text-white">{t("video.ageGateLockTitle")}</p>
+                </div>
+              )}
+              {g.rating && g.rating !== "all" && (
+                <div className="absolute top-2 right-2">
+                  <AgeBadge rating={g.rating} size="xs" />
+                </div>
+              )}
+              {!g.isAgeLocked && (
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                  <p className="text-xs text-gray-300 flex items-center gap-1">
+                    <Heart className="w-3 h-3 fill-pink-500 text-pink-500" />
+                    {((v as any).likes || 0).toLocaleString()}
+                  </p>
+                </div>
+              )}
             </div>
             <p className="text-sm font-bold line-clamp-1">{v.title}</p>
             <p className="text-[11px] text-gray-500">{v.creator_display_name || v.creator}</p>
           </motion.button>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

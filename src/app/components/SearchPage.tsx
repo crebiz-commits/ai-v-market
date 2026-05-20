@@ -3,11 +3,13 @@
 // 영상/크리에이터 검색 + 자동완성 + 필터 + 정렬 + 인기 검색어 + 검색 기록
 // ════════════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Search, X, Loader2, TrendingUp, Clock, Filter, ChevronDown, Eye, Heart, Play, Users, ArrowLeft } from "lucide-react";
+import { Search, X, Loader2, TrendingUp, Clock, Filter, ChevronDown, Eye, Heart, Play, Users, ArrowLeft, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
+import { useAgeRatings } from "../hooks/useAgeRatings";
+import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { toast } from "sonner";
@@ -150,7 +152,8 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
   const [popular, setPopular] = useState<PopularQuery[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  const ageVerified = profile?.age_verified ?? false;
   const { isBlocked } = useBlockedUsers();
   const showcase = shouldShowShowcase(profile?.is_admin);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -308,6 +311,13 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
   // Phase 24: 차단 사용자 결과는 표시에서 제외
   const visibleVideos = videos.filter((v) => !v.creator_id || !isBlocked(v.creator_id));
   const visibleCreators = creators.filter((c) => !isBlocked(c.creator_id));
+
+  // Phase 26 보강: 카드용 age_rating 일괄 조회
+  const allVideoIds = useMemo(
+    () => visibleVideos.map((v) => v.id).filter((id) => !id.startsWith("demo-")),
+    [visibleVideos],
+  );
+  const ageRatings = useAgeRatings(allVideoIds);
 
   const showInitialState = !submittedQuery && !hasActiveFilter && !loading;
 
@@ -542,9 +552,20 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
             <EmptyResult query={submittedQuery} />
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-              {visibleVideos.map((v) => (
-                <VideoCard key={v.id} video={v} onClick={() => handleClickVideo(v)} />
-              ))}
+              {visibleVideos.map((v) => {
+                const rating = ageRatings[v.id];
+                const isMyVideo = !!user?.id && !!v.creator_id && user.id === v.creator_id;
+                const isAgeLocked = !isMyVideo && shouldBlur(rating, ageVerified);
+                return (
+                  <VideoCard
+                    key={v.id}
+                    video={v}
+                    onClick={() => handleClickVideo(v)}
+                    rating={rating}
+                    isAgeLocked={isAgeLocked}
+                  />
+                );
+              })}
             </div>
           )
         ) : (
@@ -594,7 +615,18 @@ function FilterChips({ label, options, value, onChange, optionLabel }: { label: 
   );
 }
 
-function VideoCard({ video, onClick }: { video: VideoResult; onClick: () => void }) {
+function VideoCard({
+  video,
+  onClick,
+  rating,
+  isAgeLocked,
+}: {
+  video: VideoResult;
+  onClick: () => void;
+  rating?: string;
+  isAgeLocked?: boolean;
+}) {
+  const { t } = useTranslation();
   return (
     <motion.button
       whileHover={{ y: -2 }}
@@ -604,7 +636,11 @@ function VideoCard({ video, onClick }: { video: VideoResult; onClick: () => void
     >
       <div className="relative aspect-video bg-black overflow-hidden">
         {video.thumbnail ? (
-          <img src={video.thumbnail} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          <img
+            src={video.thumbnail}
+            alt=""
+            className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${isAgeLocked ? "blur-xl scale-110" : ""}`}
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-700">
             <Play className="w-10 h-10" />
@@ -614,6 +650,20 @@ function VideoCard({ video, onClick }: { video: VideoResult; onClick: () => void
           <span className="absolute bottom-1.5 right-1.5 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
             {video.duration}
           </span>
+        )}
+        {/* Phase 26 보강: 19+ 잠금 + 연령 배지 */}
+        {isAgeLocked && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 text-center pointer-events-none">
+            <div className="w-9 h-9 rounded-full bg-red-600 flex items-center justify-center mb-1.5">
+              <Lock className="w-5 h-5 text-white" />
+            </div>
+            <p className="text-xs font-black text-white">{t("video.ageGateLockTitle")}</p>
+          </div>
+        )}
+        {rating && rating !== "all" && (
+          <div className="absolute top-2 right-2">
+            <AgeBadge rating={rating} size="xs" />
+          </div>
         )}
       </div>
       <div className="p-2.5">

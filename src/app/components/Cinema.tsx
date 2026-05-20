@@ -9,11 +9,12 @@
 //   - 인기 Top 10
 //   - 카테고리별 (동적 — 영상 있는 카테고리만)
 // ════════════════════════════════════════════════════════════════════════════
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Film, Search as SearchIcon } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
+import { useAgeRatings } from "../hooks/useAgeRatings";
 import { CoverFlow } from "./CoverFlow";
 import { Input } from "./ui/input";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
@@ -127,6 +128,19 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
   const [newReleases, setNewReleases] = useState<CarouselVideo[]>([]);
   const [top10, setTop10] = useState<CarouselVideo[]>([]);
   const [categoryRows, setCategoryRows] = useState<CategoryRow[]>([]);
+
+  // Phase 26 보강: 카드용 age_rating 일괄 조회
+  const allVideoIds = useMemo(() => {
+    const ids = new Set<string>();
+    recommended.forEach(v => ids.add(v.id));
+    continueWatching.forEach(v => ids.add(v.id));
+    trending.forEach(v => ids.add(v.id));
+    newReleases.forEach(v => ids.add(v.id));
+    top10.forEach(v => ids.add(v.id));
+    categoryRows.forEach(r => r.videos.forEach(v => ids.add(v.id)));
+    return Array.from(ids).filter(id => !id.startsWith("demo-")); // showcase mock 제외
+  }, [recommended, continueWatching, trending, newReleases, top10, categoryRows]);
+  const ageRatings = useAgeRatings(allVideoIds);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<CarouselVideo[]>([]);
   const [searching, setSearching] = useState(false);
@@ -277,6 +291,7 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
               subtitle={t("cinema.searchResultsSubtitle", { count: searchResults.length })}
               videos={searchResults}
               onVideoClick={handleClick}
+              ageRatings={ageRatings}
             />
           )}
         </div>
@@ -321,6 +336,7 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
             videos={recommended}
             onVideoClick={handleClick}
             emptyMessage={t("cinema.forYouEmpty")}
+            ageRatings={ageRatings}
           />
 
           {/* 이어 보기 */}
@@ -331,6 +347,7 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
               videos={continueWatching}
               onVideoClick={handleClick}
               showProgress={true}
+              ageRatings={ageRatings}
             />
           )}
 
@@ -341,6 +358,7 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
             videos={trending}
             onVideoClick={handleClick}
             emptyMessage={t("cinema.trendingEmpty")}
+            ageRatings={ageRatings}
           />
 
           {/* 새로 추가됨 */}
@@ -349,6 +367,7 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
             subtitle={t("cinema.newReleasesSubtitle")}
             videos={newReleases}
             onVideoClick={handleClick}
+            ageRatings={ageRatings}
           />
 
           {/* Top 10 */}
@@ -359,6 +378,7 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
             onVideoClick={handleClick}
             showRank={true}
             emptyMessage={t("cinema.topTenEmpty")}
+            ageRatings={ageRatings}
           />
 
           {/* 카테고리별 */}
@@ -368,6 +388,7 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
               title={t("cinema.categoryRowTitle", { category: getCategoryLabel(row.category, t) })}
               videos={row.videos}
               onVideoClick={handleClick}
+              ageRatings={ageRatings}
             />
           ))}
 

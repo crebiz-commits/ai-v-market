@@ -10,11 +10,13 @@
 //   />
 // ════════════════════════════════════════════════════════════════════════════
 import { useRef } from "react";
-import { ChevronLeft, ChevronRight, Play, Crown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Play, Crown, Lock } from "lucide-react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { getCategoryLabel } from "../i18n/categoryLabels";
 import { formatCompactNumber } from "../i18n/numberFormat";
+import { AgeBadge, shouldBlur } from "./AgeBadge";
+import { useAuth } from "../contexts/AuthContext";
 
 export interface CarouselVideo {
   id: string;
@@ -46,6 +48,8 @@ interface Props {
   showProgress?: boolean;  // 이어 보기 행
   showRank?: boolean;      // Top 10 행 (좌측에 큰 숫자)
   emptyMessage?: string;
+  // Phase 26 보강: 영상 id → age_rating 매핑 (부모가 useAgeRatings로 일괄 조회)
+  ageRatings?: Record<string, string>;
 }
 
 function fmtDuration(s?: number | null) {
@@ -65,8 +69,11 @@ export function VideoRowCarousel({
   showProgress = false,
   showRank = false,
   emptyMessage,
+  ageRatings,
 }: Props) {
   const { t } = useTranslation();
+  const { user, profile } = useAuth();
+  const ageVerified = profile?.age_verified ?? false;
   const scrollRef = useRef<HTMLDivElement>(null);
   const emptyText = emptyMessage ?? t("videoRow.empty");
 
@@ -121,7 +128,11 @@ export function VideoRowCarousel({
           className="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory px-4 md:px-6 pb-2 scrollbar-hide"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
-          {videos.map((video, idx) => (
+          {videos.map((video, idx) => {
+            const rating = ageRatings?.[video.id];
+            const isMyVideo = !!user?.id && !!video.creator_id && user.id === video.creator_id;
+            const isAgeLocked = !isMyVideo && shouldBlur(rating, ageVerified);
+            return (
             <motion.button
               key={video.id}
               whileHover={{ scale: 1.03 }}
@@ -140,7 +151,7 @@ export function VideoRowCarousel({
                     src={video.thumbnail}
                     alt={video.title}
                     loading="lazy"
-                    className="w-full h-full object-cover"
+                    className={`w-full h-full object-cover ${isAgeLocked ? "blur-xl scale-110" : ""}`}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#6366f1]/20 to-[#8b5cf6]/20">
@@ -148,12 +159,24 @@ export function VideoRowCarousel({
                   </div>
                 )}
 
-                {/* 호버 오버레이 */}
-                <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center">
-                    <Play className="w-5 h-5 text-black ml-0.5" fill="currentColor" />
+                {/* 호버 오버레이 (잠금 시 숨김) */}
+                {!isAgeLocked && (
+                  <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center">
+                      <Play className="w-5 h-5 text-black ml-0.5" fill="currentColor" />
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Phase 26 보강: 19+ 잠금 오버레이 */}
+                {isAgeLocked && (
+                  <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center text-center px-2 pointer-events-none">
+                    <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center mb-1.5">
+                      <Lock className="w-4 h-4 text-white" />
+                    </div>
+                    <p className="text-[10px] font-black text-white">{t("video.ageGateLockTitle")}</p>
+                  </div>
+                )}
 
                 {/* 진행률 바 (이어 보기) */}
                 {showProgress && typeof video.last_watched_ratio === "number" && (
@@ -179,6 +202,13 @@ export function VideoRowCarousel({
                     OTT
                   </div>
                 )}
+
+                {/* Phase 26 보강: 연령 등급 배지 (OTT 배지 위쪽 또는 좌측) */}
+                {rating && rating !== "all" && (
+                  <div className={`absolute ${video.is_ott ? "top-1 right-12" : "top-1 right-1"}`}>
+                    <AgeBadge rating={rating} size="xs" />
+                  </div>
+                )}
               </div>
 
               {/* 메타 정보 */}
@@ -195,7 +225,8 @@ export function VideoRowCarousel({
                 )}
               </div>
             </motion.button>
-          ))}
+            );
+          })}
         </div>
 
         {/* 우측 화살표 (데스크톱) */}
