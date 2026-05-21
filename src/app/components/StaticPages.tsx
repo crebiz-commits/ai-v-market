@@ -202,9 +202,9 @@ const PRIVACY_KO = {
     { title: "3. 보유·이용 기간", body: "회원 탈퇴 시 즉시 파기. 단, 관계 법령에 따라 보존이 필요한 경우 해당 법령에 따른 기간 동안 보관 (예: 전자상거래법 결제 기록 5년)." },
     { title: "4. 제3자 제공", body: "이용자의 동의 없이 제3자에게 제공하지 않습니다. 단, 법령에 따른 요청이 있는 경우 예외." },
     { title: "5. 위탁 업체", body: "Supabase Inc. (DB·인증·스토리지), Bunny.net (영상 CDN), Vercel Inc. (호스팅), 토스페이먼츠 또는 카카오페이 (결제) 등." },
-    { title: "6. 이용자 권리 (열람·수정·삭제·다운로드)", body: '이용자는 개인정보보호법에 따라 다음 권리를 행사할 수 있습니다:<br /><strong class="text-white">· 열람·수정:</strong> 마이페이지 → 프로필 편집에서 직접 수정<br /><strong class="text-white">· 데이터 다운로드:</strong> 마이페이지 → 설정 → "내 데이터 다운로드"에서 본인 데이터 전체 JSON 다운로드<br /><strong class="text-white">· 계정 삭제:</strong> 마이페이지 → 설정 → 위험 영역에서 요청. 30일 유예 후 영구 삭제. 그 전까지 언제든 취소 가능<br />기타 문의는 <a href="mailto:privacy@creaite.net" class="text-[#8b5cf6] hover:underline">privacy@creaite.net</a>으로 연락주세요.' },
+    { title: "6. 이용자 권리 (열람·수정·삭제·다운로드)", body: '이용자는 개인정보보호법에 따라 다음 권리를 행사할 수 있습니다:<br /><strong class="text-white">· 열람·수정:</strong> 마이페이지 → 프로필 편집에서 직접 수정<br /><strong class="text-white">· 데이터 다운로드:</strong> 마이페이지 → 설정 → "내 데이터 다운로드"에서 본인 데이터 전체 JSON 다운로드<br /><strong class="text-white">· 계정 삭제:</strong> 마이페이지 → 설정 → 위험 영역에서 요청. 30일 유예 후 영구 삭제. 그 전까지 언제든 취소 가능<br />기타 문의는 <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>으로 연락주세요.' },
     { title: "7. 쿠키 사용", body: "서비스는 로그인 유지 및 사용성 개선을 위해 쿠키를 사용합니다. 브라우저 설정에서 거부할 수 있으나 일부 기능이 제한될 수 있습니다." },
-    { title: "8. 개인정보 보호 책임자", body: '이메일: <a href="mailto:privacy@creaite.net" class="text-[#8b5cf6] hover:underline">privacy@creaite.net</a>' },
+    { title: "8. 개인정보 보호 책임자", body: '이메일: <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>' },
   ],
 };
 
@@ -265,8 +265,8 @@ const PRIVACY_EN = {
     { title: "3. Retention and Use Period", body: "Personal data is destroyed immediately upon membership withdrawal. However, when retention is required by applicable laws, data is retained for the period specified by such laws (e.g., 5 years for payment records under e-commerce law)." },
     { title: "4. Disclosure to Third Parties", body: "We do not provide personal information to third parties without user consent, except when required by law." },
     { title: "5. Processors", body: "Supabase Inc. (database, authentication, storage), Bunny.net (video CDN), Vercel Inc. (hosting), Toss Payments or Kakao Pay (payment), etc." },
-    { title: "6. User Rights (Access, Edit, Delete, Download)", body: 'Users may exercise the following rights under personal information protection law:<br /><strong class="text-white">· Access / Edit:</strong> Edit directly via My Page → Edit Profile<br /><strong class="text-white">· Download:</strong> Download all your data as JSON via My Page → Settings → "Download my data"<br /><strong class="text-white">· Account deletion:</strong> Request via My Page → Settings → Danger Zone. Permanent deletion after a 30-day grace period; cancelable at any time before<br />For other inquiries, please contact <a href="mailto:privacy@creaite.net" class="text-[#8b5cf6] hover:underline">privacy@creaite.net</a>.' },
+    { title: "6. User Rights (Access, Edit, Delete, Download)", body: 'Users may exercise the following rights under personal information protection law:<br /><strong class="text-white">· Access / Edit:</strong> Edit directly via My Page → Edit Profile<br /><strong class="text-white">· Download:</strong> Download all your data as JSON via My Page → Settings → "Download my data"<br /><strong class="text-white">· Account deletion:</strong> Request via My Page → Settings → Danger Zone. Permanent deletion after a 30-day grace period; cancelable at any time before<br />For other inquiries, please contact <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>.' },
     { title: "7. Cookies", body: "The Service uses cookies to maintain login sessions and improve usability. You may decline cookies in your browser settings, but some functions may be limited." },
-    { title: "8. Personal Information Officer", body: 'Email: <a href="mailto:privacy@creaite.net" class="text-[#8b5cf6] hover:underline">privacy@creaite.net</a>' },
+    { title: "8. Personal Information Officer", body: 'Email: <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>' },
   ],
 };
