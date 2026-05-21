@@ -737,4 +737,99 @@ app.post('/toss-confirm', async (c) => {
   }
 });
 
+// ============================================
+// Phase 34 — Resend 이메일 발송
+// ============================================
+//
+// 호출: POST /server/send-email
+// Body: { user_id, type, to, subject, html }
+//
+// 동작:
+//   1. should_send_notification RPC → 사용자 OFF면 skip
+//   2. Resend API 호출 (mail.creaite.net 발신, Reply-To support@creaite.net)
+//   3. log_notification RPC로 발송 결과 기록 (성공/실패)
+
+app.post('/send-email', async (c) => {
+  try {
+    const { user_id, type, to, subject, html } = await c.req.json();
+
+    if (!user_id || !type || !to || !subject || !html) {
+      return c.json({ error: 'Missing required fields' }, 400);
+    }
+
+    const supabase = getSupabaseClient(true);
+
+    // 1. 사용자 알림 설정 확인
+    const { data: shouldSend, error: checkError } = await supabase.rpc(
+      'should_send_notification',
+      { p_user_id: user_id, p_type: type, p_channel: 'email' }
+    );
+
+    if (checkError) {
+      console.error('[send-email] 알림 설정 확인 실패:', checkError);
+      return c.json({ error: 'Failed to check preferences' }, 500);
+    }
+
+    if (!shouldSend) {
+      return c.json({ success: true, skipped: true, reason: 'User disabled this notification' });
+    }
+
+    // 2. Resend API 호출
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'noreply@mail.creaite.net';
+    const replyTo = Deno.env.get('RESEND_REPLY_TO') || 'support@creaite.net';
+
+    if (!resendApiKey) {
+      console.error('[send-email] RESEND_API_KEY 미설정');
+      return c.json({ error: 'Resend API key not configured' }, 500);
+    }
+
+    const resendRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: `CREAITE <${fromEmail}>`,
+        to: [to],
+        reply_to: replyTo,
+        subject,
+        html,
+      }),
+    });
+
+    const resendData = await resendRes.json();
+
+    if (!resendRes.ok) {
+      await supabase.rpc('log_notification', {
+        p_user_id: user_id,
+        p_type: type,
+        p_channel: 'email',
+        p_recipient: to,
+        p_subject: subject,
+        p_status: 'failed',
+        p_error_message: JSON.stringify(resendData),
+      });
+      return c.json({ error: 'Resend API error', details: resendData }, 500);
+    }
+
+    // 3. 발송 성공 로그
+    await supabase.rpc('log_notification', {
+      p_user_id: user_id,
+      p_type: type,
+      p_channel: 'email',
+      p_recipient: to,
+      p_subject: subject,
+      p_status: 'sent',
+      p_resend_message_id: resendData.id,
+    });
+
+    return c.json({ success: true, message_id: resendData.id });
+  } catch (err: any) {
+    console.error('[send-email] 예외:', err);
+    return c.json({ error: '이메일 발송 중 서버 오류: ' + (err?.message || err) }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

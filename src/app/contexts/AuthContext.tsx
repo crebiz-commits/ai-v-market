@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 import { supabase } from '../utils/supabaseClient';
+import { sendNotification, buildWelcomeEmail } from '../utils/sendNotification';
 
 interface User {
   id: string;
@@ -232,6 +233,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // 테스트 모드: 이메일 자동 확인되므로 바로 로그인
       await signIn(email, password);
+
+      // Phase 34 — 환영 메일 발송 (fire-and-forget, 실패해도 가입 흐름 무관)
+      if (data?.user?.id) {
+        const { subject, html } = buildWelcomeEmail(name || email.split('@')[0]);
+        void sendNotification({
+          user_id: data.user.id,
+          type: 'welcome',
+          to: email,
+          subject,
+          html,
+        });
+      }
     } catch (error) {
       console.error('회원가입 에러:', error);
       throw error;
