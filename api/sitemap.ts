@@ -33,7 +33,6 @@ export default async function handler(_req: Request): Promise<Response> {
 
   const staticUrls = [
     { loc: `${SITE_URL}/`, changefreq: "daily", priority: "1.0" },
-    { loc: `${SITE_URL}/?preview=about`, changefreq: "monthly", priority: "0.5" },
   ];
 
   const videoUrls = videos.map(v => ({

@@ -23,6 +23,16 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
+function escapeJsonString(str: string): string {
+  return String(str || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r")
+    .replace(/\t/g, "\\t")
+    .replace(/</g, "\\u003c");
+}
+
 interface Video {
   id: string;
   title: string;
@@ -53,6 +63,7 @@ function buildOgHtml(html: string, video: Video, pageUrl: string): string {
   const creator = video.creator || "AI Creator";
   const description = (video.description || `${creator}의 AI 시네마틱 영상 — CREAITE에서 만나보세요.`).slice(0, 200);
   const thumbnail = video.thumbnail || "https://www.creaite.net/og-default.png";
+  const uploadDate = (video.created_at || "").split("T")[0];
 
   const meta = `
     <title>${escapeHtml(title)}</title>
@@ -70,7 +81,11 @@ function buildOgHtml(html: string, video: Video, pageUrl: string): string {
     <meta name="twitter:title" content="${escapeHtml(title)}" />
     <meta name="twitter:description" content="${escapeHtml(description)}" />
     <meta name="twitter:image" content="${escapeHtml(thumbnail)}" />
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"VideoObject","name":"${escapeJsonString(title)}","description":"${escapeJsonString(description)}","thumbnailUrl":"${escapeJsonString(thumbnail)}","uploadDate":"${escapeJsonString(uploadDate)}","contentUrl":"${escapeJsonString(pageUrl)}","author":{"@type":"Person","name":"${escapeJsonString(creator)}"}}</script>
   `;
+
+  // Phase 36 보강: SEO용 콘텐츠 (noscript — JS 활성 브라우저는 무시, 봇은 평가)
+  const noscriptBody = `<noscript><article><h1>${escapeHtml(title)}</h1><p>크리에이터: ${escapeHtml(creator)}</p><p>${escapeHtml(description)}</p><img src="${escapeHtml(thumbnail)}" alt="${escapeHtml(video.title || "")}" /><p><a href="https://www.creaite.net/">CREAITE — 세계 최초 AI 시네마 OTT</a></p></article></noscript>`;
 
   // 기존 <title>, og:* 메타 제거 후 새 메타 주입
   html = html.replace(/<title>[^<]*<\/title>/i, "");
@@ -78,7 +93,10 @@ function buildOgHtml(html: string, video: Video, pageUrl: string): string {
   html = html.replace(/<meta[^>]+name="twitter:[^"]+"[^>]*>/gi, "");
   html = html.replace(/<meta[^>]+name="description"[^>]*>/gi, "");
   html = html.replace(/<link[^>]+rel="canonical"[^>]*>/gi, "");
-  return html.replace("</head>", meta + "</head>");
+  html = html.replace("</head>", meta + "</head>");
+  // body 시작 부분(#root 앞)에 SEO 콘텐츠 주입
+  html = html.replace('<div id="root"></div>', noscriptBody + '<div id="root"></div>');
+  return html;
 }
 
 export default async function handler(req: Request): Promise<Response> {
