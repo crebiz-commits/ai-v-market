@@ -228,6 +228,57 @@ export function buildCommentReplyEmail(info: CommentReplyInfo): { subject: strin
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// 신고 처리 결과 알림 메일 템플릿
+// ────────────────────────────────────────────────────────────────────────────
+export interface ReportResultInfo {
+  action: "keep" | "remove";  // dismiss(악성 반려)는 발송 안 함
+  targetTypeLabel: string;    // "영상" / "댓글" / "사용자" / "커뮤니티 글"
+}
+
+export function buildReportResultEmail(info: ReportResultInfo): { subject: string; html: string } {
+  const safeTarget = escapeHtml(info.targetTypeLabel || "콘텐츠");
+  const isRemoved = info.action === "remove";
+
+  const subject = isRemoved
+    ? `[CREAITE] 신고 검토 결과 — ${safeTarget} 제거 완료`
+    : `[CREAITE] 신고 검토 결과 — ${safeTarget} 유지`;
+
+  const headerColor = isRemoved ? "#dc2626" : "#16a34a";
+  const headerEmoji = isRemoved ? "🛡️" : "✓";
+  const headerText = isRemoved ? "신고하신 콘텐츠가 제거되었습니다" : "신고하신 콘텐츠는 유지됩니다";
+
+  const bodyText = isRemoved
+    ? `신고하신 ${safeTarget}이(가) 검토 결과 <strong>정책 위반으로 확인되어 제거</strong>되었습니다. 신고해 주셔서 감사합니다 — 커뮤니티를 더 안전하게 만드는 데 도움이 됩니다.`
+    : `신고하신 ${safeTarget}을(를) 검토했으나 <strong>정책 위반이 아닌 것으로 판단되어 유지</strong>됩니다. 검토 기준에 대한 의문이 있으시면 언제든 문의해 주세요.`;
+
+  const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <h1 style="color: ${headerColor};">${headerEmoji} ${headerText}</h1>
+  <p>${bodyText}</p>
+
+  <div style="background: #f5f5f5; padding: 14px 16px; border-left: 3px solid #ddd; margin: 20px 0; border-radius: 6px;">
+    <p style="margin: 0; font-size: 13px; color: #666;">
+      <strong>대상 종류:</strong> ${safeTarget}<br>
+      <strong>처리 결과:</strong> ${isRemoved ? "제거" : "유지"}
+    </p>
+  </div>
+
+  <p style="font-size: 13px; color: #666;">처리 결과에 대한 추가 문의는 <a href="mailto:support@creaite.net" style="color: #a78bfa;">support@creaite.net</a>으로 부탁드립니다.</p>
+
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  <p style="font-size: 12px; color: #999;">CREAITE • 세계 최초 AI 시네마 OTT</p>
+  <p style="font-size: 12px; color: #999;">이 알림이 부담스러우시면 <a href="https://www.creaite.net" style="color: #a78bfa;">마이페이지 → 설정 → 알림 설정</a>에서 끄실 수 있습니다.</p>
+</body>
+</html>`;
+  return { subject, html };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // 새 팔로워 알림 메일 템플릿
 // ────────────────────────────────────────────────────────────────────────────
 export interface NewFollowerInfo {

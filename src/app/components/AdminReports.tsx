@@ -11,6 +11,7 @@ import { Loader2, Check, Trash2, X, RefreshCw, Flag, AlertCircle, ExternalLink }
 import { supabase } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
+import { sendNotification, buildReportResultEmail } from "../utils/sendNotification";
 
 interface ReportRow {
   id: number;
@@ -77,6 +78,30 @@ export function AdminReports() {
     if (error) {
       toast.error("처리 실패: " + error.message);
       return;
+    }
+
+    // Phase 34 — 신고자에게 처리 결과 메일 발송 (keep/remove만, dismiss 제외)
+    if (action === "keep" || action === "remove") {
+      try {
+        const report = reports.find((r) => r.id === id);
+        if (report?.reporter_id) {
+          const targetTypeLabel =
+            TARGET_LABELS[report.target_type]?.replace(/^.+\s/, "") || report.target_type;
+          const { subject, html } = buildReportResultEmail({
+            action,
+            targetTypeLabel,
+          });
+          void sendNotification({
+            user_id: report.reporter_id,
+            type: "report_result",
+            // to 생략 — Edge Function이 user_id로 자동 조회
+            subject,
+            html,
+          });
+        }
+      } catch (mailErr) {
+        console.warn("[AdminReports] 신고 결과 메일 발송 실패:", mailErr);
+      }
     }
 
     const labels = {
