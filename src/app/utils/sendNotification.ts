@@ -226,3 +226,39 @@ export function buildCommentReplyEmail(info: CommentReplyInfo): { subject: strin
 </html>`;
   return { subject, html };
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// 새 팔로워 알림 메일 템플릿
+// ────────────────────────────────────────────────────────────────────────────
+export interface NewFollowerInfo {
+  followerName: string;       // 팔로워 이름
+}
+
+export function buildNewFollowerEmail(info: NewFollowerInfo): { subject: string; html: string } {
+  const safeName = escapeHtml(info.followerName || "익명");
+
+  const subject = `[CREAITE] ${info.followerName || "익명"}님이 회원님을 팔로우하기 시작했습니다`;
+  const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <h1 style="color: #a78bfa;">🎉 새 팔로워가 생겼습니다</h1>
+  <p><strong>${safeName}</strong>님이 회원님의 채널을 팔로우하기 시작했습니다.</p>
+  <p style="color: #666; font-size: 14px;">앞으로 회원님이 새 영상을 올릴 때마다 ${safeName}님께 자동으로 알림이 전달됩니다.</p>
+
+  <p style="margin: 24px 0;">
+    <a href="https://www.creaite.net" style="display: inline-block; padding: 10px 24px; background: #a78bfa; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
+      마이 채널 보기
+    </a>
+  </p>
+
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  <p style="font-size: 12px; color: #999;">CREAITE • 세계 최초 AI 시네마 OTT</p>
+  <p style="font-size: 12px; color: #999;">이 알림이 부담스러우시면 <a href="https://www.creaite.net" style="color: #a78bfa;">마이페이지 → 설정 → 알림 설정</a>에서 끄실 수 있습니다.</p>
+</body>
+</html>`;
+  return { subject, html };
+}

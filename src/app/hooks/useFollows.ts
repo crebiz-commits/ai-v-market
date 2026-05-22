@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
+import { sendNotification, buildNewFollowerEmail } from "../utils/sendNotification";
 
 let cache: Set<string> = new Set();
 let fetched = false;
@@ -81,6 +82,25 @@ export function useFollows() {
             .insert({ follower_id: user.id, creator_id: creatorId });
           // 23505 unique violation (이미 팔로우 중) → 무시
           if (error && error.code !== "23505") throw error;
+
+          // Phase 34 — 새 팔로워 알림 (fire-and-forget)
+          // INSERT 성공 시만 발송 (이미 팔로우 중인 23505 케이스는 skip)
+          if (!error) {
+            try {
+              const { subject, html } = buildNewFollowerEmail({
+                followerName: user.name || "익명",
+              });
+              void sendNotification({
+                user_id: creatorId,  // 수신자: 피팔로우 당하는 사람
+                type: "new_follower",
+                // to 생략 — Edge Function이 user_id로 자동 조회
+                subject,
+                html,
+              });
+            } catch (mailErr) {
+              console.warn("[useFollows] 새 팔로워 알림 메일 실패:", mailErr);
+            }
+          }
         } else {
           const { error } = await supabase
             .from("creator_followers")
