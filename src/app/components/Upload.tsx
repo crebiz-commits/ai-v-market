@@ -718,6 +718,27 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
       console.log('Metadata saved successfully via Edge Function');
       setUploadComplete(true);
       toast.success(t("upload.toast.uploadSuccess"));
+
+      // Phase 25 — 자동 모더레이션 (fire-and-forget, 실패해도 업로드 흐름 무관)
+      const moderateUrl = `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/moderate-video`;
+      fetch(moderateUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentToken}`,
+          'apikey': supabaseAnonKey,
+        },
+        body: JSON.stringify({ video_id: videoId }),
+      }).then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          console.warn('[Phase 25] 자동 모더레이션 실패:', data);
+        } else {
+          console.log('[Phase 25] 자동 모더레이션 결과:', data.score, '/', data.status);
+        }
+      }).catch((err) => {
+        console.warn('[Phase 25] 자동 모더레이션 예외:', err);
+      });
     } catch (error: any) {
       console.error('Upload error:', error);
       toast.error(error.message || t("upload.toast.uploadError"));
