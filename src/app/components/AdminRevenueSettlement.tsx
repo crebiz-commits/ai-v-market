@@ -3,6 +3,7 @@ import { Loader2, Play, Check, AlertCircle, RefreshCw } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
+import { sendNotification, buildRevenueSettledEmail } from "../utils/sendNotification";
 
 interface Distribution {
   id: number;
@@ -79,6 +80,31 @@ export function AdminRevenueSettlement() {
       toast.error("처리 실패: " + error.message);
       return;
     }
+
+    // Phase 34 — 크리에이터에게 정산 완료 메일 (fire-and-forget)
+    try {
+      const row = rows.find((r) => r.id === id);
+      if (row?.creator_id) {
+        const { subject, html } = buildRevenueSettledEmail({
+          year,
+          month,
+          totalAmount: row.total_revenue,
+          saleAmount: row.sale_revenue,
+          adAmount: row.ad_revenue,
+          subscriptionAmount: row.subscription_revenue,
+        });
+        void sendNotification({
+          user_id: row.creator_id,
+          type: "revenue_settled",
+          // to 생략 — Edge Function이 user_id로 자동 조회
+          subject,
+          html,
+        });
+      }
+    } catch (mailErr) {
+      console.warn("[AdminRevenueSettlement] 정산 알림 메일 실패:", mailErr);
+    }
+
     toast.success("지급 완료 처리됨");
     loadDistributions(year, month);
   };

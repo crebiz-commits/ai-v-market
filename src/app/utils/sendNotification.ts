@@ -228,6 +228,66 @@ export function buildCommentReplyEmail(info: CommentReplyInfo): { subject: strin
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// 정산 완료 알림 메일 템플릿 (크리에이터)
+// ────────────────────────────────────────────────────────────────────────────
+export interface RevenueSettledInfo {
+  year: number;
+  month: number;
+  totalAmount: number;
+  saleAmount?: number;
+  adAmount?: number;
+  subscriptionAmount?: number;
+}
+
+export function buildRevenueSettledEmail(info: RevenueSettledInfo): { subject: string; html: string } {
+  const totalText = (info.totalAmount || 0).toLocaleString("ko-KR");
+  const saleText = (info.saleAmount || 0).toLocaleString("ko-KR");
+  const adText = (info.adAmount || 0).toLocaleString("ko-KR");
+  const subText = (info.subscriptionAmount || 0).toLocaleString("ko-KR");
+
+  const subject = `[CREAITE] ${info.year}년 ${info.month}월 정산 완료 — ₩${totalText} 지급`;
+
+  const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <h1 style="color: #a78bfa;">🎉 정산이 완료되었습니다</h1>
+  <p>축하합니다! <strong>${info.year}년 ${info.month}월</strong> 수익 정산이 완료되어 지급되었습니다.</p>
+
+  <table style="width: 100%; border-collapse: collapse; margin: 24px 0; border: 1px solid #eee; border-radius: 6px; overflow: hidden;">
+    <tr>
+      <th style="text-align: left; padding: 12px; background: #f9f9f9; border-bottom: 1px solid #eee; font-weight: 600;">판매 수익</th>
+      <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">₩${saleText}</td>
+    </tr>
+    <tr>
+      <th style="text-align: left; padding: 12px; background: #f9f9f9; border-bottom: 1px solid #eee; font-weight: 600;">광고 수익</th>
+      <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">₩${adText}</td>
+    </tr>
+    <tr>
+      <th style="text-align: left; padding: 12px; background: #f9f9f9; border-bottom: 1px solid #eee; font-weight: 600;">구독 수익</th>
+      <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">₩${subText}</td>
+    </tr>
+    <tr style="background: #faf7ff;">
+      <th style="text-align: left; padding: 14px 12px; font-weight: 700; color: #6b46c1;">합계 (지급액)</th>
+      <td style="padding: 14px 12px; text-align: right; font-weight: 700; color: #a78bfa; font-size: 18px;">₩${totalText}</td>
+    </tr>
+  </table>
+
+  <p>지급은 마이페이지에 등록된 계좌로 처리되었습니다. 입금 확인은 1~2영업일 소요될 수 있습니다.</p>
+  <p style="font-size: 13px; color: #666;">정산 내역에 대한 문의는 <a href="mailto:support@creaite.net" style="color: #a78bfa;">support@creaite.net</a>으로 부탁드립니다.</p>
+
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  <p style="font-size: 12px; color: #999;">CREAITE • 세계 최초 AI 시네마 OTT</p>
+  <p style="font-size: 12px; color: #999;">알림 설정은 <a href="https://www.creaite.net" style="color: #a78bfa;">마이페이지 → 설정 → 알림 설정</a>에서 변경 가능합니다.</p>
+</body>
+</html>`;
+  return { subject, html };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // 신고 처리 결과 알림 메일 템플릿
 // ────────────────────────────────────────────────────────────────────────────
 export interface ReportResultInfo {
