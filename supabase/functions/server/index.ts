@@ -844,4 +844,144 @@ app.post('/send-email', async (c) => {
   }
 });
 
+// ============================================
+// Phase 25 — 자동 모더레이션 (Google Vision SafeSearch)
+// ============================================
+//
+// 호출: POST /server/moderate-video
+// Body: { video_id }
+//
+// 동작:
+//   1. videos 테이블에서 thumbnail URL 조회
+//   2. Google Vision SafeSearch API 호출
+//   3. 5단계 likelihood → 0~100 점수 변환
+//   4. score = max(adult, violence, racy) [spoof/medical 무시]
+//   5. update_video_moderation RPC 호출 → DB가 status 자동 결정
+
+app.post('/moderate-video', async (c) => {
+  try {
+    const { video_id } = await c.req.json();
+
+    if (!video_id) {
+      return c.json({ error: 'Missing video_id' }, 400);
+    }
+
+    const supabase = getSupabaseClient(true);
+
+    // 1. 영상 정보 조회 (thumbnail URL)
+    const { data: video, error: vidErr } = await supabase
+      .from('videos')
+      .select('id, thumbnail')
+      .eq('id', video_id)
+      .single();
+
+    if (vidErr || !video) {
+      return c.json({ error: 'Video not found', details: vidErr }, 404);
+    }
+
+    if (!video.thumbnail) {
+      // 썸네일 없음 — 분석 불가. pending 유지
+      await supabase.rpc('update_video_moderation', {
+        p_video_id: video_id,
+        p_score: null,
+        p_categories: null,
+        p_error: 'No thumbnail available',
+      });
+      return c.json({ error: 'No thumbnail available', skipped: true }, 400);
+    }
+
+    // 2. Google Vision SafeSearch 호출
+    const apiKey = Deno.env.get('GOOGLE_VISION_API_KEY');
+    if (!apiKey) {
+      console.error('[moderate-video] GOOGLE_VISION_API_KEY 미설정');
+      return c.json({ error: 'Vision API key not configured' }, 500);
+    }
+
+    const visionRes = await fetch(
+      `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requests: [{
+            image: { source: { imageUri: video.thumbnail } },
+            features: [{ type: 'SAFE_SEARCH_DETECTION' }],
+          }],
+        }),
+      }
+    );
+
+    const visionData = await visionRes.json();
+
+    if (!visionRes.ok) {
+      const errMsg = visionData?.error?.message || 'Vision API error';
+      console.error('[moderate-video] Vision API 실패:', errMsg);
+      await supabase.rpc('update_video_moderation', {
+        p_video_id: video_id,
+        p_score: null,
+        p_categories: null,
+        p_error: errMsg,
+      });
+      return c.json({ error: errMsg, details: visionData }, 500);
+    }
+
+    const safeSearch = visionData?.responses?.[0]?.safeSearchAnnotation;
+
+    if (!safeSearch) {
+      const errMsg = 'No safeSearchAnnotation in Vision response';
+      console.error('[moderate-video] ', errMsg, visionData);
+      await supabase.rpc('update_video_moderation', {
+        p_video_id: video_id,
+        p_score: null,
+        p_categories: null,
+        p_error: errMsg,
+      });
+      return c.json({ error: errMsg }, 500);
+    }
+
+    // 3. 5단계 likelihood → 0~100 점수 변환
+    const LIKELIHOOD_SCORE: Record<string, number> = {
+      VERY_UNLIKELY: 0,
+      UNLIKELY: 25,
+      POSSIBLE: 50,
+      LIKELY: 75,
+      VERY_LIKELY: 100,
+      UNKNOWN: 0,
+    };
+
+    const categories = {
+      adult: LIKELIHOOD_SCORE[safeSearch.adult] ?? 0,
+      violence: LIKELIHOOD_SCORE[safeSearch.violence] ?? 0,
+      racy: LIKELIHOOD_SCORE[safeSearch.racy] ?? 0,
+      spoof: LIKELIHOOD_SCORE[safeSearch.spoof] ?? 0,
+      medical: LIKELIHOOD_SCORE[safeSearch.medical] ?? 0,
+    };
+
+    // 4. score = max(adult, violence, racy) — spoof/medical 무시
+    const score = Math.max(categories.adult, categories.violence, categories.racy);
+
+    // 5. DB 업데이트 (RPC가 점수 기반으로 status + is_hidden 자동 결정)
+    const { data: updatedVideo, error: updErr } = await supabase.rpc('update_video_moderation', {
+      p_video_id: video_id,
+      p_score: score,
+      p_categories: categories,
+    });
+
+    if (updErr) {
+      console.error('[moderate-video] DB 업데이트 실패:', updErr);
+      return c.json({ error: 'DB update failed', details: updErr }, 500);
+    }
+
+    return c.json({
+      success: true,
+      score,
+      status: updatedVideo?.moderation_status,
+      categories,
+    });
+  } catch (err: any) {
+    console.error('[moderate-video] 예외:', err);
+    return c.json({ error: '모더레이션 처리 중 서버 오류: ' + (err?.message || err) }, 500);
+  }
+});
+
 Deno.serve(app.fetch);
