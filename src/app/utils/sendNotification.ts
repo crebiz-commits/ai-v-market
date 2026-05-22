@@ -101,3 +101,73 @@ export function buildWelcomeEmail(name: string): { subject: string; html: string
 </html>`;
   return { subject, html };
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// 영수증 메일 템플릿 (결제·구독·라이선스·광고예산 충전 공통)
+// ────────────────────────────────────────────────────────────────────────────
+export interface ReceiptInfo {
+  orderName: string;       // 결제 항목명 (예: "CREAITE 결제")
+  amount: number;          // 결제 금액 (원)
+  orderId: string;         // 주문 ID
+  paymentMethod?: string;  // 결제 방식 (카드, 카카오페이 등)
+  paymentDate?: string;    // 결제 일시 (YYYY-MM-DD HH:mm 또는 ISO)
+}
+
+function formatReceiptDate(date?: string): string {
+  if (date) return date;
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
+export function buildSubscriptionReceiptEmail(info: ReceiptInfo): { subject: string; html: string } {
+  const safeOrderName = escapeHtml(info.orderName);
+  const safeMethod = escapeHtml(info.paymentMethod || "카드");
+  const safeOrderId = escapeHtml(info.orderId);
+  const safeDate = escapeHtml(formatReceiptDate(info.paymentDate));
+  const amountText = (info.amount || 0).toLocaleString("ko-KR");
+
+  const subject = `[CREAITE] ${info.orderName} 결제 영수증`;
+  const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <h1 style="color: #a78bfa;">결제가 완료되었습니다</h1>
+  <p>결제가 정상적으로 처리되었습니다. 아래는 결제 내역입니다.</p>
+
+  <table style="width: 100%; border-collapse: collapse; margin: 24px 0; border: 1px solid #eee; border-radius: 6px; overflow: hidden;">
+    <tr>
+      <th style="text-align: left; padding: 12px; background: #f9f9f9; border-bottom: 1px solid #eee; width: 35%; font-weight: 600;">결제 항목</th>
+      <td style="padding: 12px; border-bottom: 1px solid #eee;">${safeOrderName}</td>
+    </tr>
+    <tr>
+      <th style="text-align: left; padding: 12px; background: #f9f9f9; border-bottom: 1px solid #eee; font-weight: 600;">결제 금액</th>
+      <td style="padding: 12px; border-bottom: 1px solid #eee; font-weight: bold; color: #a78bfa; font-size: 16px;">₩${amountText}</td>
+    </tr>
+    <tr>
+      <th style="text-align: left; padding: 12px; background: #f9f9f9; border-bottom: 1px solid #eee; font-weight: 600;">결제 방식</th>
+      <td style="padding: 12px; border-bottom: 1px solid #eee;">${safeMethod}</td>
+    </tr>
+    <tr>
+      <th style="text-align: left; padding: 12px; background: #f9f9f9; border-bottom: 1px solid #eee; font-weight: 600;">결제 일시</th>
+      <td style="padding: 12px; border-bottom: 1px solid #eee;">${safeDate}</td>
+    </tr>
+    <tr>
+      <th style="text-align: left; padding: 12px; background: #f9f9f9; font-weight: 600;">주문 번호</th>
+      <td style="padding: 12px; font-family: monospace; font-size: 12px; color: #666; word-break: break-all;">${safeOrderId}</td>
+    </tr>
+  </table>
+
+  <p>구매하신 항목은 <a href="https://www.creaite.net" style="color: #a78bfa;">마이페이지</a>에서 확인하실 수 있습니다.</p>
+  <p style="font-size: 13px; color: #666;">환불·문의는 <a href="mailto:support@creaite.net" style="color: #a78bfa;">support@creaite.net</a>으로 부탁드립니다. <br/>(전자상거래법에 따라 콘텐츠 미사용 시 7일 이내 청약철회 가능합니다.)</p>
+
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  <p style="font-size: 12px; color: #999;">CREAITE • 세계 최초 AI 시네마 OTT</p>
+  <p style="font-size: 12px; color: #999;">알림 설정은 <a href="https://www.creaite.net" style="color: #a78bfa;">마이페이지 → 설정</a>에서 변경 가능합니다.</p>
+</body>
+</html>`;
+  return { subject, html };
+}

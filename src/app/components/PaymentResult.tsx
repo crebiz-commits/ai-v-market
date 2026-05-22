@@ -14,6 +14,7 @@ import { motion } from "motion/react";
 import { Check, X, Loader2, Home } from "lucide-react";
 import { Button } from "./ui/button";
 import { supabase, supabaseAnonKey } from "../utils/supabaseClient";
+import { sendNotification, buildSubscriptionReceiptEmail } from "../utils/sendNotification";
 import { useTranslation } from "react-i18next";
 
 const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer";
@@ -97,6 +98,28 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
 
           setStatus("success");
           setMessage(body?.message || t("paymentResult.successMessage"));
+
+          // Phase 34 — 영수증 메일 발송 (fire-and-forget)
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user?.id && user.email && parsedAmount) {
+              const { subject, html } = buildSubscriptionReceiptEmail({
+                orderName: "CREAITE 결제",
+                amount: parsedAmount,
+                orderId,
+                paymentMethod: body?.method,
+              });
+              void sendNotification({
+                user_id: user.id,
+                type: "subscription_receipt",
+                to: user.email,
+                subject,
+                html,
+              });
+            }
+          } catch (mailErr) {
+            console.warn("[PaymentResult] 영수증 메일 발송 실패:", mailErr);
+          }
         } catch (err: any) {
           setStatus("failed");
           setMessage(t("paymentResult.failMessage", { message: err?.message || err }));
