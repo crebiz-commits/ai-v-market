@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Loader2, Play, Check, AlertCircle, RefreshCw } from "lucide-react";
+import { Loader2, Play, Check, AlertCircle, RefreshCw, Download } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
@@ -15,6 +15,26 @@ interface Distribution {
   total_revenue: number;
   payout_status: "pending" | "paid" | "deferred";
   paid_at: string | null;
+  // Phase 32: 세금 컬럼
+  tax_withholding?: number;
+  net_amount?: number;
+  tax_type_snapshot?: string | null;
+}
+
+const TAX_TYPE_LABEL: Record<string, string> = {
+  individual: "비사업자",
+  business_simple: "간이과세자",
+  business_general: "일반과세자",
+  business_corp: "법인",
+};
+
+// CSV 셀 안전 escape (쉼표/줄바꿈/큰따옴표 처리)
+function csvEscape(v: any): string {
+  const s = String(v ?? "");
+  if (s.includes(",") || s.includes("\n") || s.includes('"')) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
 }
 
 function won(n: number) {
@@ -38,6 +58,51 @@ export function AdminRevenueSettlement() {
   const [rows, setRows] = useState<Distribution[]>([]);
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
+  const [downloadingCsv, setDownloadingCsv] = useState(false);
+
+  // Phase 32 — 연말정산 CSV 다운로드 (현재 선택된 연도 기준)
+  const handleDownloadCsv = async () => {
+    setDownloadingCsv(true);
+    const { data, error } = await supabase.rpc("admin_get_tax_annual_report", { p_year: year });
+    setDownloadingCsv(false);
+
+    if (error) {
+      toast.error("연말정산 자료 조회 실패: " + error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      toast.info(`${year}년 지급 완료된 정산 내역이 없습니다.`);
+      return;
+    }
+
+    const header = [
+      "creator_id", "creator_name", "tax_type", "business_number",
+      "business_name", "total_gross", "total_withholding", "total_net", "distribution_count",
+    ];
+    const headerKo = [
+      "크리에이터 ID", "크리에이터명", "세금유형", "사업자등록번호",
+      "상호", "세전합계(원)", "원천징수합계(원)", "세후합계(원)", "정산건수",
+    ];
+    const rows = (data as any[]).map((r) =>
+      header.map((h) => {
+        if (h === "tax_type") return csvEscape(TAX_TYPE_LABEL[r[h]] || r[h]);
+        return csvEscape(r[h] ?? "");
+      }).join(",")
+    );
+    // BOM + 한글 헤더 + 데이터
+    const csv = "﻿" + [headerKo.join(","), ...rows].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `creaite_tax_report_${year}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`${data.length}건 다운로드 완료`);
+  };
 
   const loadDistributions = async (y: number, m: number) => {
     setLoading(true);
@@ -159,6 +224,16 @@ export function AdminRevenueSettlement() {
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           새로고침
         </Button>
+        <Button
+          variant="outline"
+          onClick={handleDownloadCsv}
+          disabled={downloadingCsv}
+          className="h-10 gap-2 ml-auto"
+          title={`${year}년 연말정산 CSV`}
+        >
+          {downloadingCsv ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+          연말정산 CSV
+        </Button>
       </div>
 
       <div className="mb-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-200 text-xs flex items-start gap-2">
@@ -233,6 +308,24 @@ export function AdminRevenueSettlement() {
                     <p className="font-bold text-[#8b5cf6]">{won(r.total_revenue)}</p>
                   </div>
                 </div>
+
+                {/* Phase 32: 세금 정보 (paid 행만 표시) */}
+                {r.payout_status === "paid" && r.tax_type_snapshot && (
+                  <div className="mt-2 pt-2 border-t border-border/50 grid grid-cols-3 gap-2 text-xs">
+                    <div>
+                      <p className="text-muted-foreground text-[10px]">세금유형</p>
+                      <p className="text-xs">{TAX_TYPE_LABEL[r.tax_type_snapshot] || r.tax_type_snapshot}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-[10px]">원천징수</p>
+                      <p className="font-mono text-amber-300">{won(r.tax_withholding || 0)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-[10px]">세후 지급</p>
+                      <p className="font-mono font-bold text-green-400">{won(r.net_amount || 0)}</p>
+                    </div>
+                  </div>
+                )}
                 {r.payout_status === "pending" && (
                   <Button
                     onClick={() => markPaid(r.id)}
