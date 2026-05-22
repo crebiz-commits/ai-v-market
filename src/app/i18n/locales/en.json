@@ -414,7 +414,21 @@
     "guideButton": "Install"
   },
   "splash": {
-    "tagline": "Loading the cinematic experience..."
+    "tagline": "Loading the cinematic experience...",
+    "features": {
+      "cinema": {
+        "title": "Curated Cinema",
+        "desc": "Watch AI films from creators like you'd watch a movie"
+      },
+      "earnings": {
+        "title": "Creator Earnings",
+        "desc": "Earn from views, ads, and license sales of your AI films"
+      },
+      "license": {
+        "title": "All-in-One License",
+        "desc": "Single license covering all use cases + copyright verification & escrow"
+      }
+    }
   },
   "errorBoundary": {
     "title": "Something went wrong",

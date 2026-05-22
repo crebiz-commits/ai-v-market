@@ -414,7 +414,21 @@
     "guideButton": "설치하기"
   },
   "splash": {
-    "tagline": "시네마틱 경험을 불러오는 중..."
+    "tagline": "시네마틱 경험을 불러오는 중...",
+    "features": {
+      "cinema": {
+        "title": "큐레이션 시네마",
+        "desc": "AI 영화를 영화관처럼 감상하세요"
+      },
+      "earnings": {
+        "title": "크리에이터 수익",
+        "desc": "조회수·광고·라이선스 판매로 수익을 얻으세요"
+      },
+      "license": {
+        "title": "올인원 라이선스",
+        "desc": "모든 용도를 포괄 + 저작권 검증·에스크로 보장"
+      }
+    }
   },
   "errorBoundary": {
     "title": "문제가 발생했습니다",

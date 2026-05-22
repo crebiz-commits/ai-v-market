@@ -11,7 +11,7 @@ import { useState, lazy, Suspense } from "react";
 import {
   ShieldCheck, Megaphone, Settings, Coins, Flag, EyeOff,
   ArrowLeft, Menu, X, ShieldAlert, Loader2, LayoutDashboard,
-  Users, Film, DollarSign, Send, ClipboardList
+  Users, Film, DollarSign, Send, ClipboardList, MessageSquare
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
@@ -30,6 +30,7 @@ const AdminReports = lazy(() => import("./AdminReports").then(m => ({ default: m
 const AdminUsers = lazy(() => import("./AdminUsers").then(m => ({ default: m.AdminUsers })));
 const AdminContent = lazy(() => import("./AdminContent").then(m => ({ default: m.AdminContent })));
 const AdminModeration = lazy(() => import("./AdminModeration").then(m => ({ default: m.AdminModeration })));
+const AdminComments = lazy(() => import("./AdminComments").then(m => ({ default: m.AdminComments })));
 const AdminPayments = lazy(() => import("./AdminPayments").then(m => ({ default: m.AdminPayments })));
 const AdminBroadcast = lazy(() => import("./AdminBroadcast").then(m => ({ default: m.AdminBroadcast })));
 const AdminActivityLog = lazy(() => import("./AdminActivityLog").then(m => ({ default: m.AdminActivityLog })));
@@ -44,6 +45,7 @@ type AdminPage =
   | "content"       // 콘텐츠 관리
   | "reports"       // 신고 큐
   | "moderation"    // 숨김 콘텐츠
+  | "comments"      // 댓글 관리
   | "broadcast"     // 공지 발송
   | "activity";     // 활동 로그
 
@@ -65,6 +67,7 @@ const MENU: MenuItem[] = [
   { key: "payments",   label: "결제·환불",  icon: DollarSign, group: "💰 수익화" },
   { key: "reports",    label: "신고 큐",    icon: Flag,      group: "🛡 안전·품질" },
   { key: "moderation", label: "숨김 콘텐츠", icon: EyeOff,    group: "🛡 안전·품질" },
+  { key: "comments",   label: "댓글 관리",  icon: MessageSquare, group: "🛡 안전·품질" },
   { key: "activity",   label: "활동 로그",  icon: ClipboardList, group: "🛡 안전·품질" },
 ];
 
@@ -79,6 +82,7 @@ const PAGE_META: Record<AdminPage, { title: string; subtitle: string }> = {
   payments:   { title: "결제·환불",      subtitle: "모든 결제 내역 조회 및 환불 처리 (구독/라이선스/광고예산)" },
   reports:    { title: "신고 큐",        subtitle: "사용자가 신고한 영상/댓글/사용자/커뮤니티 글을 검토합니다" },
   moderation: { title: "숨김 콘텐츠",    subtitle: "자동/수동 숨김된 콘텐츠와 정지된 계정을 통합 관리합니다" },
+  comments:   { title: "댓글 관리",      subtitle: "전체 댓글을 검색·필터링하고 강제 숨김/복원/삭제합니다 (스팸·도배 능동 대응)" },
   activity:   { title: "활동 로그",      subtitle: "어드민이 변경한 모든 작업의 이력을 추적합니다 (감사용)" },
 };
 
@@ -136,6 +140,7 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
         {currentPage === "payments" && <AdminPayments />}
         {currentPage === "reports" && <AdminReports />}
         {currentPage === "moderation" && <AdminModeration />}
+        {currentPage === "comments" && <AdminComments />}
         {currentPage === "activity" && <AdminActivityLog />}
       </Suspense>
     );

@@ -51,9 +51,9 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               <Film className="w-5 h-5 text-[#6366f1]" />
             </div>
             <div>
-              <h3 className="font-medium mb-1">Curated Cinema</h3>
+              <h3 className="font-medium mb-1">{t("splash.features.cinema.title")}</h3>
               <p className="text-sm text-muted-foreground">
-                Watch AI films from creators like you'd watch a movie
+                {t("splash.features.cinema.desc")}
               </p>
             </div>
           </div>
@@ -63,9 +63,9 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               <TrendingUp className="w-5 h-5 text-[#8b5cf6]" />
             </div>
             <div>
-              <h3 className="font-medium mb-1">Creator Earnings</h3>
+              <h3 className="font-medium mb-1">{t("splash.features.earnings.title")}</h3>
               <p className="text-sm text-muted-foreground">
-                Earn from views, ads, and license sales of your AI films
+                {t("splash.features.earnings.desc")}
               </p>
             </div>
           </div>
@@ -75,9 +75,9 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               <ShieldCheck className="w-5 h-5 text-[#3b82f6]" />
             </div>
             <div>
-              <h3 className="font-medium mb-1">All-in-One License</h3>
+              <h3 className="font-medium mb-1">{t("splash.features.license.title")}</h3>
               <p className="text-sm text-muted-foreground">
-                Single license covering all use cases + copyright verification & escrow
+                {t("splash.features.license.desc")}
               </p>
             </div>
           </div>
