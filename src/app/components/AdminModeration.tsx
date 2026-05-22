@@ -1,6 +1,11 @@
-// 숨김 콘텐츠 관리 — 영상/댓글/커뮤니티글/정지 사용자 통합 (Phase 10.6)
+// 어드민 모더레이션 페이지 (Phase 10.6 + Phase 25)
+// 탭 1: 숨김 콘텐츠 관리 — 영상/댓글/커뮤니티글/정지 사용자 통합
+// 탭 2: AI 검토 대기 — Google Vision SafeSearch 결과 (점수 70~90%)
 import { useEffect, useState } from "react";
-import { Loader2, EyeOff, Film, MessageSquare, FileText, User, RefreshCw } from "lucide-react";
+import {
+  Loader2, EyeOff, Film, MessageSquare, FileText, User, RefreshCw,
+  Shield, AlertTriangle, Check, X, Eye,
+} from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
@@ -31,6 +36,82 @@ const ICONS: Record<string, typeof Film> = {
 };
 
 export function AdminModeration() {
+  const [tab, setTab] = useState<"hidden" | "ai">("hidden");
+  const [aiCount, setAiCount] = useState<number>(0);
+
+  // AI 검토 대기 카운트 미리 조회 (탭 배지)
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.rpc("get_moderation_queue", {
+        p_status: "flagged",
+        p_limit: 100,
+      });
+      setAiCount(Array.isArray(data) ? data.length : 0);
+    })();
+  }, [tab]);
+
+  return (
+    <div>
+      {/* 탭 헤더 */}
+      <div className="flex gap-2 mb-5 border-b border-white/10">
+        <TabButton
+          active={tab === "hidden"}
+          icon={EyeOff}
+          label="숨김 콘텐츠"
+          onClick={() => setTab("hidden")}
+        />
+        <TabButton
+          active={tab === "ai"}
+          icon={Shield}
+          label="AI 검토 대기"
+          count={aiCount}
+          onClick={() => setTab("ai")}
+        />
+      </div>
+
+      {tab === "hidden" ? <HiddenContentTab /> : <AIModerationTab onCountChange={setAiCount} />}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 탭 버튼 컴포넌트
+// ────────────────────────────────────────────────────────────────────────────
+function TabButton({
+  active, icon: Icon, label, count, onClick,
+}: {
+  active: boolean;
+  icon: typeof Film;
+  label: string;
+  count?: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-[1px] ${
+        active
+          ? "border-[#a78bfa] text-white"
+          : "border-transparent text-muted-foreground hover:text-white"
+      }`}
+    >
+      <Icon className="w-4 h-4" />
+      {label}
+      {typeof count === "number" && count > 0 && (
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+          active ? "bg-[#a78bfa] text-white" : "bg-amber-500/20 text-amber-300"
+        }`}>
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 탭 1 — 숨김 콘텐츠 관리 (기존 Phase 10.6)
+// ────────────────────────────────────────────────────────────────────────────
+function HiddenContentTab() {
   const [rows, setRows] = useState<HiddenRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -60,7 +141,6 @@ export function AdminModeration() {
     } else if (r.target_type === "user") {
       ({ error } = await supabase.rpc("admin_unsuspend_user", { p_user_id: r.target_id }));
     } else {
-      // 댓글/커뮤니티는 SQL update로 직접 (별도 RPC가 없음 — 추후 필요시 추가)
       const table = r.target_type === "comment" ? "comments" : "community_posts";
       ({ error } = await supabase
         .from(table)
@@ -132,6 +212,229 @@ export function AdminModeration() {
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 탭 2 — AI 검토 대기 (Phase 25)
+// ────────────────────────────────────────────────────────────────────────────
+interface ModerationRow {
+  video_id: string;
+  title: string | null;
+  creator_id: string | null;
+  creator_name: string | null;
+  thumbnail: string | null;
+  m_status: string;
+  m_score: number | null;
+  m_categories: Record<string, number> | null;
+  m_checked_at: string | null;
+  m_error: string | null;
+  is_hidden: boolean;
+  created_at: string;
+}
+
+const STATUS_FILTERS = [
+  { key: "flagged", label: "검토 대기", color: "amber" },
+  { key: "rejected", label: "자동 숨김", color: "red" },
+  { key: "pending", label: "분석 안 됨", color: "muted" },
+  { key: "passed", label: "통과", color: "green" },
+];
+
+function AIModerationTab({ onCountChange }: { onCountChange: (n: number) => void }) {
+  const [rows, setRows] = useState<ModerationRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string>("flagged");
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.rpc("get_moderation_queue", {
+      p_status: statusFilter,
+      p_limit: 50,
+    });
+    if (error) {
+      toast.error("AI 검토 큐 조회 실패: " + error.message);
+      setRows([]);
+    } else {
+      setRows((data || []) as ModerationRow[]);
+      if (statusFilter === "flagged") {
+        onCountChange((data || []).length);
+      }
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [statusFilter]);
+
+  const resolve = async (videoId: string, decision: "pass" | "reject") => {
+    const confirmMsg = decision === "pass"
+      ? "이 영상을 통과 처리하시겠습니까?\n(사용자에게 그대로 노출됩니다)"
+      : "이 영상을 숨김 처리하시겠습니까?\n(사용자에게 노출되지 않습니다)";
+    if (!confirm(confirmMsg)) return;
+
+    setProcessingId(videoId);
+    const { error } = await supabase.rpc("resolve_moderation_flag", {
+      p_video_id: videoId,
+      p_decision: decision,
+    });
+    setProcessingId(null);
+
+    if (error) {
+      toast.error("처리 실패: " + error.message);
+      return;
+    }
+    toast.success(decision === "pass" ? "통과 처리됨" : "숨김 처리됨");
+    load();
+  };
+
+  const getScoreColor = (score: number | null) => {
+    if (score == null) return "text-muted-foreground";
+    if (score >= 90) return "text-red-400";
+    if (score >= 70) return "text-amber-400";
+    if (score >= 50) return "text-yellow-400";
+    return "text-green-400";
+  };
+
+  return (
+    <div>
+      {/* 상태 필터 */}
+      <div className="flex flex-wrap gap-2 mb-4 items-center">
+        {STATUS_FILTERS.map(s => (
+          <button
+            key={s.key}
+            onClick={() => setStatusFilter(s.key)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              statusFilter === s.key ? "bg-[#a78bfa] text-white" : "bg-muted text-muted-foreground hover:bg-muted/70"
+            }`}
+          >{s.label}</button>
+        ))}
+        <Button variant="outline" size="sm" onClick={load} disabled={loading} className="ml-auto gap-1.5">
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+          새로고침
+        </Button>
+      </div>
+
+      {/* 안내문 */}
+      {statusFilter === "flagged" && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mb-4 text-xs text-amber-200">
+          <p className="font-semibold mb-0.5 flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            AI 검토 대기 (점수 70~90)
+          </p>
+          <p className="text-amber-200/70">
+            Google Vision SafeSearch가 콘텐츠 정책 위반 가능성을 감지한 영상입니다. 검토 후 "통과" 또는 "숨김" 결정해주세요.
+            점수 90+ 영상은 자동으로 숨김 처리됩니다.
+          </p>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 text-[#a78bfa] animate-spin" /></div>
+      ) : rows.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <Shield className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p>{STATUS_FILTERS.find(s => s.key === statusFilter)?.label} 영상이 없습니다</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {rows.map(r => (
+            <div key={r.video_id} className="bg-card border border-white/10 rounded-xl p-4">
+              <div className="flex items-start gap-4">
+                {r.thumbnail ? (
+                  <img src={r.thumbnail} alt="" className="w-24 h-24 rounded object-cover flex-shrink-0" />
+                ) : (
+                  <div className="w-24 h-24 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                    <Film className="w-8 h-8 text-muted-foreground/40" />
+                  </div>
+                )}
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start gap-2 mb-2">
+                    <p className="font-semibold text-base truncate flex-1">{r.title || "(제목 없음)"}</p>
+                    {r.m_score != null && (
+                      <span className={`text-xl font-black ${getScoreColor(r.m_score)} flex-shrink-0`}>
+                        {r.m_score}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {r.creator_name || "(작성자 미상)"} · {r.m_checked_at ? new Date(r.m_checked_at).toLocaleString("ko-KR") : "분석 안 됨"}
+                  </p>
+
+                  {/* 카테고리별 점수 */}
+                  {r.m_categories && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {(["adult", "violence", "racy"] as const).map(cat => {
+                        const score = r.m_categories?.[cat] ?? 0;
+                        return (
+                          <span
+                            key={cat}
+                            className={`text-[10px] px-2 py-1 rounded font-bold ${
+                              score >= 75 ? "bg-red-500/15 text-red-300"
+                                : score >= 50 ? "bg-amber-500/15 text-amber-300"
+                                : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {cat}: {score}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {r.m_error && (
+                    <p className="text-xs text-red-400/80 mb-2">에러: {r.m_error}</p>
+                  )}
+
+                  {r.is_hidden && (
+                    <p className="text-xs text-red-400 mb-2 flex items-center gap-1">
+                      <EyeOff className="w-3 h-3" />
+                      현재 숨김 상태
+                    </p>
+                  )}
+
+                  {/* 액션 버튼 (flagged/rejected만) */}
+                  {(statusFilter === "flagged" || statusFilter === "rejected") && (
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => resolve(r.video_id, "pass")}
+                        disabled={processingId === r.video_id}
+                        className="text-green-400 border-green-500/30 gap-1.5"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        통과
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => resolve(r.video_id, "reject")}
+                        disabled={processingId === r.video_id}
+                        className="text-red-400 border-red-500/30 gap-1.5"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        숨김 처리
+                      </Button>
+                      <a
+                        href={`/?video=${encodeURIComponent(r.video_id)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-white/10 text-muted-foreground hover:text-white hover:bg-white/5 transition-colors"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        영상 보기
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
