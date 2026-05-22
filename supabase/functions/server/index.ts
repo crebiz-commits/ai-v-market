@@ -751,13 +751,25 @@ app.post('/toss-confirm', async (c) => {
 
 app.post('/send-email', async (c) => {
   try {
-    const { user_id, type, to, subject, html } = await c.req.json();
+    const { user_id, type, to: providedTo, subject, html } = await c.req.json();
 
-    if (!user_id || !type || !to || !subject || !html) {
+    if (!user_id || !type || !subject || !html) {
       return c.json({ error: 'Missing required fields' }, 400);
     }
 
     const supabase = getSupabaseClient(true);
+
+    // Phase 34 단계 3-3 보강: to가 없으면 user_id로 email 자동 조회
+    // (댓글 답글/팔로우/정산 등 타인 알림은 클라이언트가 수신자 email 모름)
+    let to = providedTo;
+    if (!to) {
+      const { data: userData, error: userErr } = await supabase.auth.admin.getUserById(user_id);
+      if (userErr || !userData?.user?.email) {
+        console.error('[send-email] user_id로 email 조회 실패:', user_id, userErr);
+        return c.json({ error: 'Recipient email not found' }, 400);
+      }
+      to = userData.user.email;
+    }
 
     // 1. 사용자 알림 설정 확인
     const { data: shouldSend, error: checkError } = await supabase.rpc(

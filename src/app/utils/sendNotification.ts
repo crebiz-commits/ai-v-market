@@ -46,7 +46,8 @@ export function escapeHtml(str: string | null | undefined): string {
 export async function sendNotification(params: {
   user_id: string;
   type: NotificationType;
-  to: string;
+  /** 수신자 이메일. 생략 시 Edge Function이 user_id로 자동 조회 (타인 알림에 유용) */
+  to?: string;
   subject: string;
   html: string;
 }): Promise<SendNotificationResult> {
@@ -167,6 +168,60 @@ export function buildSubscriptionReceiptEmail(info: ReceiptInfo): { subject: str
   <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
   <p style="font-size: 12px; color: #999;">CREAITE • 세계 최초 AI 시네마 OTT</p>
   <p style="font-size: 12px; color: #999;">알림 설정은 <a href="https://www.creaite.net" style="color: #a78bfa;">마이페이지 → 설정</a>에서 변경 가능합니다.</p>
+</body>
+</html>`;
+  return { subject, html };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 댓글 답글 알림 메일 템플릿
+// ────────────────────────────────────────────────────────────────────────────
+export interface CommentReplyInfo {
+  replyAuthorName: string;       // 답글 작성자 이름
+  parentCommentContent: string;  // 원댓글 내용 (인용)
+  replyContent: string;          // 답글 내용
+  videoId?: string;              // 영상 ID (있으면 링크로 사용)
+}
+
+export function buildCommentReplyEmail(info: CommentReplyInfo): { subject: string; html: string } {
+  const safeReplyAuthor = escapeHtml(info.replyAuthorName || "익명");
+  const safeParent = escapeHtml((info.parentCommentContent || "").slice(0, 150));
+  const safeReply = escapeHtml((info.replyContent || "").slice(0, 250));
+
+  const subject = `[CREAITE] ${info.replyAuthorName || "익명"}님이 댓글에 답글을 남겼습니다`;
+  const videoLink = info.videoId
+    ? `https://www.creaite.net/?video=${encodeURIComponent(info.videoId)}`
+    : "https://www.creaite.net";
+
+  const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <h1 style="color: #a78bfa;">새 답글이 달렸습니다</h1>
+  <p><strong>${safeReplyAuthor}</strong>님이 회원님의 댓글에 답글을 남겼습니다.</p>
+
+  <div style="background: #f5f5f5; padding: 14px 16px; border-left: 3px solid #ddd; margin: 18px 0; border-radius: 6px;">
+    <p style="font-size: 12px; color: #888; margin: 0 0 6px 0; font-weight: 600;">내 댓글</p>
+    <p style="margin: 0; color: #555; font-size: 14px;">${safeParent}</p>
+  </div>
+
+  <div style="background: #f0eaff; padding: 14px 16px; border-left: 3px solid #a78bfa; margin: 18px 0; border-radius: 6px;">
+    <p style="font-size: 12px; color: #6b46c1; margin: 0 0 6px 0; font-weight: 600;">${safeReplyAuthor}님의 답글</p>
+    <p style="margin: 0; color: #333; font-size: 14px;">${safeReply}</p>
+  </div>
+
+  <p style="margin: 24px 0;">
+    <a href="${escapeHtml(videoLink)}" style="display: inline-block; padding: 10px 24px; background: #a78bfa; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
+      대화 보기
+    </a>
+  </p>
+
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  <p style="font-size: 12px; color: #999;">CREAITE • 세계 최초 AI 시네마 OTT</p>
+  <p style="font-size: 12px; color: #999;">이 알림이 부담스러우시면 <a href="https://www.creaite.net" style="color: #a78bfa;">마이페이지 → 설정 → 알림 설정</a>에서 끄실 수 있습니다.</p>
 </body>
 </html>`;
   return { subject, html };

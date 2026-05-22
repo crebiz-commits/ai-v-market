@@ -8,6 +8,7 @@ import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { ReportModal } from "./ReportModal";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { sendNotification, buildCommentReplyEmail } from "../utils/sendNotification";
 
 interface Comment {
   id: string;
@@ -246,6 +247,28 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
           )
         );
         setExpandedReplies((prev) => new Set([...prev, replyTo.id]));
+
+        // Phase 34 — 원댓글 작성자에게 답글 알림 메일 (fire-and-forget)
+        try {
+          const parentComment = comments.find((c) => c.id === replyTo.id);
+          if (parentComment && parentComment.user_id && parentComment.user_id !== user!.id) {
+            const { subject, html } = buildCommentReplyEmail({
+              replyAuthorName: user!.name || t("community.anonymous"),
+              parentCommentContent: parentComment.content,
+              replyContent: text.trim(),
+              videoId: videoId || undefined,
+            });
+            void sendNotification({
+              user_id: parentComment.user_id,
+              type: "comment_reply",
+              // to 생략 — Edge Function이 user_id로 자동 조회
+              subject,
+              html,
+            });
+          }
+        } catch (mailErr) {
+          console.warn("[CommentPanel] 답글 알림 메일 실패:", mailErr);
+        }
       } else {
         setComments((prev) => [newComment, ...prev]);
       }
