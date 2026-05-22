@@ -14,6 +14,7 @@ import { CommentSettings } from "./CommentSettings";
 import { CreatorDashboard } from "./CreatorDashboard";
 import { VideoEditModal } from "./VideoEditModal";
 import { NotificationSettings } from "./NotificationSettings";
+import { TaxInfoSection } from "./TaxInfoSection";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { formatCompactNumber } from "../i18n/numberFormat";
 
@@ -1841,6 +1842,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
 
                 {/* Phase 34: 알림 설정 (이메일/푸시 ON·OFF) */}
                 <NotificationSettings />
+
+                {/* Phase 32: 세금 정보 등록 (3.3% 원천징수 / 사업자 세금계산서) */}
+                <TaxInfoSection />
 
                 {/* Phase 24: 차단한 사용자 관리 */}
                 <BlockedUsersSection />
