@@ -19,9 +19,23 @@ export interface AdRpcResult {
   trigger_position_pct: number | null;
 }
 
+// Tier 2.3 — 광고 매칭 결과 캐시 (1분 TTL, module-level)
+// get_ad_for_video RPC 호출 감소 (영상 재시청 시 중복 호출 방지)
+// 트레이드오프: 1분간 같은 광고 노출. 베타 단계엔 광고 풀 작아 어차피 비슷.
+const AD_CACHE_TTL_MS = 60_000;
+const adCache = new Map<string, { ad: AdRpcResult | null; expires: number }>();
+
 // 광고 1개 매칭 (없으면 null)
 export async function fetchAdForVideo(videoId: string, format: AdFormat): Promise<AdRpcResult | null> {
   if (!videoId) return null;
+
+  // 캐시 hit (같은 영상 + 같은 형식, 1분 안)
+  const cacheKey = `${videoId}:${format}`;
+  const cached = adCache.get(cacheKey);
+  if (cached && cached.expires > Date.now()) {
+    return cached.ad;
+  }
+
   try {
     const { data, error } = await supabase.rpc("get_ad_for_video", {
       p_video_id: videoId,
@@ -31,8 +45,10 @@ export async function fetchAdForVideo(videoId: string, format: AdFormat): Promis
       console.warn(`[ad ${format}] fetch error:`, error.message);
       return null;
     }
-    if (!data || data.length === 0) return null;
-    return data[0] as AdRpcResult;
+    const ad = (data && data.length > 0) ? (data[0] as AdRpcResult) : null;
+    // 결과 캐시 (null도 캐시해서 "광고 없음" 케이스도 RPC 호출 안 함)
+    adCache.set(cacheKey, { ad, expires: Date.now() + AD_CACHE_TTL_MS });
+    return ad;
   } catch (err) {
     console.warn(`[ad ${format}] fetch exception:`, err);
     return null;
