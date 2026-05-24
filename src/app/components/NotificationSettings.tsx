@@ -26,6 +26,7 @@ interface NotificationPreferences {
   email_revenue_settled: boolean;
   email_report_result: boolean;
   email_ad_budget_low: boolean;
+  email_refund_completed: boolean;
   push_welcome: boolean;
   push_subscription_receipt: boolean;
   push_new_video_from_followed: boolean;
@@ -34,6 +35,7 @@ interface NotificationPreferences {
   push_revenue_settled: boolean;
   push_report_result: boolean;
   push_ad_budget_low: boolean;
+  push_refund_completed: boolean;
 }
 
 interface NotificationItem {
@@ -88,6 +90,12 @@ const ITEMS: NotificationItem[] = [
     pushKey: "push_report_result",
     labelKey: "notificationSettings.items.reportResultLabel",
     descKey: "notificationSettings.items.reportResultDesc",
+  },
+  {
+    emailKey: "email_refund_completed",
+    pushKey: "push_refund_completed",
+    labelKey: "notificationSettings.items.refundCompletedLabel",
+    descKey: "notificationSettings.items.refundCompletedDesc",
   },
   // 광고 예산 소진 임박(email_ad_budget_low) — 광고주 셀프 서비스 도입 시 광고주에게만 노출
   // (메모리: project_advertiser_self_service_pending.md). DB 컬럼·i18n 키는 보존.

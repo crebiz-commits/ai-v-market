@@ -984,4 +984,146 @@ app.post('/moderate-video', async (c) => {
   }
 });
 
+// ============================================
+// C3 — 토스페이먼츠 환불 (어드민이 1클릭으로 카드 환불까지)
+// ============================================
+//
+// 호출: POST /server/refund-payment
+//   Headers: Authorization: Bearer <admin_access_token>
+//   Body: { payment_id: BIGINT, admin_note?: string }
+//
+// 동작:
+//   1. Authorization 토큰으로 사용자 인증 + profiles.is_admin 확인
+//   2. payments 조회 → payment_key (토스 거래 식별자) 확보
+//   3. 토스 API POST /v1/payments/{paymentKey}/cancel 호출
+//   4. 성공 시 admin_refund_payment RPC 호출 (DB 갱신 + 권한 회수 + admin_logs)
+//   5. 응답에 user_id 등 알림 메일 발송용 정보 포함 → 클라이언트가 sendNotification 호출
+
+app.post('/refund-payment', async (c) => {
+  try {
+    // 1) 인증 토큰 추출
+    const authHeader = c.req.header('authorization') || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    if (!token) {
+      return c.json({ error: '인증 토큰이 필요합니다' }, 401);
+    }
+
+    // 2) 사용자 조회 + 어드민 권한 확인 (service_role 로 안전하게)
+    const supabase = getSupabaseClient(true);
+    const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+    if (userErr || !userData?.user) {
+      return c.json({ error: '인증 실패' }, 401);
+    }
+    const adminUserId = userData.user.id;
+
+    const { data: profile, error: profileErr } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', adminUserId)
+      .single();
+    if (profileErr || !profile?.is_admin) {
+      return c.json({ error: '어드민 권한이 필요합니다' }, 403);
+    }
+
+    // 3) 입력 검증
+    const body = await c.req.json();
+    const payment_id = body?.payment_id;
+    const admin_note = body?.admin_note || null;
+    if (!payment_id) {
+      return c.json({ error: 'payment_id 필요' }, 400);
+    }
+
+    // 4) payments 조회
+    const { data: payment, error: pErr } = await supabase
+      .from('payments')
+      .select('id, payment_key, status, amount, order_id, payment_type, user_id, refund_reason, method')
+      .eq('id', payment_id)
+      .single();
+    if (pErr || !payment) {
+      return c.json({ error: '결제 정보를 찾을 수 없습니다' }, 404);
+    }
+    if (!payment.payment_key) {
+      return c.json({ error: '토스 결제 키가 없습니다 (수동 처리 필요)' }, 400);
+    }
+    if (!['completed', 'refund_requested'].includes(payment.status)) {
+      return c.json({ error: `환불 가능 상태 아님: ${payment.status}` }, 400);
+    }
+
+    // 5) 토스 API 환불 호출
+    const tossSecretKey = Deno.env.get('TOSS_SECRET_KEY');
+    if (!tossSecretKey) {
+      console.error('[refund-payment] TOSS_SECRET_KEY 미설정');
+      return c.json({ error: '결제 서버 설정 오류 (관리자 문의)' }, 500);
+    }
+
+    const cancelReason = admin_note || payment.refund_reason || '관리자 환불';
+    const tossAuthHeader = `Basic ${btoa(tossSecretKey + ':')}`;
+    const tossRes = await fetch(
+      `https://api.tosspayments.com/v1/payments/${payment.payment_key}/cancel`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': tossAuthHeader,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cancelReason }),
+      }
+    );
+
+    const tossBody = await tossRes.json();
+    if (!tossRes.ok) {
+      console.error('[refund-payment] 토스 cancel 실패:', tossBody);
+      return c.json({
+        error: tossBody?.message || '토스페이먼츠 환불 실패',
+        code: tossBody?.code,
+        details: tossBody,
+      }, 502);
+    }
+
+    // 6) admin_refund_payment RPC 호출
+    //    어드민 토큰으로 클라이언트 만들어야 assert_admin 통과 (auth.uid()가 어드민)
+    const supabaseAsAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    );
+
+    const { error: rpcErr } = await supabaseAsAdmin.rpc('admin_refund_payment', {
+      p_payment_id: payment_id,
+      p_admin_note: admin_note,
+    });
+
+    if (rpcErr) {
+      // 토스 환불은 성공했는데 DB 갱신 실패 — 운영팀에 알림 필요한 위험 상태
+      console.error('[refund-payment] DB 갱신 실패 (토스 환불은 성공):', rpcErr);
+      return c.json({
+        error: '토스 환불은 완료됐으나 DB 갱신 실패. 운영팀에 알려주세요.',
+        toss_canceled: true,
+        db_error: rpcErr.message,
+        toss_transaction_key: tossBody?.transactionKey,
+      }, 500);
+    }
+
+    // 7) 성공 응답 — 클라이언트가 환불 완료 메일 발송에 사용
+    return c.json({
+      success: true,
+      message: '환불 처리 완료 (토스 + DB)',
+      toss_transaction_key: tossBody?.transactionKey,
+      payment: {
+        id: payment.id,
+        user_id: payment.user_id,
+        amount: payment.amount,
+        order_id: payment.order_id,
+        payment_type: payment.payment_type,
+        method: payment.method,
+        refund_reason: payment.refund_reason,
+        admin_note,
+      },
+    });
+  } catch (err: any) {
+    console.error('[refund-payment] 예외:', err);
+    return c.json({ error: '환불 처리 중 서버 오류: ' + (err?.message || err) }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

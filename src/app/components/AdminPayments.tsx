@@ -1,9 +1,19 @@
-// 결제/환불 관리 페이지 (Phase 10.6)
+// 결제/환불 관리 페이지 (Phase 10.6 + C3: 토스 API 환불 통합)
 import { useEffect, useState } from "react";
 import { Loader2, DollarSign, RotateCcw, RefreshCw } from "lucide-react";
-import { supabase } from "../utils/supabaseClient";
+import { supabase, supabaseUrl, supabaseAnonKey } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
+import { sendNotification, buildRefundCompletedEmail } from "../utils/sendNotification";
+
+const REFUND_ENDPOINT = `${supabaseUrl}/functions/v1/server/refund-payment`;
+
+// payment_type → 한글 라벨 (메일 제목용)
+const TYPE_LABEL_FOR_EMAIL: Record<string, string> = {
+  subscription: "CREAITE 프리미엄 구독",
+  license: "라이선스 구매",
+  ad_budget: "광고 예산 충전",
+};
 
 interface PaymentRow {
   id: number;
@@ -19,10 +29,13 @@ interface PaymentRow {
   approved_at: string | null;
   failure_reason: string | null;
   created_at: string;
+  refund_reason?: string | null;
+  refund_requested_at?: string | null;
 }
 
 const STATUS_FILTERS = [
   { key: "all", label: "전체" },
+  { key: "refund_requested", label: "🔔 환불 요청" },
   { key: "completed", label: "완료" },
   { key: "pending", label: "진행 중" },
   { key: "failed", label: "실패" },
@@ -42,6 +55,7 @@ const STATUS_COLORS: Record<string, string> = {
   failed: "bg-red-500/15 text-red-400",
   refunded: "bg-muted text-muted-foreground",
   cancelled: "bg-muted text-muted-foreground",
+  refund_requested: "bg-orange-500/20 text-orange-300 ring-1 ring-orange-500/40",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -77,19 +91,78 @@ export function AdminPayments() {
   useEffect(() => { load(); }, [statusFilter, typeFilter]);
 
   const refund = async (p: PaymentRow) => {
-    const reason = prompt(`${p.user_name || p.user_email}의 ₩${p.amount.toLocaleString()} 결제를 환불 처리합니다.\n환불 사유:`);
+    const isUserRequested = p.status === "refund_requested";
+    const promptMsg = isUserRequested
+      ? `${p.user_name || p.user_email}의 환불 요청을 승인하시겠습니까?\n\n사용자 사유: ${p.refund_reason || "(없음)"}\n금액: ₩${p.amount.toLocaleString()}\n\n어드민 메모 (선택):`
+      : `${p.user_name || p.user_email}의 ₩${p.amount.toLocaleString()} 결제를 환불 처리합니다.\n환불 사유:`;
+    const reason = prompt(promptMsg);
     if (reason === null) return;
-    if (!confirm("환불 처리하면 사용자 권한도 즉시 회수됩니다.\n계속하시겠습니까?")) return;
+    if (!confirm("환불 처리하면 토스 카드 환불 + 사용자 권한 회수 + 사용자에게 알림 메일이 자동 발송됩니다.\n계속하시겠습니까?")) return;
 
     setProcessingId(p.id);
-    const { error } = await supabase.rpc("admin_refund_payment", {
-      p_payment_id: p.id,
-      p_admin_note: reason,
-    });
-    setProcessingId(null);
-    if (error) return toast.error("환불 실패: " + error.message);
-    toast.success("환불 처리됨. 토스 API 환불은 별도 수동 처리 필요");
-    load();
+    try {
+      // 1) Authorization 토큰 확보 (어드민 본인)
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        toast.error("재로그인이 필요합니다.");
+        return;
+      }
+
+      // 2) Edge Function 호출 — 토스 API cancel + admin_refund_payment RPC
+      const adminNote = reason || (isUserRequested ? "사용자 환불 요청 승인" : "관리자 환불");
+      const res = await fetch(REFUND_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ payment_id: p.id, admin_note: adminNote }),
+      });
+
+      const body = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        // 토스 환불 실패 또는 DB 갱신 실패
+        if (body?.toss_canceled) {
+          // 토스는 환불됐으나 DB 갱신 실패 — 운영 위험 상태
+          toast.error(
+            `⚠️ 토스 환불 완료, DB 갱신 실패. 운영팀 확인 필요:\n${body.db_error}`,
+            { duration: 10000 }
+          );
+        } else {
+          toast.error(body?.error || `환불 실패 (HTTP ${res.status})`);
+        }
+        return;
+      }
+
+      toast.success("환불 완료 (토스 + DB + 권한 회수)");
+
+      // 3) 환불 완료 메일 발송 (fire-and-forget)
+      const recipient = body?.payment?.user_id;
+      if (recipient) {
+        const { subject, html } = buildRefundCompletedEmail({
+          orderName: TYPE_LABEL_FOR_EMAIL[p.payment_type] || p.payment_type,
+          amount: p.amount,
+          refundReason: p.refund_reason || adminNote,
+          paymentMethod: p.method || "카드",
+        });
+        void sendNotification({
+          user_id: recipient,
+          type: "refund_completed",
+          subject,
+          html,
+        });
+      }
+
+      load();
+    } catch (err: any) {
+      console.error("[AdminPayments] refund 예외:", err);
+      toast.error("환불 처리 중 오류: " + (err?.message || err));
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   const totalCompleted = payments.filter(p => p.status === "completed").reduce((s, p) => s + p.amount, 0);
@@ -172,12 +245,33 @@ export function AdminPayments() {
                   {p.failure_reason && (
                     <p className="text-xs text-red-400/80 mt-1">{p.failure_reason}</p>
                   )}
+                  {p.status === "refund_requested" && p.refund_reason && (
+                    <div className="mt-2 p-2 rounded-lg bg-orange-500/5 border border-orange-500/20">
+                      <p className="text-[10px] font-bold text-orange-300 mb-0.5">사용자 환불 요청 사유</p>
+                      <p className="text-xs text-orange-200/90">{p.refund_reason}</p>
+                      {p.refund_requested_at && (
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          요청 시각: {new Date(p.refund_requested_at).toLocaleString("ko-KR")}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="text-right flex flex-col items-end gap-2">
                   <p className="text-lg font-black text-[#8b5cf6]">₩{p.amount.toLocaleString()}</p>
-                  {p.status === "completed" && (
-                    <Button size="sm" variant="outline" onClick={() => refund(p)} disabled={processingId === p.id} className="gap-1 text-amber-300 border-amber-500/30">
-                      <RotateCcw className="w-3.5 h-3.5" />환불
+                  {(p.status === "completed" || p.status === "refund_requested") && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => refund(p)}
+                      disabled={processingId === p.id}
+                      className={p.status === "refund_requested"
+                        ? "gap-1 text-orange-300 border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20"
+                        : "gap-1 text-amber-300 border-amber-500/30"
+                      }
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      {p.status === "refund_requested" ? "요청 승인" : "환불"}
                     </Button>
                   )}
                 </div>
@@ -187,9 +281,9 @@ export function AdminPayments() {
         </div>
       )}
 
-      <p className="text-[11px] text-muted-foreground mt-4 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
-        ⚠️ 환불 처리는 DB만 갱신합니다. 실제 토스페이먼츠 환불은 별도로 토스 대시보드에서 처리해야 합니다.
-        향후 Edge Function으로 자동 환불 호출 가능 (Phase 9.5 예정).
+      <p className="text-[11px] text-muted-foreground mt-4 p-3 rounded-lg bg-green-500/5 border border-green-500/20">
+        ✅ 환불 처리 시 토스 카드 환불 + DB 상태 + 권한 회수 + 사용자 알림 메일이 자동 진행됩니다.
+        🔔 "환불 요청" 필터에서 사용자가 요청한 건을 검토·승인할 수 있습니다.
       </p>
     </div>
   );

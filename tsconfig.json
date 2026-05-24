@@ -16,5 +16,6 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src", "api", "middleware.ts"]
+  "include": ["src", "api", "middleware.ts"],
+  "exclude": ["node_modules", "dist", "build", ".vercel", "supabase/functions"]
 }

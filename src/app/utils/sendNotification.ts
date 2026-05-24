@@ -24,7 +24,8 @@ export type NotificationType =
   | "new_follower"
   | "revenue_settled"
   | "report_result"
-  | "ad_budget_low";
+  | "ad_budget_low"
+  | "refund_completed";
 
 interface SendNotificationResult {
   success: boolean;
@@ -166,8 +167,14 @@ export function buildSubscriptionReceiptEmail(info: ReceiptInfo): { subject: str
   <p style="font-size: 13px; color: #666;">환불·문의는 <a href="mailto:support@creaite.net" style="color: #a78bfa;">support@creaite.net</a>으로 부탁드립니다. <br/>(전자상거래법에 따라 콘텐츠 미사용 시 7일 이내 청약철회 가능합니다.)</p>
 
   <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-  <p style="font-size: 12px; color: #999;">CREAITE • 세계 최초 AI 시네마 OTT</p>
-  <p style="font-size: 12px; color: #999;">알림 설정은 <a href="https://www.creaite.net" style="color: #a78bfa;">마이페이지 → 설정</a>에서 변경 가능합니다.</p>
+  <p style="font-size: 12px; color: #999; margin: 0 0 4px 0;">CREAITE • 세계 최초 AI 시네마 OTT</p>
+  <p style="font-size: 11px; color: #aaa; line-height: 1.7; margin: 0 0 4px 0;">
+    상호 크레비즈 · 대표자 이현우 · 사업자등록번호 107-10-27099<br>
+    통신판매업 신고 제 2020-경기파주-0327호 · 호스팅 Vercel Inc.<br>
+    주소 경기도 파주시 평화로342번길 71-5, A동 (검산동)<br>
+    고객문의 <a href="mailto:support@creaite.net" style="color: #a78bfa;">support@creaite.net</a>
+  </p>
+  <p style="font-size: 12px; color: #999; margin: 8px 0 0 0;">알림 설정은 <a href="https://www.creaite.net" style="color: #a78bfa;">마이페이지 → 설정</a>에서 변경 가능합니다.</p>
 </body>
 </html>`;
   return { subject, html };
@@ -369,6 +376,82 @@ export function buildNewFollowerEmail(info: NewFollowerInfo): { subject: string;
   <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
   <p style="font-size: 12px; color: #999;">CREAITE • 세계 최초 AI 시네마 OTT</p>
   <p style="font-size: 12px; color: #999;">이 알림이 부담스러우시면 <a href="https://www.creaite.net" style="color: #a78bfa;">마이페이지 → 설정 → 알림 설정</a>에서 끄실 수 있습니다.</p>
+</body>
+</html>`;
+  return { subject, html };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 환불 완료 알림 메일 템플릿
+// ────────────────────────────────────────────────────────────────────────────
+export interface RefundCompletedInfo {
+  orderName: string;        // "CREAITE 프리미엄 구독 (월)" 등
+  amount: number;           // 환불 금액 (원)
+  refundReason?: string;    // 환불 사유 (어드민 입력)
+  refundedAt?: string;      // 환불 일시
+  paymentMethod?: string;   // 결제 방식 (카드 등)
+}
+
+export function buildRefundCompletedEmail(info: RefundCompletedInfo): { subject: string; html: string } {
+  const safeOrderName = escapeHtml(info.orderName);
+  const safeReason = escapeHtml(info.refundReason || "환불 요청 처리");
+  const safeMethod = escapeHtml(info.paymentMethod || "결제 수단");
+  const safeDate = escapeHtml(info.refundedAt || formatReceiptDate());
+  const amountText = (info.amount || 0).toLocaleString("ko-KR");
+
+  const subject = `[CREAITE] 환불이 완료되었습니다 — ${info.orderName}`;
+
+  const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <h1 style="color: #16a34a;">✓ 환불이 완료되었습니다</h1>
+  <p>요청하신 환불이 처리되었습니다. 아래는 환불 내역입니다.</p>
+
+  <table style="width: 100%; border-collapse: collapse; margin: 24px 0; border: 1px solid #eee; border-radius: 6px; overflow: hidden;">
+    <tr>
+      <th style="text-align: left; padding: 12px; background: #f9f9f9; border-bottom: 1px solid #eee; width: 35%; font-weight: 600;">결제 항목</th>
+      <td style="padding: 12px; border-bottom: 1px solid #eee;">${safeOrderName}</td>
+    </tr>
+    <tr>
+      <th style="text-align: left; padding: 12px; background: #f9f9f9; border-bottom: 1px solid #eee; font-weight: 600;">환불 금액</th>
+      <td style="padding: 12px; border-bottom: 1px solid #eee; font-weight: bold; color: #16a34a; font-size: 16px;">₩${amountText}</td>
+    </tr>
+    <tr>
+      <th style="text-align: left; padding: 12px; background: #f9f9f9; border-bottom: 1px solid #eee; font-weight: 600;">환불 방식</th>
+      <td style="padding: 12px; border-bottom: 1px solid #eee;">${safeMethod} (결제 시와 동일)</td>
+    </tr>
+    <tr>
+      <th style="text-align: left; padding: 12px; background: #f9f9f9; border-bottom: 1px solid #eee; font-weight: 600;">처리 일시</th>
+      <td style="padding: 12px; border-bottom: 1px solid #eee;">${safeDate}</td>
+    </tr>
+    <tr>
+      <th style="text-align: left; padding: 12px; background: #f9f9f9; font-weight: 600;">처리 사유</th>
+      <td style="padding: 12px; color: #555;">${safeReason}</td>
+    </tr>
+  </table>
+
+  <div style="background: #f0fdf4; border-left: 3px solid #16a34a; padding: 12px 16px; margin: 20px 0; border-radius: 6px;">
+    <p style="margin: 0; font-size: 13px; color: #555;">
+      카드 환불은 카드사 정책에 따라 영업일 기준 <strong>3~7일</strong> 이내 명세서에 반영됩니다.
+      해당 결제로 부여된 권한(구독·라이선스·광고 예산)은 즉시 회수됩니다.
+    </p>
+  </div>
+
+  <p style="font-size: 13px; color: #666;">환불 관련 문의는 <a href="mailto:support@creaite.net" style="color: #a78bfa;">support@creaite.net</a>으로 부탁드립니다.</p>
+
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+  <p style="font-size: 12px; color: #999; margin: 0 0 4px 0;">CREAITE • 세계 최초 AI 시네마 OTT</p>
+  <p style="font-size: 11px; color: #aaa; line-height: 1.7; margin: 0 0 4px 0;">
+    상호 크레비즈 · 대표자 이현우 · 사업자등록번호 107-10-27099<br>
+    통신판매업 신고 제 2020-경기파주-0327호 · 호스팅 Vercel Inc.<br>
+    주소 경기도 파주시 평화로342번길 71-5, A동 (검산동)<br>
+    고객문의 <a href="mailto:support@creaite.net" style="color: #a78bfa;">support@creaite.net</a>
+  </p>
+  <p style="font-size: 12px; color: #999; margin: 8px 0 0 0;">알림 설정은 <a href="https://www.creaite.net" style="color: #a78bfa;">마이페이지 → 설정 → 알림 설정</a>에서 변경 가능합니다.</p>
 </body>
 </html>`;
   return { subject, html };

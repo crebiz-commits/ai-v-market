@@ -832,6 +832,40 @@
     "statusOnSale": "판매중",
     "chartMonth": "{{n}}월"
   },
+  "myPayments": {
+    "title": "결제 내역",
+    "subtitle": "최근 결제 내역과 환불 요청 (최근 50건)",
+    "empty": "결제 내역이 없습니다.",
+    "loadError": "결제 내역을 불러오지 못했습니다.",
+    "refundButton": "환불 요청",
+    "requestedReasonLabel": "환불 요청 사유",
+    "types": {
+      "subscription": "💎 구독",
+      "license": "📜 라이선스",
+      "ad_budget": "📢 광고 예산"
+    },
+    "status": {
+      "completed": "완료",
+      "pending": "진행 중",
+      "failed": "실패",
+      "refunded": "환불 완료",
+      "cancelled": "취소됨",
+      "refund_requested": "환불 검토 중"
+    },
+    "modal": {
+      "title": "환불 요청",
+      "amountLabel": "환불 금액",
+      "reasonLabel": "환불 사유",
+      "reasonPlaceholder": "예: 구매 후 시청 시작 안 했음 / 실수 결제 / 콘텐츠 미사용 등",
+      "reasonRequired": "환불 사유를 2자 이상 입력해주세요.",
+      "notice": "전자상거래법에 따라 구독 결제는 결제일로부터 7일 이내 + 콘텐츠 미시청 시 환불 가능합니다. 라이선스 영상은 시청·다운로드 시작 시 청약철회권이 소멸합니다. 환불 요청은 어드민 검토 후 영업일 3일 이내에 처리됩니다.",
+      "cancel": "취소",
+      "submit": "환불 요청 보내기",
+      "success": "환불 요청이 접수되었습니다. 검토 후 영업일 3일 이내에 처리됩니다.",
+      "error": "환불 요청 실패: ",
+      "exceedDays": "결제일로부터 7일이 지나 환불 요청할 수 없습니다."
+    }
+  },
   "taxInfoSection": {
     "title": "세금 정보",
     "subtitle": "정산 시 적용될 세금 유형을 등록하세요.",
@@ -888,7 +922,9 @@
       "reportResultLabel": "신고 처리 결과",
       "reportResultDesc": "내가 신고한 콘텐츠 처리 결과 안내",
       "adBudgetLowLabel": "광고 예산 소진 임박",
-      "adBudgetLowDesc": "내 광고 예산이 거의 떨어졌을 때"
+      "adBudgetLowDesc": "내 광고 예산이 거의 떨어졌을 때",
+      "refundCompletedLabel": "환불 완료",
+      "refundCompletedDesc": "환불 처리가 완료되었을 때"
     }
   },
   "share": {

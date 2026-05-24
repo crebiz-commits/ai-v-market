@@ -832,6 +832,40 @@
     "statusOnSale": "On sale",
     "chartMonth": "{{n}}"
   },
+  "myPayments": {
+    "title": "Payment history",
+    "subtitle": "Recent payments and refund requests (last 50)",
+    "empty": "No payment history.",
+    "loadError": "Failed to load payment history.",
+    "refundButton": "Request refund",
+    "requestedReasonLabel": "Refund request reason",
+    "types": {
+      "subscription": "💎 Subscription",
+      "license": "📜 License",
+      "ad_budget": "📢 Ad budget"
+    },
+    "status": {
+      "completed": "Completed",
+      "pending": "Pending",
+      "failed": "Failed",
+      "refunded": "Refunded",
+      "cancelled": "Cancelled",
+      "refund_requested": "Refund under review"
+    },
+    "modal": {
+      "title": "Request refund",
+      "amountLabel": "Refund amount",
+      "reasonLabel": "Reason",
+      "reasonPlaceholder": "e.g., did not watch after purchase, accidental payment, content unused",
+      "reasonRequired": "Please enter a reason (at least 2 characters).",
+      "notice": "Per Korean e-commerce law, subscriptions can be refunded within 7 days of payment if no paid content has been watched. License videos lose refund eligibility once playback or download begins. Requests are processed within 3 business days after admin review.",
+      "cancel": "Cancel",
+      "submit": "Send refund request",
+      "success": "Refund request received. It will be processed within 3 business days after review.",
+      "error": "Refund request failed: ",
+      "exceedDays": "Cannot request refund — more than 7 days since payment."
+    }
+  },
   "taxInfoSection": {
     "title": "Tax information",
     "subtitle": "Register the tax type that applies to your payouts.",
@@ -888,7 +922,9 @@
       "reportResultLabel": "Report result",
       "reportResultDesc": "Outcome of content you reported",
       "adBudgetLowLabel": "Ad budget running low",
-      "adBudgetLowDesc": "When your ad budget is nearly depleted"
+      "adBudgetLowDesc": "When your ad budget is nearly depleted",
+      "refundCompletedLabel": "Refund completed",
+      "refundCompletedDesc": "When your refund has been processed"
     }
   },
   "share": {
