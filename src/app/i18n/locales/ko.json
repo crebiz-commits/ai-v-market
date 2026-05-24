@@ -393,7 +393,16 @@
     "faq": "자주 묻는 질문",
     "terms": "이용약관",
     "privacy": "개인정보처리방침",
-    "copyright": "© 2026 CREAITE. All rights reserved."
+    "copyright": "© 2026 CREAITE. All rights reserved.",
+    "businessInfo": {
+      "businessName": "상호",
+      "ceo": "대표자",
+      "bizReg": "사업자등록번호",
+      "mailOrder": "통신판매업 신고",
+      "address": "주소",
+      "contact": "고객문의",
+      "hosting": "호스팅"
+    }
   },
   "emailConfirm": {
     "title": "이메일 인증이 필요합니다",

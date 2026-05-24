@@ -146,19 +146,38 @@ export function Footer({ onNavigate }: FooterProps) {
           </div>
         </div>
 
-        <div className="border-t border-white/5 pt-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
+        <div className="border-t border-white/5 pt-6 space-y-4">
+          {/* 사업자 정보 — 전자상거래법 §13 표시 의무 */}
+          <div className="text-[11px] text-gray-500 leading-relaxed space-y-1">
+            <p>
+              <span className="text-gray-600">{t("footer.businessInfo.businessName")}</span> 크레비즈
+              <span className="text-gray-700 mx-1.5">·</span>
+              <span className="text-gray-600">{t("footer.businessInfo.ceo")}</span> 이현우
+              <span className="text-gray-700 mx-1.5">·</span>
+              <span className="text-gray-600">{t("footer.businessInfo.bizReg")}</span> 107-10-27099
+            </p>
+            <p>
+              <span className="text-gray-600">{t("footer.businessInfo.mailOrder")}</span> 제 2020-경기파주-0327호
+              <span className="text-gray-700 mx-1.5">·</span>
+              <span className="text-gray-600">{t("footer.businessInfo.hosting")}</span> Vercel Inc.
+            </p>
+            <p>
+              <span className="text-gray-600">{t("footer.businessInfo.address")}</span> 경기도 파주시 평화로342번길 71-5, A동 (검산동)
+            </p>
+            <p>
+              <span className="text-gray-600">{t("footer.businessInfo.contact")}</span>{" "}
+              <a href="mailto:support@creaite.net" className="hover:text-white transition-colors">support@creaite.net</a>
+            </p>
+          </div>
+
+          {/* 카피라이트 */}
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 pt-3 border-t border-white/5">
             <p className="text-xs text-gray-500 font-medium">
               © {new Date().getFullYear()} CREAITE. All rights reserved.
             </p>
-            <p className="text-[11px] text-gray-600 mt-1">
+            <p className="text-[11px] text-gray-600">
               {t("footer.tagline")}
             </p>
-          </div>
-          <div className="flex items-center gap-3 text-[10px] text-gray-600">
-            <span>Business reg: N/A</span>
-            <span>·</span>
-            <span>CEO: TBD</span>
           </div>
         </div>
       </div>

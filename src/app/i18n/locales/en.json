@@ -393,7 +393,16 @@
     "faq": "FAQ",
     "terms": "Terms",
     "privacy": "Privacy",
-    "copyright": "© 2026 CREAITE. All rights reserved."
+    "copyright": "© 2026 CREAITE. All rights reserved.",
+    "businessInfo": {
+      "businessName": "Business name",
+      "ceo": "CEO",
+      "bizReg": "Business reg. no.",
+      "mailOrder": "Mail-order license",
+      "address": "Address",
+      "contact": "Contact",
+      "hosting": "Hosting"
+    }
   },
   "emailConfirm": {
     "title": "Please verify your email",

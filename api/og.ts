@@ -62,7 +62,7 @@ function buildOgHtml(html: string, video: Video, pageUrl: string): string {
   const title = `${video.title} | CREAITE`;
   const creator = video.creator || "AI Creator";
   const description = (video.description || `${creator}의 AI 시네마틱 영상 — CREAITE에서 만나보세요.`).slice(0, 200);
-  const thumbnail = video.thumbnail || "https://www.creaite.net/og-default.png";
+  const thumbnail = video.thumbnail || "https://www.creaite.net/api/og-image";
   const uploadDate = (video.created_at || "").split("T")[0];
 
   const meta = `

@@ -94,9 +94,32 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
                 </a>
               </div>
 
-              <div className="p-4 border-t border-white/5">
-                <p className="text-[10px] text-gray-600">© {new Date().getFullYear()} CREAITE</p>
-                <p className="text-[10px] text-gray-700 mt-0.5">{t("footer.tagline")}</p>
+              <div className="p-4 border-t border-white/5 space-y-3">
+                {/* 사업자 정보 — 전자상거래법 §13 표시 의무 */}
+                <div className="text-[10px] text-gray-500 leading-relaxed space-y-1">
+                  <p>
+                    <span className="text-gray-600">{t("footer.businessInfo.businessName")}</span> 크레비즈
+                    <span className="text-gray-700 mx-1">·</span>
+                    <span className="text-gray-600">{t("footer.businessInfo.ceo")}</span> 이현우
+                  </p>
+                  <p>
+                    <span className="text-gray-600">{t("footer.businessInfo.bizReg")}</span> 107-10-27099
+                  </p>
+                  <p>
+                    <span className="text-gray-600">{t("footer.businessInfo.mailOrder")}</span> 제 2020-경기파주-0327호
+                  </p>
+                  <p>
+                    <span className="text-gray-600">{t("footer.businessInfo.address")}</span> 경기도 파주시 평화로342번길 71-5, A동 (검산동)
+                  </p>
+                  <p>
+                    <span className="text-gray-600">{t("footer.businessInfo.hosting")}</span> Vercel Inc.
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-white/5">
+                  <p className="text-[10px] text-gray-600">© {new Date().getFullYear()} CREAITE</p>
+                  <p className="text-[10px] text-gray-700 mt-0.5">{t("footer.tagline")}</p>
+                </div>
               </div>
             </motion.div>
           </>

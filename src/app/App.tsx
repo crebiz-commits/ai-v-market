@@ -75,6 +75,7 @@ const LogoFishPlay = lazy(() => import("./components/LogoFishPlay").then(m => ({
 const CinemaIconPreview = lazy(() => import("./components/CinemaIconPreview").then(m => ({ default: m.CinemaIconPreview })));
 const UploadButtonPreview = lazy(() => import("./components/UploadButtonPreview").then(m => ({ default: m.UploadButtonPreview })));
 const OttDesignPreview = lazy(() => import("./components/OttDesignPreview").then(m => ({ default: m.OttDesignPreview })));
+const OgPreview = lazy(() => import("./components/OgPreview").then(m => ({ default: m.OgPreview })));
 
 // ────────────────────────────────────────────────────
 // 로딩 fallback (lazy 컴포넌트 다운로드 중 표시)
@@ -147,6 +148,7 @@ function AppContent() {
       splash: <SplashScreen onComplete={() => { window.location.search = ""; }} />,
       uploadbtn: <UploadButtonPreview />,
       "ott-design": <OttDesignPreview />,
+      og: <OgPreview />,
     };
     if (previewMap[previewParam]) {
       return <Suspense fallback={<PageLoading />}>{previewMap[previewParam]}</Suspense>;
