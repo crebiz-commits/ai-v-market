@@ -16,11 +16,6 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 
-// ── 관리자 이메일 목록 ──
-const ADMIN_EMAILS = [
-  "crebizlogistics@gmail.com",
-];
-
 // 지연 로드 (각 페이지)
 const AdminOverview = lazy(() => import("./AdminOverview").then(m => ({ default: m.AdminOverview })));
 const AdminDashboard = lazy(() => import("./AdminDashboard").then(m => ({ default: m.AdminDashboard })));
@@ -91,11 +86,14 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [currentPage, setCurrentPage] = useState<AdminPage>("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);  // 모바일용
 
-  const isAdmin = user && ADMIN_EMAILS.includes(user.email);
+  // 어드민 권한: DB profiles.is_admin 단일 source of truth
+  // (AuthContext에서 fetchProfile 시 select 됨 — line 62)
+  // 변경/회수는 AdminUsers의 admin_set_admin_role RPC (서버에서 동일 필드 체크)
+  const isAdmin = !!user && profile?.is_admin === true;
 
   // ── 접근 제한 ──
   if (!user) {

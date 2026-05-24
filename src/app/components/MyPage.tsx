@@ -1820,26 +1820,6 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
               </TabsContent>
 
               <TabsContent value="settings" className="space-y-4 m-0">
-                <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
-                  <h3 className="font-bold text-white mb-5 flex items-center"><Bell className="w-5 h-5 mr-2 text-gray-400" />{t("mypage.settings.notifications")}</h3>
-                  <div className="space-y-4">
-                    {[
-                      { label: t("mypage.settings.notifySales"), checked: true },
-                      { label: t("mypage.settings.notifyComments"), checked: true },
-                      { label: t("mypage.settings.notifyLikes"), checked: false },
-                      { label: t("mypage.settings.notifyMarketing"), checked: false }
-                    ].map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-[#1c1c1e] rounded-xl border border-white/5">
-                        <span className="font-medium text-gray-300 text-sm">{item.label}</span>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" defaultChecked={item.checked} className="sr-only peer" />
-                          <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-[#6366f1] peer-checked:to-[#8b5cf6] shadow-sm"></div>
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Phase 34: 알림 설정 (이메일/푸시 ON·OFF) */}
                 <NotificationSettings />
 
