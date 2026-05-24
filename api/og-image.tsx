@@ -44,7 +44,7 @@ const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" 
   <rect x="40" y="10" width="8" height="80" rx="4" fill="url(#g)"/>
   <rect x="54" y="25" width="8" height="50" rx="4" fill="url(#g)"/>
   <rect x="68" y="15" width="8" height="70" rx="4" fill="url(#g)"/>
-  <polygon points="82,28 82,72 96,50" fill="url(#g)"/>
+  <path d="M 82 28 L 82 72 L 96 50 Z" fill="url(#g)"/>
 </svg>`;
 const LOGO_DATA_URL = `data:image/svg+xml;utf8,${encodeURIComponent(LOGO_SVG)}`;
 
