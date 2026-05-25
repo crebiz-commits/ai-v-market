@@ -17,6 +17,7 @@ import { getCategoryLabel } from "../i18n/categoryLabels";
 import { formatCompactNumber } from "../i18n/numberFormat";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { useAuth } from "../contexts/AuthContext";
+import { useSettings } from "../contexts/SettingsContext";
 
 export interface CarouselVideo {
   id: string;
@@ -73,6 +74,9 @@ export function VideoRowCarousel({
 }: Props) {
   const { t } = useTranslation();
   const { user, profile } = useAuth();
+  const settings = useSettings();
+  // 콘텐츠 정책 v2: 영상 길이가 OTT 임계값 이상이면 자동으로 OTT 배지 표시
+  const ottMin = settings.ottMinSeconds || 600;
   const ageVerified = profile?.age_verified ?? false;
   const scrollRef = useRef<HTMLDivElement>(null);
   const emptyText = emptyMessage ?? t("videoRow.empty");
@@ -196,7 +200,7 @@ export function VideoRowCarousel({
                 )}
 
                 {/* OTT 배지 */}
-                {video.is_ott && (
+                {(video.is_ott || (typeof video.duration_seconds === "number" && video.duration_seconds >= ottMin)) && (
                   <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-bold flex items-center gap-0.5">
                     <Crown className="w-2.5 h-2.5" />
                     OTT
@@ -205,7 +209,7 @@ export function VideoRowCarousel({
 
                 {/* Phase 26 보강: 연령 등급 배지 (OTT 배지 위쪽 또는 좌측) */}
                 {rating && rating !== "all" && (
-                  <div className={`absolute ${video.is_ott ? "top-1 right-12" : "top-1 right-1"}`}>
+                  <div className={`absolute ${(video.is_ott || (typeof video.duration_seconds === "number" && video.duration_seconds >= ottMin)) ? "top-1 right-12" : "top-1 right-1"}`}>
                     <AgeBadge rating={rating} size="xs" />
                   </div>
                 )}

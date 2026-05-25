@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { CommentPanel } from "./CommentPanel";
 import { useBackButton } from "../hooks/useBackButton";
 import { useAuth } from "../contexts/AuthContext";
+import { useSettings } from "../contexts/SettingsContext";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { SubscriptionModal, type PaywallReason } from "./SubscriptionModal";
 import { CreatorAvatar } from "./CreatorAvatar";
@@ -40,9 +41,12 @@ function postBunnyCommand(iframe: HTMLIFrameElement | null, method: "play" | "pa
 // Bunny Stream 라이브러리 ID (env 변수). 클라이언트에 노출되어도 안전.
 const BUNNY_LIBRARY_ID = (import.meta as any).env?.VITE_BUNNY_LIBRARY_ID || "";
 
-// 페이월 정책 임계값 (Phase 4)
-const CINEMA_PREVIEW_SECONDS = 180; // 비구독자 시네마 미리보기 한도 (3분)
-const OTT_THRESHOLD_SECONDS = 600;  // 이 길이 이상이면 OTT 영상 (구독자만)
+// 페이월 정책 v2 (2026-05-26): 단순화 — 비구독자는 모든 영상 1분 미리보기 통일
+// 실제 값은 SettingsContext 에서 동적으로 조회 (어드민이 platform_settings 로 조절 가능)
+// 아래 상수는 SettingsContext fetch 실패 시 fallback
+const FALLBACK_CINEMA_MIN = 60;       // 시네마 코너 노출 최소 (1분)
+const FALLBACK_CINEMA_PREVIEW = 60;   // 비구독자 미리보기 (1분)
+const FALLBACK_OTT_THRESHOLD = 600;   // OTT 코너 노출 최소 (10분)
 
 // duration 텍스트 → 초 (durationSeconds 미제공 레거시 영상 대응)
 function parseDurationText(text: string | undefined): number {
@@ -138,6 +142,8 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
 
   // Phase 4: 페이월 게이트
   const { isSubscriber, isPremium, subscriptionTier, isAuthenticated, user, profile } = useAuth();
+  // 콘텐츠 정책 v2 — 페이월·광고 임계값 동적 조회
+  const settings = useSettings();
   // Phase 9: 라이선스 결제
   const { startLicensePurchase } = usePayment();
   const [buyingLicense, setBuyingLicense] = useState(false);
@@ -271,25 +277,27 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
     }
   };
   const durationSeconds = product.durationSeconds ?? parseDurationText(product.duration);
-  // 영상 등급 판정
-  const isOttVideo = durationSeconds >= OTT_THRESHOLD_SECONDS;        // 10분+
-  const isCinemaVideo = durationSeconds >= CINEMA_PREVIEW_SECONDS;     // 3분+
-  // OTT 비구독자: 즉시 차단 (iframe 절대 로드 안 함)
-  const ottBlocked = isOttVideo && !isSubscriber;
-  // 시네마 비구독자: 3분 미리보기 후 차단 (cutoff 트리거)
-  const cinemaPaywallNeeded = isCinemaVideo && !isOttVideo && !isSubscriber;
+  // 페이월 정책 v2 — 동적 설정 (어드민 조절 가능). fallback은 1분
+  const previewSeconds = settings.cinemaPreviewSeconds || FALLBACK_CINEMA_PREVIEW;
+  const cinemaMinSec = settings.cinemaMinSeconds || FALLBACK_CINEMA_MIN;
+  // 영상이 미리보기 시간보다 길면 비구독자에게 미리보기 cutoff 적용
+  // (영상이 더 짧으면 자동으로 풀 시청 — 별도 처리 불필요)
+  const needsPreviewCutoff = durationSeconds > previewSeconds && !isSubscriber;
+  // OTT 영상도 1분 미리보기 통일 (즉시 차단 X) — 단 카드에는 "🔒 프리미엄" 배지 표시
+  const isOttVideo = durationSeconds >= (settings.ottMinSeconds || FALLBACK_OTT_THRESHOLD);
+  const isCinemaVideo = durationSeconds >= cinemaMinSec;
   // 페이월 모달 상태
-  const [paywallOpen, setPaywallOpen] = useState(ottBlocked);
-  const [paywallReason, setPaywallReason] = useState<PaywallReason>(ottBlocked ? "ott_block" : "cinema_cutoff");
-  // 시네마 컷오프 발동 후 iframe 제거 플래그
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [paywallReason, setPaywallReason] = useState<PaywallReason>("cinema_cutoff");
+  // 미리보기 컷오프 발동 후 iframe 제거 플래그
   const [cinemaCutoffTriggered, setCinemaCutoffTriggered] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
-  // 시네마 미리보기 — 영상 currentTime이 180초 도달 시 차단
+  // 비구독자 미리보기 컷오프 — 영상 currentTime이 previewSeconds(기본 60초) 도달 시 차단
   // Bunny Stream Player의 player.js 프로토콜(postMessage)로 재생 위치 추적.
   // wall-clock이 아닌 영상 시간 기준이라 시킹 점프(예: 7분 위치)도 즉시 차단.
   useEffect(() => {
-    if (!cinemaPaywallNeeded || cinemaCutoffTriggered) return;
+    if (!needsPreviewCutoff || cinemaCutoffTriggered) return;
     const iframe = iframeRef.current;
     if (!iframe) return;
 
@@ -328,7 +336,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
 
       if (data?.event === "timeupdate") {
         const seconds = data?.value?.seconds ?? 0;
-        if (seconds >= CINEMA_PREVIEW_SECONDS) {
+        if (seconds >= previewSeconds) {
           console.log("[페이월] currentTime", seconds, "초 도달 → 차단");
           setCinemaCutoffTriggered(true);
           setPaywallReason("cinema_cutoff");
@@ -341,7 +349,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  }, [cinemaPaywallNeeded, cinemaCutoffTriggered]);
+  }, [needsPreviewCutoff, cinemaCutoffTriggered, previewSeconds]);
 
   // ── Phase 8: 시청 기록 (video_views 적재용) ──
   // 페이월 통과한 사용자가 영상을 실제로 시청하면 30% 도달 시 1회 RPC 호출.
@@ -418,8 +426,9 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
     ? `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${product.id}?autoplay=true&loop=false&muted=true&preload=true&responsive=true&vastTagUrl=${vastTagUrl}`
     : null;
 
-  // iframe 실제 노출 여부 — 페이월 게이트 + Phase 26: 19+ 미인증 차단
-  const iframeBlocked = ottBlocked || cinemaCutoffTriggered || isAgeLocked;
+  // iframe 실제 노출 여부 — 미리보기 컷오프 + Phase 26: 19+ 미인증 차단
+  // (v2 정책: OTT 즉시 차단 제거 — 모든 영상 1분 미리보기 통일)
+  const iframeBlocked = cinemaCutoffTriggered || isAgeLocked;
 
   // ── Phase 28: Overlay 광고 (재생 중 30% 지점, 1분+ 영상만) ──
   const [overlayAd, setOverlayAd] = useState<AdRpcResult | null>(null);
@@ -502,7 +511,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
 
   useEffect(() => {
     if (iframeBlocked) return;
-    if (!product.id || !durationSeconds || durationSeconds < OTT_THRESHOLD_SECONDS) return;  // 10분+
+    if (!product.id || !durationSeconds || durationSeconds < (settings.minDurationForMidroll || 600)) return;  // 10분+
     if (isSubscriber) return;  // 구독자(PREMIUM)는 광고 제거 — Step 6 정책과 동일
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -831,22 +840,22 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                 className="absolute inset-0 w-full h-full object-cover scale-110 blur-md opacity-40"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/40" />
-              {/* 중앙 페이월 안내 */}
+              {/* 중앙 페이월 안내 — v2 단순화: OTT 영상도 미리보기 컷오프 후 동일 메시지 */}
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-2xl mb-4">
-                  {ottBlocked ? <Crown className="w-8 h-8 text-white" /> : <Lock className="w-8 h-8 text-white" />}
+                  {isOttVideo ? <Crown className="w-8 h-8 text-white" /> : <Lock className="w-8 h-8 text-white" />}
                 </div>
                 <h3 className="text-xl md:text-2xl font-black text-white mb-2">
-                  {ottBlocked ? t("productDetail.paywall.premiumOtt") : t("productDetail.paywall.previewEnded")}
+                  {isOttVideo ? t("productDetail.paywall.premiumOtt") : t("productDetail.paywall.previewEnded")}
                 </h3>
                 <p className="text-sm text-gray-300 mb-5 max-w-md">
-                  {ottBlocked
+                  {isOttVideo
                     ? t("productDetail.paywall.ottDescription")
                     : t("productDetail.paywall.cinemaDescription")}
                 </p>
                 <Button
                   onClick={() => {
-                    setPaywallReason(ottBlocked ? "ott_block" : "cinema_cutoff");
+                    setPaywallReason("cinema_cutoff");
                     setPaywallOpen(true);
                   }}
                   className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black px-6 h-11 shadow-lg shadow-amber-500/20 rounded-xl border border-white/10"
@@ -883,8 +892,8 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
           )}
 
 
-          {/* 시네마 미리보기 카운트다운 표시 (비구독자 + 시네마 + iframe 활성 시) */}
-          {cinemaPaywallNeeded && !iframeBlocked && (
+          {/* 미리보기 카운트다운 표시 (비구독자 + 미리보기 필요 + iframe 활성 시) */}
+          {needsPreviewCutoff && !iframeBlocked && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-amber-500/90 backdrop-blur-sm rounded-full text-white text-xs font-black shadow-lg flex items-center gap-1.5 pointer-events-none">
               <Lock className="w-3.5 h-3.5" />
               {t("productDetail.paywall.cinemaPreviewBadge")}

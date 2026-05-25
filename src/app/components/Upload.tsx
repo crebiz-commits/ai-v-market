@@ -19,6 +19,7 @@ import { motion } from "motion/react";
 import { BunnySetupGuide } from "./BunnySetupGuide";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { useAuth } from "../contexts/AuthContext";
+import { useSettings } from "../contexts/SettingsContext";
 import { supabase, supabaseAnonKey, supabaseUrl } from "../utils/supabaseClient";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -38,6 +39,7 @@ interface UploadProps {
 export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
   const { t } = useTranslation();
   const { user, accessToken } = useAuth();
+  const settings = useSettings();
   const [step, setStep] = useState(1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -296,6 +298,20 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     video.onloadedmetadata = async () => {
       // 1. 길이 측정
       const duration = video.duration;
+
+      // [콘텐츠 정책 v2] 영상 길이 검증 — 30초 미만 차단
+      const minUpload = settings.minUploadSeconds || 30;
+      if (duration < minUpload) {
+        toast.error(t("upload.tooShort", { sec: minUpload, current: Math.floor(duration) }));
+        setSelectedFile(null);
+        if (fileObjectUrlRef.current) {
+          URL.revokeObjectURL(fileObjectUrlRef.current);
+          fileObjectUrlRef.current = null;
+        }
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+
       const minutes = Math.floor(duration / 60);
       const seconds = Math.floor(duration % 60);
       const formattedDuration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
@@ -843,6 +859,17 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
           open={showBunnyGuide}
           onClose={() => setShowBunnyGuide(false)}
         />
+
+        {/* 콘텐츠 정책 안내 — 1분+ 시네마틱 영화 권장 */}
+        <div className="mb-4 p-4 md:p-5 rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 border-2 border-amber-500/30">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 text-2xl">🎬</div>
+            <div className="flex-1">
+              <p className="text-sm font-black text-amber-200 mb-1">{t("upload.policyTitle")}</p>
+              <p className="text-xs text-amber-100/80 leading-relaxed">{t("upload.policyDescription")}</p>
+            </div>
+          </div>
+        </div>
 
         {/* 수익 정책 안내 */}
         <a

@@ -35,6 +35,7 @@ import { Button } from "./components/ui/button";
 import { handleBunnyError } from "./utils/bunnyErrorHandler";
 import { supabase } from "./utils/supabaseClient";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { SettingsProvider } from "./contexts/SettingsContext";
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
 
@@ -996,9 +997,11 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <ErrorBoundary>
-          <AppContent />
-        </ErrorBoundary>
+        <SettingsProvider>
+          <ErrorBoundary>
+            <AppContent />
+          </ErrorBoundary>
+        </SettingsProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

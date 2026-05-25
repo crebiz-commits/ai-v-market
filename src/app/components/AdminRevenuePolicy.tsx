@@ -22,10 +22,10 @@ interface HistoryRow {
 }
 
 // key별 표시명 + 단위
-const KEY_META: Record<string, { label: string; unit: "ratio" | "krw" | "hours"; group: string; hint?: string }> = {
+const KEY_META: Record<string, { label: string; unit: "ratio" | "krw" | "hours" | "seconds" | "count"; group: string; hint?: string }> = {
   creator_share_sale:               { label: "판매 라이선스 크리에이터 분배", unit: "ratio", group: "💰 분배 비율 (크리에이터)" },
-  creator_share_ad_home:            { label: "광고 — 홈 (0~3분)",       unit: "ratio", group: "💰 분배 비율 (크리에이터)" },
-  creator_share_ad_cinema:          { label: "광고 — 시네마 (3분+)",     unit: "ratio", group: "💰 분배 비율 (크리에이터)" },
+  creator_share_ad_home:            { label: "광고 — 1분 미만 영상 (현재 미적용)", unit: "ratio", group: "💰 분배 비율 (크리에이터)", hint: "콘텐츠 정책 v2에서 1분 미만 영상은 본편 광고 X. 정책 완화 시에만 적용" },
+  creator_share_ad_cinema:          { label: "광고 — 시네마 (1분~10분)",  unit: "ratio", group: "💰 분배 비율 (크리에이터)" },
   creator_share_ad_ott:             { label: "광고 — OTT (10분+)",      unit: "ratio", group: "💰 분배 비율 (크리에이터)" },
   creator_share_subscription_pool:  { label: "구독료 풀 분배",            unit: "ratio", group: "💰 분배 비율 (크리에이터)" },
   subscription_price_krw:           { label: "월 구독료",                 unit: "krw",   group: "💵 가격 / 단가" },
@@ -34,6 +34,14 @@ const KEY_META: Record<string, { label: string; unit: "ratio" | "krw" | "hours";
   valid_view_min_ratio:             { label: "유효 시청 최소 비율",        unit: "ratio", group: "🛡 어뷰징 방지" },
   ip_dedup_hours:                   { label: "IP 중복 차단 시간",          unit: "hours", group: "🛡 어뷰징 방지" },
   new_video_grace_hours:            { label: "신규 영상 광고 제외 기간",    unit: "hours", group: "🛡 어뷰징 방지" },
+  auto_hide_threshold:              { label: "신고 자동 숨김 임계값",       unit: "count", group: "🛡 어뷰징 방지", hint: "같은 콘텐츠에 신고 N건 누적 시 자동 숨김" },
+  // 콘텐츠 정책 v2 (2026-05-26)
+  min_upload_duration_seconds:      { label: "영상 업로드 최소 길이",       unit: "seconds", group: "🎬 콘텐츠 정책", hint: "이 길이 미만은 등록 차단" },
+  cinema_min_duration_seconds:      { label: "시네마 코너 노출 최소 길이",  unit: "seconds", group: "🎬 콘텐츠 정책", hint: "이 길이 이상 영상만 시네마 등록" },
+  ott_min_duration_seconds:         { label: "OTT 코너 노출 최소 길이",    unit: "seconds", group: "🎬 콘텐츠 정책", hint: "이 길이 이상 영상만 OTT 등록" },
+  cinema_preview_seconds:           { label: "비구독자 미리보기 시간",      unit: "seconds", group: "🎬 콘텐츠 정책", hint: "영상 상세에서 비구독자에게 보여줄 시간" },
+  min_duration_for_preroll_seconds: { label: "Pre-roll·Overlay 광고 최소", unit: "seconds", group: "📢 광고 정책",   hint: "이 길이 이상 영상에만 본편 광고" },
+  min_duration_for_midroll_seconds: { label: "Mid-roll 광고 최소 길이",    unit: "seconds", group: "📢 광고 정책",   hint: "이 길이 이상 영상에만 중간 광고" },
 };
 
 function formatValue(key: string, value: number) {
@@ -42,6 +50,15 @@ function formatValue(key: string, value: number) {
   if (meta.unit === "ratio") return (value * 100).toFixed(1) + "%";
   if (meta.unit === "krw") return "₩" + Math.round(value).toLocaleString();
   if (meta.unit === "hours") return value + "시간";
+  if (meta.unit === "seconds") {
+    if (value >= 60) {
+      const m = Math.floor(value / 60);
+      const s = value % 60;
+      return s === 0 ? `${m}분` : `${m}분 ${s}초`;
+    }
+    return value + "초";
+  }
+  if (meta.unit === "count") return value + "건";
   return value.toString();
 }
 
@@ -218,7 +235,17 @@ export function AdminRevenuePolicy() {
             <div className="p-5 space-y-4">
               <div>
                 <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">
-                  새 값 ({KEY_META[editingKey]?.unit === "ratio" ? "%" : KEY_META[editingKey]?.unit === "krw" ? "원" : "시간"})
+                  새 값 ({(() => {
+                    const u = KEY_META[editingKey]?.unit;
+                    if (u === "ratio") return "%";
+                    if (u === "krw") return "원";
+                    if (u === "seconds") return "초";
+                    if (u === "count") return "건";
+                    return "시간";
+                  })()})
+                  {KEY_META[editingKey]?.hint && (
+                    <span className="ml-2 text-[10px] text-amber-400/80">— {KEY_META[editingKey]?.hint}</span>
+                  )}
                 </label>
                 <input
                   type="number"
