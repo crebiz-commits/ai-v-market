@@ -418,9 +418,11 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
   // Bunny Stream Player iframe embed URL
   // 진행바·볼륨·전체화면·재생속도·자막·HLS 적응형 비트레이트 등 모두 내장
   // VAST pre-roll 광고는 vastTagUrl 파라미터로 자동 적용
+  // source_video_id 는 path 에 박음 — Bunny 가 vastTagUrl 의 query string 부분을
+  // IMA SDK 에 전달하지 못해서 (2026-05-26 발견), path parameter 방식으로 우회.
   const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer";
   const vastTagUrl = encodeURIComponent(
-    `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/server/vast-tag?source_video_id=${product.id}`
+    `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/server/vast-tag/${product.id}`
   );
   const bunnyEmbedUrl = BUNNY_LIBRARY_ID && product.id
     ? `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${product.id}?autoplay=true&loop=false&muted=true&preload=true&responsive=true&vastTagUrl=${vastTagUrl}`

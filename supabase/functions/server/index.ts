@@ -437,7 +437,10 @@ app.get("/videos/my-videos", async (c) => {
 // Bunny Player의 vastTagUrl 파라미터에 이 엔드포인트 URL을 넘기면
 // pre-roll 광고로 자동 재생됨
 //
-// 호출 예: GET /vast-tag?source_video_id=abc123
+// 경로 설계 (2026-05-26): Bunny vastTagUrl 가 query string 을 보존하지 못해
+//   /vast-tag/:sourceVideoId (path parameter) 가 정식 경로.
+//   /vast-tag?source_video_id=... (query) 는 legacy 호환용 — RPC가 빈 source_video_id 를
+//   받으면 보수적으로 광고 차단.
 //
 // 동작:
 //   1. ad_type='video_preroll' && is_active=true 광고 중 가중치 랜덤 선택
@@ -456,13 +459,17 @@ function vastCorsHeaders(c: any) {
   };
 }
 
-app.get("/vast-tag", async (c) => {
+async function handleVastTag(c: any, sourceVideoId: string) {
   try {
-    const sourceVideoId = c.req.query('source_video_id') || '';
     const supabaseAdmin = getSupabaseClient(true);
 
     // 가중치 기반 랜덤 광고 선택
-    const { data: ads, error: pickError } = await supabaseAdmin.rpc('pick_random_video_preroll');
+    // source_video_id 전달 시 RPC가 영상 길이(< min_duration_for_preroll_seconds) 검사 후
+    // 1분 미만이면 빈 결과 반환 → 아래 fallback이 빈 VAST 응답 처리 (콘텐츠 정책 v2)
+    const { data: ads, error: pickError } = await supabaseAdmin.rpc(
+      'pick_random_video_preroll',
+      { p_source_video_id: sourceVideoId || null }
+    );
 
     if (pickError || !ads || ads.length === 0) {
       // 광고 없음 → 빈 VAST 응답 (Bunny가 광고 스킵)
@@ -552,10 +559,24 @@ app.get("/vast-tag", async (c) => {
       }
     );
   }
+}
+
+// 정식 경로 — path parameter (Bunny vastTagUrl 의 query string 누락 우회)
+app.get("/vast-tag/:sourceVideoId", (c: any) => {
+  return handleVastTag(c, c.req.param('sourceVideoId') || '');
+});
+
+// Legacy 경로 — query string. source_video_id 가 비어 도착하면 RPC가 광고 차단.
+app.get("/vast-tag", (c: any) => {
+  return handleVastTag(c, c.req.query('source_video_id') || '');
 });
 
 // CORS preflight (OPTIONS) for VAST endpoints
-app.options("/vast-tag", (c) => {
+app.options("/vast-tag", (c: any) => {
+  return new Response(null, { status: 204, headers: vastCorsHeaders(c) });
+});
+
+app.options("/vast-tag/:sourceVideoId", (c: any) => {
   return new Response(null, { status: 204, headers: vastCorsHeaders(c) });
 });
 
