@@ -127,9 +127,9 @@ DECLARE
   v_min_preroll  INTEGER;
   v_min_midroll  INTEGER;
 BEGIN
-  -- 영상 정보 조회
-  SELECT duration_seconds, category INTO v_duration_sec, v_category
-  FROM public.videos WHERE id = p_video_id;
+  -- 영상 정보 조회 — alias 명시 (RETURNS TABLE 의 duration_seconds 와 ambiguous 회피)
+  SELECT v.duration_seconds, v.category INTO v_duration_sec, v_category
+  FROM public.videos v WHERE v.id = p_video_id;
 
   IF v_duration_sec IS NULL THEN
     RETURN;
