@@ -76,6 +76,7 @@ const CinemaIconPreview = lazy(() => import("./components/CinemaIconPreview").th
 const UploadButtonPreview = lazy(() => import("./components/UploadButtonPreview").then(m => ({ default: m.UploadButtonPreview })));
 const OttDesignPreview = lazy(() => import("./components/OttDesignPreview").then(m => ({ default: m.OttDesignPreview })));
 const OgPreview = lazy(() => import("./components/OgPreview").then(m => ({ default: m.OgPreview })));
+const CreatorRevenueGuide = lazy(() => import("./components/CreatorRevenueGuide").then(m => ({ default: m.CreatorRevenueGuide })));
 
 // ────────────────────────────────────────────────────
 // 로딩 fallback (lazy 컴포넌트 다운로드 중 표시)
@@ -169,6 +170,44 @@ function AppContent() {
     );
   }
 
+  // 정보 페이지 라우팅 (?info=creator-revenue 등) — 직접 링크·공유·SEO 가능
+  const infoParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("info") : null;
+  if (infoParam) {
+    const goBack = () => {
+      // history.back() 시도 → 사이트 내부 navigation이면 이전 페이지로 복귀
+      // 외부 진입(URL 직접 입력·카톡 공유 등)이면 URL이 바뀌지 않음 → 100ms 후 메인으로 fallback
+      const beforeUrl = window.location.href;
+      window.history.back();
+      setTimeout(() => {
+        if (window.location.href === beforeUrl) {
+          // history.back() 작동 안 함 → 외부 진입으로 판단, 메인으로 이동
+          window.location.href = window.location.pathname;
+        }
+      }, 100);
+    };
+    if (infoParam === "creator-revenue") {
+      return (
+        <Suspense fallback={<PageLoading />}>
+          <CreatorRevenueGuide onBack={goBack} />
+        </Suspense>
+      );
+    }
+    if (infoParam === "terms") {
+      return (
+        <Suspense fallback={<PageLoading />}>
+          <TermsPage onBack={goBack} />
+        </Suspense>
+      );
+    }
+    if (infoParam === "privacy") {
+      return (
+        <Suspense fallback={<PageLoading />}>
+          <PrivacyPage onBack={goBack} />
+        </Suspense>
+      );
+    }
+  }
+
   const { t } = useTranslation();
   const [showSplash, setShowSplash] = useState(() => {
     const lastVisitDate = localStorage.getItem('aivm_last_visit');
@@ -179,7 +218,56 @@ function AppContent() {
     }
     return false;
   });
-  const [activeTab, setActiveTab] = useState<Tab>("discovery");
+  // 첫 마운트 시 URL ?tab= 파라미터에서 활성 탭 복원
+  // (다른 우선 라우팅 ?info=/?payment=/?preview=/?video= 있으면 그쪽이 우선, 메인은 "discovery"로 시작)
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    if (typeof window === "undefined") return "discovery";
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("info") || params.has("payment") || params.has("preview") || params.has("video")) {
+      return "discovery";
+    }
+    const tabFromUrl = params.get("tab") as Tab | null;
+    return tabFromUrl || "discovery";
+  });
+
+  // activeTab 변경 시 URL 동기화 (브라우저 뒤로가기 지원)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    // 다른 우선 라우팅 활성 시 ?tab= 처리 안 함 (?info=, ?payment= 등이 처리 중)
+    if (params.has("info") || params.has("payment") || params.has("preview") || params.has("video")) return;
+
+    const currentTabInUrl = params.get("tab");
+    if (activeTab === "discovery") {
+      if (currentTabInUrl) {
+        // 홈 진입 시 ?tab= 제거
+        params.delete("tab");
+        const newSearch = params.toString();
+        const newUrl = newSearch ? `${window.location.pathname}?${newSearch}` : window.location.pathname;
+        window.history.pushState({ tab: "discovery" }, "", newUrl);
+      }
+    } else if (currentTabInUrl !== activeTab) {
+      // 새 탭 진입 시 ?tab=XXX 추가 (history 스택 적립 → 뒤로가기로 복원 가능)
+      params.set("tab", activeTab);
+      window.history.pushState({ tab: activeTab }, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  }, [activeTab]);
+
+  // 브라우저 뒤로가기 (popstate) → URL ?tab=과 activeTab 동기화
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("info") || params.has("payment") || params.has("preview") || params.has("video")) {
+        // 다른 우선 라우팅이 처리할 영역 — App 컴포넌트 재마운트로 자동 처리
+        return;
+      }
+      const tabFromUrl = params.get("tab") as Tab | null;
+      setActiveTab(tabFromUrl || "discovery");
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, []);
   const [selectedProduct, setSelectedProductRaw] = useState<VideoProduct | null>(null);
   // Showcase Mode: demo- prefix 영상은 진입 차단 + 안내 토스트
   const setSelectedProduct = (product: VideoProduct | null) => {

@@ -112,12 +112,12 @@ export function Footer({ onNavigate }: FooterProps) {
                 </button>
               </li>
               <li>
-                <button
-                  onClick={() => onNavigate("terms")}
+                <a
+                  href="?info=creator-revenue"
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  Creator Guide
-                </button>
+                  {t("footer.creatorRevenue")}
+                </a>
               </li>
             </ul>
           </div>

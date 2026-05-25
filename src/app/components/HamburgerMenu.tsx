@@ -1,7 +1,7 @@
 import { useState } from "react";
 // @ts-ignore — react-dom 타입 미설치, 런타임은 정상
 import { createPortal } from "react-dom";
-import { Menu, X, Briefcase, Building2, FileText, Shield, Mail } from "lucide-react";
+import { Menu, X, Briefcase, Building2, FileText, Shield, Mail, Coins } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useBackButton } from "../hooks/useBackButton";
 import { useTranslation } from "react-i18next";
@@ -76,6 +76,17 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
                 <div className="px-3 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">{t("footer.terms")}</div>
                 <MenuItem icon={FileText} label={t("footer.terms")} onClick={() => handleNav("terms")} />
                 <MenuItem icon={Shield} label={t("footer.privacy")} onClick={() => handleNav("privacy")} />
+                <a
+                  href="?info=creator-revenue"
+                  className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-[#1c1c1e] border border-white/10 flex items-center justify-center shrink-0">
+                    <Coins className="w-5 h-5 text-gray-300" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] font-bold text-white">{t("footer.creatorRevenue")}</p>
+                  </div>
+                </a>
 
                 <div className="my-2 border-t border-white/5" />
 

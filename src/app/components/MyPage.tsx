@@ -1316,6 +1316,21 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
               </TabsContent>
 
               <TabsContent value="sales" className="space-y-4 m-0">
+                {/* 수익 정책 안내 링크 (대시보드 위) */}
+                <a
+                  href="?info=creator-revenue"
+                  className="flex items-center gap-3 p-3 md:p-4 rounded-xl bg-gradient-to-br from-[#a78bfa]/10 to-[#ec4899]/10 border border-[#a78bfa]/20 hover:border-[#a78bfa]/40 transition-colors group"
+                >
+                  <div className="shrink-0 w-9 h-9 rounded-lg bg-[#a78bfa]/15 flex items-center justify-center text-[#a78bfa] text-base">
+                    📊
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-white">{t("mypage.sales.revenueGuideLabel")}</p>
+                    <p className="text-xs text-gray-400">{t("mypage.sales.revenueGuideDesc")}</p>
+                  </div>
+                  <span className="text-xs text-[#a78bfa] group-hover:translate-x-0.5 transition-transform">→</span>
+                </a>
+
                 {/* Phase 21: 크리에이터 대시보드 (KPI 4개 + 일별 그래프) */}
                 <CreatorDashboard />
 

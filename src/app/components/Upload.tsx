@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useEffect } from "react";
-import { Upload as UploadIcon, Video, FileText, CheckCircle2, Loader2, X, ImagePlus, Lock } from "lucide-react";
+import { Upload as UploadIcon, Video, FileText, CheckCircle2, Loader2, X, ImagePlus, Lock, Coins } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -39,7 +39,6 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
   const { t } = useTranslation();
   const { user, accessToken } = useAuth();
   const [step, setStep] = useState(1);
-  const [uploadMethod, setUploadMethod] = useState<"single" | "bulk" | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -177,7 +176,6 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
           label: t("upload.draftContinue"),
           onClick: () => {
             setStep(draft.step || 1);
-            setUploadMethod(draft.uploadMethod || null);
             if (draft.formData) setFormData((prev) => ({ ...prev, ...draft.formData }));
             setAgreedToTerms(!!draft.agreedToTerms);
           },
@@ -196,7 +194,6 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
 
     const draft = {
       step,
-      uploadMethod,
       formData,
       agreedToTerms,
       savedAt: new Date().toISOString(),
@@ -206,7 +203,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     } catch (e) {
       console.warn("Draft save failed (storage limit?):", e);
     }
-  }, [step, uploadMethod, formData, agreedToTerms, user, draftKey, draftLoaded, uploadComplete]);
+  }, [step, formData, agreedToTerms, user, draftKey, draftLoaded, uploadComplete]);
 
   // 업로드 완료 시 드래프트 삭제
   useEffect(() => {
@@ -837,106 +834,30 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
     );
   }
 
-  if (!uploadMethod) {
-    return (
-      <div className="h-full flex items-center justify-center bg-background p-6">
-        <div className="max-w-2xl w-full mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl mb-2">{t("upload.modeTitle")}</h2>
-            <p className="text-muted-foreground">{t("upload.modeSubtitle")}</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setUploadMethod("single")}
-              className="p-6 border-2 border-border rounded-lg hover:border-[#6366f1] transition-colors text-left group"
-            >
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mb-4 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Video className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-lg mb-2">{t("upload.modeSingle")}</h3>
-              <p className="text-sm text-muted-foreground">
-                {t("upload.modeSingleDesc")}
-              </p>
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setUploadMethod("bulk")}
-              className="p-6 border-2 border-border rounded-lg hover:border-[#6366f1] transition-colors text-left group"
-            >
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#3b82f6] mb-4 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <FileText className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-lg mb-2">{t("upload.modeBulk")}</h3>
-              <p className="text-sm text-muted-foreground">
-                {t("upload.modeBulkDesc")}
-              </p>
-            </motion.button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (uploadMethod === "bulk") {
-    return (
-      <div className="h-full overflow-y-auto bg-background p-6">
-        <div className="max-w-2xl mx-auto">
-          <button
-            onClick={() => setUploadMethod(null)}
-            className="text-muted-foreground mb-4 hover:text-foreground"
-          >
-            {t("upload.back")}
-          </button>
-
-          <h2 className="text-2xl mb-6">{t("upload.bulkTitle")}</h2>
-
-          <div className="space-y-6">
-            <div className="p-6 border-2 border-dashed border-border rounded-lg text-center">
-              <UploadIcon className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="mb-2">{t("upload.bulkCsvHint")}</p>
-              <Button variant="outline" className="mb-4">
-                {t("upload.downloadTemplate")}
-              </Button>
-              <p className="text-sm text-muted-foreground mb-4">{t("upload.or")}</p>
-              <Button className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]">
-                {t("upload.uploadCsv")}
-              </Button>
-            </div>
-
-            <div className="bg-card p-6 rounded-lg border border-border">
-              <h3 className="mb-4">{t("upload.csvGuideTitle")}</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>• {t("upload.csvGuide1")}</li>
-                <li>• {t("upload.csvGuide2")}</li>
-                <li>• {t("upload.csvGuide3")}</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="h-full overflow-y-auto bg-background">
       <div className="max-w-3xl mx-auto p-6 md:p-8">
-        <button
-          onClick={() => setUploadMethod(null)}
-          className="text-muted-foreground mb-4 hover:text-foreground"
-        >
-          ← 뒤로
-        </button>
 
         {/* Bunny Setup Guide Modal */}
-        <BunnySetupGuide 
-          open={showBunnyGuide} 
-          onClose={() => setShowBunnyGuide(false)} 
+        <BunnySetupGuide
+          open={showBunnyGuide}
+          onClose={() => setShowBunnyGuide(false)}
         />
+
+        {/* 수익 정책 안내 */}
+        <a
+          href="?info=creator-revenue"
+          className="flex items-center gap-3 p-3 md:p-4 mb-6 rounded-xl bg-gradient-to-br from-[#a78bfa]/10 to-[#ec4899]/10 border border-[#a78bfa]/20 hover:border-[#a78bfa]/40 transition-colors group"
+        >
+          <div className="shrink-0 w-9 h-9 rounded-lg bg-[#a78bfa]/15 flex items-center justify-center">
+            <Coins className="w-4.5 h-4.5 text-[#a78bfa]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-white">{t("upload.revenueGuideLabel")}</p>
+            <p className="text-xs text-gray-400">{t("upload.revenueGuideDesc")}</p>
+          </div>
+          <span className="text-xs text-[#a78bfa] group-hover:translate-x-0.5 transition-transform">→</span>
+        </a>
 
         {/* Progress Steps */}
         <div className="mb-8">
