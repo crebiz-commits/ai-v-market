@@ -330,6 +330,20 @@ function AppContent() {
       toast.error(t("app.videoFetchFailed", { message: err?.message || err }));
     }
   };
+
+  // 첫 마운트 시 URL ?video=<id> 있으면 ProductDetail 자동 열기
+  // (공유 링크, OG 봇 이후 일반 사용자 진입, 외부 사이트 링크 모두 대상)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const videoId = params.get("video");
+    if (videoId && videoId.trim()) {
+      loadAndOpenVideo(videoId.trim());
+    }
+    // 첫 마운트만 — loadAndOpenVideo 는 closure 로 안정적
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [activePanel, setActivePanel] = useState<Panel>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
