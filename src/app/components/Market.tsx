@@ -714,10 +714,19 @@ export function Market({ onProductClick }: MarketProps) {
                     
                     <div className="flex items-center justify-between pt-3 border-t border-white/10 mt-auto">
                       <div className="flex flex-col">
-                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-0.5">Price</span>
-                        <span className="text-lg font-extrabold text-white">
-                          ₩{product.price.toLocaleString()}
-                        </span>
+                        {product.price > 0 ? (
+                          <>
+                            <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-0.5">Price</span>
+                            <span className="text-lg font-extrabold text-white">
+                              ₩{product.price.toLocaleString()}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-0.5">무료 시청</span>
+                            <span className="text-sm font-extrabold text-gray-400">라이선스 미판매</span>
+                          </>
+                        )}
                       </div>
                       <div className="flex flex-col items-end">
                         <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-0.5">Res</span>

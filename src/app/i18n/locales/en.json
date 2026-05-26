@@ -993,6 +993,8 @@
     "ageRestricted": "Age verification required",
     "movieDetail": "View movie",
     "downloadCommercial": "Download (Own · Commercial)",
+    "freeWatch": "Free viewing",
+    "notForSaleShort": "Not for sale",
     "ageGateLockTitle": "19+ Verification Required",
     "ageGateLockHint": "Tap to verify"
   },
@@ -1188,6 +1190,7 @@
     "shortVideoExplain": "Home feed shorts earn ad revenue only. For license sales, upload videos longer than 3 minutes.",
     "priceLabel": "Price *",
     "priceVatNotice": "Displayed price includes VAT.",
+    "freeVideoNotice": "💡 Setting the price to ₩0 means free viewing only — no license sales. Downloads are disabled, but ad revenue and subscriber view revenue are still settled normally.",
     "copyrightHeader": "Copyright Pledge",
     "copyrightPledge": "I confirm that this video does not infringe on any third-party copyrights and was created using plans that allow commercial use. I agree that any false statements are my full legal responsibility.",
     "uploadComplete": "Upload",
@@ -1325,7 +1328,10 @@
       "item9": "Price includes VAT",
       "purchaseWarning": "⚠️ Before You Purchase",
       "purchaseWarning1": "Refunds are not available due to the nature of video content",
-      "purchaseWarning2": "Please review the preview thoroughly before payment"
+      "purchaseWarning2": "Please review the preview thoroughly before payment",
+      "notForSale": "License not for sale",
+      "freeViewOnly": "Free viewing only",
+      "notForSaleDescription": "This video does not provide a license. Free viewing only — download and commercial use are not available."
     },
     "description": "Description",
     "tags": "Tags",

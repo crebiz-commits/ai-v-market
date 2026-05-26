@@ -551,12 +551,21 @@ const MovieSection = memo(({
           </div>
           <h3 className="text-sm font-bold text-white leading-tight line-clamp-1 mb-2 pr-16">{video.title}</h3>
 
-          {/* 가격 + 버튼 */}
+          {/* 가격 + 버튼 — ₩0 영상은 "무료 시청 / 라이선스 미판매" 로 표시 */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="flex flex-col">
-                <span className="text-[10px] text-white/50 font-medium leading-none mb-1">{t("video.downloadCommercial")}</span>
-                <span className="text-sm font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>
+                {video.price > 0 ? (
+                  <>
+                    <span className="text-[10px] text-white/50 font-medium leading-none mb-1">{t("video.downloadCommercial")}</span>
+                    <span className="text-sm font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[10px] text-white/50 font-medium leading-none mb-1">{t("video.freeWatch")}</span>
+                    <span className="text-sm font-black text-gray-400">{t("video.notForSaleShort")}</span>
+                  </>
+                )}
               </div>
             </div>
             <button

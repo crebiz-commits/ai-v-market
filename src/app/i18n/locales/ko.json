@@ -993,6 +993,8 @@
     "ageRestricted": "성인 인증이 필요한 콘텐츠입니다",
     "movieDetail": "영화 상세",
     "downloadCommercial": "다운로드 (소장 · 상업적 사용)",
+    "freeWatch": "무료 시청",
+    "notForSaleShort": "라이선스 미판매",
     "ageGateLockTitle": "19+ 인증 필요",
     "ageGateLockHint": "탭하여 본인 인증"
   },
@@ -1188,6 +1190,7 @@
     "shortVideoExplain": "홈 피드 숏폼은 광고 수익만 정산됩니다. 라이선스 판매를 원하시면 3분 이상 영상으로 업로드해 주세요.",
     "priceLabel": "가격 *",
     "priceVatNotice": "표시 가격은 부가세(VAT) 포함입니다.",
+    "freeVideoNotice": "💡 가격을 0원으로 설정하면 라이선스 판매 없이 무료 시청만 제공합니다. 영상 다운로드는 불가하지만 광고 수익 + 구독자 시청 수익은 동일하게 정산됩니다.",
     "copyrightHeader": "저작권 서약",
     "copyrightPledge": "본 영상은 타인의 저작권을 침해하지 않았으며, 상업적 이용이 가능한 요금제를 사용하여 제작되었음을 확인합니다. 허위 사실 기재 시 법적 책임은 전적으로 본인에게 있음에 동의합니다.",
     "uploadComplete": "업로드 완료",
@@ -1325,7 +1328,10 @@
       "item9": "표시 가격은 부가세(VAT) 포함",
       "purchaseWarning": "⚠️ 구매 전 안내",
       "purchaseWarning1": "영상 콘텐츠 특성상 구매 후 환불·반품이 불가능합니다",
-      "purchaseWarning2": "결제 전 미리보기를 통해 충분히 확인해 주시기 바랍니다"
+      "purchaseWarning2": "결제 전 미리보기를 통해 충분히 확인해 주시기 바랍니다",
+      "notForSale": "라이선스 미판매",
+      "freeViewOnly": "무료 시청만 가능",
+      "notForSaleDescription": "이 영상은 라이선스를 제공하지 않습니다. 무료로 시청만 가능하며 다운로드·상업적 사용은 불가합니다."
     },
     "description": "상품 설명",
     "tags": "태그",

@@ -1660,6 +1660,11 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                         <p className="text-xs text-muted-foreground mt-1">
                           {t("upload.priceVatNotice")}
                         </p>
+                        <div className="mt-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                          <p className="text-xs text-blue-200/90 leading-relaxed">
+                            {t("upload.freeVideoNotice")}
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>

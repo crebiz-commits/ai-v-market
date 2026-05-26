@@ -277,6 +277,8 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
     }
   };
   const durationSeconds = product.durationSeconds ?? parseDurationText(product.duration);
+  // 라이선스 판매 가능 여부 (₩0 영상은 무료 시청 전용, 라이선스 미판매)
+  const isLicensable = !!product.price && product.price > 0;
   // 페이월 정책 v2 — 동적 설정 (어드민 조절 가능). fallback은 1분
   const previewSeconds = settings.cinemaPreviewSeconds || FALLBACK_CINEMA_PREVIEW;
   const cinemaMinSec = settings.cinemaMinSeconds || FALLBACK_CINEMA_MIN;
@@ -1164,45 +1166,62 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               </div>
             )}
 
-            {/* License (단일 통합) */}
+            {/* License (단일 통합) — ₩0 영상은 회색 비활성 카드 + 안내 */}
             <div className="mb-6">
               <h3 className="mb-4">{t("productDetail.license.title")}</h3>
-              <div className="p-5 rounded-lg border-2 border-[#6366f1] bg-[#6366f1]/5">
-                <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
-                  <div>
-                    <p className="font-bold">All-in-One License</p>
-                    <p className="text-sm text-muted-foreground">{t("productDetail.license.subtitle")}</p>
+              {isLicensable ? (
+                <>
+                  <div className="p-5 rounded-lg border-2 border-[#6366f1] bg-[#6366f1]/5">
+                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
+                      <div>
+                        <p className="font-bold">All-in-One License</p>
+                        <p className="text-sm text-muted-foreground">{t("productDetail.license.subtitle")}</p>
+                      </div>
+                      <p className="text-xl font-black text-[#6366f1]">₩{product.price.toLocaleString()}</p>
+                    </div>
+                    <ul className="space-y-2">
+                      {[
+                        t("productDetail.license.item1"),
+                        t("productDetail.license.item2"),
+                        t("productDetail.license.item3"),
+                        t("productDetail.license.item4"),
+                        t("productDetail.license.item5"),
+                        t("productDetail.license.item6"),
+                        t("productDetail.license.item7"),
+                        t("productDetail.license.item8"),
+                        t("productDetail.license.item9"),
+                      ].map((feature, idx) => (
+                        <li key={idx} className="text-sm text-foreground/80 flex items-start gap-2">
+                          <Check className="w-4 h-4 text-[#10b981] mt-0.5 flex-shrink-0" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <p className="text-xl font-black text-[#6366f1]">₩{product.price.toLocaleString()}</p>
-                </div>
-                <ul className="space-y-2">
-                  {[
-                    t("productDetail.license.item1"),
-                    t("productDetail.license.item2"),
-                    t("productDetail.license.item3"),
-                    t("productDetail.license.item4"),
-                    t("productDetail.license.item5"),
-                    t("productDetail.license.item6"),
-                    t("productDetail.license.item7"),
-                    t("productDetail.license.item8"),
-                    t("productDetail.license.item9"),
-                  ].map((feature, idx) => (
-                    <li key={idx} className="text-sm text-foreground/80 flex items-start gap-2">
-                      <Check className="w-4 h-4 text-[#10b981] mt-0.5 flex-shrink-0" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
 
-              {/* 주의 사항 */}
-              <div className="mt-4 p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                <p className="text-sm font-bold text-amber-200 mb-2">{t("productDetail.license.purchaseWarning")}</p>
-                <ul className="space-y-1 text-xs text-amber-100/80 leading-relaxed">
-                  <li>• {t("productDetail.license.purchaseWarning1")}</li>
-                  <li>• {t("productDetail.license.purchaseWarning2")}</li>
-                </ul>
-              </div>
+                  {/* 주의 사항 */}
+                  <div className="mt-4 p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                    <p className="text-sm font-bold text-amber-200 mb-2">{t("productDetail.license.purchaseWarning")}</p>
+                    <ul className="space-y-1 text-xs text-amber-100/80 leading-relaxed">
+                      <li>• {t("productDetail.license.purchaseWarning1")}</li>
+                      <li>• {t("productDetail.license.purchaseWarning2")}</li>
+                    </ul>
+                  </div>
+                </>
+              ) : (
+                <div className="p-5 rounded-lg border-2 border-white/10 bg-white/[0.03] opacity-80">
+                  <div className="flex items-center justify-between mb-3 pb-3 border-b border-white/10">
+                    <div>
+                      <p className="font-bold text-gray-300">{t("productDetail.license.notForSale")}</p>
+                      <p className="text-sm text-gray-500">{t("productDetail.license.freeViewOnly")}</p>
+                    </div>
+                    <Lock className="w-6 h-6 text-gray-500" />
+                  </div>
+                  <p className="text-sm text-gray-400 leading-relaxed">
+                    {t("productDetail.license.notForSaleDescription")}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Product Description */}
@@ -1425,8 +1444,17 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
 
             <div className="flex-1" />
             <div className="text-right">
-              <p className="text-xs text-muted-foreground">{t("productDetail.cart.allInOneLicense")}</p>
-              <p className="text-2xl font-medium text-[#6366f1]">₩{product.price.toLocaleString()}</p>
+              {isLicensable ? (
+                <>
+                  <p className="text-xs text-muted-foreground">{t("productDetail.cart.allInOneLicense")}</p>
+                  <p className="text-2xl font-medium text-[#6366f1]">₩{product.price.toLocaleString()}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500">{t("productDetail.license.freeViewOnly")}</p>
+                  <p className="text-base font-bold text-gray-400">{t("productDetail.license.notForSale")}</p>
+                </>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -1434,7 +1462,8 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               onClick={handleAddToCart}
               variant="outline"
               className="gap-2"
-              disabled={addedToCart}
+              disabled={addedToCart || !isLicensable}
+              title={!isLicensable ? t("productDetail.license.notForSale") : undefined}
             >
               {addedToCart ? (
                 <>
@@ -1450,8 +1479,9 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
             </Button>
             <Button
               onClick={handleBuyNow}
-              disabled={buyingLicense}
+              disabled={buyingLicense || !isLicensable}
               className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] disabled:opacity-60"
+              title={!isLicensable ? t("productDetail.license.notForSale") : undefined}
             >
               {buyingLicense ? (
                 <>

@@ -150,9 +150,9 @@ export function CreatorRevenueGuide({ onBack }: CreatorRevenueGuideProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-base font-bold text-white mb-1">홈 피드 숏폼 (0~3분 미만)</h3>
-                  <p className="text-xs text-gray-500 mb-3">홈 피드의 짧은 영상으로 노출됩니다. 시청자가 빠르게 스크롤하며 발견하는 영역.</p>
+                  <p className="text-xs text-gray-500 mb-3">홈 피드의 짧은 영상으로 노출됩니다. 라이선스 판매는 불가하며 광고 수익만 정산됩니다.</p>
                   <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">📦 라이선스 판매 80%</span>
+                    <span className="px-2.5 py-1 rounded-full bg-muted text-muted-foreground border border-white/5 opacity-50">📦 라이선스 판매 ✗</span>
                     <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">📢 영상 광고 50%</span>
                     <span className="px-2.5 py-1 rounded-full bg-muted text-muted-foreground border border-white/5 opacity-50">👑 구독 분배 ✗</span>
                   </div>
@@ -193,10 +193,13 @@ export function CreatorRevenueGuide({ onBack }: CreatorRevenueGuideProps) {
                   <div className="flex flex-wrap gap-2 text-xs mb-3">
                     <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">📦 라이선스 판매 80%</span>
                     <span className="px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">📢 영상 광고 60%</span>
-                    <span className="px-2.5 py-1 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30">👑 구독료 분배 ✓</span>
+                    <span className="px-2.5 py-1 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30">👑 구독료 분배 50%</span>
                   </div>
                   <div className="text-[11px] text-gray-400 leading-relaxed bg-white/[0.02] rounded-lg px-3 py-2 border border-white/5">
                     💡 <strong className="text-gray-300">영상이 길수록 유리</strong>: 같은 영상이라도 길이가 길면 시청 시간이 더 누적되어 구독료 분배 비율 ↑, 광고 노출 기회도 ↑ (mid-roll 등 다중 노출 가능).
+                  </div>
+                  <div className="text-[11px] text-gray-400 leading-relaxed bg-purple-500/5 rounded-lg px-3 py-2 border border-purple-500/15 mt-2">
+                    📢 <strong className="text-purple-300">광고 수익 발생 시점</strong>: OTT 영상의 광고 수익(60%)은 비구독자가 1분 미리보기로 진입한 동안만 발생합니다. 구독자는 광고 없이 시청하므로, 구독자 시청분은 구독료 분배(50%)로 정산됩니다.
                   </div>
                 </div>
               </div>
@@ -252,7 +255,7 @@ export function CreatorRevenueGuide({ onBack }: CreatorRevenueGuideProps) {
           <div className="bg-gradient-to-br from-purple-500/10 via-purple-500/5 to-transparent border border-purple-500/20 rounded-2xl p-5 mb-4">
             <p className="text-xs text-purple-300 font-bold mb-2">📐 분배 공식</p>
             <code className="block text-sm text-white font-mono leading-relaxed bg-[#0a0a0a] p-3 rounded-lg whitespace-pre-wrap">
-              내 수익 = (내 OTT 영상 유효 시청 시간 ÷ 전체 OTT 시청 시간) × 크리에이터 풀
+              내 수익 = (내 OTT 영상 유효 시청 시간 / 전체 OTT 시청 시간) × 크리에이터 풀
               {"\n\n"}
               크리에이터 풀 = 전체 구독 매출 × 50%
             </code>
