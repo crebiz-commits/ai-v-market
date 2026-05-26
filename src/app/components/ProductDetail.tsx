@@ -437,12 +437,8 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
     setPrerollAd(null);
   }, [product.id]);
   useEffect(() => {
-    // ⚠️ 광고 시스템 긴급 비활성화 (2026-05-26)
-    // 사용자 보고: 탭 메모리 800MB+ 사용으로 시스템 전체 버벅거림 / 광고 끝나도 본편 진입 실패.
-    // 메모리 누수 원인 정밀 진단 + 광고 video 안전망 검증 후 재활성 예정.
-    // 임시로 광고 전체 차단하여 사용자 작업 환경 보장.
-    return;
-    // eslint-disable-next-line @typescript-eslint/no-unreachable-code
+    // Phase 28 정책 v5 (2026-05-26): AdMidrollPlayer 가 video.js 기반으로 재작성되어
+    // dispose() 로 mp4 buffer/listener 자동 해제 → 메모리 누수 해결. preroll 재활성.
     if (prerollFetchedRef.current) return;
     if (cinemaCutoffTriggered || isAgeLocked) return;
     if (isPremium) return;
