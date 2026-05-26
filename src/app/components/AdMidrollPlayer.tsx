@@ -23,7 +23,7 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
     recordAdImpression(ad.ad_id, videoId, format);
   }, [ad.ad_id, videoId, format]);
 
-  // 영상 재생 진행도 추적 → SKIP 버튼 활성화
+  // 영상 재생 진행도 추적 → SKIP 버튼 활성화 + 안전망 (error / timeout)
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -36,13 +36,28 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
       recordAdImpression(ad.ad_id, videoId, format, { completed: true, positionSeconds: Math.floor(v.duration || 0) });
       onComplete({ skipped: false });
     };
+    const onError = () => {
+      console.error("[AdMidrollPlayer] video error", v.error);
+      onComplete({ skipped: false });
+    };
+    // Fallback timeout: 광고 max_duration + 5초 후에도 ended 안 오면 강제 종료
+    // (버퍼 부족 / 네트워크 stall 등으로 video 가 멈춰도 본편 진입 보장)
+    const maxDur = ad.duration_seconds || 30;
+    const timeoutId = window.setTimeout(() => {
+      console.warn(`[AdMidrollPlayer] timeout fallback after ${maxDur + 5}s, forcing complete`);
+      onComplete({ skipped: false });
+    }, (maxDur + 5) * 1000);
+
     v.addEventListener("timeupdate", onTime);
     v.addEventListener("ended", onEnded);
+    v.addEventListener("error", onError);
     return () => {
+      window.clearTimeout(timeoutId);
       v.removeEventListener("timeupdate", onTime);
       v.removeEventListener("ended", onEnded);
+      v.removeEventListener("error", onError);
     };
-  }, [ad.ad_id, videoId, format, skipAfter, canSkip, onComplete]);
+  }, [ad.ad_id, videoId, format, skipAfter, canSkip, onComplete, ad.duration_seconds]);
 
   const handleSkip = () => {
     if (!canSkip) return;
@@ -71,6 +86,7 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
           autoPlay
           muted
           playsInline
+          preload="auto"
           controls={false}
           className="w-full h-full object-contain"
           onClick={handleClick}
