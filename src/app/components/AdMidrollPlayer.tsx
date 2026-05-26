@@ -63,11 +63,13 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
       className="absolute inset-0 z-40 bg-black flex items-center justify-center"
     >
       {/* 광고 영상 */}
+      {/* muted 필수 — Chrome autoplay 정책: 소리 있는 영상은 사용자 인터랙션 없이 자동재생 차단 */}
       {ad.video_url ? (
         <video
           ref={videoRef}
           src={ad.video_url}
           autoPlay
+          muted
           playsInline
           controls={false}
           className="w-full h-full object-contain"
@@ -85,7 +87,7 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
       {/* 상단 AD 라벨 */}
       <div className="absolute top-3 left-3 flex items-center gap-2">
         <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded bg-amber-500/90 text-white">
-          AD · {format === "midroll" ? "MID-ROLL" : format === "postroll" ? "POST-ROLL" : "BUMPER"}
+          AD · {format === "midroll" ? "MID-ROLL" : format === "postroll" ? "POST-ROLL" : format === "preroll" ? "PRE-ROLL" : "BUMPER"}
         </span>
         {ad.advertiser && (
           <span className="text-xs text-white/80 font-medium">{ad.advertiser}</span>
