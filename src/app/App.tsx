@@ -77,6 +77,7 @@ const CinemaIconPreview = lazy(() => import("./components/CinemaIconPreview").th
 const UploadButtonPreview = lazy(() => import("./components/UploadButtonPreview").then(m => ({ default: m.UploadButtonPreview })));
 const OttDesignPreview = lazy(() => import("./components/OttDesignPreview").then(m => ({ default: m.OttDesignPreview })));
 const OgPreview = lazy(() => import("./components/OgPreview").then(m => ({ default: m.OgPreview })));
+const PreviewBadgePreview = lazy(() => import("./components/PreviewBadgePreview").then(m => ({ default: m.PreviewBadgePreview })));
 const CreatorRevenueGuide = lazy(() => import("./components/CreatorRevenueGuide").then(m => ({ default: m.CreatorRevenueGuide })));
 
 // ────────────────────────────────────────────────────
@@ -151,6 +152,7 @@ function AppContent() {
       uploadbtn: <UploadButtonPreview />,
       "ott-design": <OttDesignPreview />,
       og: <OgPreview />,
+      "preview-badge": <PreviewBadgePreview />,
     };
     if (previewMap[previewParam]) {
       return <Suspense fallback={<PageLoading />}>{previewMap[previewParam]}</Suspense>;

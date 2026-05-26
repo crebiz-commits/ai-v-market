@@ -1048,7 +1048,7 @@
   "cinema": {
     "heroCinemaTitle": "시네마",
     "heroOttTitle": "프리미엄 OTT",
-    "heroSubtitleCinema": "3분+ 시네마틱 영상 — 미리보기 3분 무료",
+    "heroSubtitleCinema": "3분+ 시네마틱 영상 — 미리보기 1분 무료",
     "heroSubtitleOtt": "10분+ 장편 콘텐츠 — 프리미엄 구독자 전용",
     "searchPlaceholder": "{{tier}} 영상 검색",
     "noSearchResults": "\"{{query}}\" 검색 결과가 없습니다",
@@ -1298,7 +1298,7 @@
       "cinemaDescription": "구독하시면 이 영상의 전체를 시청하실 수 있습니다. 월 ₩4,900.",
       "subscribe": "구독하기",
       "cannotPlay": "영상을 재생할 수 없습니다 (라이브러리 설정 누락)",
-      "cinemaPreviewBadge": "3분 미리보기 — 구독 시 풀 영상"
+      "cinemaPreviewBadge": "1분 미리보기 — 구독 시 풀 영상"
     },
     "meta": {
       "resolution": "해상도",

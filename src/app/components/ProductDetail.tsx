@@ -875,6 +875,13 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
       >
       {/* Main column */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        {/* 비구독자 미리보기 슬림 헤더 (영상 영역 밖, 다크 톤) */}
+        {needsPreviewCutoff && !iframeBlocked && (
+          <div className="bg-black/95 px-4 py-2 flex items-center justify-center gap-2 text-amber-300 text-xs font-bold border-b border-amber-500/30 shrink-0">
+            <Lock className="w-3.5 h-3.5" />
+            {t("productDetail.paywall.cinemaPreviewBadge")}
+          </div>
+        )}
         {/* Header — 영상 재생 영역 (페이월 적용) */}
         <div className="relative bg-black aspect-video md:aspect-video max-h-[40vh] md:max-h-none flex items-center justify-center overflow-hidden shrink-0">
           {iframeBlocked ? (
@@ -939,13 +946,6 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
           )}
 
 
-          {/* 미리보기 카운트다운 표시 (비구독자 + 미리보기 필요 + iframe 활성 시) */}
-          {needsPreviewCutoff && !iframeBlocked && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-amber-500/90 backdrop-blur-sm rounded-full text-white text-xs font-black shadow-lg flex items-center gap-1.5 pointer-events-none">
-              <Lock className="w-3.5 h-3.5" />
-              {t("productDetail.paywall.cinemaPreviewBadge")}
-            </div>
-          )}
 
           {/* Phase 28: Overlay 광고 (재생 중 하단 배너) */}
           {overlayAd && !iframeBlocked && !midrollAd && (

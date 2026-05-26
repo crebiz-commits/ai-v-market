@@ -1048,7 +1048,7 @@
   "cinema": {
     "heroCinemaTitle": "Cinema",
     "heroOttTitle": "Premium OTT",
-    "heroSubtitleCinema": "3-min+ cinematic videos — 3-min preview free",
+    "heroSubtitleCinema": "3-min+ cinematic videos — 1-min preview free",
     "heroSubtitleOtt": "10-min+ long-form content — Premium subscribers only",
     "searchPlaceholder": "Search {{tier}} videos",
     "noSearchResults": "\"{{query}}\" — No results",
@@ -1298,7 +1298,7 @@
       "cinemaDescription": "Subscribe to watch the full video. ₩4,900/month.",
       "subscribe": "Subscribe",
       "cannotPlay": "Cannot play this video (library setup missing)",
-      "cinemaPreviewBadge": "3-min preview — Subscribe for full video"
+      "cinemaPreviewBadge": "1-min preview — Subscribe for full video"
     },
     "meta": {
       "resolution": "Resolution",

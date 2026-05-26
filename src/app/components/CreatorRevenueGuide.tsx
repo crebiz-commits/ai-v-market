@@ -168,7 +168,7 @@ export function CreatorRevenueGuide({ onBack }: CreatorRevenueGuideProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-base font-bold text-white mb-1">시네마 (3분 이상)</h3>
-                  <p className="text-xs text-gray-500 mb-3">시네마 탭에 노출. 비구독자도 3분까지 미리보기 가능 → 시청자가 끝까지 보려면 구독.</p>
+                  <p className="text-xs text-gray-500 mb-3">시네마 탭에 노출. 비구독자도 1분까지 미리보기 가능 → 시청자가 끝까지 보려면 구독.</p>
                   <div className="flex flex-wrap gap-2 text-xs">
                     <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">📦 라이선스 판매 80%</span>
                     <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">📢 영상 광고 55%</span>
