@@ -417,27 +417,60 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
 
   // Bunny Stream Player iframe embed URL
   // 진행바·볼륨·전체화면·재생속도·자막·HLS 적응형 비트레이트 등 모두 내장
-  // VAST pre-roll 광고는 vastTagUrl 파라미터로 자동 적용
   //
-  // 1분 미만 영상 차단은 클라이언트 측에서 처리 (2026-05-26 재설계).
-  // 배경: Bunny vastTagUrl 의 path/query 양쪽 모두 IMA SDK 에 전달 못함 → 서버에서
-  // source_video_id 확인 불가 → 1분 미만에서도 광고 노출되던 문제. 해결: 1분 미만
-  // 영상은 클라이언트가 vastTagUrl 자체를 안 보냄 → Bunny 가 광고 호출 안 함.
-  const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer";
-  const PREROLL_MIN_SECONDS = 60;
-  const shouldShowPreroll = durationSeconds >= PREROLL_MIN_SECONDS;
-  const vastTagUrl = shouldShowPreroll
-    ? encodeURIComponent(
-        `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/server/vast-tag/${product.id}`
-      )
-    : '';
+  // VAST pre-roll 정책 v4 (2026-05-26): Bunny iframe 의 vastTagUrl 파라미터 폐기.
+  // Bunny 가 vastTagUrl 의 path/query 양쪽 모두 IMA SDK 에 전달 못해서
+  // 1분 미만 차단 정책 적용이 사실상 불가. 자체 광고 컴포넌트(AdMidrollPlayer
+  // format='preroll')로 본편 iframe 앞에 직접 광고 영상 띄우는 방식으로 전환.
+  // 영상 길이 검사·skip 정책 분기·트래킹 모두 클라이언트가 직접 컨트롤.
   const bunnyEmbedUrl = BUNNY_LIBRARY_ID && product.id
-    ? `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${product.id}?autoplay=true&loop=false&muted=true&preload=true&responsive=true${vastTagUrl ? `&vastTagUrl=${vastTagUrl}` : ''}`
+    ? `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${product.id}?autoplay=true&loop=false&muted=true&preload=true&responsive=true`
     : null;
 
-  // iframe 실제 노출 여부 — 미리보기 컷오프 + Phase 26: 19+ 미인증 차단
+  // ── 자체 VAST Pre-roll 광고 (정책 v4 — Bunny vastTagUrl 폐기, 자체 컴포넌트) ──
+  // 1분+ 영상이고 비프리미엄일 때만 본편 iframe 앞에 광고 영상 직접 재생.
+  // 영상 변경 시 1회만 fetch (광고 종료 후 재 fetch 안 함).
+  const [prerollAd, setPrerollAd] = useState<AdRpcResult | null>(null);
+  const prerollFetchedRef = useRef(false);
+  useEffect(() => {
+    prerollFetchedRef.current = false;
+    setPrerollAd(null);
+  }, [product.id]);
+  useEffect(() => {
+    if (prerollFetchedRef.current) return;
+    if (cinemaCutoffTriggered || isAgeLocked) return;
+    if (isPremium) return;
+    if (!product.id || !durationSeconds || durationSeconds < 60) return;
+    prerollFetchedRef.current = true;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.rpc("pick_random_video_preroll", {
+        p_source_video_id: product.id,
+      });
+      if (cancelled || error || !data || data.length === 0) return;
+      const ad = data[0];
+      // tier별 SKIP 정책: free=SKIP 불가, basic=5초 후
+      const skipOverride = subscriptionTier === "basic" ? 5 : null;
+      setPrerollAd({
+        ad_id: ad.id,
+        title: ad.title || "",
+        advertiser: ad.advertiser || "",
+        image_url: ad.image_url || null,
+        video_url: ad.video_url || "",
+        thumbnail_url: ad.thumbnail_url || null,
+        link_url: ad.link_url || null,
+        cta_text: ad.cta_text || null,
+        duration_seconds: ad.max_duration || 10,
+        skip_after_seconds: skipOverride,
+        trigger_position_pct: null,
+      } as AdRpcResult);
+    })();
+    return () => { cancelled = true; };
+  }, [product.id, cinemaCutoffTriggered, isAgeLocked, isPremium, subscriptionTier, durationSeconds]);
+
+  // iframe 실제 노출 여부 — 미리보기 컷오프 + Phase 26: 19+ 미인증 차단 + 자체 광고 재생 중 차단
   // (v2 정책: OTT 즉시 차단 제거 — 모든 영상 1분 미리보기 통일)
-  const iframeBlocked = cinemaCutoffTriggered || isAgeLocked;
+  const iframeBlocked = cinemaCutoffTriggered || isAgeLocked || !!prerollAd;
 
   // ── Phase 28: Overlay 광고 (재생 중 30% 지점, 1분+ 영상만) ──
   const [overlayAd, setOverlayAd] = useState<AdRpcResult | null>(null);
@@ -954,6 +987,17 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                 setBumperAd(null);
                 postBunnyCommand(iframeRef.current, "play");
               }}
+            />
+          )}
+
+          {/* 정책 v4: 자체 VAST Pre-roll 광고 (본편 iframe 앞에 풀스크린) */}
+          {/* prerollAd 가 있는 동안 iframeBlocked=true 라 본편 iframe 안 뜸 → 광고 종료 시 onComplete → setPrerollAd(null) → iframeBlocked=false → iframe 자동 마운트+autoplay */}
+          {prerollAd && (cinemaCutoffTriggered === false && isAgeLocked === false) && (
+            <AdMidrollPlayer
+              ad={prerollAd}
+              videoId={product.id}
+              format="preroll"
+              onComplete={() => setPrerollAd(null)}
             />
           )}
 

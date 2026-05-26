@@ -11,7 +11,8 @@ import { useState, lazy, Suspense } from "react";
 import {
   ShieldCheck, Megaphone, Settings, Coins, Flag, EyeOff,
   ArrowLeft, Menu, X, ShieldAlert, Loader2, LayoutDashboard,
-  Users, Film, DollarSign, Send, ClipboardList, MessageSquare
+  Users, Film, DollarSign, Send, ClipboardList, MessageSquare,
+  Globe, Sparkles
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
@@ -29,10 +30,14 @@ const AdminComments = lazy(() => import("./AdminComments").then(m => ({ default:
 const AdminPayments = lazy(() => import("./AdminPayments").then(m => ({ default: m.AdminPayments })));
 const AdminBroadcast = lazy(() => import("./AdminBroadcast").then(m => ({ default: m.AdminBroadcast })));
 const AdminActivityLog = lazy(() => import("./AdminActivityLog").then(m => ({ default: m.AdminActivityLog })));
+const AdminExternalAds = lazy(() => import("./AdminExternalAds").then(m => ({ default: m.AdminExternalAds })));
+const AdminSponsorships = lazy(() => import("./AdminSponsorships").then(m => ({ default: m.AdminSponsorships })));
 
 type AdminPage =
   | "overview"      // 대시보드 (한눈에 보기)
-  | "ads"           // 광고 관리
+  | "ads"           // 자체 광고 (CREAITE House Ads)
+  | "external_ads"  // 외부 광고 (Google AdSense / 쿠팡 등) — placeholder
+  | "sponsorships"  // 크리에이터 스폰서십 검수 — placeholder
   | "policy"        // 수익 정책
   | "settlement"    // 정산 관리
   | "payments"      // 결제/환불
@@ -52,18 +57,20 @@ interface MenuItem {
 }
 
 const MENU: MenuItem[] = [
-  { key: "overview",   label: "대시보드",   icon: LayoutDashboard, group: "📊 한눈에 보기" },
-  { key: "users",      label: "사용자 관리", icon: Users,     group: "👥 운영" },
-  { key: "content",    label: "콘텐츠 관리", icon: Film,      group: "👥 운영" },
-  { key: "broadcast",  label: "공지 발송",  icon: Send,      group: "👥 운영" },
-  { key: "ads",        label: "광고 관리",  icon: Megaphone, group: "💰 수익화" },
-  { key: "policy",     label: "수익 정책",  icon: Settings,  group: "💰 수익화" },
-  { key: "settlement", label: "정산 관리",  icon: Coins,     group: "💰 수익화" },
-  { key: "payments",   label: "결제·환불",  icon: DollarSign, group: "💰 수익화" },
-  { key: "reports",    label: "신고 큐",    icon: Flag,      group: "🛡 안전·품질" },
-  { key: "moderation", label: "숨김 콘텐츠", icon: EyeOff,    group: "🛡 안전·품질" },
-  { key: "comments",   label: "댓글 관리",  icon: MessageSquare, group: "🛡 안전·품질" },
-  { key: "activity",   label: "활동 로그",  icon: ClipboardList, group: "🛡 안전·품질" },
+  { key: "overview",     label: "대시보드",        icon: LayoutDashboard, group: "📊 한눈에 보기" },
+  { key: "users",        label: "사용자 관리",      icon: Users,           group: "👥 운영" },
+  { key: "content",      label: "콘텐츠 관리",      icon: Film,            group: "👥 운영" },
+  { key: "broadcast",    label: "공지 발송",       icon: Send,            group: "👥 운영" },
+  { key: "ads",          label: "자체 광고",       icon: Megaphone,       group: "📢 광고 관리" },
+  { key: "external_ads", label: "외부 광고",       icon: Globe,           group: "📢 광고 관리" },
+  { key: "sponsorships", label: "크리에이터 스폰서십", icon: Sparkles,        group: "📢 광고 관리" },
+  { key: "policy",       label: "수익 정책",       icon: Settings,        group: "💰 수익화" },
+  { key: "settlement",   label: "정산 관리",       icon: Coins,           group: "💰 수익화" },
+  { key: "payments",     label: "결제·환불",       icon: DollarSign,      group: "💰 수익화" },
+  { key: "reports",      label: "신고 큐",         icon: Flag,            group: "🛡 안전·품질" },
+  { key: "moderation",   label: "숨김 콘텐츠",      icon: EyeOff,          group: "🛡 안전·품질" },
+  { key: "comments",     label: "댓글 관리",       icon: MessageSquare,   group: "🛡 안전·품질" },
+  { key: "activity",     label: "활동 로그",       icon: ClipboardList,   group: "🛡 안전·품질" },
 ];
 
 const PAGE_META: Record<AdminPage, { title: string; subtitle: string }> = {
@@ -71,7 +78,9 @@ const PAGE_META: Record<AdminPage, { title: string; subtitle: string }> = {
   users:      { title: "사용자 관리",    subtitle: "사용자 검색, 정지, 어드민 권한 부여를 관리합니다" },
   content:    { title: "콘텐츠 관리",    subtitle: "전체 영상 검색, 강제 숨김, 영구 삭제를 처리합니다" },
   broadcast:  { title: "공지 발송",      subtitle: "전체/세그먼트 사용자에게 인앱 공지를 발송합니다" },
-  ads:        { title: "광고 관리",      subtitle: "Discovery Feed에 노출되는 광고를 관리합니다" },
+  ads:          { title: "자체 광고",          subtitle: "CREAITE House Ads — 영상 pre-roll, 피드 카드 광고 등록·관리" },
+  external_ads: { title: "외부 광고",          subtitle: "Google AdSense / 쿠팡 파트너스 등 외부 광고 통합 (준비 중)" },
+  sponsorships: { title: "크리에이터 스폰서십", subtitle: "크리에이터가 영상에 등록한 협찬·스폰서 배지 검수 (준비 중)" },
   policy:     { title: "수익 정책",      subtitle: "크리에이터 분배율·CPM·정산 허들을 변경하고 이력을 추적합니다" },
   settlement: { title: "정산 관리",      subtitle: "월별 크리에이터 수익을 산출하고 지급 처리합니다" },
   payments:   { title: "결제·환불",      subtitle: "모든 결제 내역 조회 및 환불 처리 (구독/라이선스/광고예산)" },
@@ -133,6 +142,8 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
         {currentPage === "content" && <AdminContent />}
         {currentPage === "broadcast" && <AdminBroadcast />}
         {currentPage === "ads" && <AdminDashboard />}
+        {currentPage === "external_ads" && <AdminExternalAds />}
+        {currentPage === "sponsorships" && <AdminSponsorships />}
         {currentPage === "policy" && <AdminRevenuePolicy />}
         {currentPage === "settlement" && <AdminRevenueSettlement />}
         {currentPage === "payments" && <AdminPayments />}
