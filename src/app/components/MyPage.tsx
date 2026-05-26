@@ -275,6 +275,7 @@ function BlockedUsersSection() {
 
 interface Purchase {
   id: string;
+  videoId: string;
   thumbnail: string;
   title: string;
   license: string;
@@ -426,6 +427,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
   });
   const { user, profile, subscriptionTier, isSubscriber, signOut, isAuthenticated } = useAuth();
   const [purchaseHistory, setPurchaseHistory] = useState<Purchase[]>([]);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [myProducts, setMyProducts] = useState<MyProduct[]>([]);
   const [monthlySales, setMonthlySales] = useState<{month: string, sales: number}[]>([]);
   const [adStats, setAdStats] = useState<{ impressions: number; clicks: number; completes: number; skips: number }>({
@@ -529,6 +531,32 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
   useBackButton(showProfileEdit, () => setShowProfileEdit(false));
   useBackButton(showPasswordChange, () => setShowPasswordChange(false));
 
+  // 라이선스 영상 다운로드 — log_download RPC + Bunny mp4 URL 새 탭 열기
+  // (Bunny CDN cross-origin 이라 <a download> 속성이 무시될 수 있어 새 탭 우클릭 저장 안내)
+  const handleDownloadPurchase = async (purchase: Purchase) => {
+    if (downloadingId) return;
+    setDownloadingId(purchase.id);
+    try {
+      const { data, error } = await supabase.rpc('log_download', {
+        p_order_id: purchase.id,
+        p_user_agent: navigator.userAgent,
+      });
+      if (error) throw error;
+      const videoId = (data && data[0]?.video_id) || purchase.videoId;
+      if (!videoId) throw new Error('영상 ID 가 없습니다');
+      const libraryId = (import.meta as any).env?.VITE_BUNNY_LIBRARY_ID || '';
+      const bunnyHostname = (import.meta as any).env?.VITE_BUNNY_HOSTNAME || `vz-${libraryId}.b-cdn.net`;
+      const mp4Url = `https://${bunnyHostname}/${videoId}/play_720p.mp4`;
+      window.open(mp4Url, '_blank', 'noopener,noreferrer');
+      toast.success(t('mypage.purchases.downloadStarted'));
+    } catch (err: any) {
+      console.error('[MyPage] 다운로드 실패:', err);
+      toast.error(`${t('mypage.purchases.downloadFailed')}: ${err?.message || ''}`);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   // 각 쿼리를 독립적으로 try/catch — 한 쿼리 실패가 다른 쿼리를 막지 않음
   // 실패한 쿼리는 console.warn만 (사용자 toast 안 띄움) — 빈 화면 대신 부분 데이터 표시
   const fetchMyData = async () => {
@@ -549,6 +577,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
       } else if (purchaseData) {
         setPurchaseHistory(purchaseData.map((item: any) => ({
           id: item.id,
+          videoId: item.video_id,
           thumbnail: item.videos?.thumbnail || '',
           title: item.videos?.title || 'Unknown Video',
           license: item.license_type,
@@ -1300,8 +1329,24 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
                         </div>
                         
                         <div className="flex gap-2 mt-auto">
-                          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-1 bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2 rounded-lg transition-colors border border-white/5">
-                            {t("mypage.purchases.download")}
+                          <motion.button
+                            onClick={() => handleDownloadPurchase(purchase)}
+                            disabled={downloadingId === purchase.id}
+                            whileHover={{ scale: downloadingId === purchase.id ? 1 : 1.02 }}
+                            whileTap={{ scale: downloadingId === purchase.id ? 1 : 0.98 }}
+                            className="flex-1 bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2 rounded-lg transition-colors border border-white/5 disabled:opacity-50 disabled:cursor-wait flex items-center justify-center gap-1.5"
+                          >
+                            {downloadingId === purchase.id ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                {t("mypage.purchases.downloading")}
+                              </>
+                            ) : (
+                              <>
+                                <Download className="w-3 h-3" />
+                                {t("mypage.purchases.download")}
+                              </>
+                            )}
                           </motion.button>
                         </div>
                       </div>
