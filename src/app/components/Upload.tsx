@@ -1116,9 +1116,9 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
                 </div>
               )}
 
-              <div className="bg-card p-4 rounded-lg border border-border">
-                <p className="text-sm text-muted-foreground">
-                  {t("upload.watermarkNotice")}
+              <div className="bg-red-500/5 p-4 rounded-lg border border-red-500/30">
+                <p className="text-sm text-red-200/90 leading-relaxed">
+                  {t("upload.uploadPolicyNotice")}
                 </p>
               </div>
 

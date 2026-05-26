@@ -1129,7 +1129,7 @@
     "highlightEnd": "End",
     "secondsSuffix": "s",
     "previewHighlight": "▶ Preview selected clip",
-    "watermarkNotice": "ℹ️ Uploaded videos automatically include a CREAITE watermark. Buyers can download the original (watermark removed) after purchase.",
+    "uploadPolicyNotice": "⚠️ Upload Policy — All videos are automatically scanned by Google Vision. Violations result in immediate removal, account suspension, and potential legal action: (1) Sexually explicit/adult content (2) Unauthorized celebrity use/deepfakes (3) Violence/hate/discrimination (4) Copyright/portrait rights infringement. By uploading, you accept full responsibility.",
     "next": "Next",
     "previous": "Previous",
     "titleLabel": "Video Title *",
