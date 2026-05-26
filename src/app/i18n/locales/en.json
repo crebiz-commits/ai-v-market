@@ -76,16 +76,16 @@
     "comment": "Comment",
     "settings": "Settings",
     "notifications": "Notifications",
-    "cart": "Cart",
-    "viewCart": "View cart"
+    "cart": "Wishlist",
+    "viewCart": "View wishlist"
   },
   "app": {
     "videoNotFound": "Video not found",
     "videoFetchFailed": "Failed to fetch video: {{message}}",
-    "cartPending": "Will add to cart automatically after sign in.",
-    "alreadyInCart": "Already in your cart.",
-    "cartAddFailed": "Failed to add to cart.",
-    "cartAddSuccess": "Added to cart!",
+    "cartPending": "Will add to wishlist automatically after sign in.",
+    "alreadyInCart": "Already in your wishlist.",
+    "cartAddFailed": "Failed to add to wishlist.",
+    "cartAddSuccess": "Added to wishlist!",
     "cartDeleteFailed": "Failed to delete.",
     "loading": "Loading...",
     "adManage": "Manage Ads",
@@ -367,10 +367,9 @@
     "viewAll": "View all"
   },
   "cartPanel": {
-    "title": "Cart",
-    "empty": "Cart is empty",
-    "totalLabel": "Total",
-    "checkout": "Checkout",
+    "title": "Wishlist",
+    "empty": "Your wishlist is empty",
+    "viewVideo": "View video",
     "remove": "Remove"
   },
   "hamburger": {
@@ -1357,7 +1356,7 @@
     "cart": {
       "allInOneLicense": "All-in-One License",
       "added": "Added",
-      "addToCart": "Cart",
+      "addToCart": "Wishlist",
       "openPayment": "Open Payment",
       "purchase": "Buy now"
     },

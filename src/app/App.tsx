@@ -14,7 +14,7 @@ import './init';
 
 import { useState, useEffect, useCallback, Suspense, type ReactElement } from "react";
 import { lazyRetry as lazy } from "./utils/lazyRetry";
-import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, Loader2, Crown, Users } from "lucide-react";
+import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, Gift, Loader2, Crown, Users } from "lucide-react";
 import { Footer } from "./components/Footer";
 import { HamburgerMenu } from "./components/HamburgerMenu";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
@@ -657,7 +657,7 @@ function AppContent() {
               onClick={() => togglePanel("cart")}
               className="p-2 relative text-muted-foreground hover:text-foreground transition-colors"
             >
-              <ShoppingCart className={`w-[22px] h-[22px] ${activePanel === "cart" ? "text-[#8b5cf6]" : ""}`} />
+              <Gift className={`w-[22px] h-[22px] ${activePanel === "cart" ? "text-[#8b5cf6]" : ""}`} />
               {cartItems.length > 0 && (
                 <span className="absolute top-1 right-1 w-4 h-4 bg-[#6366f1] rounded-full text-[10px] text-white font-bold flex items-center justify-center">
                   {cartItems.length}
@@ -768,7 +768,7 @@ function AppContent() {
                 activePanel === "cart" ? "text-[#8b5cf6]" : "text-muted-foreground hover:text-white"
               }`}
             >
-              <ShoppingCart className="w-5 h-5" />
+              <Gift className="w-5 h-5" />
               {cartItems.length > 0 && (
                 <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-[#6366f1] rounded-full text-[10px] text-white font-bold flex items-center justify-center">
                   {cartItems.length}
@@ -830,6 +830,7 @@ function AppContent() {
                   <CartPanel
                     items={cartItems}
                     onRemove={removeFromCart}
+                    onViewVideo={loadAndOpenVideo}
                     onClose={() => setActivePanel(null)}
                   />
                 )}
@@ -869,6 +870,7 @@ function AppContent() {
                     <CartPanel
                       items={cartItems}
                       onRemove={removeFromCart}
+                      onViewVideo={loadAndOpenVideo}
                       onClose={() => setActivePanel(null)}
                     />
                   )}

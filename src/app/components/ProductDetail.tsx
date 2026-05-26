@@ -1,4 +1,4 @@
-import { X, Heart, Send, Download, ShoppingCart, Check, MessageCircle, Crown, Lock, Flag, Bookmark, FileText } from "lucide-react";
+import { X, Heart, Send, Download, Gift, Check, MessageCircle, Crown, Lock, Flag, Bookmark, FileText } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -1053,7 +1053,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          <div className="p-6 pb-40 md:pb-6">
+          <div className="p-6">
             {/* Title & Creator */}
             <div className="mb-6">
               <div className="flex items-start gap-2 mb-2">
@@ -1443,7 +1443,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                 </>
               ) : (
                 <>
-                  <ShoppingCart className="w-5 h-5" />
+                  <Gift className="w-5 h-5" />
                   {t("productDetail.cart.addToCart")}
                 </>
               )}

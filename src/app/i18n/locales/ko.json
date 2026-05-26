@@ -76,16 +76,16 @@
     "comment": "댓글",
     "settings": "설정",
     "notifications": "알림",
-    "cart": "장바구니",
-    "viewCart": "장바구니 보기"
+    "cart": "위시리스트",
+    "viewCart": "위시리스트 보기"
   },
   "app": {
     "videoNotFound": "영상을 찾을 수 없습니다",
     "videoFetchFailed": "영상 조회 실패: {{message}}",
-    "cartPending": "로그인 후 자동으로 장바구니에 담깁니다.",
-    "alreadyInCart": "이미 장바구니에 담겨 있습니다.",
-    "cartAddFailed": "장바구니 추가에 실패했습니다.",
-    "cartAddSuccess": "장바구니에 담았습니다!",
+    "cartPending": "로그인 후 자동으로 위시리스트에 추가됩니다.",
+    "alreadyInCart": "이미 위시리스트에 있습니다.",
+    "cartAddFailed": "위시리스트 추가에 실패했습니다.",
+    "cartAddSuccess": "위시리스트에 추가했습니다!",
     "cartDeleteFailed": "삭제에 실패했습니다.",
     "loading": "로딩 중...",
     "adManage": "광고관리",
@@ -367,10 +367,9 @@
     "viewAll": "전체 보기"
   },
   "cartPanel": {
-    "title": "장바구니",
-    "empty": "장바구니가 비어있습니다",
-    "totalLabel": "총액",
-    "checkout": "결제하기",
+    "title": "위시리스트",
+    "empty": "위시리스트가 비어있습니다",
+    "viewVideo": "영상 보기",
     "remove": "삭제"
   },
   "hamburger": {
@@ -1357,7 +1356,7 @@
     "cart": {
       "allInOneLicense": "All-in-One 라이선스",
       "added": "담김",
-      "addToCart": "장바구니",
+      "addToCart": "위시리스트",
       "openPayment": "결제창 열기",
       "purchase": "구매하기"
     },
