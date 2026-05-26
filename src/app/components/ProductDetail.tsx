@@ -437,6 +437,12 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
     setPrerollAd(null);
   }, [product.id]);
   useEffect(() => {
+    // ⚠️ 광고 시스템 긴급 비활성화 (2026-05-26)
+    // 사용자 보고: 탭 메모리 800MB+ 사용으로 시스템 전체 버벅거림 / 광고 끝나도 본편 진입 실패.
+    // 메모리 누수 원인 정밀 진단 + 광고 video 안전망 검증 후 재활성 예정.
+    // 임시로 광고 전체 차단하여 사용자 작업 환경 보장.
+    return;
+    // eslint-disable-next-line @typescript-eslint/no-unreachable-code
     if (prerollFetchedRef.current) return;
     if (cinemaCutoffTriggered || isAgeLocked) return;
     if (isPremium) return;
@@ -449,10 +455,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
       });
       if (cancelled || error || !data || data.length === 0) return;
       const ad = data[0];
-      // tier별 SKIP 정책: free=SKIP 불가, basic=5초 후
       const skipOverride = subscriptionTier === "basic" ? 5 : null;
-      // HLS(.m3u8) → mp4 변환: HTML5 video native 가 Chrome 에서 HLS 미지원이라
-      // Bunny CDN 의 동일 영상 mp4 트랜스코딩 URL 로 자동 치환 (vast-tag endpoint와 동일 패턴)
       const rawUrl = ad.video_url || "";
       const videoUrl = rawUrl.includes("/playlist.m3u8")
         ? rawUrl.replace("/playlist.m3u8", "/play_720p.mp4")
