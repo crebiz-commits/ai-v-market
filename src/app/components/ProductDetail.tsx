@@ -451,12 +451,18 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
       const ad = data[0];
       // tier별 SKIP 정책: free=SKIP 불가, basic=5초 후
       const skipOverride = subscriptionTier === "basic" ? 5 : null;
+      // HLS(.m3u8) → mp4 변환: HTML5 video native 가 Chrome 에서 HLS 미지원이라
+      // Bunny CDN 의 동일 영상 mp4 트랜스코딩 URL 로 자동 치환 (vast-tag endpoint와 동일 패턴)
+      const rawUrl = ad.video_url || "";
+      const videoUrl = rawUrl.includes("/playlist.m3u8")
+        ? rawUrl.replace("/playlist.m3u8", "/play_720p.mp4")
+        : rawUrl;
       setPrerollAd({
         ad_id: ad.id,
         title: ad.title || "",
         advertiser: ad.advertiser || "",
         image_url: ad.image_url || null,
-        video_url: ad.video_url || "",
+        video_url: videoUrl,
         thumbnail_url: ad.thumbnail_url || null,
         link_url: ad.link_url || null,
         cta_text: ad.cta_text || null,
