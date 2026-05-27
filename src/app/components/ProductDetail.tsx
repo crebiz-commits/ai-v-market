@@ -1349,24 +1349,24 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
 
         {/* Bottom Actions */}
         <div className="border-t border-border p-4 pb-8 md:pb-4 bg-card shrink-0">
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center gap-2 md:gap-3 mb-3">
             {/* 좋아요 — 글래스 + 글로우 */}
             <motion.button
               whileTap={{ scale: 0.85 }}
               onClick={handleToggleLike}
               disabled={likeBusy}
-              className="flex flex-col items-center"
+              className="flex flex-col items-center shrink-0"
               aria-label={t("common.like")}
             >
               <div
-                className={`w-10 h-10 rounded-full backdrop-blur-xl flex items-center justify-center border-2 transition-all ${
+                className={`w-9 h-9 md:w-10 md:h-10 rounded-full backdrop-blur-xl flex items-center justify-center border-2 transition-all ${
                   isLiked
                     ? "bg-red-500/30 border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.6)]"
                     : "bg-white/10 border-white/30"
                 }`}
               >
                 <Heart
-                  className={`w-[18px] h-[18px] ${isLiked ? "fill-red-400 text-red-400" : "text-foreground"}`}
+                  className={`w-4 h-4 md:w-[18px] md:h-[18px] ${isLiked ? "fill-red-400 text-red-400" : "text-foreground"}`}
                   strokeWidth={1.8}
                 />
               </div>
@@ -1378,15 +1378,15 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               animate={{ scale: [1, 1.05, 1] }}
               transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
               onClick={() => setShowComments(!showComments)}
-              className="flex flex-col items-center"
+              className="flex flex-col items-center shrink-0"
               aria-label={t("common.comment")}
             >
-              <div className={`w-10 h-10 rounded-full backdrop-blur-xl border-2 flex items-center justify-center transition-all ${
+              <div className={`w-9 h-9 md:w-10 md:h-10 rounded-full backdrop-blur-xl border-2 flex items-center justify-center transition-all ${
                 showComments
                   ? "bg-[#6366f1]/30 border-[#8b5cf6] shadow-[0_0_20px_rgba(139,92,246,0.6)]"
                   : "bg-white/10 border-white/30 shadow-[0_0_15px_rgba(139,92,246,0.4)]"
               }`}>
-                <MessageCircle className="w-[18px] h-[18px] text-foreground" strokeWidth={1.8} />
+                <MessageCircle className="w-4 h-4 md:w-[18px] md:h-[18px] text-foreground" strokeWidth={1.8} />
               </div>
             </motion.button>
 
@@ -1395,11 +1395,11 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               whileTap={{ scale: 0.85 }}
               whileHover={{ rotate: 15 }}
               onClick={handleShare}
-              className="flex flex-col items-center"
+              className="flex flex-col items-center shrink-0"
               aria-label={t("common.share")}
             >
-              <div className="w-10 h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.4)]">
-                <Send className="w-[18px] h-[18px] text-foreground -rotate-12" strokeWidth={1.8} />
+              <div className="w-9 h-9 md:w-10 md:h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.4)]">
+                <Send className="w-4 h-4 md:w-[18px] md:h-[18px] text-foreground -rotate-12" strokeWidth={1.8} />
               </div>
             </motion.button>
 
@@ -1413,17 +1413,17 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                 }
                 setPlaylistOpen(true);
               }}
-              className="flex flex-col items-center"
+              className="flex flex-col items-center shrink-0"
               aria-label={t("productDetail.action.saveAriaLabel")}
               title={t("productDetail.action.saveTitle")}
             >
-              <div className={`w-10 h-10 rounded-full backdrop-blur-xl border-2 flex items-center justify-center transition-all ${
+              <div className={`w-9 h-9 md:w-10 md:h-10 rounded-full backdrop-blur-xl border-2 flex items-center justify-center transition-all ${
                 isSaved
                   ? "bg-gradient-to-br from-[#6366f1]/30 to-[#ec4899]/30 border-[#ec4899] shadow-[0_0_20px_rgba(236,72,153,0.5)]"
                   : "bg-white/10 border-white/30"
               }`}>
                 <Bookmark
-                  className={`w-[18px] h-[18px] ${isSaved ? "fill-[#ec4899] text-[#ec4899]" : "text-foreground"}`}
+                  className={`w-4 h-4 md:w-[18px] md:h-[18px] ${isSaved ? "fill-[#ec4899] text-[#ec4899]" : "text-foreground"}`}
                   strokeWidth={1.8}
                 />
               </div>
@@ -1433,26 +1433,25 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
             <motion.button
               whileTap={{ scale: 0.85 }}
               onClick={() => setReportOpen(true)}
-              className="flex flex-col items-center"
+              className="flex flex-col items-center shrink-0"
               aria-label={t("common.report")}
               title={t("productDetail.action.reportTitle")}
             >
-              <div className="w-10 h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center hover:bg-red-500/20 hover:border-red-400/60 transition-colors">
-                <Flag className="w-[18px] h-[18px] text-foreground" strokeWidth={1.8} />
+              <div className="w-9 h-9 md:w-10 md:h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center hover:bg-red-500/20 hover:border-red-400/60 transition-colors">
+                <Flag className="w-4 h-4 md:w-[18px] md:h-[18px] text-foreground" strokeWidth={1.8} />
               </div>
             </motion.button>
 
-            <div className="flex-1" />
-            <div className="text-right">
+            <div className="flex-1 min-w-0 text-right">
               {isLicensable ? (
                 <>
-                  <p className="text-xs text-muted-foreground">{t("productDetail.cart.allInOneLicense")}</p>
-                  <p className="text-2xl font-medium text-[#6366f1]">₩{product.price.toLocaleString()}</p>
+                  <p className="text-[11px] md:text-xs text-muted-foreground truncate">{t("productDetail.cart.allInOneLicense")}</p>
+                  <p className="text-lg md:text-2xl font-medium text-[#6366f1] leading-tight">₩{product.price.toLocaleString()}</p>
                 </>
               ) : (
                 <>
-                  <p className="text-xs text-gray-500">{t("productDetail.license.freeViewOnly")}</p>
-                  <p className="text-base font-bold text-gray-400">{t("productDetail.license.notForSale")}</p>
+                  <p className="text-[11px] md:text-xs text-gray-500 leading-tight">{t("productDetail.license.freeViewOnly")}</p>
+                  <p className="text-sm md:text-base font-bold text-gray-400 leading-tight">{t("productDetail.license.notForSale")}</p>
                 </>
               )}
             </div>
