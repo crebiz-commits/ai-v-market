@@ -293,6 +293,7 @@ app.post("/videos/save-metadata", async (c) => {
         ai_tool: metadata.aiTool || '',
         category: metadata.category || '',
         genre: metadata.genre || '',
+        age_rating: metadata.age_rating || 'all',  // Phase 31.1 — 시청 등급 (Upload 필수 입력)
         prompt: metadata.prompt || '',
         status: metadata.status || 'ready',
         resolution: metadata.resolution || '',

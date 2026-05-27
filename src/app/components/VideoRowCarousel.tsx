@@ -13,7 +13,7 @@ import { useRef } from "react";
 import { ChevronLeft, ChevronRight, Play, Crown, Lock, Plus, ThumbsUp } from "lucide-react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { getCategoryLabel } from "../i18n/categoryLabels";
+import { getCategoryLabel, getGenreLabel } from "../i18n/categoryLabels";
 import { formatCompactNumber } from "../i18n/numberFormat";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { useAuth } from "../contexts/AuthContext";
@@ -28,10 +28,12 @@ export interface CarouselVideo {
   creator_display_name?: string | null;
   creator_avatar?: string | null;
   category?: string | null;
+  genre?: string | null;       // Phase 31 — RPC 마이그레이션 후 채워짐
   ai_tool?: string | null;
   duration?: string | null;
   duration_seconds?: number | null;
   views?: number | null;
+  likes?: number | null;        // Phase 31 — RPC 마이그레이션 후 채워짐
   price_standard?: number | null;
   highlight_start?: number | null;
   highlight_end?: number | null;
@@ -178,18 +180,34 @@ function VideoCard({ video, idx, onVideoClick, showProgress, showRank, rating, i
         )}
       </div>
 
-      {/* 메타 정보 (카드 외부) */}
+      {/* 메타 정보 (카드 외부) — 인라인 미니 (옵션 C) */}
       <div className="mt-1.5 px-0.5">
-        <p className="text-xs font-semibold line-clamp-2 leading-tight">{video.title}</p>
-        <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+        <p className="text-xs md:text-base font-semibold line-clamp-2 leading-tight">{video.title}</p>
+        <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 md:mt-1 truncate">
           {video.creator_display_name || video.creator || t("videoRow.nameless")}
           {video.views ? ` · ${t("videoRow.viewsPrefix")} ${fmtViews(video.views)}` : ""}
+          {typeof video.likes === "number" && video.likes > 0 ? ` · ♥ ${fmtViews(video.likes)}` : ""}
         </p>
-        {video.category && (
-          <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-            {getCategoryLabel(video.category, t)}
-          </span>
-        )}
+        {/* 등급 · 카테고리 · 장르 인라인 배지 */}
+        {rating || video.category || video.genre ? (
+          <div className="flex items-center gap-1.5 mt-1 md:mt-1.5 flex-wrap">
+            {rating && (
+              <span className="text-[9px] md:text-[11px] px-1.5 py-0.5 rounded border border-white/20 text-gray-300 font-semibold">
+                {rating === "all" ? "전체" : rating === "19" ? "19+" : `${rating}+`}
+              </span>
+            )}
+            {video.category && (
+              <span className="text-[9px] md:text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                {getCategoryLabel(video.category, t)}
+              </span>
+            )}
+            {video.genre && (
+              <span className="text-[9px] md:text-[11px] px-1.5 py-0.5 rounded bg-[#6366f1]/15 text-[#a5b4fc]">
+                {getGenreLabel(video.genre, t)}
+              </span>
+            )}
+          </div>
+        ) : null}
       </div>
     </motion.button>
   );
@@ -228,8 +246,8 @@ export function VideoRowCarousel({
     return (
       <div className="mb-6">
         <div className="px-4 md:px-6 mb-2">
-          <h2 className="text-base md:text-lg font-bold">{title}</h2>
-          {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+          <h2 className="text-base md:text-xl font-bold">{title}</h2>
+          {subtitle && <p className="text-xs md:text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
         </div>
         <div className="px-4 md:px-6">
           <p className="text-sm text-muted-foreground/60 italic">{emptyText}</p>
@@ -243,8 +261,8 @@ export function VideoRowCarousel({
       {/* 헤더 */}
       <div className="px-4 md:px-6 mb-2 flex items-center justify-between">
         <div>
-          <h2 className="text-base md:text-lg font-bold">{title}</h2>
-          {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+          <h2 className="text-base md:text-xl font-bold">{title}</h2>
+          {subtitle && <p className="text-xs md:text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
         </div>
       </div>
 

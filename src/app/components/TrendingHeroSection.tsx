@@ -47,8 +47,8 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, emp
     return (
       <section className="px-4 md:px-6 mb-8">
         <div className="mb-3">
-          <h2 className="text-base md:text-lg font-bold">{title}</h2>
-          {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+          <h2 className="text-base md:text-xl font-bold">{title}</h2>
+          {subtitle && <p className="text-xs md:text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
         </div>
         <p className="text-sm text-muted-foreground py-4">{emptyMessage}</p>
       </section>
@@ -62,8 +62,8 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, emp
     <section className="mb-8">
       {/* 섹션 제목 */}
       <div className="px-4 md:px-6 mb-3">
-        <h2 className="text-base md:text-lg font-bold">{title}</h2>
-        {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+        <h2 className="text-base md:text-xl font-bold">{title}</h2>
+        {subtitle && <p className="text-xs md:text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
       </div>
 
       {/* 1위 — 히어로 카드 */}
@@ -154,8 +154,8 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, emp
                     </span>
                   ) : null}
                 </div>
-                <p className="text-xs md:text-sm font-bold text-white mt-2 line-clamp-1">{v.title}</p>
-                <p className="text-[11px] text-muted-foreground line-clamp-1">
+                <p className="text-xs md:text-base font-bold text-white mt-2 line-clamp-1">{v.title}</p>
+                <p className="text-[11px] md:text-xs text-muted-foreground line-clamp-1">
                   {v.creator_display_name || v.creator || ""}
                   {typeof v.views === "number" && v.views > 0
                     ? ` · ${t("videoRow.viewsPrefix")} ${formatCompactNumber(v.views)}`

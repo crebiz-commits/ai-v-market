@@ -61,6 +61,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
     description: "",
     category: "",
     genre: "",
+    ageRating: "" as "" | "all" | "12" | "15" | "19",  // 등급 — 필수 입력 (Phase 31.1)
     aiTool: "",
     aiModelVersion: "", // 모델 버전 (예: "Sora v2.1")
     resolution: "",
@@ -580,6 +581,11 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
       toast.error(t("upload.toast.fileRequired"));
       return;
     }
+    // Phase 31.1 — 시청 등급 필수 검증
+    if (!formData.ageRating) {
+      toast.error(t("upload.toast.ageRatingRequired", "시청 등급을 선택해주세요."));
+      return;
+    }
     setShowPreview(true);
   };
 
@@ -693,6 +699,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
         aiModelVersion: formData.aiModelVersion || '',
         category: formData.category || '',
         genre: formData.genre || '',
+        age_rating: formData.ageRating || 'all',  // Phase 31.1 — 시청 등급
         prompt: formData.prompt || '',
         seed: formData.seed || '',
         resolution: formData.resolution || '',
@@ -796,6 +803,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
       description: "",
       category: "",
       genre: "",
+      ageRating: "",
       aiTool: "",
       aiModelVersion: "",
       resolution: "",
@@ -1215,6 +1223,41 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
                     ))}
                   </select>
                 </div>
+              </div>
+
+              {/* 시청 등급 — 필수 입력 (Phase 31.1) */}
+              <div>
+                <Label className="mb-2 block">
+                  {t("upload.ageRatingLabel", "시청 등급")} <span className="text-red-500">*</span>
+                </Label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {[
+                    { value: "all", label: t("upload.ageAll", "전체관람가"), hint: t("upload.ageAllHint", "모든 시청자") },
+                    { value: "12",  label: "12+", hint: t("upload.age12Hint", "가벼운 폭력·언어") },
+                    { value: "15",  label: "15+", hint: t("upload.age15Hint", "폭력·선정성 일부") },
+                    { value: "19",  label: "19+", hint: t("upload.age19Hint", "성인 콘텐츠") },
+                  ].map((opt) => {
+                    const selected = formData.ageRating === opt.value;
+                    return (
+                      <button
+                        type="button"
+                        key={opt.value}
+                        onClick={() => setFormData({ ...formData, ageRating: opt.value as any })}
+                        className={`relative p-3 rounded-lg border text-left transition-all ${
+                          selected
+                            ? "bg-[#6366f1]/15 border-[#6366f1] shadow-[0_0_0_1px_rgba(99,102,241,0.4)]"
+                            : "bg-card border-border hover:border-white/30"
+                        }`}
+                      >
+                        <p className={`text-sm font-bold mb-0.5 ${selected ? "text-[#a5b4fc]" : "text-foreground"}`}>{opt.label}</p>
+                        <p className="text-[10px] text-muted-foreground leading-snug">{opt.hint}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  {t("upload.ageRatingNote", "* 19+ 영상은 본인 인증된 시청자에게만 공개됩니다.")}
+                </p>
               </div>
 
               <div>
