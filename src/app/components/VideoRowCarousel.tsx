@@ -120,7 +120,7 @@ export function VideoRowCarousel({
         {/* 좌측 화살표 (데스크톱) */}
         <button
           onClick={() => scroll("left")}
-          className="hidden md:flex absolute left-0 top-0 bottom-0 z-10 w-12 items-center justify-center bg-gradient-to-r from-background/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity"
+          className="flex absolute left-0 top-0 bottom-0 z-10 w-12 items-center justify-center bg-gradient-to-r from-background/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity"
           aria-label={t("videoRow.previous")}
         >
           <ChevronLeft className="w-8 h-8 text-white" />
@@ -236,7 +236,7 @@ export function VideoRowCarousel({
         {/* 우측 화살표 (데스크톱) */}
         <button
           onClick={() => scroll("right")}
-          className="hidden md:flex absolute right-0 top-0 bottom-0 z-10 w-12 items-center justify-center bg-gradient-to-l from-background/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity"
+          className="flex absolute right-0 top-0 bottom-0 z-10 w-12 items-center justify-center bg-gradient-to-l from-background/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity"
           aria-label={t("videoRow.next")}
         >
           <ChevronRight className="w-8 h-8 text-white" />

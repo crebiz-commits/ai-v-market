@@ -1,8 +1,9 @@
 // 급상승랭킹 섹션 — 1위 히어로 카드 + 2~10위 네온 글로우 캐러셀 (2026-05-27)
 // 디자인: A-4 (TrendingCardPreview 에서 선정)
 // 사용처: Cinema.tsx 의 trending 행 자리
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Crown, Play, Eye } from "lucide-react";
+import { Crown, Play, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import type { CarouselVideo } from "./VideoRowCarousel";
 import { formatCompactNumber } from "../i18n/numberFormat";
 import { getCategoryLabel } from "../i18n/categoryLabels";
@@ -32,6 +33,14 @@ function neonStyle(rank: number): { color: string; glow: string } {
 
 export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, emptyMessage }: Props) {
   const { t } = useTranslation();
+  const restScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollRest = (dir: "left" | "right") => {
+    const el = restScrollRef.current;
+    if (!el) return;
+    const amount = el.clientWidth * 0.8;
+    el.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
+  };
 
   if (!videos || videos.length === 0) {
     if (!emptyMessage) return null;
@@ -99,10 +108,20 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, emp
         </button>
       </div>
 
-      {/* 2~10위 — 네온 글로우 가로 캐러셀 */}
+      {/* 2~10위 — 네온 글로우 가로 캐러셀 (마우스 hover 시 좌우 화살표 표시) */}
       {rest.length > 0 && (
-        <div className="flex gap-3 overflow-x-auto pb-2 px-4 md:px-6 scrollbar-hide">
-          {rest.map((v, i) => {
+        <div className="relative group/row">
+          {/* 좌측 화살표 */}
+          <button
+            onClick={() => scrollRest("left")}
+            className="flex absolute left-0 top-0 bottom-0 z-10 w-12 items-center justify-center bg-gradient-to-r from-background/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity"
+            aria-label={t("videoRow.previous")}
+          >
+            <ChevronLeft className="w-8 h-8 text-white" />
+          </button>
+
+          <div ref={restScrollRef} className="flex gap-3 overflow-x-auto pb-2 px-4 md:px-6 scrollbar-hide scroll-smooth">
+            {rest.map((v, i) => {
             const rank = i + 2;
             const n = neonStyle(rank);
             return (
@@ -145,6 +164,16 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, emp
               </button>
             );
           })}
+          </div>
+
+          {/* 우측 화살표 */}
+          <button
+            onClick={() => scrollRest("right")}
+            className="flex absolute right-0 top-0 bottom-0 z-10 w-12 items-center justify-center bg-gradient-to-l from-background/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity"
+            aria-label={t("videoRow.next")}
+          >
+            <ChevronRight className="w-8 h-8 text-white" />
+          </button>
         </div>
       )}
     </section>

@@ -53,15 +53,22 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
   const isEmpty = videos.length === 0;
   const anglePerItem = isEmpty ? 0 : 360 / videos.length;
   
-  // 화면 크기에 따라 반경 조정 — viewport 42% 비례 + 최대 600px cap
-  // (42%: 양옆 카드가 화면 가장자리에서 적당히 안쪽 → 모든 viewport 에서 회전 효과 자연스럽게)
-  // (cap 없으면 perspective 1200 효과로 가운데 카드가 과도 확대 → 다른 섹션과 겹침)
+  // 화면 크기별 비율 기반 반경 (좁은 화면 47% / 데스크탑 42%) + 600px cap
   const getRadius = () => {
     if (typeof window === 'undefined') return 250;
-    return Math.min(Math.round(window.innerWidth * 0.42), 600);
+    const width = window.innerWidth;
+    const ratio = width < 768 ? 0.47 : 0.42;
+    return Math.min(Math.round(width * ratio), 600);
   };
 
   const [radius, setRadius] = useState(getRadius());
+  // 마우스(hover) 가능 디바이스에서만 화살표 표시 — viewport 크기와 무관
+  const [isHoverDevice, setIsHoverDevice] = useState(false);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      setIsHoverDevice(window.matchMedia('(hover: hover)').matches);
+    }
+  }, []);
 
   // rotation 값을 기준으로 실제 중앙에 있는 인덱스 계산
   const getCenterIndex = () => {
@@ -386,23 +393,23 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
 
   return (
     <div className="relative w-full bg-black py-6 md:py-12 lg:py-28">
-      {/* Navigation Buttons */}
-      {!hideControls && (
+      {/* Navigation Buttons — 마우스 디바이스(데스크탑) 에서만 표시, 터치 디바이스(모바일) 는 자동 숨김 */}
+      {!hideControls && isHoverDevice && (
         <>
           <button
             onClick={handlePrev}
-            className="hidden md:flex absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-[200] w-12 h-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all items-center justify-center group"
+            className="flex absolute left-2 md:left-8 top-1/2 -translate-y-1/2 z-[200] w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all items-center justify-center group"
             aria-label="Previous"
           >
-            <ChevronLeft className="w-6 h-6 text-white" />
+            <ChevronLeft className="w-5 h-5 md:w-6 md:h-6 text-white" />
           </button>
 
           <button
             onClick={handleNext}
-            className="hidden md:flex absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-[200] w-12 h-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all items-center justify-center group"
+            className="flex absolute right-2 md:right-8 top-1/2 -translate-y-1/2 z-[200] w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all items-center justify-center group"
             aria-label="Next"
           >
-            <ChevronRight className="w-6 h-6 text-white" />
+            <ChevronRight className="w-5 h-5 md:w-6 md:h-6 text-white" />
           </button>
         </>
       )}
