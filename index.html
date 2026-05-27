@@ -49,6 +49,15 @@
 
     <body>
       <div id="root"></div>
+      <!-- Google OAuth 브랜딩 인증 + SEO: 홈페이지에 법적 고지 링크가 명시적으로 존재해야 함.
+           JS 비활성 봇 또는 첫 렌더 전 크롤러가 인식 가능 -->
+      <noscript>
+        <nav aria-label="법적 고지">
+          <a href="https://www.creaite.net/?info=privacy">개인정보처리방침</a>
+          <a href="https://www.creaite.net/?info=terms">이용약관</a>
+          <a href="https://www.creaite.net/?info=about">회사 소개</a>
+        </nav>
+      </noscript>
       <script type="module" src="/src/main.tsx"></script>
     </body>
   </html>

@@ -909,6 +909,14 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
 
   return (
     <div className="discovery-feed-wrapper h-full w-full bg-[#0a0a0a] overflow-hidden flex flex-col">
+      {/* SEO + Google OAuth 브랜딩 인증용 약관 링크 (시각적 노출 X, 봇 인식 O)
+          DiscoveryFeed 가 첫 화면이고 푸터가 없어서 약관 링크가 노출 안 됨 → 추가 */}
+      <nav aria-label="법적 고지" className="sr-only">
+        <a href="?info=privacy">개인정보처리방침</a>
+        <a href="?info=terms">이용약관</a>
+        <a href="?info=about">회사 소개</a>
+        <a href="?info=creator-revenue">크리에이터 수익 정책</a>
+      </nav>
       <div
         ref={containerRef}
         className={`mobile-feed-container h-full overflow-y-auto snap-y snap-mandatory custom-scrollbar ${isCommentOpen ? 'comments-open' : ''}`}
