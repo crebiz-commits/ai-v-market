@@ -309,6 +309,7 @@ const MovieSection = memo(({
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<any>(null);
+  const retryCountRef = useRef(0);  // 자동 재시도 카운터 (최대 2회)
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
@@ -342,17 +343,42 @@ const MovieSection = memo(({
     });
 
     playerRef.current = player;
+    retryCountRef.current = 0;
     player.muted(isMuted);
     player.ready(() => setPlayerReady(true));
 
-    player.on('playing', () => setIsPlaying(true));
+    player.on('playing', () => {
+      setIsPlaying(true);
+      retryCountRef.current = 0;  // 재생 성공 시 카운터 초기화
+    });
     player.on('pause',   () => setIsPlaying(false));
     player.on('waiting', () => setIsPlaying(false));
     player.on('ended',   () => setIsPlaying(false));
     player.on('error',   () => {
       setIsPlaying(false);
       const err = player.error();
-      if (err && (err.code === 4 || err.code === 2)) setHasError(true);
+      // MEDIA_ERR_NETWORK(2) 또는 MEDIA_ERR_SRC_NOT_SUPPORTED(4) 시 자동 재시도 (최대 2회)
+      if (err && (err.code === 4 || err.code === 2)) {
+        if (retryCountRef.current < 2) {
+          retryCountRef.current += 1;
+          // 1.5초 후 src 재설정 + 재생 시도 (네트워크 회복 / CDN 캐시 안정 대기)
+          setTimeout(() => {
+            const p = playerRef.current;
+            if (!p || p.isDisposed()) return;
+            try {
+              p.src({
+                src: video.videoUrl,
+                type: video.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4',
+              });
+              p.load();
+              p.play()?.catch(() => {});
+            } catch { /* 무시 */ }
+          }, 1500);
+        } else {
+          // 2회 재시도 실패 → 사용자에게 에러 표시
+          setHasError(true);
+        }
+      }
     });
 
     player.on('timeupdate', () => {
