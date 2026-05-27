@@ -10,7 +10,7 @@
 //   />
 // ════════════════════════════════════════════════════════════════════════════
 import { useRef } from "react";
-import { ChevronLeft, ChevronRight, Play, Crown, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Play, Crown, Lock, Plus, ThumbsUp } from "lucide-react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { getCategoryLabel } from "../i18n/categoryLabels";
@@ -61,6 +61,139 @@ function fmtDuration(s?: number | null) {
 }
 
 const fmtViews = formatCompactNumber;
+
+// ────────────────────────────────────────────────────────────────────────────
+// VideoCard (옵션 C — 인라인 미니 정보)
+// - 카드 본체에 등급·장르 메타 항상 표시
+// - 데스크탑 hover 시 썸네일 하단에 액션 버튼 오버레이 (재생/+/좋아요)
+// - 모바일: 카드 탭 → ProductDetail (모달 없음, 안정적)
+// ────────────────────────────────────────────────────────────────────────────
+interface VideoCardProps {
+  video: CarouselVideo;
+  idx: number;
+  onVideoClick: (v: CarouselVideo) => void;
+  showProgress?: boolean;
+  showRank?: boolean;
+  rating: string | undefined;
+  isAgeLocked: boolean;
+  isOttBadge: boolean;
+}
+
+function VideoCard({ video, idx, onVideoClick, showProgress, showRank, rating, isAgeLocked, isOttBadge }: VideoCardProps) {
+  const { t } = useTranslation();
+
+  return (
+    <motion.button
+      whileHover={{ scale: 1.03 }}
+      whileTap={{ scale: 0.97 }}
+      onClick={() => onVideoClick(video)}
+      className="flex-shrink-0 snap-start w-[42vw] md:w-[15vw] text-left group/card"
+    >
+      <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
+        {showRank && (
+          <div className="absolute top-1 left-1 z-10 w-8 h-8 rounded bg-black/70 backdrop-blur-sm flex items-center justify-center">
+            <span className="text-lg font-black text-white">{idx + 1}</span>
+          </div>
+        )}
+        {video.thumbnail ? (
+          <img
+            src={video.thumbnail}
+            alt={video.title}
+            loading="lazy"
+            className={`w-full h-full object-cover ${isAgeLocked ? "blur-xl scale-110" : ""}`}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#6366f1]/20 to-[#8b5cf6]/20">
+            <Play className="w-8 h-8 text-white/50" />
+          </div>
+        )}
+
+        {/* Phase 26: 19+ 잠금 오버레이 */}
+        {isAgeLocked && (
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center text-center px-2 pointer-events-none">
+            <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center mb-1.5">
+              <Lock className="w-4 h-4 text-white" />
+            </div>
+            <p className="text-[10px] font-black text-white">{t("video.ageGateLockTitle")}</p>
+          </div>
+        )}
+
+        {/* 진행률 바 */}
+        {showProgress && typeof video.last_watched_ratio === "number" && (
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/40">
+            <div className="h-full bg-red-500" style={{ width: `${Math.round(video.last_watched_ratio * 100)}%` }} />
+          </div>
+        )}
+
+        {/* 영상 길이 (우하단) */}
+        {video.duration_seconds && (
+          <div className="absolute bottom-1 right-1 px-1 py-0.5 rounded bg-black/70 text-white text-[10px] font-mono">
+            {fmtDuration(video.duration_seconds)}
+          </div>
+        )}
+
+        {/* OTT 배지 (살짝 투명, 우상단) */}
+        {isOttBadge && (
+          <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500/40 to-orange-500/40 backdrop-blur-sm text-white text-[9px] font-bold flex items-center gap-0.5">
+            <Crown className="w-2.5 h-2.5" />
+            OTT
+          </div>
+        )}
+
+        {/* 연령 등급 배지 (OTT 옆 또는 우상단) */}
+        {rating && rating !== "all" && (
+          <div className={`absolute ${isOttBadge ? "top-1 right-12" : "top-1 right-1"}`}>
+            <AgeBadge rating={rating} size="xs" />
+          </div>
+        )}
+
+        {/* hover 시 액션 버튼 오버레이 (마우스 디바이스만 — 모바일은 hover 없어 자동 숨김) */}
+        {!isAgeLocked && (
+          <div className="flex absolute inset-x-0 bottom-0 p-2 items-center gap-1.5 bg-gradient-to-t from-black/95 via-black/60 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity">
+            <span
+              role="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onVideoClick(video); }}
+              className="w-7 h-7 rounded-full bg-white flex items-center justify-center hover:bg-white/90 transition-colors"
+              aria-label={t("videoRow.play", "재생")}
+            >
+              <Play className="w-3.5 h-3.5 text-black fill-black" />
+            </span>
+            <span
+              role="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-sm border border-white/40 flex items-center justify-center hover:border-white transition-colors"
+              aria-label={t("videoRow.addToWishlist", "위시리스트")}
+            >
+              <Plus className="w-3.5 h-3.5 text-white" />
+            </span>
+            <span
+              role="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-sm border border-white/40 flex items-center justify-center hover:border-white transition-colors"
+              aria-label={t("videoRow.like", "좋아요")}
+            >
+              <ThumbsUp className="w-3.5 h-3.5 text-white" />
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* 메타 정보 (카드 외부) */}
+      <div className="mt-1.5 px-0.5">
+        <p className="text-xs font-semibold line-clamp-2 leading-tight">{video.title}</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+          {video.creator_display_name || video.creator || t("videoRow.nameless")}
+          {video.views ? ` · ${t("videoRow.viewsPrefix")} ${fmtViews(video.views)}` : ""}
+        </p>
+        {video.category && (
+          <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+            {getCategoryLabel(video.category, t)}
+          </span>
+        )}
+      </div>
+    </motion.button>
+  );
+}
 
 export function VideoRowCarousel({
   title,
@@ -136,99 +269,19 @@ export function VideoRowCarousel({
             const rating = ageRatings?.[video.id];
             const isMyVideo = !!user?.id && !!video.creator_id && user.id === video.creator_id;
             const isAgeLocked = !isMyVideo && shouldBlur(rating, ageVerified);
+            const isOttBadge = video.is_ott || (typeof video.duration_seconds === "number" && video.duration_seconds >= ottMin);
             return (
-            <motion.button
-              key={video.id}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => onVideoClick(video)}
-              className="flex-shrink-0 snap-start w-[42vw] md:w-[15vw] text-left"
-            >
-              <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
-                {showRank && (
-                  <div className="absolute top-1 left-1 z-10 w-8 h-8 rounded bg-black/70 backdrop-blur-sm flex items-center justify-center">
-                    <span className="text-lg font-black text-white">{idx + 1}</span>
-                  </div>
-                )}
-                {video.thumbnail ? (
-                  <img
-                    src={video.thumbnail}
-                    alt={video.title}
-                    loading="lazy"
-                    className={`w-full h-full object-cover ${isAgeLocked ? "blur-xl scale-110" : ""}`}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#6366f1]/20 to-[#8b5cf6]/20">
-                    <Play className="w-8 h-8 text-white/50" />
-                  </div>
-                )}
-
-                {/* 호버 오버레이 (잠금 시 숨김) */}
-                {!isAgeLocked && (
-                  <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center">
-                      <Play className="w-5 h-5 text-black ml-0.5" fill="currentColor" />
-                    </div>
-                  </div>
-                )}
-
-                {/* Phase 26 보강: 19+ 잠금 오버레이 */}
-                {isAgeLocked && (
-                  <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center text-center px-2 pointer-events-none">
-                    <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center mb-1.5">
-                      <Lock className="w-4 h-4 text-white" />
-                    </div>
-                    <p className="text-[10px] font-black text-white">{t("video.ageGateLockTitle")}</p>
-                  </div>
-                )}
-
-                {/* 진행률 바 (이어 보기) */}
-                {showProgress && typeof video.last_watched_ratio === "number" && (
-                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/40">
-                    <div
-                      className="h-full bg-red-500"
-                      style={{ width: `${Math.round(video.last_watched_ratio * 100)}%` }}
-                    />
-                  </div>
-                )}
-
-                {/* 영상 길이 */}
-                {video.duration_seconds && (
-                  <div className="absolute bottom-1 right-1 px-1 py-0.5 rounded bg-black/70 text-white text-[10px] font-mono">
-                    {fmtDuration(video.duration_seconds)}
-                  </div>
-                )}
-
-                {/* OTT 배지 */}
-                {(video.is_ott || (typeof video.duration_seconds === "number" && video.duration_seconds >= ottMin)) && (
-                  <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-bold flex items-center gap-0.5">
-                    <Crown className="w-2.5 h-2.5" />
-                    OTT
-                  </div>
-                )}
-
-                {/* Phase 26 보강: 연령 등급 배지 (OTT 배지 위쪽 또는 좌측) */}
-                {rating && rating !== "all" && (
-                  <div className={`absolute ${(video.is_ott || (typeof video.duration_seconds === "number" && video.duration_seconds >= ottMin)) ? "top-1 right-12" : "top-1 right-1"}`}>
-                    <AgeBadge rating={rating} size="xs" />
-                  </div>
-                )}
-              </div>
-
-              {/* 메타 정보 */}
-              <div className="mt-1.5 px-0.5">
-                <p className="text-xs font-semibold line-clamp-2 leading-tight">{video.title}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                  {video.creator_display_name || video.creator || t("videoRow.nameless")}
-                  {video.views ? ` · ${t("videoRow.viewsPrefix")} ${fmtViews(video.views)}` : ""}
-                </p>
-                {video.category && (
-                  <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                    {getCategoryLabel(video.category, t)}
-                  </span>
-                )}
-              </div>
-            </motion.button>
+              <VideoCard
+                key={video.id}
+                video={video}
+                idx={idx}
+                onVideoClick={onVideoClick}
+                showProgress={showProgress}
+                showRank={showRank}
+                rating={rating}
+                isAgeLocked={isAgeLocked}
+                isOttBadge={isOttBadge}
+              />
             );
           })}
         </div>

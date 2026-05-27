@@ -78,6 +78,7 @@ const OttDesignPreview = lazy(() => import("./components/OttDesignPreview").then
 const OgPreview = lazy(() => import("./components/OgPreview").then(m => ({ default: m.OgPreview })));
 const PreviewBadgePreview = lazy(() => import("./components/PreviewBadgePreview").then(m => ({ default: m.PreviewBadgePreview })));
 const TrendingCardPreview = lazy(() => import("./components/TrendingCardPreview").then(m => ({ default: m.TrendingCardPreview })));
+const NetflixCardPreview = lazy(() => import("./components/NetflixCardPreview").then(m => ({ default: m.NetflixCardPreview })));
 const CreatorRevenueGuide = lazy(() => import("./components/CreatorRevenueGuide").then(m => ({ default: m.CreatorRevenueGuide })));
 
 // 비로그인 사용자 첫 화면 (Netflix 패턴 랜딩)
@@ -157,6 +158,7 @@ function AppContent() {
       og: <OgPreview />,
       "preview-badge": <PreviewBadgePreview />,
       "trending-card": <TrendingCardPreview />,
+      "netflix-card": <NetflixCardPreview />,
     };
     if (previewMap[previewParam]) {
       return <Suspense fallback={<PageLoading />}>{previewMap[previewParam]}</Suspense>;
