@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useEffect } from "react";
-import { Upload as UploadIcon, Video, FileText, CheckCircle2, Loader2, X, ImagePlus, Lock, Coins } from "lucide-react";
+import { Upload as UploadIcon, Video, FileText, CheckCircle2, Loader2, X, ImagePlus, Lock, Coins, ChevronDown } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -1272,7 +1272,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
                     <span className="font-semibold">{t("upload.aiProofHeader")}</span>
                     <span className="text-xs px-1.5 py-0.5 rounded bg-[#6366f1]/15 text-[#a78bfa]">{t("upload.optionalBadge")}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground group-open:rotate-180 transition-transform">▾</span>
+                  <ChevronDown className="w-5 h-5 text-gray-300 group-open:rotate-180 transition-transform" />
                 </summary>
                 <div className="px-4 pb-4 space-y-4 border-t border-border">
                   <p className="text-xs text-muted-foreground pt-3">
@@ -1317,7 +1317,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
                     <span className="font-semibold">{t("upload.cinemaMetaHeader")}</span>
                     <span className="text-xs px-1.5 py-0.5 rounded bg-[#6366f1]/15 text-[#a78bfa]">{t("upload.optionalBadge")}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground group-open:rotate-180 transition-transform">▾</span>
+                  <ChevronDown className="w-5 h-5 text-gray-300 group-open:rotate-180 transition-transform" />
                 </summary>
                 <div className="px-4 pb-4 space-y-4 border-t border-border">
                   <p className="text-xs text-muted-foreground pt-3">
@@ -1421,7 +1421,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
                     <span className="font-semibold">{t("upload.sponsorHeader", "협찬·후원 정보")}</span>
                     <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">{t("upload.optionalBadge")}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground group-open:rotate-180 transition-transform">▾</span>
+                  <ChevronDown className="w-5 h-5 text-gray-300 group-open:rotate-180 transition-transform" />
                 </summary>
                 <div className="px-4 pb-4 space-y-4 border-t border-border">
                   <p className="text-xs text-muted-foreground pt-3">
