@@ -203,10 +203,11 @@ BEGIN
 
   ELSIF v_payment.payment_type = 'license' THEN
     -- 라이선스 주문 행 삽입 (영상 다운로드 권한)
+    -- 2026-05-27: 'all-in-one' → 'standard' 로 통일 (orders_license_type_check 제약 일치 + Non-Exclusive 정책)
     INSERT INTO public.orders (
       buyer_id, video_id, license_type, amount, status, payment_method, payment_id
     ) VALUES (
-      v_subscriber_id, v_target_id, 'all-in-one', v_amount, 'completed', p_method, p_payment_key
+      v_subscriber_id, v_target_id, 'standard', v_amount, 'completed', p_method, p_payment_key
     )
     ON CONFLICT DO NOTHING;  -- 같은 영상 중복 구매 방지는 별도 RPC에서 처리
 
