@@ -15,13 +15,21 @@ const handlers: Array<() => void> = [];
 let internalBack = false;
 let listenerAttached = false;
 
+// App.tsx 등 외부 popstate 핸들러가 useBackButton 의 history.back() 호출을 무시할 수 있도록 export.
+// (햄버거/모달 닫힘 시 발생하는 popstate 가 다른 navigation 처리를 트리거하지 않게)
+export function isInternalBackEvent(): boolean {
+  return internalBack;
+}
+
 function attachGlobalListener() {
   if (listenerAttached) return;
   listenerAttached = true;
   window.addEventListener("popstate", () => {
-    // 우리가 history.back()을 직접 호출한 경우 무시
+    // 우리가 history.back()을 직접 호출한 경우 무시.
+    // 같은 tick 의 다른 popstate listener (App.tsx 탭 navigation 등) 도
+    // isInternalBackEvent() 로 체크 가능하도록 microtask 로 지연 리셋
     if (internalBack) {
-      internalBack = false;
+      queueMicrotask(() => { internalBack = false; });
       return;
     }
     const top = handlers[handlers.length - 1];

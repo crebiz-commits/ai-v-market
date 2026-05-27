@@ -29,7 +29,7 @@ import { CartItem } from "./components/CartPanel";
 import { InstallButtonHeader, InstallBannerMobile } from "./components/InstallPrompt";
 import { CreaiteText } from "./components/CreaiteText";
 import { CreaiteLogo } from "./components/CreaiteLogo";
-import { useBackButton } from "./hooks/useBackButton";
+import { useBackButton, isInternalBackEvent } from "./hooks/useBackButton";
 import { Button } from "./components/ui/button";
 import { handleBunnyError } from "./utils/bunnyErrorHandler";
 import { supabase } from "./utils/supabaseClient";
@@ -259,6 +259,9 @@ function AppContent() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const handler = () => {
+      // useBackButton 의 내부 history.back() 호출로 인한 popstate 는 무시
+      // (햄버거 메뉴 닫힘 등으로 인한 가상 history 항목 제거 시 다른 navigation 트리거 방지)
+      if (isInternalBackEvent()) return;
       const params = new URLSearchParams(window.location.search);
       if (params.has("info") || params.has("payment") || params.has("preview") || params.has("video")) {
         // 다른 우선 라우팅이 처리할 영역 — App 컴포넌트 재마운트로 자동 처리
