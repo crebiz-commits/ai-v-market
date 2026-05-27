@@ -7,13 +7,17 @@
 //   - 지금 뜨는 시네마 (Trending Now, 24h)
 //   - 새로 추가됨 (New Releases, 14일)
 //   - 인기 Top 10
-//   - 카테고리별 (동적 — 영상 있는 카테고리만)
+//   - 카테고리별 (고정 순서: 영화·드라마·애니메이션·다큐멘터리·뮤직비디오·기타)
 // ════════════════════════════════════════════════════════════════════════════
+
+// 카테고리 행 고정 순서 (영상이 있는 카테고리만 표시됨)
+const FIXED_CATEGORY_ORDER = ["영화", "드라마", "애니메이션", "다큐멘터리", "뮤직비디오", "기타"];
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Film, Search as SearchIcon } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
+import { TrendingHeroSection } from "./TrendingHeroSection";
 import { Footer } from "./Footer";
 import { useAgeRatings } from "../hooks/useAgeRatings";
 import { CoverFlow } from "./CoverFlow";
@@ -163,14 +167,17 @@ export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaPr
           { data: trd },
           { data: nrl },
           { data: top },
-          { data: cats },
+          ...categoryResults
         ] = await Promise.all([
           supabase.rpc("get_recommended_videos", { p_tier: tier, p_limit: 15 }),
           supabase.rpc("get_continue_watching", { p_limit: 10 }),
           supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 24, p_limit: 10 }),
           supabase.rpc("get_new_releases", { p_tier: tier, p_days: 14, p_limit: 10 }),
           supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 168, p_limit: 10 }),  // 7일
-          supabase.rpc("get_categories_with_count", { p_tier: tier, p_min_count: 2 }),
+          // 카테고리 6종 고정 순서로 병렬 호출
+          ...FIXED_CATEGORY_ORDER.map((cat) =>
+            supabase.rpc("get_videos_by_category", { p_category: cat, p_tier: tier, p_limit: 12 }),
+          ),
         ]);
 
         // Showcase Mode: tier 기반 (cinema=3분+, ott=10분+) Mock 합성
@@ -189,28 +196,12 @@ export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaPr
         setNewReleases(merge(nrl || []));
         setTop10(merge(top || []));
 
-        // 카테고리별 영상 로드 (상위 5개 카테고리)
-        const topCategories = (cats || []).slice(0, 5);
-        const rows: CategoryRow[] = await Promise.all(
-          topCategories.map(async (cat: { category: string; video_count: number }) => {
-            const { data } = await supabase.rpc("get_videos_by_category", {
-              p_category: cat.category,
-              p_tier: tier,
-              p_limit: 12,
-            });
-            return { category: cat.category, videos: merge(data || [], { category: cat.category }) };
-          })
-        );
-        // showcase 모드 + 실제 카테고리가 적으면 mock 카테고리도 추가
-        if (showcase && rows.length < 5) {
-          const showcaseCategories = ["drama", "action", "thriller", "romance", "comedy"];
-          for (const cat of showcaseCategories) {
-            if (rows.find(r => r.category === cat)) continue;
-            const mockOnly = mergeShowcase([] as CarouselVideo[], showcaseToCarousel, { tier, category: cat, maxShowcase: 12 });
-            if (mockOnly.length > 0) rows.push({ category: cat, videos: mockOnly });
-            if (rows.length >= 5) break;
-          }
-        }
+        // 카테고리별 영상 행 — 고정 순서 (영화·드라마·애니메이션·다큐멘터리·뮤직비디오·기타)
+        // 영상 1개 이상 있는 카테고리만 표시 (showcase 모드는 mock 합성됨)
+        const rows: CategoryRow[] = FIXED_CATEGORY_ORDER.map((cat, i) => ({
+          category: cat,
+          videos: merge((categoryResults[i] as any)?.data || [], { category: cat }),
+        })).filter((row) => row.videos.length > 0);
         setCategoryRows(rows);
       } catch (err: any) {
         console.warn("[Cinema] 로딩 실패:", err?.message);
@@ -317,7 +308,7 @@ export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaPr
             if (heroVideos.length === 0) return null;
 
             return (
-              <div className="mb-8 mt-2">
+              <div className="mb-8 mt-2 md:-mb-10 lg:-mb-20">
                 <div className="px-4 md:px-6 mb-3">
                   <h2 className="text-base md:text-lg font-bold flex items-center gap-2">
                     {t("cinema.coverflowTitle")}
@@ -334,15 +325,17 @@ export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaPr
             );
           })()}
 
-          {/* 추천 (For You) */}
-          <VideoRowCarousel
-            title={t("cinema.forYouTitle")}
-            subtitle={t("cinema.forYouSubtitle")}
-            videos={recommended}
-            onVideoClick={handleClick}
-            emptyMessage={t("cinema.forYouEmpty")}
-            ageRatings={ageRatings}
-          />
+          {/* 추천 (For You) — relative z-10 으로 CoverFlow reflection 위에 표시 */}
+          <div className="relative z-10 bg-background">
+            <VideoRowCarousel
+              title={t("cinema.forYouTitle")}
+              subtitle={t("cinema.forYouSubtitle")}
+              videos={recommended}
+              onVideoClick={handleClick}
+              emptyMessage={t("cinema.forYouEmpty")}
+              ageRatings={ageRatings}
+            />
+          </div>
 
           {/* 이어 보기 */}
           {continueWatching.length > 0 && (
@@ -356,14 +349,13 @@ export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaPr
             />
           )}
 
-          {/* 인기 (24h) */}
-          <VideoRowCarousel
+          {/* 인기 (24h) — 히어로 + 네온 글로우 캐러셀 */}
+          <TrendingHeroSection
             title={t("cinema.trendingTitle")}
             subtitle={t("cinema.trendingSubtitle")}
             videos={trending}
             onVideoClick={handleClick}
             emptyMessage={t("cinema.trendingEmpty")}
-            ageRatings={ageRatings}
           />
 
           {/* 새로 추가됨 */}

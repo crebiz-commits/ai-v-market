@@ -142,7 +142,7 @@ export function VideoRowCarousel({
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => onVideoClick(video)}
-              className="flex-shrink-0 snap-start w-44 md:w-52 text-left"
+              className="flex-shrink-0 snap-start w-[42vw] md:w-[15vw] text-left"
             >
               <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
                 {showRank && (

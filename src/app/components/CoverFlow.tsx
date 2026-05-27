@@ -53,15 +53,12 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
   const isEmpty = videos.length === 0;
   const anglePerItem = isEmpty ? 0 : 360 / videos.length;
   
-  // 화면 크기에 따라 반경 조정
+  // 화면 크기에 따라 반경 조정 — viewport 42% 비례 + 최대 600px cap
+  // (42%: 양옆 카드가 화면 가장자리에서 적당히 안쪽 → 모든 viewport 에서 회전 효과 자연스럽게)
+  // (cap 없으면 perspective 1200 효과로 가운데 카드가 과도 확대 → 다른 섹션과 겹침)
   const getRadius = () => {
     if (typeof window === 'undefined') return 250;
-    const width = window.innerWidth;
-    if (width >= 1536) return 520; // 2xl 이상 - 데스크탑 크기 축소
-    if (width >= 1280) return 480; // xl - 데스크탑 크기 축소
-    if (width >= 1024) return 400; // lg - 데스크탑 크기 축소
-    if (width >= 768) return 350; // md
-    return 170; // sm 이하 - 모바일에서 캐러셀 가로 폭 확장
+    return Math.min(Math.round(window.innerWidth * 0.42), 600);
   };
 
   const [radius, setRadius] = useState(getRadius());
