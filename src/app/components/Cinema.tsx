@@ -14,6 +14,7 @@ import { Loader2, Film, Search as SearchIcon } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
+import { Footer } from "./Footer";
 import { useAgeRatings } from "../hooks/useAgeRatings";
 import { CoverFlow } from "./CoverFlow";
 import { Input } from "./ui/input";
@@ -88,6 +89,7 @@ interface Product {
 interface CinemaProps {
   onProductClick: (product: Product) => void;
   tier?: "cinema" | "ott";   // 시네마(3분+) 또는 OTT(10분+)
+  onNavigate?: (tab: string) => void;
 }
 
 interface CategoryRow {
@@ -117,7 +119,7 @@ function toProduct(v: CarouselVideo): Product {
   };
 }
 
-export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
+export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaProps) {
   const { t } = useTranslation();
   const { profile } = useAuth();
   const showcase = shouldShowShowcase(profile?.is_admin);
@@ -243,8 +245,11 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center bg-background">
-        <Loader2 className="w-10 h-10 text-[#6366f1] animate-spin" />
+      <div className="h-full overflow-y-auto bg-background flex flex-col">
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-10 h-10 text-[#6366f1] animate-spin" />
+        </div>
+        <Footer onNavigate={onNavigate || (() => {})} />
       </div>
     );
   }
@@ -404,6 +409,7 @@ export function Cinema({ onProductClick, tier = "cinema" }: CinemaProps) {
           )}
         </div>
       )}
+      <Footer onNavigate={onNavigate || (() => {})} />
     </div>
   );
 }

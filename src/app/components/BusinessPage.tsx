@@ -3,6 +3,7 @@ import { Briefcase, TrendingUp, Handshake, Layers, Send, Loader2, CheckCircle2, 
 import { motion } from "motion/react";
 import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
+import { Footer } from "./Footer";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -11,6 +12,7 @@ type Category = "advertising" | "investment" | "partnership" | "b2b_license";
 
 interface BusinessPageProps {
   onBack: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
 const CATEGORIES: Array<{
@@ -50,7 +52,7 @@ const CATEGORIES: Array<{
   },
 ];
 
-export function BusinessPage({ onBack }: BusinessPageProps) {
+export function BusinessPage({ onBack, onNavigate }: BusinessPageProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [category, setCategory] = useState<Category>("advertising");
@@ -97,7 +99,8 @@ export function BusinessPage({ onBack }: BusinessPageProps) {
 
   if (submitted) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#0a0a0a] p-6">
+      <div className="h-full overflow-y-auto bg-[#0a0a0a] flex flex-col">
+        <div className="flex-1 flex items-center justify-center p-6">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -119,6 +122,8 @@ export function BusinessPage({ onBack }: BusinessPageProps) {
             {t("creatorChannel.back")}
           </Button>
         </motion.div>
+        </div>
+        <Footer onNavigate={onNavigate || (() => {})} />
       </div>
     );
   }
@@ -254,6 +259,7 @@ export function BusinessPage({ onBack }: BusinessPageProps) {
           </p>
         </form>
       </div>
+      <Footer onNavigate={onNavigate || (() => {})} />
     </div>
   );
 }

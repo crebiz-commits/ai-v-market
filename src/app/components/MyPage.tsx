@@ -17,6 +17,7 @@ import { NotificationSettings } from "./NotificationSettings";
 import { TaxInfoSection } from "./TaxInfoSection";
 import { MyPaymentsSection } from "./MyPaymentsSection";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
+import { Footer } from "./Footer";
 import { formatCompactNumber } from "../i18n/numberFormat";
 
 // Phase 27: 데이터 다운로드 섹션 (개인정보보호법 데이터 이동권)
@@ -302,6 +303,7 @@ interface MyPageProps {
   onSignInClick?: () => void;
   onVideoClick?: (videoId: string) => void;  // Phase 17: 시청 기록에서 영상 클릭
   onViewMyChannel?: () => void;              // 내 채널 가기 (Channel 탭으로 이동)
+  onNavigate?: (tab: string) => void;
 }
 
 // 모드 선택 화면 (마이 탭 진입 시)
@@ -417,7 +419,7 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
 };
 
-export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageProps) {
+export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigate }: MyPageProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("profile");
   const [pageMode, setPageMode] = useState<PageMode>(() => {
@@ -959,8 +961,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
 
   if (!isAuthenticated) {
     return (
-      <div className="h-full flex items-center justify-center bg-background p-6">
-        <motion.div 
+      <div className="h-full overflow-y-auto bg-background flex flex-col">
+        <div className="flex-1 flex items-center justify-center p-6">
+        <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, type: "spring" }}
@@ -986,13 +989,16 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
             </Button>
           </motion.div>
         </motion.div>
+        </div>
+        <Footer onNavigate={onNavigate || (() => {})} />
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center bg-background">
+      <div className="h-full overflow-y-auto bg-background flex flex-col">
+        <div className="flex-1 flex items-center justify-center">
         <motion.div
           className="text-center"
           initial={{ opacity: 0, scale: 0.9 }}
@@ -1007,6 +1013,8 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
           </motion.div>
           <p className="text-muted-foreground font-medium">{t("mypage.profileLoading")}</p>
         </motion.div>
+        </div>
+        <Footer onNavigate={onNavigate || (() => {})} />
       </div>
     );
   }
@@ -2144,6 +2152,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel }: MyPageP
           </>
         )}
       </AnimatePresence>
+      <Footer onNavigate={onNavigate || (() => {})} />
   </div>
   );
 }

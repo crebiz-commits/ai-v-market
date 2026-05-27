@@ -2,7 +2,8 @@ import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 
 interface FooterProps {
-  onNavigate: (tab: "business" | "about" | "terms" | "privacy") => void;
+  // 각 페이지에서 Footer 호출 시 페이지의 onNavigate prop 그대로 전달 가능하도록 string 타입
+  onNavigate: (tab: string) => void;
 }
 
 /**

@@ -1,9 +1,11 @@
 import { ArrowLeft, Sparkles, Film, Crown, Users, Zap } from "lucide-react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
+import { Footer } from "./Footer";
 
 interface StaticPageProps {
   onBack: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
 function useIsKorean() {
@@ -11,11 +13,11 @@ function useIsKorean() {
   return (i18n.language || "en").startsWith("ko");
 }
 
-function PageShell({ title, subtitle, onBack, children }: { title: string; subtitle?: string; onBack: () => void; children: React.ReactNode }) {
+function PageShell({ title, subtitle, onBack, onNavigate, children }: { title: string; subtitle?: string; onBack: () => void; onNavigate?: (tab: string) => void; children: React.ReactNode }) {
   const { t } = useTranslation();
   return (
-    <div className="h-full overflow-y-auto bg-[#0a0a0a] pb-20">
-      <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 md:py-10">
+    <div className="h-full overflow-y-auto bg-[#0a0a0a]">
+      <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 md:py-10 pb-20">
         <button
           onClick={onBack}
           className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white mb-6 transition-colors"
@@ -29,6 +31,7 @@ function PageShell({ title, subtitle, onBack, children }: { title: string; subti
         </motion.div>
         {children}
       </div>
+      <Footer onNavigate={onNavigate || (() => {})} />
     </div>
   );
 }
@@ -36,11 +39,11 @@ function PageShell({ title, subtitle, onBack, children }: { title: string; subti
 // ──────────────────────────────────────────────────────────────────────
 // About
 // ──────────────────────────────────────────────────────────────────────
-export function AboutPage({ onBack }: StaticPageProps) {
+export function AboutPage({ onBack, onNavigate }: StaticPageProps) {
   const isKo = useIsKorean();
   const text = isKo ? ABOUT_KO : ABOUT_EN;
   return (
-    <PageShell title="CREAITE" subtitle={text.subtitle} onBack={onBack}>
+    <PageShell title="CREAITE" subtitle={text.subtitle} onBack={onBack} onNavigate={onNavigate}>
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -93,11 +96,11 @@ function Card({ icon: Icon, title, desc }: { icon: any; title: string; desc: str
 // ──────────────────────────────────────────────────────────────────────
 // Terms of Service
 // ──────────────────────────────────────────────────────────────────────
-export function TermsPage({ onBack }: StaticPageProps) {
+export function TermsPage({ onBack, onNavigate }: StaticPageProps) {
   const isKo = useIsKorean();
   const text = isKo ? TERMS_KO : TERMS_EN;
   return (
-    <PageShell title={text.title} subtitle={`${text.lastModifiedLabel}: ${new Date().toISOString().slice(0, 10)} (${text.draftLabel})`} onBack={onBack}>
+    <PageShell title={text.title} subtitle={`${text.lastModifiedLabel}: ${new Date().toISOString().slice(0, 10)} (${text.draftLabel})`} onBack={onBack} onNavigate={onNavigate}>
       <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 mb-6">
         <p className="text-xs text-amber-300">⚠️ {text.draftNotice}</p>
       </div>
@@ -116,11 +119,11 @@ export function TermsPage({ onBack }: StaticPageProps) {
 // ──────────────────────────────────────────────────────────────────────
 // Privacy Policy
 // ──────────────────────────────────────────────────────────────────────
-export function PrivacyPage({ onBack }: StaticPageProps) {
+export function PrivacyPage({ onBack, onNavigate }: StaticPageProps) {
   const isKo = useIsKorean();
   const text = isKo ? PRIVACY_KO : PRIVACY_EN;
   return (
-    <PageShell title={text.title} subtitle={`${text.lastModifiedLabel}: ${new Date().toISOString().slice(0, 10)} (${text.draftLabel})`} onBack={onBack}>
+    <PageShell title={text.title} subtitle={`${text.lastModifiedLabel}: ${new Date().toISOString().slice(0, 10)} (${text.draftLabel})`} onBack={onBack} onNavigate={onNavigate}>
       <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 mb-6">
         <p className="text-xs text-amber-300">⚠️ {text.draftNotice}</p>
       </div>

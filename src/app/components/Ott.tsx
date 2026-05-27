@@ -14,6 +14,7 @@ import { motion } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { type CarouselVideo } from "./VideoRowCarousel";
+import { Footer } from "./Footer";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { BRAND_GRADIENT_TEXT, BRAND_BADGE_BG, getGenreStyle } from "../utils/brandColors";
@@ -43,6 +44,7 @@ interface Product {
 
 interface OttProps {
   onProductClick: (product: Product) => void;
+  onNavigate?: (tab: string) => void;
 }
 
 // ShowcaseVideo → CarouselVideo
@@ -93,7 +95,7 @@ interface GenreRow {
   videos: CarouselVideo[];
 }
 
-export function Ott({ onProductClick }: OttProps) {
+export function Ott({ onProductClick, onNavigate }: OttProps) {
   const { t } = useTranslation();
   const { profile, user } = useAuth();
   const showcase = shouldShowShowcase(profile?.is_admin);
@@ -183,8 +185,11 @@ export function Ott({ onProductClick }: OttProps) {
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#0a0a0a]">
-        <Loader2 className="w-10 h-10 text-[#a78bfa] animate-spin" />
+      <div className="h-full overflow-y-auto bg-[#0a0a0a] flex flex-col">
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-10 h-10 text-[#a78bfa] animate-spin" />
+        </div>
+        <Footer onNavigate={onNavigate || (() => {})} />
       </div>
     );
   }
@@ -198,8 +203,11 @@ export function Ott({ onProductClick }: OttProps) {
 
   if (!hero) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#0a0a0a] text-gray-500 text-sm">
-        {t("ott.noVideos")}
+      <div className="h-full overflow-y-auto bg-[#0a0a0a] flex flex-col">
+        <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
+          {t("ott.noVideos")}
+        </div>
+        <Footer onNavigate={onNavigate || (() => {})} />
       </div>
     );
   }
@@ -253,6 +261,7 @@ export function Ott({ onProductClick }: OttProps) {
           {t("ott.noGenreContent")}
         </div>
       )}
+      <Footer onNavigate={onNavigate || (() => {})} />
     </div>
   );
 }

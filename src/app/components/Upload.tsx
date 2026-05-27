@@ -17,6 +17,7 @@ import {
 } from "./ui/dialog";
 import { motion } from "motion/react";
 import { BunnySetupGuide } from "./BunnySetupGuide";
+import { Footer } from "./Footer";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { useAuth } from "../contexts/AuthContext";
 import { useSettings } from "../contexts/SettingsContext";
@@ -34,9 +35,10 @@ const languages = ["한국어", "영어", "일본어", "중국어", "스페인�
 interface UploadProps {
   onSignInClick?: () => void;
   onViewMyProducts?: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
-export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
+export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadProps) {
   const { t } = useTranslation();
   const { user, accessToken } = useAuth();
   const settings = useSettings();
@@ -418,22 +420,25 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
 
   if (!user) {
     return (
-      <div className="h-full flex items-center justify-center bg-background p-6">
-        <div className="text-center max-w-md mx-auto">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mx-auto mb-6 flex items-center justify-center">
-            <UploadIcon className="w-10 h-10 text-white" />
+      <div className="h-full overflow-y-auto bg-background flex flex-col">
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center max-w-md mx-auto">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mx-auto mb-6 flex items-center justify-center">
+              <UploadIcon className="w-10 h-10 text-white" />
+            </div>
+            <h2 className="text-2xl mb-3">{t("upload.loginRequiredTitle")}</h2>
+            <p className="text-muted-foreground mb-6">
+              {t("upload.loginRequiredHint")}
+            </p>
+            <Button
+              onClick={onSignInClick}
+              className="w-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] py-6 text-lg"
+            >
+              {t("upload.signInButton")}
+            </Button>
           </div>
-          <h2 className="text-2xl mb-3">{t("upload.loginRequiredTitle")}</h2>
-          <p className="text-muted-foreground mb-6">
-            {t("upload.loginRequiredHint")}
-          </p>
-          <Button
-            onClick={onSignInClick}
-            className="w-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] py-6 text-lg"
-          >
-            {t("upload.signInButton")}
-          </Button>
         </div>
+        <Footer onNavigate={onNavigate || (() => {})} />
       </div>
     );
   }
@@ -1862,6 +1867,7 @@ export function Upload({ onSignInClick, onViewMyProducts }: UploadProps) {
           </DialogContent>
         </Dialog>
       </div>
+      <Footer onNavigate={onNavigate || (() => {})} />
     </div>
   );
 }

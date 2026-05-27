@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Lightbulb, Trophy, MessageCircle, Heart, Bookmark, TrendingUp, Plus, X, Send, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Footer } from "./Footer";
 import { Button } from "./ui/button";
 import { motion, AnimatePresence } from "motion/react";
 import { CommentPanel } from "./CommentPanel";
@@ -222,7 +223,11 @@ const CATEGORY_COLOR: Record<string, string> = {
   "질문": "bg-[#06b6d4]/20 text-[#06b6d4]",
 };
 
-export function Community() {
+interface CommunityProps {
+  onNavigate?: (tab: string) => void;
+}
+
+export function Community({ onNavigate }: CommunityProps = {}) {
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
   const { user, isAuthenticated, profile } = useAuth();
@@ -492,6 +497,8 @@ export function Community() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Footer onNavigate={onNavigate || (() => {})} />
 
       {/* 댓글 바텀시트 */}
       <AnimatePresence>

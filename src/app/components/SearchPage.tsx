@@ -7,6 +7,7 @@ import { Search, X, Loader2, TrendingUp, Clock, Filter, ChevronDown, Eye, Heart,
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
+import { Footer } from "./Footer";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { useAgeRatings } from "../hooks/useAgeRatings";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
@@ -85,6 +86,7 @@ interface SearchPageProps {
   onProductClick: (video: any) => void;
   onViewCreator?: (creatorId: string) => void;
   onClose?: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
 const CATEGORY_OPTIONS = ["전체", "drama", "action", "comedy", "thriller", "romance", "horror", "documentary", "animation", "music", "shorts", "ad", "tutorial"];
@@ -128,7 +130,7 @@ function saveHistory(query: string) {
   }
 }
 
-export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPageProps) {
+export function SearchPage({ onProductClick, onViewCreator, onClose, onNavigate }: SearchPageProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState(""); // 실제 검색이 실행된 쿼리
@@ -581,6 +583,7 @@ export function SearchPage({ onProductClick, onViewCreator, onClose }: SearchPag
           )
         )}
       </div>
+      <Footer onNavigate={onNavigate || (() => {})} />
     </div>
   );
 }

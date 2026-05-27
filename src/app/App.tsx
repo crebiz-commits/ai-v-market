@@ -15,7 +15,6 @@ import './init';
 import { useState, useEffect, useCallback, Suspense, type ReactElement } from "react";
 import { lazyRetry as lazy } from "./utils/lazyRetry";
 import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, Gift, Loader2, Crown, Users } from "lucide-react";
-import { Footer } from "./components/Footer";
 import { HamburgerMenu } from "./components/HamburgerMenu";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { motion, AnimatePresence } from "motion/react";
@@ -554,13 +553,13 @@ function AppContent() {
       case "discovery":
         return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} onViewCreator={handleViewCreator} />;
       case "market":
-        return <Cinema onProductClick={setSelectedProduct} tier="cinema" />;
+        return <Cinema onProductClick={setSelectedProduct} tier="cinema" onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "ott":
-        return <Ott onProductClick={setSelectedProduct} />;
+        return <Ott onProductClick={setSelectedProduct} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "upload":
-        return <Upload onSignInClick={() => setShowAuthModal(true)} onViewMyProducts={() => setActiveTab("mypage")} />;
+        return <Upload onSignInClick={() => setShowAuthModal(true)} onViewMyProducts={() => setActiveTab("mypage")} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "community":
-        return <Community />;
+        return <Community onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "channel":
         return (
           <Channel
@@ -568,6 +567,7 @@ function AppContent() {
             onProductClick={setSelectedProduct}
             initialCreatorId={pendingCreatorId}
             onCreatorOpened={() => setPendingCreatorId(null)}
+            onNavigate={(tab) => setActiveTab(tab as Tab)}
           />
         );
       case "mypage":
@@ -576,24 +576,26 @@ function AppContent() {
             onSignInClick={() => setShowAuthModal(true)}
             onViewMyChannel={user?.id ? () => handleViewCreator(user.id) : undefined}
             onVideoClick={loadAndOpenVideo}
+            onNavigate={(tab) => setActiveTab(tab as Tab)}
           />
         );
       case "admin":
         return <AdminLayout onBackToSite={() => setActiveTab("discovery")} />;
       case "business":
-        return <BusinessPage onBack={() => setActiveTab("discovery")} />;
+        return <BusinessPage onBack={() => setActiveTab("discovery")} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "about":
-        return <AboutPage onBack={() => setActiveTab("discovery")} />;
+        return <AboutPage onBack={() => setActiveTab("discovery")} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "terms":
-        return <TermsPage onBack={() => setActiveTab("discovery")} />;
+        return <TermsPage onBack={() => setActiveTab("discovery")} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "privacy":
-        return <PrivacyPage onBack={() => setActiveTab("discovery")} />;
+        return <PrivacyPage onBack={() => setActiveTab("discovery")} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "search":
         return (
           <SearchPage
             onProductClick={setSelectedProduct}
             onViewCreator={handleViewCreator}
             onClose={() => setActiveTab("discovery")}
+            onNavigate={(tab) => setActiveTab(tab as Tab)}
           />
         );
       default:
@@ -803,16 +805,13 @@ function AppContent() {
         </div>
       </motion.header>
 
-      {/* Main Content + Side Panel Layout */}
+      {/* Main Content + Side Panel Layout — 푸터는 각 페이지가 자체 스크롤 영역 끝에 포함 (Netflix 패턴) */}
       <div className="flex-1 relative overflow-hidden bg-[#0A0A0A] flex">
         {/* Content */}
-        <div className={`flex-1 overflow-hidden transition-all duration-300 flex flex-col ${activePanel ? "md:mr-80" : ""}`}>
-          <div className="flex-1 overflow-hidden">
-            <Suspense fallback={<PageLoading />}>
-              {renderContent()}
-            </Suspense>
-          </div>
-          <Footer onNavigate={(tab) => setActiveTab(tab)} />
+        <div className={`flex-1 overflow-hidden transition-all duration-300 ${activePanel ? "md:mr-80" : ""}`}>
+          <Suspense fallback={<PageLoading />}>
+            {renderContent()}
+          </Suspense>
         </div>
 
         {/* Desktop Side Panel */}
