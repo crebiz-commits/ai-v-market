@@ -89,8 +89,13 @@ interface SearchPageProps {
   onNavigate?: (tab: string) => void;
 }
 
-const CATEGORY_OPTIONS = ["전체", "drama", "action", "comedy", "thriller", "romance", "horror", "documentary", "animation", "music", "shorts", "ad", "tutorial"];
-const AI_TOOL_OPTIONS = ["전체", "Sora", "Runway", "Pika", "Kling", "Luma", "Veo", "Midjourney", "기타"];
+// 2026-05-27 카테고리·장르·AI툴 통일 (Upload 와 동일)
+const CATEGORY_OPTIONS = ["전체", "영화", "드라마", "애니메이션", "다큐멘터리", "뮤직비디오", "기타"];
+const AI_TOOL_OPTIONS = [
+  "전체", "Sora", "Runway Gen-3", "Runway Gen-2", "Pika Labs", "Luma Dream Machine", "Kling AI",
+  "Seedance 2.0", "Veo 2", "Veo 3", "Hailuo AI", "Wan 2.1", "Hunyuan Video",
+  "Mochi 1", "LTX Studio", "Hedra", "Higgsfield", "Pixverse", "기타"
+];
 const DURATION_OPTIONS: { label: string; min: number | null; max: number | null }[] = [
   { label: "전체", min: null, max: null },
   { label: "1분 미만", min: null, max: 60 },

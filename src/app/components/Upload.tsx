@@ -24,12 +24,18 @@ import { useSettings } from "../contexts/SettingsContext";
 import { supabase, supabaseAnonKey, supabaseUrl } from "../utils/supabaseClient";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { getCategoryLabel, getAiToolLabel, getLanguageLabel } from "../i18n/categoryLabels";
+import { getCategoryLabel, getGenreLabel, getAiToolLabel, getLanguageLabel } from "../i18n/categoryLabels";
 
-const aiTools = ["Sora", "Runway Gen-3", "Runway Gen-2", "Pika Labs", "Luma Dream Machine", "Kling AI", "기타"];
-const categories = ["AI영화", "AI드라마", "AI애니메이션", "AI다큐멘터리", "AI뮤직비디오", "SF", "액션", "로맨스", "공포", "판타지", "드라마", "코미디", "자연/풍경", "추상", "기타"];
+// 카테고리·장르·AI툴 — 사이트 전체 (Upload/Cinema/Ott/SearchPage) 통일 (2026-05-27)
+// 카테고리 = 콘텐츠 형식 (6종) / 장르 = 작품 분위기·테마 (11종)
+const aiTools = [
+  "Sora", "Runway Gen-3", "Runway Gen-2", "Pika Labs", "Luma Dream Machine", "Kling AI",
+  "Seedance 2.0", "Veo 2", "Veo 3", "Hailuo AI", "Wan 2.1", "Hunyuan Video",
+  "Mochi 1", "LTX Studio", "Hedra", "Higgsfield", "Pixverse", "기타"
+];
+const categories = ["영화", "드라마", "애니메이션", "다큐멘터리", "뮤직비디오", "기타"];
+const genres = ["SF", "액션", "로맨스", "공포", "판타지", "스릴러", "드라마", "코미디", "자연·풍경", "추상", "기타"];
 const resolutions = ["720p", "1080p", "4K", "8K"];
-const genres = ["SF", "액션", "로맨스", "공포", "판타지", "드라마", "코미디", "다큐멘터리", "자연/풍경", "추상", "기타"];
 const languages = ["한국어", "영어", "일본어", "중국어", "스페인어", "프랑스어", "독일어", "무음/instrumental", "기타"];
 
 interface UploadProps {
@@ -1205,41 +1211,26 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
                   >
                     <option value="">{t("upload.selectOption")}</option>
                     {genres.map(genre => (
-                      <option key={genre} value={genre}>{getCategoryLabel(genre, t)}</option>
+                      <option key={genre} value={genre}>{getGenreLabel(genre, t)}</option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="aiTool" className="mb-2 block">{t("upload.aiToolLabel")}</Label>
-                  <select
-                    id="aiTool"
-                    value={formData.aiTool}
-                    onChange={(e) => setFormData({...formData, aiTool: e.target.value})}
-                    className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm"
-                    required
-                  >
-                    <option value="">{t("upload.selectOption")}</option>
-                    {aiTools.map(tool => (
-                      <option key={tool} value={tool}>{getAiToolLabel(tool, t)}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="aiModelVersion" className="mb-2 block">
-                    {t("upload.modelVersionLabel")} <span className="text-xs text-muted-foreground font-normal">{t("upload.modelVersionOptional")}</span>
-                  </Label>
-                  <Input
-                    id="aiModelVersion"
-                    value={formData.aiModelVersion}
-                    onChange={(e) => setFormData({ ...formData, aiModelVersion: e.target.value })}
-                    placeholder={t("upload.modelVersionPlaceholder")}
-                    className="bg-card"
-                    maxLength={30}
-                  />
-                </div>
+              <div>
+                <Label htmlFor="aiTool" className="mb-2 block">{t("upload.aiToolLabel")}</Label>
+                <select
+                  id="aiTool"
+                  value={formData.aiTool}
+                  onChange={(e) => setFormData({...formData, aiTool: e.target.value})}
+                  className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm"
+                  required
+                >
+                  <option value="">{t("upload.selectOption")}</option>
+                  {aiTools.map(tool => (
+                    <option key={tool} value={tool}>{getAiToolLabel(tool, t)}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

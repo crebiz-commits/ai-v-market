@@ -1,44 +1,40 @@
 import type { TFunction } from "i18next";
 
-// DB에 한글로 저장된 카테고리/장르를 i18n 키로 매핑.
-// DB 데이터 형식을 유지하면서 표시할 때만 언어 변환.
+// 2026-05-27 카테고리/장르 통일:
+//   카테고리 = 콘텐츠 형식 (6종): 영화/드라마/애니메이션/다큐멘터리/뮤직비디오/기타
+//   장르 = 작품 분위기·테마 (11종): SF/액션/로맨스/공포/판타지/스릴러/드라마/코미디/자연·풍경/추상/기타
+// 구 카테고리(AI영화/AI드라마/SF/액션 등 혼재)는 마이그레이션 SQL 로 새 분류에 매핑됨
 const CATEGORY_KEY_MAP: Record<string, string> = {
   "전체": "category.all",
-  "AI영화": "category.aiMovie",
-  "AI드라마": "category.aiDrama",
-  "AI애니메이션": "category.aiAnimation",
-  "AI다큐멘터리": "category.aiDocumentary",
-  "AI뮤직비디오": "category.aiMusicVideo",
-  "SF": "category.scifi",
-  "액션": "category.action",
-  "로맨스": "category.romance",
-  "공포": "category.horror",
-  "판타지": "category.fantasy",
+  "영화": "category.movie",
   "드라마": "category.drama",
-  "코미디": "category.comedy",
-  "스릴러": "category.thriller",
-  "음악": "category.music",
-  "다큐멘터리": "category.documentary",
   "애니메이션": "category.animation",
-  "자연/풍경": "category.nature",
-  "추상": "category.abstract",
-  "쇼츠": "category.shorts",
-  "광고": "category.ad",
-  "튜토리얼": "category.tutorial",
+  "다큐멘터리": "category.documentary",
+  "뮤직비디오": "category.musicVideo",
   "기타": "category.other",
-  // SearchPage CATEGORY_OPTIONS 영문 코드 호환
-  "drama": "category.drama",
-  "action": "category.action",
-  "comedy": "category.comedy",
-  "thriller": "category.thriller",
-  "romance": "category.romance",
-  "horror": "category.horror",
-  "documentary": "category.documentary",
-  "animation": "category.animation",
-  "music": "category.music",
-  "shorts": "category.shorts",
-  "ad": "category.ad",
-  "tutorial": "category.tutorial",
+  // 구 카테고리 호환 (마이그레이션 누락 영상 대비)
+  "AI영화": "category.movie",
+  "AI드라마": "category.drama",
+  "AI애니메이션": "category.animation",
+  "AI다큐멘터리": "category.documentary",
+  "AI뮤직비디오": "category.musicVideo",
+};
+
+const GENRE_KEY_MAP: Record<string, string> = {
+  "전체": "genre.all",
+  "SF": "genre.scifi",
+  "액션": "genre.action",
+  "로맨스": "genre.romance",
+  "공포": "genre.horror",
+  "판타지": "genre.fantasy",
+  "스릴러": "genre.thriller",
+  "드라마": "genre.drama",
+  "코미디": "genre.comedy",
+  "자연·풍경": "genre.nature",
+  "추상": "genre.abstract",
+  "기타": "genre.other",
+  // 구 표기 호환
+  "자연/풍경": "genre.nature",
 };
 
 const AI_TOOL_KEY_MAP: Record<string, string> = {
@@ -50,6 +46,12 @@ export function getCategoryLabel(category: string | null | undefined, t: TFuncti
   if (!category) return "";
   const key = CATEGORY_KEY_MAP[category];
   return key ? t(key) : category;
+}
+
+export function getGenreLabel(genre: string | null | undefined, t: TFunction): string {
+  if (!genre) return "";
+  const key = GENRE_KEY_MAP[genre];
+  return key ? t(key) : genre;
 }
 
 export function getAiToolLabel(tool: string | null | undefined, t: TFunction): string {
