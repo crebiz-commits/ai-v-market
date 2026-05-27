@@ -857,7 +857,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
 
   return (
     <div className="h-full overflow-y-auto bg-background">
-      <div className="max-w-3xl mx-auto p-6 md:p-8">
+      <div className="max-w-3xl mx-auto p-6 md:p-8 pb-28 md:pb-8">
 
         {/* Bunny Setup Guide Modal */}
         <BunnySetupGuide
