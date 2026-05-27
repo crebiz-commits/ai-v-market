@@ -56,7 +56,7 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, emp
   }
 
   const hero = videos[0];
-  const rest = videos.slice(1);
+  const rest = videos.slice(1, 10);  // 2위~10위 (최대 9개)
 
   return (
     <section className="mb-8">

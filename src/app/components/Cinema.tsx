@@ -173,7 +173,7 @@ export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaPr
           supabase.rpc("get_continue_watching", { p_limit: 10 }),
           supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 24, p_limit: 10 }),
           supabase.rpc("get_new_releases", { p_tier: tier, p_days: 14, p_limit: 10 }),
-          supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 168, p_limit: 10 }),  // 7일
+          supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 720, p_limit: 10 }),  // 30일 (이달의 BEST)
           // 카테고리 6종 고정 순서로 병렬 호출
           ...FIXED_CATEGORY_ORDER.map((cat) =>
             supabase.rpc("get_videos_by_category", { p_category: cat, p_tier: tier, p_limit: 12 }),
@@ -367,14 +367,13 @@ export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaPr
             ageRatings={ageRatings}
           />
 
-          {/* Top 10 */}
+          {/* 이달의 BEST (30일 인기) — 순번 표시 없이 일반 카드 */}
           <VideoRowCarousel
-            title={t("cinema.topTenTitle")}
-            subtitle={t("cinema.topTenSubtitle")}
+            title={t("cinema.monthBestTitle")}
+            subtitle={t("cinema.monthBestSubtitle")}
             videos={top10}
             onVideoClick={handleClick}
-            showRank={true}
-            emptyMessage={t("cinema.topTenEmpty")}
+            emptyMessage={t("cinema.monthBestEmpty")}
             ageRatings={ageRatings}
           />
 
