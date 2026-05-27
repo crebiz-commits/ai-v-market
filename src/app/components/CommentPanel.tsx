@@ -702,7 +702,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
           </div>
         )}
         <div className="flex gap-2 items-center">
-          {user && <Avatar name={user.name} src={profile?.avatar_url ?? undefined} size={36} />}
+          {user && <Avatar name={profile?.display_name || user.name} src={profile?.avatar_url ?? undefined} size={36} />}
           <div className="flex-1 relative">
             <textarea
               ref={inputRef}

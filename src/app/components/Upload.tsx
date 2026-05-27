@@ -40,7 +40,7 @@ interface UploadProps {
 
 export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadProps) {
   const { t } = useTranslation();
-  const { user, accessToken } = useAuth();
+  const { user, profile, accessToken } = useAuth();
   const settings = useSettings();
   const [step, setStep] = useState(1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -1761,7 +1761,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
                     <span className="text-[8px] font-bold text-white">AI</span>
                   </div>
                   <span className="text-xs text-gray-400 font-medium">
-                    {user?.name || user?.email?.split("@")[0] || "Creator"}
+                    {profile?.display_name || user?.name || user?.email?.split("@")[0] || "Creator"}
                   </span>
                 </div>
                 <p className="text-xs text-gray-300 mb-3 line-clamp-2">

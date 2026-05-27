@@ -32,7 +32,7 @@ export function SubscriptionModal({
   onSignInClick,
 }: SubscriptionModalProps) {
   const { t } = useTranslation();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, profile } = useAuth();
   const { startSubscription } = usePayment();
   const [paying, setPaying] = useState(false);
 
@@ -60,7 +60,7 @@ export function SubscriptionModal({
     try {
       await startSubscription({
         email: user?.email,
-        name: user?.name || user?.email,
+        name: profile?.display_name || user?.name || user?.email,
       });
       // 성공 시 토스 결제창으로 이동 — 여기 이후 코드는 실행 안 됨
     } catch (err: any) {

@@ -1092,10 +1092,10 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
               className="w-28 h-28 rounded-full border-[6px] border-[#121212] overflow-hidden shadow-lg"
             >
               {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt={user?.name || ''} className="w-full h-full object-cover" />
+                <img src={profile.avatar_url} alt={profile?.display_name || user?.name || ''} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-white text-4xl font-bold">
-                  {(user?.name || user?.email || '?').charAt(0).toUpperCase()}
+                  {(profile?.display_name || user?.name || user?.email || '?').charAt(0).toUpperCase()}
                 </div>
               )}
             </motion.div>
@@ -1115,7 +1115,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setEditName(user?.name || "");
+                    setEditName(profile?.display_name || user?.name || "");
                     setEditBio(profile?.bio || "");
                     setEditAvatarUrl(profile?.avatar_url || "");
                     setEditBannerUrl(profile?.banner_url || "");
@@ -1130,7 +1130,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
             </div>
           </div>
           <div>
-            <h2 className="text-2xl font-black text-white mb-1 drop-shadow-sm">{user?.name || 'AI Creator'}</h2>
+            <h2 className="text-2xl font-black text-white mb-1 drop-shadow-sm">{profile?.display_name || user?.name || 'AI Creator'}</h2>
             <p className="text-sm font-medium text-[#6366f1] mb-6">{user?.email}</p>
           </div>
           
@@ -1252,7 +1252,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                     <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5 flex flex-col md:flex-row md:items-center justify-between group hover:border-white/10 transition-colors">
                       <div>
                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t("mypage.account.name")}</p>
-                        <p className="text-gray-200 font-medium">{user?.name}</p>
+                        <p className="text-gray-200 font-medium">{profile?.display_name || user?.name}</p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 hidden md:block" />
                     </div>

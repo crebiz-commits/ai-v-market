@@ -810,7 +810,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
         amount: product.price,
         videoTitle: product.title,
         email: user?.email,
-        name: user?.name || user?.email,
+        name: profile?.display_name || user?.name || user?.email,
       });
       // 토스 결제창으로 이동 — 여기 이후 코드는 실행 안 됨
     } catch (err: any) {
