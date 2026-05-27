@@ -18,38 +18,12 @@ interface BusinessPageProps {
 const CATEGORIES: Array<{
   id: Category;
   icon: any;
-  title: string;
-  desc: string;
   color: string;
 }> = [
-  {
-    id: "advertising",
-    icon: Briefcase,
-    title: "Advertising Inquiry",
-    desc: "Brand campaigns, in-video ads, sponsorships",
-    color: "from-amber-500 to-orange-500",
-  },
-  {
-    id: "investment",
-    icon: TrendingUp,
-    title: "Investment / IR",
-    desc: "Investment proposals from VC, angel, PE funds",
-    color: "from-emerald-500 to-teal-500",
-  },
-  {
-    id: "partnership",
-    icon: Handshake,
-    title: "Partnership",
-    desc: "Content partners, channel collaboration, joint planning",
-    color: "from-[#6366f1] to-[#8b5cf6]",
-  },
-  {
-    id: "b2b_license",
-    icon: Layers,
-    title: "B2B License",
-    desc: "Enterprise video license, API, white-label",
-    color: "from-rose-500 to-pink-500",
-  },
+  { id: "advertising",  icon: Briefcase,  color: "from-amber-500 to-orange-500" },
+  { id: "investment",   icon: TrendingUp, color: "from-emerald-500 to-teal-500" },
+  { id: "partnership",  icon: Handshake,  color: "from-[#6366f1] to-[#8b5cf6]" },
+  { id: "b2b_license",  icon: Layers,     color: "from-rose-500 to-pink-500" },
 ];
 
 export function BusinessPage({ onBack, onNavigate }: BusinessPageProps) {
@@ -117,8 +91,9 @@ export function BusinessPage({ onBack, onNavigate }: BusinessPageProps) {
           <Button
             onClick={onBack}
             variant="outline"
-            className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-medium"
+            className="bg-white/5 border-white/10 hover:bg-white/10 text-white font-medium gap-1.5"
           >
+            <ArrowLeft className="w-4 h-4" />
             {t("creatorChannel.back")}
           </Button>
         </motion.div>
@@ -165,8 +140,8 @@ export function BusinessPage({ onBack, onNavigate }: BusinessPageProps) {
                 <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${cat.color} flex items-center justify-center mb-2 shadow-md`}>
                   <Icon className="w-5 h-5 text-white" />
                 </div>
-                <h3 className="text-sm font-black text-white mb-0.5">{cat.title}</h3>
-                <p className="text-[11px] text-gray-400 leading-snug">{cat.desc}</p>
+                <h3 className="text-sm font-black text-white mb-0.5">{t(`business.cat.${cat.id}.title`)}</h3>
+                <p className="text-[11px] text-gray-400 leading-snug">{t(`business.cat.${cat.id}.desc`)}</p>
               </button>
             );
           })}

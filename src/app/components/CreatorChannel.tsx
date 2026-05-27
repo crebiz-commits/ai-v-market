@@ -149,8 +149,9 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
           <p className="text-gray-400 mb-6">{t("creatorChannel.notFound")}</p>
           <button
             onClick={onBack}
-            className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-bold border border-white/10"
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-bold border border-white/10"
           >
+            <ArrowLeft className="w-4 h-4" />
             {t("creatorChannel.back")}
           </button>
         </div>

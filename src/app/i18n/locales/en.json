@@ -475,6 +475,24 @@
   "business": {
     "title": "Business Inquiry",
     "subtitle": "Tell us about your business and we'll get back to you within 1 business day.",
+    "cat": {
+      "advertising": {
+        "title": "Advertising Inquiry",
+        "desc": "Brand campaigns, in-video ads, sponsorships"
+      },
+      "investment": {
+        "title": "Investment / IR",
+        "desc": "Investment proposals from VC, angel, PE funds"
+      },
+      "partnership": {
+        "title": "Partnership",
+        "desc": "Content partners, channel collaboration, joint planning"
+      },
+      "b2b_license": {
+        "title": "B2B License",
+        "desc": "Enterprise video license, API, white-label"
+      }
+    },
     "categoryLabel": "Category",
     "selectCategory": "Select a category",
     "categoryAd": "Advertising",
@@ -540,7 +558,7 @@
   },
   "creatorChannel": {
     "notFound": "Creator info not found.",
-    "back": "← Back",
+    "back": "Back",
     "channelSuffix": "{{name}} channel",
     "blockedBanner": "🚫 Blocked channel. This channel's content will not appear in your feed.",
     "channelList": "Channel list",

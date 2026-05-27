@@ -475,6 +475,24 @@
   "business": {
     "title": "비즈니스 문의",
     "subtitle": "비즈니스 정보를 알려주시면 영업일 기준 1일 이내에 답변드립니다.",
+    "cat": {
+      "advertising": {
+        "title": "광고 문의",
+        "desc": "브랜드 캠페인, 인비디오 광고, 스폰서십"
+      },
+      "investment": {
+        "title": "투자 / IR",
+        "desc": "VC, 엔젤, PE 펀드 투자 제안"
+      },
+      "partnership": {
+        "title": "제휴",
+        "desc": "콘텐츠 파트너, 채널 협력, 공동 기획"
+      },
+      "b2b_license": {
+        "title": "B2B 라이선스",
+        "desc": "기업용 영상 라이선스, API, 화이트라벨"
+      }
+    },
     "categoryLabel": "문의 유형",
     "selectCategory": "유형을 선택하세요",
     "categoryAd": "광고 문의",
@@ -540,7 +558,7 @@
   },
   "creatorChannel": {
     "notFound": "크리에이터 정보를 찾을 수 없습니다.",
-    "back": "← 돌아가기",
+    "back": "돌아가기",
     "channelSuffix": "{{name}} 채널",
     "blockedBanner": "🚫 차단한 채널입니다. 이 채널의 콘텐츠는 회원님의 피드에 보이지 않습니다.",
     "channelList": "채널 목록",

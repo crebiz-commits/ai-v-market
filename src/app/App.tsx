@@ -602,14 +602,16 @@ function AppContent() {
         );
       case "admin":
         return <AdminLayout onBackToSite={() => setActiveTab("discovery")} />;
+      // 햄버거 메뉴/푸터 등에서 진입한 정적 페이지 — onBack 은 브라우저 history.back() 으로 이전 화면 복귀
+      // (햄버거 열기 직전 페이지로 자연스럽게 돌아감. setActiveTab("discovery") 로 강제 이동 시 LandingPage 또는 홈으로 가버리는 문제 해결)
       case "business":
-        return <BusinessPage onBack={() => setActiveTab("discovery")} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <BusinessPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "about":
-        return <AboutPage onBack={() => setActiveTab("discovery")} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <AboutPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "terms":
-        return <TermsPage onBack={() => setActiveTab("discovery")} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <TermsPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "privacy":
-        return <PrivacyPage onBack={() => setActiveTab("discovery")} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <PrivacyPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "search":
         return (
           <SearchPage

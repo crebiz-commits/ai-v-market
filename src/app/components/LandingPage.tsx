@@ -159,8 +159,8 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate }: Lan
 
   return (
     <div className="h-full overflow-y-auto bg-[#0a0a0a]">
-      {/* ━━━ 1. 히어로 섹션 ━━━ */}
-      <section className="relative min-h-[100vh] flex items-center justify-center overflow-hidden">
+      {/* ━━━ 1. 히어로 섹션 — 70vh 로 다음 섹션 상단 살짝 보이게 (모바일 nav bar + 주소창 고려) ━━━ */}
+      <section className="relative min-h-[70vh] flex items-center justify-center overflow-hidden">
         {/* 배경 그라데이션 + 그리드 패턴 */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#1a0a2e] to-[#0a0a0a]" />
         <div
@@ -229,21 +229,30 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate }: Lan
           </motion.div>
         </div>
 
-        {/* 하단 스크롤 안내 */}
-        <motion.div
+        {/* 하단 스크롤 안내 — 강조 (클릭 시 다음 섹션 스크롤) */}
+        <motion.button
+          type="button"
+          onClick={() => {
+            const next = document.querySelector("section:nth-of-type(2)");
+            next?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1, duration: 1 }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 text-gray-500 text-xs flex flex-col items-center gap-2 pointer-events-none"
+          className="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white hover:scale-110 transition-transform cursor-pointer"
+          aria-label="다음 섹션으로 스크롤"
         >
-          <span>스크롤하여 더 보기</span>
+          <span className="text-sm md:text-base font-bold drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+            스크롤하여 더 보기
+          </span>
           <motion.div
-            animate={{ y: [0, 6, 0] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
+            animate={{ y: [0, 10, 0] }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+            className="w-11 h-11 rounded-full bg-gradient-to-br from-[#6366f1]/40 to-[#8b5cf6]/40 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-[0_4px_20px_rgba(99,102,241,0.4)]"
           >
-            <ChevronDown className="w-5 h-5" />
+            <ChevronDown className="w-6 h-6 text-white" />
           </motion.div>
-        </motion.div>
+        </motion.button>
       </section>
 
       {/* ━━━ 2. 가치 제안 4개 카드 ━━━ */}

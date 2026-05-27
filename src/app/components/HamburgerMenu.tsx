@@ -22,7 +22,10 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
 
   const handleNav = (tab: "business" | "about" | "terms" | "privacy") => {
     setOpen(false);
-    onNavigate(tab);
+    // setOpen(false) → useBackButton cleanup → history.back() 발동.
+    // 동시에 onNavigate(tab) 호출하면 setActiveTab useEffect 의 pushState 와 race condition 가능.
+    // requestAnimationFrame 으로 한 프레임 지연시켜 cleanup 의 history.back() 완료 후 navigation 처리.
+    requestAnimationFrame(() => onNavigate(tab));
   };
 
   return (
