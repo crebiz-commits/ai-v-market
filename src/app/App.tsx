@@ -79,6 +79,9 @@ const OgPreview = lazy(() => import("./components/OgPreview").then(m => ({ defau
 const PreviewBadgePreview = lazy(() => import("./components/PreviewBadgePreview").then(m => ({ default: m.PreviewBadgePreview })));
 const CreatorRevenueGuide = lazy(() => import("./components/CreatorRevenueGuide").then(m => ({ default: m.CreatorRevenueGuide })));
 
+// 비로그인 사용자 첫 화면 (Netflix 패턴 랜딩)
+const LandingPage = lazy(() => import("./components/LandingPage").then(m => ({ default: m.LandingPage })));
+
 // ────────────────────────────────────────────────────
 // 로딩 fallback (lazy 컴포넌트 다운로드 중 표시)
 // ────────────────────────────────────────────────────
@@ -354,6 +357,8 @@ function AppContent() {
   const [pendingCartAdd, setPendingCartAdd] = useState<{ product: VideoProduct; licenseType: "standard" | "commercial" | "extended" } | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const { user, signOut, isAuthenticated, loading } = useAuth();
+  // 비로그인 사용자가 〈둘러보기〉 클릭 시 LandingPage → DiscoveryFeed 로 전환
+  const [hasExplored, setHasExplored] = useState(false);
 
   // YouTube 패턴: 어떤 영상이든 재생되면 다른 모든 영상을 즉시 일시정지
   // + 우선순위 영상(data-priority-video) 보호: 모달/전체화면 영상은 백그라운드 autoplay에 의해 멈추지 않음
@@ -554,6 +559,17 @@ function AppContent() {
   const renderContent = () => {
     switch (activeTab) {
       case "discovery":
+        // 비로그인 + 〈둘러보기〉 미클릭 → Netflix 패턴 랜딩 페이지
+        if (!isAuthenticated && !hasExplored) {
+          return (
+            <LandingPage
+              onLogin={() => setShowAuthModal(true)}
+              onExplore={() => setHasExplored(true)}
+              onSubscribe={() => setShowAuthModal(true)}
+              onNavigate={(tab) => setActiveTab(tab as Tab)}
+            />
+          );
+        }
         return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} onViewCreator={handleViewCreator} />;
       case "market":
         return <Cinema onProductClick={setSelectedProduct} tier="cinema" onNavigate={(tab) => setActiveTab(tab as Tab)} />;

@@ -14,3 +14,6 @@ yarn.lock
 
 # Supabase CLI 임시 파일
 supabase/.temp/
+
+# Landing page 포스터 원본 (압축 전, 로컬 백업용 — 커밋 X)
+public/landing-posters/_original/
