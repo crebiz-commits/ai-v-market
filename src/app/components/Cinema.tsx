@@ -92,6 +92,7 @@ interface Product {
 
 interface CinemaProps {
   onProductClick: (product: Product) => void;
+  onAddToWishlist?: (product: Product) => void;  // 카드 hover '+' 버튼 — App.tsx의 addToCart 호출
   tier?: "cinema" | "ott";   // 시네마(3분+) 또는 OTT(10분+)
   onNavigate?: (tab: string) => void;
 }
@@ -123,7 +124,7 @@ function toProduct(v: CarouselVideo): Product {
   };
 }
 
-export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaProps) {
+export function Cinema({ onProductClick, onAddToWishlist, tier = "cinema", onNavigate }: CinemaProps) {
   const { t } = useTranslation();
   const { profile } = useAuth();
   const showcase = shouldShowShowcase(profile?.is_admin);
@@ -233,6 +234,9 @@ export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaPr
   }, [searchQuery, tier]);
 
   const handleClick = (v: CarouselVideo) => onProductClick(toProduct(v));
+  const handleAddToWishlist = onAddToWishlist
+    ? (v: CarouselVideo) => onAddToWishlist(toProduct(v))
+    : undefined;
 
   if (loading) {
     return (
@@ -287,6 +291,7 @@ export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaPr
               subtitle={t("cinema.searchResultsSubtitle", { count: searchResults.length })}
               videos={searchResults}
               onVideoClick={handleClick}
+              onAddToWishlist={handleAddToWishlist}
               ageRatings={ageRatings}
             />
           )}
@@ -332,6 +337,7 @@ export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaPr
               subtitle={t("cinema.forYouSubtitle")}
               videos={recommended}
               onVideoClick={handleClick}
+              onAddToWishlist={handleAddToWishlist}
               emptyMessage={t("cinema.forYouEmpty")}
               ageRatings={ageRatings}
             />
@@ -344,6 +350,7 @@ export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaPr
               subtitle={t("cinema.continueWatchingSubtitle")}
               videos={continueWatching}
               onVideoClick={handleClick}
+              onAddToWishlist={handleAddToWishlist}
               showProgress={true}
               ageRatings={ageRatings}
             />
@@ -355,6 +362,7 @@ export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaPr
             subtitle={t("cinema.trendingSubtitle")}
             videos={trending}
             onVideoClick={handleClick}
+              onAddToWishlist={handleAddToWishlist}
             emptyMessage={t("cinema.trendingEmpty")}
           />
 
@@ -364,6 +372,7 @@ export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaPr
             subtitle={t("cinema.newReleasesSubtitle")}
             videos={newReleases}
             onVideoClick={handleClick}
+              onAddToWishlist={handleAddToWishlist}
             ageRatings={ageRatings}
           />
 
@@ -373,6 +382,7 @@ export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaPr
             subtitle={t("cinema.monthBestSubtitle")}
             videos={top10}
             onVideoClick={handleClick}
+              onAddToWishlist={handleAddToWishlist}
             emptyMessage={t("cinema.monthBestEmpty")}
             ageRatings={ageRatings}
           />
@@ -384,6 +394,7 @@ export function Cinema({ onProductClick, tier = "cinema", onNavigate }: CinemaPr
               title={t("cinema.categoryRowTitle", { category: getCategoryLabel(row.category, t) })}
               videos={row.videos}
               onVideoClick={handleClick}
+              onAddToWishlist={handleAddToWishlist}
               ageRatings={ageRatings}
             />
           ))}

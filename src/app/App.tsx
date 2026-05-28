@@ -576,7 +576,7 @@ function AppContent() {
         }
         return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} onViewCreator={handleViewCreator} />;
       case "market":
-        return <Cinema onProductClick={setSelectedProduct} tier="cinema" onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <Cinema onProductClick={setSelectedProduct} onAddToWishlist={(p) => addToCart(p)} tier="cinema" onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "ott":
         return <Ott onProductClick={setSelectedProduct} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "upload":

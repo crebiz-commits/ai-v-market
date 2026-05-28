@@ -3,16 +3,20 @@
 // 사용처: Cinema.tsx 의 trending 행 자리
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Crown, Play, Eye, ChevronLeft, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
+import { Crown, Play, Eye, ChevronLeft, ChevronRight, Plus, ThumbsUp } from "lucide-react";
 import type { CarouselVideo } from "./VideoRowCarousel";
 import { formatCompactNumber } from "../i18n/numberFormat";
-import { getCategoryLabel } from "../i18n/categoryLabels";
+import { getCategoryLabel, getGenreLabel } from "../i18n/categoryLabels";
+import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../utils/supabaseClient";
 
 interface Props {
   title: string;
   subtitle?: string;
   videos: CarouselVideo[];
   onVideoClick: (video: CarouselVideo) => void;
+  onAddToWishlist?: (video: CarouselVideo) => void;
   emptyMessage?: string;
 }
 
@@ -31,9 +35,47 @@ function neonStyle(rank: number): { color: string; glow: string } {
   return { color: "#a78bfa", glow: "0 0 6px #a78bfa, 0 0 14px #a78bfa, 0 0 24px #a78bfa" };
 }
 
-export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, emptyMessage }: Props) {
+export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onAddToWishlist, emptyMessage }: Props) {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const restScrollRef = useRef<HTMLDivElement>(null);
+
+  // 좋아요 토글 (2~10위 카드용)
+  const handleLikeClick = async (e: React.MouseEvent, v: CarouselVideo) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) {
+      toast.info(t("video.signInRequired", "로그인 후 이용해주세요"));
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from("video_likes")
+        .insert({ video_id: v.id, user_id: user.id });
+      if (error) {
+        if ((error as any).code === "23505") {
+          await supabase
+            .from("video_likes")
+            .delete()
+            .match({ video_id: v.id, user_id: user.id });
+          toast.info(t("video.unliked", "좋아요 취소"));
+        } else {
+          throw error;
+        }
+      } else {
+        toast.success(t("video.liked", "♥ 좋아요"));
+      }
+    } catch (err: any) {
+      console.error("[TrendingHeroSection] like toggle error:", err);
+      toast.error(t("video.likeFailed", "좋아요 처리 실패"));
+    }
+  };
+
+  const handleWishlistClick = (e: React.MouseEvent, v: CarouselVideo) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onAddToWishlist) onAddToWishlist(v);
+  };
 
   const scrollRest = (dir: "left" | "right") => {
     const el = restScrollRef.current;
@@ -128,14 +170,14 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, emp
               <button
                 key={v.id}
                 onClick={() => onVideoClick(v)}
-                className="flex-shrink-0 w-[42vw] md:w-[15vw] cursor-pointer group text-left"
+                className="flex-shrink-0 w-[42vw] md:w-[15vw] cursor-pointer group/card text-left"
               >
                 <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-card">
                   {v.thumbnail && (
                     <img
                       src={v.thumbnail}
                       alt={v.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      className="w-full h-full object-cover group-hover/card:scale-105 transition-transform"
                     />
                   )}
                   {/* 좌하단 네온 글로우 숫자 */}
@@ -153,6 +195,33 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, emp
                       {fmtDuration(v.duration_seconds)}
                     </span>
                   ) : null}
+                  {/* hover 시 액션 버튼 오버레이 (마우스 디바이스만) */}
+                  <div className="flex absolute inset-x-0 top-0 p-2 items-center gap-1.5 bg-gradient-to-b from-black/95 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity">
+                    <span
+                      role="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onVideoClick(v); }}
+                      className="w-7 h-7 rounded-full bg-white flex items-center justify-center hover:bg-white/90 transition-colors"
+                      aria-label={t("videoRow.play", "재생")}
+                    >
+                      <Play className="w-3.5 h-3.5 text-black fill-black" />
+                    </span>
+                    <span
+                      role="button"
+                      onClick={(e) => handleWishlistClick(e, v)}
+                      className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-sm border border-white/40 flex items-center justify-center hover:border-white transition-colors"
+                      aria-label={t("videoRow.addToWishlist", "위시리스트")}
+                    >
+                      <Plus className="w-3.5 h-3.5 text-white" />
+                    </span>
+                    <span
+                      role="button"
+                      onClick={(e) => handleLikeClick(e, v)}
+                      className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-sm border border-white/40 flex items-center justify-center hover:border-white transition-colors"
+                      aria-label={t("videoRow.like", "좋아요")}
+                    >
+                      <ThumbsUp className="w-3.5 h-3.5 text-white" />
+                    </span>
+                  </div>
                 </div>
                 <p className="text-xs md:text-base font-bold text-white mt-2 line-clamp-1">{v.title}</p>
                 <p className="text-[11px] md:text-xs text-muted-foreground line-clamp-1">
@@ -160,7 +229,25 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, emp
                   {typeof v.views === "number" && v.views > 0
                     ? ` · ${t("videoRow.viewsPrefix")} ${formatCompactNumber(v.views)}`
                     : ""}
+                  {typeof v.likes === "number" && v.likes > 0
+                    ? ` · ♥ ${formatCompactNumber(v.likes)}`
+                    : ""}
                 </p>
+                {/* 카테고리 · 장르 인라인 배지 */}
+                {v.category || v.genre ? (
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    {v.category && (
+                      <span className="text-[9px] md:text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                        {getCategoryLabel(v.category, t)}
+                      </span>
+                    )}
+                    {v.genre && (
+                      <span className="text-[9px] md:text-[11px] px-1.5 py-0.5 rounded bg-[#6366f1]/15 text-[#a5b4fc]">
+                        {getGenreLabel(v.genre, t)}
+                      </span>
+                    )}
+                  </div>
+                ) : null}
               </button>
             );
           })}

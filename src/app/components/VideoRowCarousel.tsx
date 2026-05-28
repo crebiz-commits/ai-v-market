@@ -12,12 +12,14 @@
 import { useRef } from "react";
 import { ChevronLeft, ChevronRight, Play, Crown, Lock, Plus, ThumbsUp } from "lucide-react";
 import { motion } from "motion/react";
+import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { getCategoryLabel, getGenreLabel } from "../i18n/categoryLabels";
 import { formatCompactNumber } from "../i18n/numberFormat";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { useAuth } from "../contexts/AuthContext";
 import { useSettings } from "../contexts/SettingsContext";
+import { supabase } from "../utils/supabaseClient";
 
 export interface CarouselVideo {
   id: string;
@@ -48,6 +50,7 @@ interface Props {
   subtitle?: string;
   videos: CarouselVideo[];
   onVideoClick: (video: CarouselVideo) => void;
+  onAddToWishlist?: (video: CarouselVideo) => void;  // Phase 31.2 — 카드 hover + 버튼 클릭
   showProgress?: boolean;  // 이어 보기 행
   showRank?: boolean;      // Top 10 행 (좌측에 큰 숫자)
   emptyMessage?: string;
@@ -74,6 +77,7 @@ interface VideoCardProps {
   video: CarouselVideo;
   idx: number;
   onVideoClick: (v: CarouselVideo) => void;
+  onAddToWishlist?: (v: CarouselVideo) => void;
   showProgress?: boolean;
   showRank?: boolean;
   rating: string | undefined;
@@ -81,8 +85,48 @@ interface VideoCardProps {
   isOttBadge: boolean;
 }
 
-function VideoCard({ video, idx, onVideoClick, showProgress, showRank, rating, isAgeLocked, isOttBadge }: VideoCardProps) {
+function VideoCard({ video, idx, onVideoClick, onAddToWishlist, showProgress, showRank, rating, isAgeLocked, isOttBadge }: VideoCardProps) {
   const { t } = useTranslation();
+  const { user } = useAuth();
+
+  // 좋아요 토글 — supabase video_likes 직접 처리 (ProductDetail 패턴 재사용)
+  const handleLikeClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) {
+      toast.info(t("video.signInRequired", "로그인 후 이용해주세요"));
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from("video_likes")
+        .insert({ video_id: video.id, user_id: user.id });
+      if (error) {
+        if ((error as any).code === "23505") {
+          // 이미 좋아요 → 취소
+          await supabase
+            .from("video_likes")
+            .delete()
+            .match({ video_id: video.id, user_id: user.id });
+          toast.info(t("video.unliked", "좋아요 취소"));
+        } else {
+          throw error;
+        }
+      } else {
+        toast.success(t("video.liked", "♥ 좋아요"));
+      }
+    } catch (err: any) {
+      console.error("[VideoCard] like toggle error:", err);
+      toast.error(t("video.likeFailed", "좋아요 처리 실패"));
+    }
+  };
+
+  // 위시리스트 추가 — 부모 콜백 호출 (App.tsx의 addToCart)
+  const handleWishlistClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onAddToWishlist) onAddToWishlist(video);
+  };
 
   return (
     <motion.button
@@ -162,7 +206,7 @@ function VideoCard({ video, idx, onVideoClick, showProgress, showRank, rating, i
             </span>
             <span
               role="button"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onClick={handleWishlistClick}
               className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-sm border border-white/40 flex items-center justify-center hover:border-white transition-colors"
               aria-label={t("videoRow.addToWishlist", "위시리스트")}
             >
@@ -170,7 +214,7 @@ function VideoCard({ video, idx, onVideoClick, showProgress, showRank, rating, i
             </span>
             <span
               role="button"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onClick={handleLikeClick}
               className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-sm border border-white/40 flex items-center justify-center hover:border-white transition-colors"
               aria-label={t("videoRow.like", "좋아요")}
             >
@@ -218,6 +262,7 @@ export function VideoRowCarousel({
   subtitle,
   videos,
   onVideoClick,
+  onAddToWishlist,
   showProgress = false,
   showRank = false,
   emptyMessage,
@@ -294,6 +339,7 @@ export function VideoRowCarousel({
                 video={video}
                 idx={idx}
                 onVideoClick={onVideoClick}
+                onAddToWishlist={onAddToWishlist}
                 showProgress={showProgress}
                 showRank={showRank}
                 rating={rating}
