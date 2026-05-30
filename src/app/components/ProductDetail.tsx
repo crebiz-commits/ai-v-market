@@ -1095,20 +1095,25 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               <h2 className="text-2xl md:text-4xl font-black mb-2">{product.title}</h2>
 
               {/* 인라인 메타: 연도·등급·길이·OTT (Phase 31.4) */}
-              <div className="flex items-center gap-2 mb-3 flex-wrap">
-                {product.productionYear && (
-                  <span className="text-sm text-gray-300">{product.productionYear}</span>
-                )}
-                <AgeBadge rating={videoMeta.age_rating} size="xs" />
-                {product.duration && (
-                  <span className="text-sm text-gray-300">· {product.duration}</span>
-                )}
-                {isOttVideo && (
-                  <span className="px-2 py-0.5 rounded bg-gradient-to-r from-amber-500/40 to-orange-500/40 backdrop-blur-sm text-white text-xs font-bold flex items-center gap-0.5">
-                    <Crown className="w-3 h-3" /> OTT
-                  </span>
-                )}
-              </div>
+              {(() => {
+                const hasYearOrAge = !!product.productionYear || (videoMeta.age_rating && videoMeta.age_rating !== "all");
+                return (
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
+                    {product.productionYear && (
+                      <span className="text-sm text-gray-300">{product.productionYear}</span>
+                    )}
+                    <AgeBadge rating={videoMeta.age_rating} size="xs" />
+                    {product.duration && (
+                      <span className="text-sm text-gray-300">{hasYearOrAge ? "· " : ""}{product.duration}</span>
+                    )}
+                    {isOttVideo && (
+                      <span className="px-2 py-0.5 rounded bg-gradient-to-r from-amber-500/40 to-orange-500/40 backdrop-blur-sm text-white text-xs font-bold flex items-center gap-0.5">
+                        <Crown className="w-3 h-3" /> OTT
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="flex items-center justify-between gap-3">
                 {product.creatorId && onViewCreator ? (
                   <button
