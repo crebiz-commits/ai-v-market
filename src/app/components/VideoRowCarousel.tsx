@@ -50,7 +50,7 @@ interface Props {
   subtitle?: string;
   videos: CarouselVideo[];
   onVideoClick: (video: CarouselVideo) => void;
-  onAddToWishlist?: (video: CarouselVideo) => void;  // Phase 31.2 — 카드 hover + 버튼 클릭
+  onAddToCart?: (video: CarouselVideo) => void;  // Phase 31.2 — 카드 hover + 버튼 클릭
   showProgress?: boolean;  // 이어 보기 행
   showRank?: boolean;      // Top 10 행 (좌측에 큰 숫자)
   emptyMessage?: string;
@@ -77,7 +77,7 @@ interface VideoCardProps {
   video: CarouselVideo;
   idx: number;
   onVideoClick: (v: CarouselVideo) => void;
-  onAddToWishlist?: (v: CarouselVideo) => void;
+  onAddToCart?: (v: CarouselVideo) => void;
   showProgress?: boolean;
   showRank?: boolean;
   rating: string | undefined;
@@ -85,7 +85,7 @@ interface VideoCardProps {
   isOttBadge: boolean;
 }
 
-function VideoCard({ video, idx, onVideoClick, onAddToWishlist, showProgress, showRank, rating, isAgeLocked, isOttBadge }: VideoCardProps) {
+function VideoCard({ video, idx, onVideoClick, onAddToCart, showProgress, showRank, rating, isAgeLocked, isOttBadge }: VideoCardProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
 
@@ -121,11 +121,11 @@ function VideoCard({ video, idx, onVideoClick, onAddToWishlist, showProgress, sh
     }
   };
 
-  // 위시리스트 추가 — 부모 콜백 호출 (App.tsx의 addToCart)
-  const handleWishlistClick = (e: React.MouseEvent) => {
+  // 장바구니 추가 — 부모 콜백 호출 (App.tsx의 addToCart)
+  const handleCartClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (onAddToWishlist) onAddToWishlist(video);
+    if (onAddToCart) onAddToCart(video);
   };
 
   return (
@@ -206,9 +206,9 @@ function VideoCard({ video, idx, onVideoClick, onAddToWishlist, showProgress, sh
             </span>
             <span
               role="button"
-              onClick={handleWishlistClick}
+              onClick={handleCartClick}
               className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-sm border border-white/40 flex items-center justify-center hover:border-white transition-colors"
-              aria-label={t("videoRow.addToWishlist", "위시리스트")}
+              aria-label={t("videoRow.addToCart", "장바구니")}
             >
               <Plus className="w-3.5 h-3.5 text-white" />
             </span>
@@ -262,7 +262,7 @@ export function VideoRowCarousel({
   subtitle,
   videos,
   onVideoClick,
-  onAddToWishlist,
+  onAddToCart,
   showProgress = false,
   showRank = false,
   emptyMessage,
@@ -339,7 +339,7 @@ export function VideoRowCarousel({
                 video={video}
                 idx={idx}
                 onVideoClick={onVideoClick}
-                onAddToWishlist={onAddToWishlist}
+                onAddToCart={onAddToCart}
                 showProgress={showProgress}
                 showRank={showRank}
                 rating={rating}

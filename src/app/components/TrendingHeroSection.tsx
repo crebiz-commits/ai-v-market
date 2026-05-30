@@ -16,7 +16,7 @@ interface Props {
   subtitle?: string;
   videos: CarouselVideo[];
   onVideoClick: (video: CarouselVideo) => void;
-  onAddToWishlist?: (video: CarouselVideo) => void;
+  onAddToCart?: (video: CarouselVideo) => void;
   emptyMessage?: string;
 }
 
@@ -35,7 +35,7 @@ function neonStyle(rank: number): { color: string; glow: string } {
   return { color: "#a78bfa", glow: "0 0 6px #a78bfa, 0 0 14px #a78bfa, 0 0 24px #a78bfa" };
 }
 
-export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onAddToWishlist, emptyMessage }: Props) {
+export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onAddToCart, emptyMessage }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const restScrollRef = useRef<HTMLDivElement>(null);
@@ -71,10 +71,10 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
     }
   };
 
-  const handleWishlistClick = (e: React.MouseEvent, v: CarouselVideo) => {
+  const handleCartClick = (e: React.MouseEvent, v: CarouselVideo) => {
     e.preventDefault();
     e.stopPropagation();
-    if (onAddToWishlist) onAddToWishlist(v);
+    if (onAddToCart) onAddToCart(v);
   };
 
   const scrollRest = (dir: "left" | "right") => {
@@ -207,9 +207,9 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
                     </span>
                     <span
                       role="button"
-                      onClick={(e) => handleWishlistClick(e, v)}
+                      onClick={(e) => handleCartClick(e, v)}
                       className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-sm border border-white/40 flex items-center justify-center hover:border-white transition-colors"
-                      aria-label={t("videoRow.addToWishlist", "위시리스트")}
+                      aria-label={t("videoRow.addToCart", "장바구니")}
                     >
                       <Plus className="w-3.5 h-3.5 text-white" />
                     </span>

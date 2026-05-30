@@ -76,16 +76,16 @@
     "comment": "Comment",
     "settings": "Settings",
     "notifications": "Notifications",
-    "cart": "Wishlist",
-    "viewCart": "View wishlist"
+    "cart": "Cart",
+    "viewCart": "View cart"
   },
   "app": {
     "videoNotFound": "Video not found",
     "videoFetchFailed": "Failed to fetch video: {{message}}",
-    "cartPending": "Will add to wishlist automatically after sign in.",
-    "alreadyInCart": "Already in your wishlist.",
-    "cartAddFailed": "Failed to add to wishlist.",
-    "cartAddSuccess": "Added to wishlist",
+    "cartPending": "Will add to cart automatically after sign in.",
+    "alreadyInCart": "Already in your cart.",
+    "cartAddFailed": "Failed to add to cart.",
+    "cartAddSuccess": "Added to cart",
     "cartDeleteFailed": "Failed to delete.",
     "loading": "Loading...",
     "adManage": "Manage Ads",
@@ -367,8 +367,8 @@
     "viewAll": "View all"
   },
   "cartPanel": {
-    "title": "Wishlist",
-    "empty": "Your wishlist is empty",
+    "title": "Cart",
+    "empty": "Your cart is empty",
     "viewVideo": "View video",
     "remove": "Remove"
   },
@@ -1378,7 +1378,7 @@
     "cart": {
       "allInOneLicense": "All-in-One License",
       "added": "Added",
-      "addToCart": "Wishlist",
+      "addToCart": "Cart",
       "openPayment": "Open Payment",
       "purchase": "Buy now"
     },

@@ -92,7 +92,7 @@ interface Product {
 
 interface CinemaProps {
   onProductClick: (product: Product) => void;
-  onAddToWishlist?: (product: Product) => void;  // 카드 hover '+' 버튼 — App.tsx의 addToCart 호출
+  onAddToCart?: (product: Product) => void;  // 카드 hover '+' 버튼 — App.tsx의 addToCart 호출
   tier?: "cinema" | "ott";   // 시네마(3분+) 또는 OTT(10분+)
   onNavigate?: (tab: string) => void;
 }
@@ -124,7 +124,7 @@ function toProduct(v: CarouselVideo): Product {
   };
 }
 
-export function Cinema({ onProductClick, onAddToWishlist, tier = "cinema", onNavigate }: CinemaProps) {
+export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigate }: CinemaProps) {
   const { t } = useTranslation();
   const { profile } = useAuth();
   const showcase = shouldShowShowcase(profile?.is_admin);
@@ -234,8 +234,8 @@ export function Cinema({ onProductClick, onAddToWishlist, tier = "cinema", onNav
   }, [searchQuery, tier]);
 
   const handleClick = (v: CarouselVideo) => onProductClick(toProduct(v));
-  const handleAddToWishlist = onAddToWishlist
-    ? (v: CarouselVideo) => onAddToWishlist(toProduct(v))
+  const handleAddToCart = onAddToCart
+    ? (v: CarouselVideo) => onAddToCart(toProduct(v))
     : undefined;
 
   if (loading) {
@@ -291,7 +291,7 @@ export function Cinema({ onProductClick, onAddToWishlist, tier = "cinema", onNav
               subtitle={t("cinema.searchResultsSubtitle", { count: searchResults.length })}
               videos={searchResults}
               onVideoClick={handleClick}
-              onAddToWishlist={handleAddToWishlist}
+              onAddToCart={handleAddToCart}
               ageRatings={ageRatings}
             />
           )}
@@ -337,7 +337,7 @@ export function Cinema({ onProductClick, onAddToWishlist, tier = "cinema", onNav
               subtitle={t("cinema.forYouSubtitle")}
               videos={recommended}
               onVideoClick={handleClick}
-              onAddToWishlist={handleAddToWishlist}
+              onAddToCart={handleAddToCart}
               emptyMessage={t("cinema.forYouEmpty")}
               ageRatings={ageRatings}
             />
@@ -350,7 +350,7 @@ export function Cinema({ onProductClick, onAddToWishlist, tier = "cinema", onNav
               subtitle={t("cinema.continueWatchingSubtitle")}
               videos={continueWatching}
               onVideoClick={handleClick}
-              onAddToWishlist={handleAddToWishlist}
+              onAddToCart={handleAddToCart}
               showProgress={true}
               ageRatings={ageRatings}
             />
@@ -362,7 +362,7 @@ export function Cinema({ onProductClick, onAddToWishlist, tier = "cinema", onNav
             subtitle={t("cinema.trendingSubtitle")}
             videos={trending}
             onVideoClick={handleClick}
-              onAddToWishlist={handleAddToWishlist}
+              onAddToCart={handleAddToCart}
             emptyMessage={t("cinema.trendingEmpty")}
           />
 
@@ -372,7 +372,7 @@ export function Cinema({ onProductClick, onAddToWishlist, tier = "cinema", onNav
             subtitle={t("cinema.newReleasesSubtitle")}
             videos={newReleases}
             onVideoClick={handleClick}
-              onAddToWishlist={handleAddToWishlist}
+              onAddToCart={handleAddToCart}
             ageRatings={ageRatings}
           />
 
@@ -382,7 +382,7 @@ export function Cinema({ onProductClick, onAddToWishlist, tier = "cinema", onNav
             subtitle={t("cinema.monthBestSubtitle")}
             videos={top10}
             onVideoClick={handleClick}
-              onAddToWishlist={handleAddToWishlist}
+              onAddToCart={handleAddToCart}
             emptyMessage={t("cinema.monthBestEmpty")}
             ageRatings={ageRatings}
           />
@@ -394,7 +394,7 @@ export function Cinema({ onProductClick, onAddToWishlist, tier = "cinema", onNav
               title={t("cinema.categoryRowTitle", { category: getCategoryLabel(row.category, t) })}
               videos={row.videos}
               onVideoClick={handleClick}
-              onAddToWishlist={handleAddToWishlist}
+              onAddToCart={handleAddToCart}
               ageRatings={ageRatings}
             />
           ))}

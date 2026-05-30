@@ -1,4 +1,4 @@
-// 위시리스트 패널 (구 장바구니 — 2026-05-27 결제 흐름 제거 후 단순 위시리스트로 전환)
+// 장바구니 패널 (구 장바구니 — 2026-05-27 결제 흐름 제거 후 단순 장바구니로 명칭 복귀)
 // 결제는 ProductDetail 의 "구매하기" 버튼으로 단건 진행. 본 패널은 보관 + 영상 페이지 이동만.
 import { X, Gift, Trash2, Play, Package } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";

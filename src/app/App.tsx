@@ -79,6 +79,7 @@ const OgPreview = lazy(() => import("./components/OgPreview").then(m => ({ defau
 const PreviewBadgePreview = lazy(() => import("./components/PreviewBadgePreview").then(m => ({ default: m.PreviewBadgePreview })));
 const TrendingCardPreview = lazy(() => import("./components/TrendingCardPreview").then(m => ({ default: m.TrendingCardPreview })));
 const NetflixCardPreview = lazy(() => import("./components/NetflixCardPreview").then(m => ({ default: m.NetflixCardPreview })));
+const ProductDetailPreview = lazy(() => import("./components/ProductDetailPreview").then(m => ({ default: m.ProductDetailPreview })));
 const CreatorRevenueGuide = lazy(() => import("./components/CreatorRevenueGuide").then(m => ({ default: m.CreatorRevenueGuide })));
 
 // 비로그인 사용자 첫 화면 (Netflix 패턴 랜딩)
@@ -159,6 +160,7 @@ function AppContent() {
       "preview-badge": <PreviewBadgePreview />,
       "trending-card": <TrendingCardPreview />,
       "netflix-card": <NetflixCardPreview />,
+      "product-detail": <ProductDetailPreview />,
     };
     if (previewMap[previewParam]) {
       return <Suspense fallback={<PageLoading />}>{previewMap[previewParam]}</Suspense>;
@@ -576,7 +578,7 @@ function AppContent() {
         }
         return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} onViewCreator={handleViewCreator} />;
       case "market":
-        return <Cinema onProductClick={setSelectedProduct} onAddToWishlist={(p) => addToCart(p)} tier="cinema" onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <Cinema onProductClick={setSelectedProduct} onAddToCart={(p) => addToCart(p)} tier="cinema" onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "ott":
         return <Ott onProductClick={setSelectedProduct} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "upload":
