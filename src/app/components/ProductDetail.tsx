@@ -1,4 +1,5 @@
-import { X, Heart, Send, Download, Gift, Check, MessageCircle, Crown, Lock, Flag, Bookmark, FileText } from "lucide-react";
+import { X, Heart, Send, Download, Gift, Check, MessageCircle, Crown, Lock, Flag, Bookmark, FileText, ShoppingCart } from "lucide-react";
+import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
 import { Button } from "./ui/button";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -120,6 +121,10 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
   const { t } = useTranslation();
   const [isLiked, setIsLiked] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
+  // Phase 31.3 — 라이선스 9개 체크리스트 모바일 접기/펼치기
+  const [licenseExpanded, setLicenseExpanded] = useState(false);
+  // Phase 32 — 함께 시청된 콘텐츠 (similar videos)
+  const [similarVideos, setSimilarVideos] = useState<CarouselVideo[]>([]);
   // Phase 22: 영상 편집 모달 + 챕터/자막 fetch
   const [editOpen, setEditOpen] = useState(false);
   const [videoMeta, setVideoMeta] = useState<{
@@ -229,6 +234,25 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
     })();
     return () => { cancelled = true; };
   }, [product.id, profile?.age_verified, user?.id, product.creatorId]);
+
+  // Phase 32 — 함께 시청된 콘텐츠 (유사 영상) 조회
+  useEffect(() => {
+    if (!product.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase.rpc("get_similar_videos", {
+          p_video_id: product.id,
+          p_tier: "all",
+          p_limit: 8,
+        });
+        if (!cancelled && !error && data) setSimilarVideos(data as CarouselVideo[]);
+      } catch (err) {
+        console.warn("[ProductDetail] similar videos fetch failed:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [product.id]);
 
   const isMyVideo = !!user?.id && !!product.creatorId && user.id === product.creatorId;
   // Phase 26: 19+ 영상 비인증 시 컨텐츠 잠금 (본인 영상은 제외)
@@ -862,7 +886,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4"
+      className="fixed inset-0 bg-background z-50 flex"
       onClick={onClose}
     >
       <motion.div
@@ -870,22 +894,14 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 25 }}
-        className={`bg-background w-full md:rounded-xl overflow-hidden max-h-[90vh] flex ${
-          showComments ? "md:max-w-5xl" : "md:max-w-4xl"
-        }`}
+        className="bg-background w-full h-full overflow-hidden flex"
         onClick={(e) => e.stopPropagation()}
       >
       {/* Main column */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        {/* 비구독자 미리보기 슬림 헤더 (영상 영역 밖, 다크 톤) */}
-        {needsPreviewCutoff && !iframeBlocked && (
-          <div className="bg-black/95 px-4 py-2 flex items-center justify-center gap-2 text-amber-300 text-xs font-bold border-b border-amber-500/30 shrink-0">
-            <Lock className="w-3.5 h-3.5" />
-            {t("productDetail.paywall.cinemaPreviewBadge")}
-          </div>
-        )}
-        {/* Header — 영상 재생 영역 (페이월 적용) */}
-        <div className="relative bg-black aspect-video md:aspect-video max-h-[40vh] md:max-h-none flex items-center justify-center overflow-hidden shrink-0">
+        {/* Header — 영상 재생 영역 (페이월 적용). 슬림 헤더는 영상 우상단 배지로 통합됨 */}
+        {/* 데스크탑 max-h 65vh — 영상 + 제목/메타/액션 한 화면에 보이도록 (넷플릭스 패턴, Phase 31.4) */}
+        <div className="relative bg-black aspect-video md:aspect-video max-h-[40vh] md:max-h-[65vh] flex items-center justify-center overflow-hidden shrink-0">
           {iframeBlocked ? (
             // 페이월 차단 화면 — OTT 비구독자 또는 시네마 3분 컷오프 후
             <div className="relative w-full h-full">
@@ -1022,8 +1038,16 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
             onCancel={() => setShowNextOverlay(false)}
           />
 
-          {/* Duration Badge */}
-          <div className="absolute top-4 right-4 px-3 py-1 bg-black/70 backdrop-blur-sm rounded-full text-white text-sm">
+          {/* AUTOPLAY 인디케이터 (Phase 31.4 — Bunny iframe 자동재생 표시) */}
+          {!iframeBlocked && (
+            <div className="absolute top-4 left-4 flex items-center gap-1.5 px-2.5 py-1 bg-black/60 backdrop-blur rounded-full text-[10px] md:text-xs text-white font-bold z-10">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+              AUTOPLAY
+            </div>
+          )}
+
+          {/* Duration Badge — 좌하단으로 이동 (우상단은 닫기 X + 1분 배지) */}
+          <div className="absolute bottom-4 left-4 px-3 py-1 bg-black/70 backdrop-blur-sm rounded-full text-white text-sm">
             {product.duration}
           </div>
 
@@ -1045,12 +1069,22 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
             </motion.button>
           )}
 
-          <button
-            onClick={onClose}
-            className="absolute top-4 left-4 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/70 transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
+          {/* 우상단: 1분 미리보기 배지 (비구독자만) + 닫기 X (가로 정렬, Phase 31.4) */}
+          <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
+            {needsPreviewCutoff && !iframeBlocked && (
+              <div className="px-2.5 py-1 bg-amber-500/85 backdrop-blur rounded-full text-[10px] md:text-xs font-bold text-black flex items-center gap-1">
+                <Lock className="w-3 h-3" />
+                {t("productDetail.paywall.cinemaPreviewBadge")}
+              </div>
+            )}
+            <button
+              onClick={onClose}
+              className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+              aria-label={t("common.close")}
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -1058,9 +1092,22 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
           <div className="p-6">
             {/* Title & Creator */}
             <div className="mb-6">
-              <div className="flex items-start gap-2 mb-2">
-                <h2 className="text-2xl flex-1">{product.title}</h2>
-                <AgeBadge rating={videoMeta.age_rating} size="md" />
+              <h2 className="text-2xl md:text-4xl font-black mb-2">{product.title}</h2>
+
+              {/* 인라인 메타: 연도·등급·길이·OTT (Phase 31.4) */}
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                {product.productionYear && (
+                  <span className="text-sm text-gray-300">{product.productionYear}</span>
+                )}
+                <AgeBadge rating={videoMeta.age_rating} size="xs" />
+                {product.duration && (
+                  <span className="text-sm text-gray-300">· {product.duration}</span>
+                )}
+                {isOttVideo && (
+                  <span className="px-2 py-0.5 rounded bg-gradient-to-r from-amber-500/40 to-orange-500/40 backdrop-blur-sm text-white text-xs font-bold flex items-center gap-0.5">
+                    <Crown className="w-3 h-3" /> OTT
+                  </span>
+                )}
               </div>
               <div className="flex items-center justify-between gap-3">
                 {product.creatorId && onViewCreator ? (
@@ -1099,21 +1146,134 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               </div>
             </div>
 
-            {/* Specs */}
-            <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-card rounded-lg border border-border">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">{t("productDetail.meta.resolution")}</p>
-                <p className="font-medium">{product.resolution || "4K"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">{t("productDetail.meta.duration")}</p>
-                <p className="font-medium">{product.duration}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">{t("productDetail.meta.aiTool")}</p>
-                <p className="font-medium">{product.tool}</p>
+            {/* 영상 헤더 액션 — 비구독자 [구독하고 전체 보기] CTA + 5개 원형 액션 (Phase 31.3) */}
+            <div className="flex items-center gap-3 mb-6 flex-wrap">
+              {/* 비구독자 CTA — Bunny iframe 자동재생 1분 후 차단됨 → 구독 유도 */}
+              {!isSubscriber && (
+                <button
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      onSignInClick?.();
+                      return;
+                    }
+                    onClose();
+                    toast.info(t("productDetail.subscribePromptHint", "프리미엄 OTT 탭에서 구독 후 전체 시청 가능합니다."));
+                  }}
+                  className="px-5 py-3 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold rounded-lg flex items-center gap-2 hover:opacity-90 flex-shrink-0 shadow-[0_0_25px_rgba(99,102,241,0.5)] transition-shadow hover:shadow-[0_0_35px_rgba(139,92,246,0.7)]"
+                  aria-label={t("productDetail.subscribeFullView", "구독하고 전체 보기")}
+                >
+                  <Crown className="w-4 h-4" /> {t("productDetail.subscribeFullView", "구독하고 전체 보기")}
+                </button>
+              )}
+
+              {/* 5개 원형 액션 — 좋아요/댓글/공유/저장/신고 */}
+              <div className="flex items-center gap-2">
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={handleToggleLike}
+                  disabled={likeBusy}
+                  className="flex flex-col items-center shrink-0"
+                  aria-label={t("common.like")}
+                >
+                  <div className={`w-10 h-10 rounded-full backdrop-blur-xl flex items-center justify-center border-2 transition-all ${
+                    isLiked
+                      ? "bg-red-500/30 border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.6)]"
+                      : "bg-white/10 border-white/30 shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+                  }`}>
+                    <Heart className={`w-[18px] h-[18px] ${isLiked ? "fill-red-400 text-red-400" : "text-foreground"}`} strokeWidth={1.8} />
+                  </div>
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => setShowComments(!showComments)}
+                  className="flex flex-col items-center shrink-0"
+                  aria-label={t("common.comment")}
+                >
+                  <div className={`w-10 h-10 rounded-full backdrop-blur-xl border-2 flex items-center justify-center transition-all ${
+                    showComments
+                      ? "bg-[#6366f1]/30 border-[#8b5cf6] shadow-[0_0_20px_rgba(139,92,246,0.6)]"
+                      : "bg-white/10 border-white/30 shadow-[0_0_15px_rgba(139,92,246,0.4)]"
+                  }`}>
+                    <MessageCircle className="w-[18px] h-[18px] text-foreground" strokeWidth={1.8} />
+                  </div>
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  whileHover={{ rotate: 15 }}
+                  onClick={handleShare}
+                  className="flex flex-col items-center shrink-0"
+                  aria-label={t("common.share")}
+                >
+                  <div className="w-10 h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.4)]">
+                    <Send className="w-[18px] h-[18px] text-foreground -rotate-12" strokeWidth={1.8} />
+                  </div>
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => {
+                    if (!isAuthenticated) { onSignInClick?.(); return; }
+                    setPlaylistOpen(true);
+                  }}
+                  className="flex flex-col items-center shrink-0"
+                  aria-label={t("productDetail.action.saveAriaLabel")}
+                  title={t("productDetail.action.saveTitle")}
+                >
+                  <div className={`w-10 h-10 rounded-full backdrop-blur-xl border-2 flex items-center justify-center transition-all ${
+                    isSaved
+                      ? "bg-gradient-to-br from-[#6366f1]/30 to-[#ec4899]/30 border-[#ec4899] shadow-[0_0_20px_rgba(236,72,153,0.5)]"
+                      : "bg-white/10 border-white/30 shadow-[0_0_15px_rgba(236,72,153,0.4)]"
+                  }`}>
+                    <Bookmark className={`w-[18px] h-[18px] ${isSaved ? "fill-[#ec4899] text-[#ec4899]" : "text-foreground"}`} strokeWidth={1.8} />
+                  </div>
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => setReportOpen(true)}
+                  className="flex flex-col items-center shrink-0"
+                  aria-label={t("common.report")}
+                  title={t("productDetail.action.reportTitle")}
+                >
+                  <div className="w-10 h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center hover:bg-red-500/20 hover:border-red-400/60 transition-colors shadow-[0_0_15px_rgba(245,158,11,0.35)]">
+                    <Flag className="w-[18px] h-[18px] text-foreground" strokeWidth={1.8} />
+                  </div>
+                </motion.button>
               </div>
             </div>
+
+            {/* 줄거리 + 사이드 메타 2열 그리드 (넷플릭스 패턴, Phase 31.5) */}
+            {(product.description || product.castCredits || product.genre || product.category) && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 mb-6">
+                {/* 좌측: 줄거리 (2/3 폭) */}
+                <div className="md:col-span-2">
+                  {product.description && (
+                    <p className="text-sm md:text-base text-foreground/80 leading-relaxed whitespace-pre-line">
+                      {product.description}
+                    </p>
+                  )}
+                </div>
+                {/* 우측: 출연·장르·카테고리 (1/3 폭) */}
+                <div className="md:col-span-1 space-y-3 text-sm">
+                  {product.castCredits && (
+                    <div>
+                      <span className="text-xs text-gray-500">{t("productDetail.credits.cast")}: </span>
+                      <span className="text-foreground/80">{product.castCredits}</span>
+                    </div>
+                  )}
+                  {product.genre && (
+                    <div>
+                      <span className="text-xs text-gray-500">{t("upload.genreLabel", "장르")}: </span>
+                      <span className="text-foreground/80">{getCategoryLabel(product.genre, t)}</span>
+                    </div>
+                  )}
+                  {product.category && (
+                    <div>
+                      <span className="text-xs text-gray-500">{t("upload.categoryLabel", "카테고리")}: </span>
+                      <span className="text-foreground/80">{getCategoryLabel(product.category, t)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Phase 22: 챕터 리스트 */}
             {videoMeta.chapters.length > 0 && (
@@ -1150,22 +1310,6 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               </div>
             )}
 
-            {/* 카테고리 / 장르 뱃지 */}
-            {(product.category || product.genre) && (
-              <div className="flex flex-wrap gap-2 mb-6">
-                {product.category && (
-                  <span className="px-3 py-1 bg-[#6366f1]/15 border border-[#6366f1]/30 rounded-full text-xs font-medium text-[#a78bfa]">
-                    {getCategoryLabel(product.category, t)}
-                  </span>
-                )}
-                {product.genre && (
-                  <span className="px-3 py-1 bg-[#8b5cf6]/15 border border-[#8b5cf6]/30 rounded-full text-xs font-medium text-[#a78bfa]">
-                    {getCategoryLabel(product.genre, t)}
-                  </span>
-                )}
-              </div>
-            )}
-
             {/* License (단일 통합) — ₩0 영상은 회색 비활성 카드 + 안내 */}
             <div className="mb-6">
               <h3 className="mb-4">{t("productDetail.license.title")}</h3>
@@ -1179,8 +1323,9 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                       </div>
                       <p className="text-xl font-black text-[#6366f1]">₩{product.price.toLocaleString()}</p>
                     </div>
-                    <ul className="space-y-2">
-                      {[
+                    {/* Phase 31.3 — 모바일은 4개 + "더 보기" / 데스크탑은 9개 전체 */}
+                    {(() => {
+                      const features = [
                         t("productDetail.license.item1"),
                         t("productDetail.license.item2"),
                         t("productDetail.license.item3"),
@@ -1190,13 +1335,80 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                         t("productDetail.license.item7"),
                         t("productDetail.license.item8"),
                         t("productDetail.license.item9"),
-                      ].map((feature, idx) => (
-                        <li key={idx} className="text-sm text-foreground/80 flex items-start gap-2">
-                          <Check className="w-4 h-4 text-[#10b981] mt-0.5 flex-shrink-0" />
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
+                      ];
+                      const mobileFeatures = licenseExpanded ? features : features.slice(0, 4);
+                      return (
+                        <>
+                          {/* 모바일 */}
+                          <ul className="md:hidden space-y-2">
+                            {mobileFeatures.map((feature, idx) => (
+                              <li key={idx} className="text-sm text-foreground/80 flex items-start gap-2">
+                                <Check className="w-4 h-4 text-[#10b981] mt-0.5 flex-shrink-0" />
+                                <span>{feature}</span>
+                              </li>
+                            ))}
+                            {features.length > 4 && (
+                              <button
+                                onClick={() => setLicenseExpanded(!licenseExpanded)}
+                                className="w-full mt-2 py-2 text-xs font-bold text-[#a5b4fc] hover:text-white"
+                              >
+                                {licenseExpanded
+                                  ? t("productDetail.license.collapseFeatures", "접기")
+                                  : t("productDetail.license.moreFeatures", "5개 더 보기")}
+                              </button>
+                            )}
+                          </ul>
+                          {/* 데스크탑 — 9개 전체 */}
+                          <ul className="hidden md:block space-y-2">
+                            {features.map((feature, idx) => (
+                              <li key={idx} className="text-sm text-foreground/80 flex items-start gap-2">
+                                <Check className="w-4 h-4 text-[#10b981] mt-0.5 flex-shrink-0" />
+                                <span>{feature}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      );
+                    })()}
+
+                    {/* 라이선스 박스 안에 [장바구니]/[구매] 가로 반반 (Phase 31.4) */}
+                    <div className="grid grid-cols-2 gap-3 mt-5">
+                      <Button
+                        onClick={handleAddToCart}
+                        variant="outline"
+                        className="gap-2"
+                        disabled={addedToCart}
+                      >
+                        {addedToCart ? (
+                          <>
+                            <Check className="w-5 h-5" />
+                            {t("productDetail.cart.added")}
+                          </>
+                        ) : (
+                          <>
+                            <ShoppingCart className="w-5 h-5" />
+                            {t("productDetail.cart.addToCart")}
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={handleBuyNow}
+                        disabled={buyingLicense}
+                        className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] disabled:opacity-60 shadow-[0_0_25px_rgba(99,102,241,0.5)]"
+                      >
+                        {buyingLicense ? (
+                          <>
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            {t("productDetail.cart.openPayment")}
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-5 h-5" />
+                            {t("productDetail.cart.purchase")}
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
 
                   {/* 주의 사항 */}
@@ -1224,17 +1436,7 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
               )}
             </div>
 
-            {/* Product Description */}
-            {product.description && (
-              <div className="mb-6">
-                <h3 className="mb-3">{t("productDetail.description")}</h3>
-                <div className="bg-card p-4 rounded-lg border border-border">
-                  <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line">
-                    {product.description}
-                  </p>
-                </div>
-              </div>
-            )}
+            {/* Product Description — 영상 헤더 영역으로 이동 (Phase 31.4) */}
 
             {/* Tags */}
             {product.tags && product.tags.length > 0 && (
@@ -1344,157 +1546,23 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
                 </div>
               </div>
             </div>
+
+            {/* 구매 액션은 라이선스 박스 안으로 통합됨 (Phase 31.4) */}
           </div>
-        </div>
 
-        {/* Bottom Actions */}
-        <div className="border-t border-border p-4 pb-8 md:pb-4 bg-card shrink-0">
-          <div className="flex items-center gap-2 md:gap-3 mb-3">
-            {/* 좋아요 — 글래스 + 글로우 */}
-            <motion.button
-              whileTap={{ scale: 0.85 }}
-              onClick={handleToggleLike}
-              disabled={likeBusy}
-              className="flex flex-col items-center shrink-0"
-              aria-label={t("common.like")}
-            >
-              <div
-                className={`w-9 h-9 md:w-10 md:h-10 rounded-full backdrop-blur-xl flex items-center justify-center border-2 transition-all ${
-                  isLiked
-                    ? "bg-red-500/30 border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.6)]"
-                    : "bg-white/10 border-white/30"
-                }`}
-              >
-                <Heart
-                  className={`w-4 h-4 md:w-[18px] md:h-[18px] ${isLiked ? "fill-red-400 text-red-400" : "text-foreground"}`}
-                  strokeWidth={1.8}
-                />
-              </div>
-            </motion.button>
-
-            {/* 댓글 — pulse + purple glow */}
-            <motion.button
-              whileTap={{ scale: 0.85 }}
-              animate={{ scale: [1, 1.05, 1] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              onClick={() => setShowComments(!showComments)}
-              className="flex flex-col items-center shrink-0"
-              aria-label={t("common.comment")}
-            >
-              <div className={`w-9 h-9 md:w-10 md:h-10 rounded-full backdrop-blur-xl border-2 flex items-center justify-center transition-all ${
-                showComments
-                  ? "bg-[#6366f1]/30 border-[#8b5cf6] shadow-[0_0_20px_rgba(139,92,246,0.6)]"
-                  : "bg-white/10 border-white/30 shadow-[0_0_15px_rgba(139,92,246,0.4)]"
-              }`}>
-                <MessageCircle className="w-4 h-4 md:w-[18px] md:h-[18px] text-foreground" strokeWidth={1.8} />
-              </div>
-            </motion.button>
-
-            {/* 공유 — hover 회전 + cyan glow */}
-            <motion.button
-              whileTap={{ scale: 0.85 }}
-              whileHover={{ rotate: 15 }}
-              onClick={handleShare}
-              className="flex flex-col items-center shrink-0"
-              aria-label={t("common.share")}
-            >
-              <div className="w-9 h-9 md:w-10 md:h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.4)]">
-                <Send className="w-4 h-4 md:w-[18px] md:h-[18px] text-foreground -rotate-12" strokeWidth={1.8} />
-              </div>
-            </motion.button>
-
-            {/* Phase 18: 저장 (플레이리스트/나중에 보기) */}
-            <motion.button
-              whileTap={{ scale: 0.85 }}
-              onClick={() => {
-                if (!isAuthenticated) {
-                  onSignInClick?.();
-                  return;
-                }
-                setPlaylistOpen(true);
-              }}
-              className="flex flex-col items-center shrink-0"
-              aria-label={t("productDetail.action.saveAriaLabel")}
-              title={t("productDetail.action.saveTitle")}
-            >
-              <div className={`w-9 h-9 md:w-10 md:h-10 rounded-full backdrop-blur-xl border-2 flex items-center justify-center transition-all ${
-                isSaved
-                  ? "bg-gradient-to-br from-[#6366f1]/30 to-[#ec4899]/30 border-[#ec4899] shadow-[0_0_20px_rgba(236,72,153,0.5)]"
-                  : "bg-white/10 border-white/30"
-              }`}>
-                <Bookmark
-                  className={`w-4 h-4 md:w-[18px] md:h-[18px] ${isSaved ? "fill-[#ec4899] text-[#ec4899]" : "text-foreground"}`}
-                  strokeWidth={1.8}
-                />
-              </div>
-            </motion.button>
-
-            {/* Phase 10: 신고 버튼 */}
-            <motion.button
-              whileTap={{ scale: 0.85 }}
-              onClick={() => setReportOpen(true)}
-              className="flex flex-col items-center shrink-0"
-              aria-label={t("common.report")}
-              title={t("productDetail.action.reportTitle")}
-            >
-              <div className="w-9 h-9 md:w-10 md:h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center hover:bg-red-500/20 hover:border-red-400/60 transition-colors">
-                <Flag className="w-4 h-4 md:w-[18px] md:h-[18px] text-foreground" strokeWidth={1.8} />
-              </div>
-            </motion.button>
-
-            <div className="flex-1 min-w-0 text-right">
-              {isLicensable ? (
-                <>
-                  <p className="text-[11px] md:text-xs text-muted-foreground truncate">{t("productDetail.cart.allInOneLicense")}</p>
-                  <p className="text-lg md:text-2xl font-medium text-[#6366f1] leading-tight">₩{product.price.toLocaleString()}</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-[11px] md:text-xs text-gray-500 leading-tight">{t("productDetail.license.freeViewOnly")}</p>
-                  <p className="text-sm md:text-base font-bold text-gray-400 leading-tight">{t("productDetail.license.notForSale")}</p>
-                </>
-              )}
+          {/* Phase 32 — 함께 시청된 콘텐츠 가로 캐러셀 */}
+          {similarVideos.length > 0 && (
+            <div className="border-t border-white/5 mt-4 pt-2">
+              <VideoRowCarousel
+                title={t("productDetail.similarVideosTitle", "함께 시청된 콘텐츠")}
+                subtitle={t("productDetail.similarVideosSubtitle", "같은 크리에이터 · 카테고리 · 장르 기반 추천")}
+                videos={similarVideos}
+                onVideoClick={(v) => {
+                  if (onNavigateToVideo) onNavigateToVideo(v.id);
+                }}
+              />
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              onClick={handleAddToCart}
-              variant="outline"
-              className="gap-2"
-              disabled={addedToCart || !isLicensable}
-              title={!isLicensable ? t("productDetail.license.notForSale") : undefined}
-            >
-              {addedToCart ? (
-                <>
-                  <Check className="w-5 h-5" />
-                  {t("productDetail.cart.added")}
-                </>
-              ) : (
-                <>
-                  <Gift className="w-5 h-5" />
-                  {t("productDetail.cart.addToCart")}
-                </>
-              )}
-            </Button>
-            <Button
-              onClick={handleBuyNow}
-              disabled={buyingLicense || !isLicensable}
-              className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] disabled:opacity-60"
-              title={!isLicensable ? t("productDetail.license.notForSale") : undefined}
-            >
-              {buyingLicense ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  {t("productDetail.cart.openPayment")}
-                </>
-              ) : (
-                <>
-                  <Download className="w-5 h-5" />
-                  {t("productDetail.cart.purchase")}
-                </>
-              )}
-            </Button>
-          </div>
+          )}
         </div>
         </div>{/* end main column */}
 
