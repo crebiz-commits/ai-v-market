@@ -87,6 +87,7 @@ function toProduct(v: CarouselVideo): Product {
     highlightStart: v.highlight_start ?? 0,
     highlightEnd: v.highlight_end ?? 15,
     views: typeof v.views === "number" ? v.views : 0,
+    likes: typeof v.likes === "number" ? v.likes : 0,
   };
 }
 

@@ -1,4 +1,5 @@
-import { X, Heart, Send, Download, Gift, Check, MessageCircle, Crown, Lock, Flag, Bookmark, FileText, ShoppingCart } from "lucide-react";
+import { X, Heart, Send, Download, Check, MessageCircle, Crown, Lock, Flag, Bookmark, FileText, ShoppingCart, Eye } from "lucide-react";
+import { formatCompactNumber } from "../i18n/numberFormat";
 import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
 import { Button } from "./ui/button";
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -109,6 +110,10 @@ interface ProductDetailProps {
     sponsorLogoUrl?: string | null;
     sponsorDisclosure?: string | null;
     sponsorLinkUrl?: string | null;
+
+    // Phase 31.6: 카운트 (Cinema/OTT 캐러셀 진입 시 전달)
+    views?: number;
+    likes?: number;
   };
   onClose: () => void;
   onAddToCart?: (product: any, licenseType: "standard" | "commercial" | "extended") => Promise<boolean> | boolean | void;
@@ -121,6 +126,9 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   const { t } = useTranslation();
   const [isLiked, setIsLiked] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
+  // Phase 31.6 — 좋아요·조회수 카운트 (DB videos.likes / videos.views 자동 동기화, 트리거 Phase 23.1)
+  const [likesCount, setLikesCount] = useState<number>(productProp.likes ?? 0);
+  const [viewsCount, setViewsCount] = useState<number>(productProp.views ?? 0);
   // Phase 31.3 — 라이선스 9개 체크리스트 모바일 접기/펼치기
   const [licenseExpanded, setLicenseExpanded] = useState(false);
   // Phase 32 — 함께 시청된 콘텐츠 (similar videos)
@@ -265,7 +273,8 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
           "description, genre, production_year, cast_credits, " +
           "director, writer, composer, language, subtitle_language, " +
           "ai_model_version, prompt, seed, resolution, tags, " +
-          "sponsor_brand, sponsor_logo_url, sponsor_disclosure, sponsor_link_url"
+          "sponsor_brand, sponsor_logo_url, sponsor_disclosure, sponsor_link_url, " +
+          "likes, views"
         )
         .eq("id", product.id)
         .maybeSingle();
@@ -298,6 +307,9 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
         sponsorDisclosure: d.sponsor_disclosure ?? null,
         sponsorLinkUrl: d.sponsor_link_url ?? null,
       });
+      // Phase 31.6 — 카운트 최신화 (캐러셀 stale 데이터 보정)
+      if (typeof d.likes === "number") setLikesCount(d.likes);
+      if (typeof d.views === "number") setViewsCount(d.views);
       // Phase 26: 19+ 영상 + 미인증 사용자면 진입 시 자동 게이트
       if (meta.age_rating === "19" && !profile?.age_verified && user?.id !== (product.creatorId || undefined)) {
         setAgeGateOpen(true);
@@ -357,6 +369,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     setLikeBusy(true);
     const next = !isLiked;
     setIsLiked(next);
+    setLikesCount(c => Math.max(0, c + (next ? 1 : -1)));
     try {
       if (next) {
         await supabase.from("video_likes").insert({ video_id: product.id, user_id: user.id });
@@ -365,6 +378,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       }
     } catch (err) {
       setIsLiked(!next);
+      setLikesCount(c => Math.max(0, c + (next ? -1 : 1)));
       toast.error(t("productDetail.toast.likeFailed"));
       console.error("[ProductDetail] toggleLike error:", err);
     } finally {
@@ -1165,9 +1179,10 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
             <div className="mb-6">
               <h2 className="text-2xl md:text-4xl font-black mb-2">{product.title}</h2>
 
-              {/* 인라인 메타: 연도·등급·길이·OTT (Phase 31.4) */}
+              {/* 인라인 메타: 연도·등급·길이·OTT·조회수·좋아요 (Phase 31.4 + 31.6) */}
               {(() => {
                 const hasYearOrAge = !!product.productionYear || (videoMeta.age_rating && videoMeta.age_rating !== "all");
+                const hasDurationLine = hasYearOrAge || !!product.duration;
                 return (
                   <div className="flex items-center gap-2 mb-3 flex-wrap">
                     {product.productionYear && (
@@ -1176,6 +1191,16 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                     <AgeBadge rating={videoMeta.age_rating} size="xs" />
                     {product.duration && (
                       <span className="text-sm text-gray-300">{hasYearOrAge ? "· " : ""}{product.duration}</span>
+                    )}
+                    {viewsCount > 0 && (
+                      <span className="text-sm text-gray-300 inline-flex items-center gap-1">
+                        {hasDurationLine ? "· " : ""}<Eye className="w-3.5 h-3.5 inline" /> {formatCompactNumber(viewsCount)}
+                      </span>
+                    )}
+                    {likesCount > 0 && (
+                      <span className="text-sm text-gray-300 inline-flex items-center gap-1">
+                        · <Heart className="w-3.5 h-3.5 inline text-red-400" /> {formatCompactNumber(likesCount)}
+                      </span>
                     )}
                     {isOttVideo && (
                       <span className="px-2 py-0.5 rounded bg-gradient-to-r from-amber-500/40 to-orange-500/40 backdrop-blur-sm text-white text-xs font-bold flex items-center gap-0.5">

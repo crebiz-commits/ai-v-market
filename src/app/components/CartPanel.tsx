@@ -1,6 +1,6 @@
 // 장바구니 패널 (구 장바구니 — 2026-05-27 결제 흐름 제거 후 단순 장바구니로 명칭 복귀)
 // 결제는 ProductDetail 의 "구매하기" 버튼으로 단건 진행. 본 패널은 보관 + 영상 페이지 이동만.
-import { X, Gift, Trash2, Play, Package } from "lucide-react";
+import { X, ShoppingCart, Trash2, Play, Package } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "./ui/button";
 import { useTranslation } from "react-i18next";
@@ -41,7 +41,7 @@ export function CartPanel({ items, onRemove, onViewVideo, onClose }: CartPanelPr
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <Gift className="w-5 h-5 text-[#8b5cf6]" />
+          <ShoppingCart className="w-5 h-5 text-[#8b5cf6]" />
           <span className="font-semibold text-white">{t("cartPanel.title")}</span>
           {items.length > 0 && (
             <span className="px-1.5 py-0.5 bg-[#6366f1] rounded-full text-xs text-white font-bold">
