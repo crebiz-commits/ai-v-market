@@ -5,7 +5,8 @@
 // 옵션 B — 시리즈/에피소드 구조 (단일 영상 → 시리즈 묶음 가능)
 //
 // 사용자가 보고 결정 → 적용
-import { Play, Heart, MessageSquare, Send, Bookmark, Flag, Crown, Film, Flame, ShoppingCart, Download, ShieldCheck, Check, AlertTriangle } from "lucide-react";
+import { useState } from "react";
+import { Play, Heart, MessageSquare, Send, Bookmark, Flag, Crown, Film, Flame, ShoppingCart, Download, ShieldCheck, Check, AlertTriangle, X, Clock, FileText, Hash, Sparkles, ChevronDown, ChevronUp, Subtitles } from "lucide-react";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Mock 데이터
@@ -29,6 +30,23 @@ const MOCK_VIDEO = {
     "어느 날 하늘에서 떨어진 별이 한 소년의 운명을 바꾼다. 그는 잃어버린 왕좌를 되찾기 위한 여정에 나서고, 그 길에서 진정한 영웅의 의미를 깨닫는다. AI 가 만든 광활한 판타지 시네마.",
   releaseDate: "2026-05-15",
   language: "한국어 (영어 자막)",
+  // #4 챕터 (영상 안 타임스탬프 점프)
+  chapters: [
+    { time: "00:00", title: "프롤로그 — 떨어진 별" },
+    { time: "08:30", title: "잃어버린 왕좌의 발견" },
+    { time: "21:15", title: "그림자 숲의 여정" },
+    { time: "38:42", title: "왕의 시험" },
+    { time: "52:18", title: "마지막 전투" },
+  ],
+  // #5 자막 언어
+  subtitles: ["한국어", "영어", "일본어"],
+  // #6 태그
+  tags: ["AI 시네마", "에픽 판타지", "어드벤처", "영웅 서사", "KLING AI", "한국어 더빙"],
+  // #7 AI 제작 상세
+  aiModelVersion: "KLING AI v2.1 Pro",
+  prompt:
+    "Epic cinematic shot of a young hero discovering a fallen star in a vast fantasy landscape. Golden hour lighting, dramatic clouds, ancient ruins in the background. Style: epic fantasy film, IMAX 70mm aesthetic.",
+  seed: "8842751093",
 };
 
 const MOCK_EPISODES = [
@@ -85,12 +103,21 @@ function VideoHeader({ isSubscriber = false }: { isSubscriber?: boolean }) {
           <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
           AUTOPLAY
         </div>
-        {/* 1분 미리보기 배지 (비구독자만 — 구독자는 표시 X) */}
-        {!isSubscriber && (
-          <div className="absolute top-3 right-3 px-2.5 py-1 bg-amber-500/80 backdrop-blur rounded-full text-[10px] md:text-xs font-bold text-black">
-            🔒 1분 미리보기 중
-          </div>
-        )}
+        {/* 1분 미리보기 배지 (비구독자만) + 우상단 닫기 X 버튼 */}
+        <div className="absolute top-3 right-3 flex items-center gap-2">
+          {!isSubscriber && (
+            <div className="px-2.5 py-1 bg-amber-500/80 backdrop-blur rounded-full text-[10px] md:text-xs font-bold text-black">
+              🔒 1분 미리보기 중
+            </div>
+          )}
+          {/* #8 모달 닫기 — 우상단 (실제 ProductDetail 은 모달이라 필수) */}
+          <button
+            className="w-8 h-8 rounded-full bg-black/60 backdrop-blur hover:bg-black/80 border border-white/20 flex items-center justify-center transition-colors"
+            aria-label="닫기"
+          >
+            <X className="w-4 h-4 text-white" />
+          </button>
+        </div>
         {/* 미리보기 안내 (실제는 Bunny iframe) */}
         <div className="absolute bottom-3 left-3 right-3 text-center">
           <p className="text-[10px] text-white/60 italic">
@@ -187,6 +214,9 @@ function LicensePurchaseBox() {
     "라이선스 영구 유효 (사용 기간 제한 없음)",
     "가격은 VAT 포함",
   ];
+  // #10 모바일에서 처음 4개만 보이고 더 보기로 펼침 (데스크탑은 전체 표시)
+  const [expanded, setExpanded] = useState(false);
+  const visibleFeatures = expanded ? features : features.slice(0, 4);
   return (
     <div className="space-y-4">
       {/* 라이선스 구매 헤더 */}
@@ -202,12 +232,31 @@ function LicensePurchaseBox() {
           <p className="text-xl md:text-2xl font-black text-[#a5b4fc] whitespace-nowrap">₩1,000,000</p>
         </div>
         <div className="border-t border-white/10 pt-4 space-y-2.5">
-          {features.map((f) => (
-            <div key={f} className="flex items-start gap-2.5 text-xs md:text-sm text-gray-200">
-              <Check className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-              <span>{f}</span>
-            </div>
-          ))}
+          {/* 모바일: visibleFeatures (접힘/펼침) — 데스크탑: 전체 */}
+          <div className="md:hidden space-y-2.5">
+            {visibleFeatures.map((f) => (
+              <div key={f} className="flex items-start gap-2.5 text-xs text-gray-200">
+                <Check className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                <span>{f}</span>
+              </div>
+            ))}
+            {features.length > 4 && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="w-full mt-2 py-2 text-xs font-bold text-[#a5b4fc] hover:text-white flex items-center justify-center gap-1"
+              >
+                {expanded ? (<><ChevronUp className="w-3.5 h-3.5" /> 접기</>) : (<><ChevronDown className="w-3.5 h-3.5" /> 5개 더 보기</>)}
+              </button>
+            )}
+          </div>
+          <div className="hidden md:block space-y-2.5">
+            {features.map((f) => (
+              <div key={f} className="flex items-start gap-2.5 text-sm text-gray-200">
+                <Check className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                <span>{f}</span>
+              </div>
+            ))}
+          </div>
         </div>
         {/* 장바구니 | 라이선스 구매 — 박스 안 가로 반반 */}
         <div className="grid grid-cols-2 gap-2 mt-5">
@@ -236,10 +285,118 @@ function LicensePurchaseBox() {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// #4 챕터 (타임스탬프 점프)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function ChaptersList() {
+  return (
+    <div className="bg-white/[0.03] rounded-2xl border border-white/10 p-4 md:p-5">
+      <div className="space-y-1.5">
+        {MOCK_VIDEO.chapters.map((ch) => (
+          <button
+            key={ch.time}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors text-left group"
+          >
+            <Clock className="w-3.5 h-3.5 text-[#a5b4fc] flex-shrink-0" />
+            <span className="text-xs md:text-sm font-mono text-[#a5b4fc] font-bold w-12 flex-shrink-0">{ch.time}</span>
+            <span className="text-xs md:text-sm text-gray-200 group-hover:text-white">{ch.title}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// #5 자막 정보 (그린 배지)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function SubtitlesBadges() {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <Subtitles className="w-4 h-4 text-emerald-400" />
+      <span className="text-xs md:text-sm text-gray-400 mr-1">자막:</span>
+      {MOCK_VIDEO.subtitles.map((lang) => (
+        <span
+          key={lang}
+          className="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs md:text-sm font-semibold"
+        >
+          {lang}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// #6 태그 (검색·발견용 인디고 배지)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function TagsList() {
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <Hash className="w-4 h-4 text-[#a5b4fc] flex-shrink-0" />
+      {MOCK_VIDEO.tags.map((tag) => (
+        <button
+          key={tag}
+          className="px-2.5 py-1 rounded-full bg-[#6366f1]/15 border border-[#6366f1]/30 text-[#a5b4fc] text-xs md:text-sm hover:bg-[#6366f1]/25 hover:border-[#6366f1]/50 transition-colors"
+        >
+          #{tag}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// #7 AI 제작 상세 (프롬프트·시드·모델 — AI 투명성)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function AiProductionDetails() {
+  const [showFull, setShowFull] = useState(false);
+  return (
+    <div className="bg-gradient-to-br from-[#6366f1]/10 to-[#8b5cf6]/5 rounded-2xl border border-[#6366f1]/30 p-5 md:p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Sparkles className="w-4 h-4 text-[#a5b4fc]" />
+        <h3 className="text-sm md:text-base font-black text-white">AI 제작 상세 (투명성)</h3>
+      </div>
+      <div className="space-y-3 text-xs md:text-sm">
+        {/* AI 도구 + 모델 버전 */}
+        <div className="flex gap-3">
+          <span className="text-gray-500 w-24 flex-shrink-0 font-semibold">AI 도구</span>
+          <span className="text-gray-200 flex-1">{MOCK_VIDEO.aiTool}</span>
+        </div>
+        <div className="flex gap-3">
+          <span className="text-gray-500 w-24 flex-shrink-0 font-semibold">모델 버전</span>
+          <span className="text-gray-200 flex-1">{MOCK_VIDEO.aiModelVersion}</span>
+        </div>
+        {/* 시드 */}
+        <div className="flex gap-3">
+          <span className="text-gray-500 w-24 flex-shrink-0 font-semibold">시드</span>
+          <span className="text-gray-200 flex-1 font-mono">{MOCK_VIDEO.seed}</span>
+        </div>
+        {/* 프롬프트 */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-gray-500 font-semibold">프롬프트</span>
+            <button
+              onClick={() => setShowFull(!showFull)}
+              className="text-[10px] md:text-xs text-[#a5b4fc] hover:text-white flex items-center gap-1"
+            >
+              {showFull ? (<><ChevronUp className="w-3 h-3" /> 접기</>) : (<><ChevronDown className="w-3 h-3" /> 전체 보기</>)}
+            </button>
+          </div>
+          <p className={`text-gray-300 leading-relaxed bg-black/30 rounded-lg p-3 font-mono text-xs ${showFull ? "" : "line-clamp-2"}`}>
+            {MOCK_VIDEO.prompt}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 옵션 A — 상세 정보 박스 정돈
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function OptionAInfoBox() {
   const v = MOCK_VIDEO;
+  // #9 입력된 필드만 표시 — 빈 값/null/공백 자동 숨김
   const rows: Array<[string, string]> = [
     ["감독", v.director],
     ["작가", v.writer],
@@ -251,7 +408,7 @@ function OptionAInfoBox() {
     ["언어", v.language],
     ["공개일", v.releaseDate],
     ["조회수", v.views + " · ♥ " + v.likes],
-  ];
+  ].filter(([_, value]) => value && value.trim() !== "") as Array<[string, string]>;
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2.5 bg-white/[0.03] rounded-2xl p-5 md:p-6 border border-white/10">
       {rows.map(([label, value]) => (
@@ -390,6 +547,39 @@ export function ProductDetailPreview() {
         hint="가격이 ₩0 인 영상 → 자동으로 비매품 박스로 전환. 라이선스 판매 안 함, 무료 시청만."
       >
         <NoSaleBox />
+      </SectionWrapper>
+
+      {/* #4 챕터 */}
+      <SectionWrapper
+        label="#4 챕터 (타임스탬프 점프)"
+        badge="추가"
+        badgeColor="bg-emerald-600"
+        hint="영상에 chapters 데이터 있을 때만 표시. 클릭 시 해당 시간으로 점프."
+      >
+        <ChaptersList />
+      </SectionWrapper>
+
+      {/* #5 자막 + #6 태그 */}
+      <SectionWrapper
+        label="#5 자막 + #6 태그"
+        badge="추가"
+        badgeColor="bg-emerald-600"
+        hint="자막 언어 그린 배지 + 검색·발견용 태그 (영상에 데이터 있을 때만)"
+      >
+        <div className="space-y-4">
+          <SubtitlesBadges />
+          <TagsList />
+        </div>
+      </SectionWrapper>
+
+      {/* #7 AI 제작 상세 (투명성 핵심) */}
+      <SectionWrapper
+        label="#7 AI 제작 상세 — 투명성 (AI 도구·모델·시드·프롬프트)"
+        badge="추가"
+        badgeColor="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
+        hint="AI 영상의 진정성 검증 핵심. 프롬프트는 기본 2줄 + 전체 보기 토글."
+      >
+        <AiProductionDetails />
       </SectionWrapper>
 
       <SectionWrapper
