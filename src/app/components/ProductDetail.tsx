@@ -1257,8 +1257,8 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                       onSignInClick?.();
                       return;
                     }
-                    onClose();
-                    toast.info(t("productDetail.subscribePromptHint", "프리미엄 OTT 탭에서 구독 후 전체 시청 가능합니다."));
+                    setPaywallReason(isOttVideo ? "ott_block" : "cinema_cutoff");
+                    setPaywallOpen(true);
                   }}
                   className="px-5 py-3 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold rounded-lg flex items-center gap-2 hover:opacity-90 flex-shrink-0 shadow-[0_0_25px_rgba(99,102,241,0.5)] transition-shadow hover:shadow-[0_0_35px_rgba(139,92,246,0.7)]"
                   aria-label={t("productDetail.subscribeFullView", "구독하고 전체 보기")}

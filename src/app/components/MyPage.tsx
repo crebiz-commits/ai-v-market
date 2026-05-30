@@ -16,6 +16,7 @@ import { VideoEditModal } from "./VideoEditModal";
 import { NotificationSettings } from "./NotificationSettings";
 import { TaxInfoSection } from "./TaxInfoSection";
 import { MyPaymentsSection } from "./MyPaymentsSection";
+import { SubscriptionModal } from "./SubscriptionModal";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { Footer } from "./Footer";
 import { formatCompactNumber } from "../i18n/numberFormat";
@@ -428,6 +429,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     return saved === 'user' || saved === 'creator' ? saved : 'select';
   });
   const { user, profile, subscriptionTier, isSubscriber, signOut, isAuthenticated } = useAuth();
+  const [showSubscribe, setShowSubscribe] = useState(false);
   const [purchaseHistory, setPurchaseHistory] = useState<Purchase[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [myProducts, setMyProducts] = useState<MyProduct[]>([]);
@@ -1038,6 +1040,12 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   return (
     <div className="h-full overflow-y-auto bg-[#0a0a0a] selection:bg-[#6366f1]/30 pb-20">
       <CommentSettings open={showCommentSettings} onClose={() => setShowCommentSettings(false)} />
+      <SubscriptionModal
+        open={showSubscribe}
+        reason="upgrade"
+        onClose={() => setShowSubscribe(false)}
+        onSignInClick={onSignInClick}
+      />
       {/* Phase 22: 영상 편집 모달 */}
       {editingVideo && (
         <VideoEditModal
@@ -1229,7 +1237,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => toast.info(t("mypage.subscription.upgradeComingSoon"))}
+                        onClick={() => setShowSubscribe(true)}
                         className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-lg text-sm font-bold border border-white/20 transition-colors shadow-sm"
                       >
                         {t("mypage.subscription.upgrade")}

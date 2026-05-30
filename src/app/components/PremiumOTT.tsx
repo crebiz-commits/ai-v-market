@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../utils/supabaseClient";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { CreatorAvatar } from "./CreatorAvatar";
+import { SubscriptionModal } from "./SubscriptionModal";
 
 interface OttVideo {
   id: string;
@@ -55,6 +56,7 @@ interface PremiumOTTProps {
  */
 export function PremiumOTT({ onSignInClick, onProductClick }: PremiumOTTProps) {
   const { isAuthenticated, isSubscriber, loading: authLoading } = useAuth();
+  const [showSubscribe, setShowSubscribe] = useState(false);
   const [videos, setVideos] = useState<OttVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const creatorInfo = useCreatorInfo(videos.map((v) => v.creatorId));
@@ -190,8 +192,7 @@ export function PremiumOTT({ onSignInClick, onProductClick }: PremiumOTTProps) {
                     onSignInClick?.();
                     return;
                   }
-                  // TODO Phase 4: 결제 모달 — 지금은 안내만
-                  alert("구독 결제 기능은 곧 출시됩니다.");
+                  setShowSubscribe(true);
                 }}
                 className="px-5 py-2.5 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white rounded-lg text-sm font-bold shadow-lg shadow-[#6366f1]/20 hover:opacity-90 transition-opacity whitespace-nowrap"
               >
@@ -304,6 +305,13 @@ export function PremiumOTT({ onSignInClick, onProductClick }: PremiumOTTProps) {
           </motion.div>
         )}
       </div>
+
+      <SubscriptionModal
+        open={showSubscribe}
+        reason="ott_block"
+        onClose={() => setShowSubscribe(false)}
+        onSignInClick={onSignInClick}
+      />
     </div>
   );
 }

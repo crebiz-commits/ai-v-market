@@ -7,7 +7,7 @@ import { usePayment } from "../hooks/usePayment";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
-export type PaywallReason = "ott_block" | "cinema_cutoff";
+export type PaywallReason = "ott_block" | "cinema_cutoff" | "upgrade";
 
 interface SubscriptionModalProps {
   open: boolean;
@@ -17,13 +17,12 @@ interface SubscriptionModalProps {
 }
 
 /**
- * 페이월 구독 안내 모달.
+ * 페이월 / 구독 안내 모달. CTA 클릭 시 usePayment().startSubscription 으로 실제 토스 결제 시작.
  *
- * 두 가지 reason:
- * - "ott_block": OTT 영상 (10분+)을 비구독자가 재생 시도할 때 (즉시 차단)
- * - "cinema_cutoff": 시네마 영상 (3분~10분)이 비구독자에게 3분 도달 시 (재생 중단)
- *
- * Phase 4 (현재): 구독 안내 + "준비 중" 알림. Phase 5에서 실제 결제 연동 예정.
+ * reason 별 카피 (결제 동작은 동일):
+ * - "ott_block": OTT 영상을 비구독자가 재생 시도할 때 (즉시 차단)
+ * - "cinema_cutoff": 시네마 영상 미리보기 컷오프 도달 시
+ * - "upgrade": 마이페이지 등 능동적 구독 진입 (일반 안내)
  */
 export function SubscriptionModal({
   open,
@@ -44,6 +43,10 @@ export function SubscriptionModal({
     cinema_cutoff: {
       title: t("productDetail.paywall.previewEnded"),
       subtitle: t("subscriptionModal.reasonCinemaCutoff"),
+    },
+    upgrade: {
+      title: t("subscriptionModal.title"),
+      subtitle: t("subscriptionModal.subtitle"),
     },
   };
 
