@@ -159,7 +159,7 @@ export function AdminRevenueSettlement() {
 
     // Phase 34 — 크리에이터에게 정산 완료 메일 (세후 net 금액 기준, fire-and-forget)
     try {
-      const row = (fresh || []).find((r: SettlementRow) => r.id === id) || rows.find((r) => r.id === id);
+      const row = (fresh || []).find((r: Distribution) => r.id === id) || rows.find((r) => r.id === id);
       if (row?.creator_id) {
         const { subject, html } = buildRevenueSettledEmail({
           year,

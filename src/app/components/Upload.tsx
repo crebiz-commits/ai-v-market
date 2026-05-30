@@ -61,7 +61,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
     description: "",
     category: "",
     genre: "",
-    ageRating: "" as "" | "all" | "12" | "15" | "19",  // 등급 — 필수 입력 (Phase 31.1)
+    ageRating: "" as "" | "all" | "13" | "15" | "19",  // 등급 — 필수 입력 (Phase 31.1). 값은 DB CHECK('all','13','15','19') 표준에 맞춤
     aiTool: "",
     aiModelVersion: "", // 모델 버전 (예: "Sora v2.1")
     resolution: "",
@@ -777,7 +777,6 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
   const resetForm = () => {
     setUploadComplete(false);
     setStep(1);
-    setUploadMethod(null);
     setSelectedFile(null);
     setBunnyVideoId(null);
     setUploadProgress(0);
@@ -1227,7 +1226,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   {[
                     { value: "all", label: t("upload.ageAll", "전체관람가"), hint: t("upload.ageAllHint", "모든 시청자") },
-                    { value: "12",  label: "12+", hint: t("upload.age12Hint", "가벼운 폭력·언어") },
+                    { value: "13",  label: "12+", hint: t("upload.age12Hint", "가벼운 폭력·언어") },
                     { value: "15",  label: "15+", hint: t("upload.age15Hint", "폭력·선정성 일부") },
                     { value: "19",  label: "19+", hint: t("upload.age19Hint", "성인 콘텐츠") },
                   ].map((opt) => {

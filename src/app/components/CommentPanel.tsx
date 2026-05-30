@@ -392,7 +392,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
   const handleToggleHeart = async (commentId: string, parentId?: string) => {
     const { data, error } = await supabase.rpc("toggle_creator_heart", { p_comment_id: commentId });
     if (error) {
-      toast.error(t("commentPanel.heart"));
+      toast.error(t("commentPanel.heartFailed"));
       return;
     }
     const newHearted = !!data;
@@ -413,16 +413,16 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
   };
 
   const handleBlockUser = async (targetUserId: string, name: string) => {
-    if (!confirm(t("mypage.blocks.confirmUnblock", { name }))) return;
+    if (!confirm(t("commentPanel.confirmBlock", { name }))) return;
     const { error } = await supabase.rpc("creator_block_user", {
       p_target_user_id: targetUserId,
       p_reason: "Blocked from comment panel",
     });
     if (error) {
-      toast.error(t("commentPanel.block"));
+      toast.error(t("commentPanel.blockFailed"));
       return;
     }
-    toast.success(t("commentPanel.block"));
+    toast.success(t("commentPanel.blockSuccess"));
     fetchComments();
   };
 

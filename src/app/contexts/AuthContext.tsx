@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, display_name, avatar_url, bio, subscription_tier, subscription_started_at, subscription_expires_at, payout_info, is_admin, birthdate, age_verified')
+      .select('id, display_name, avatar_url, banner_url, bio, subscription_tier, subscription_started_at, subscription_expires_at, payout_info, is_admin, birthdate, age_verified')
       .eq('id', userId)
       .maybeSingle();
 
