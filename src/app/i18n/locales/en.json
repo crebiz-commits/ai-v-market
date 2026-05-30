@@ -689,7 +689,21 @@
       "registerHint": "Register an account to receive payouts",
       "comingSoon": "Payout account registration is coming soon.",
       "change": "Change",
-      "register": "Register"
+      "register": "Register",
+      "modal": {
+        "title": "Register Payout Account",
+        "notice": "This is the account where your settlement payouts will be deposited. An account under your own name is recommended.",
+        "bankLabel": "Bank",
+        "bankPlaceholder": "Select a bank",
+        "accountLabel": "Account number",
+        "accountPlaceholder": "Digits only (- allowed)",
+        "holderLabel": "Account holder",
+        "holderPlaceholder": "Account holder name",
+        "cancel": "Cancel",
+        "submit": "Save",
+        "success": "Payout account saved.",
+        "error": "Save failed: "
+      }
     },
     "purchases": {
       "totalSpent": "Total spent",

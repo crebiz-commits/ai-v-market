@@ -17,6 +17,7 @@ import { NotificationSettings } from "./NotificationSettings";
 import { TaxInfoSection } from "./TaxInfoSection";
 import { MyPaymentsSection } from "./MyPaymentsSection";
 import { SubscriptionModal } from "./SubscriptionModal";
+import { PayoutInfoModal } from "./PayoutInfoModal";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { Footer } from "./Footer";
 import { formatCompactNumber } from "../i18n/numberFormat";
@@ -428,8 +429,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     const saved = localStorage.getItem(PAGE_MODE_STORAGE_KEY);
     return saved === 'user' || saved === 'creator' ? saved : 'select';
   });
-  const { user, profile, subscriptionTier, isSubscriber, signOut, isAuthenticated } = useAuth();
+  const { user, profile, subscriptionTier, isSubscriber, signOut, isAuthenticated, refreshProfile } = useAuth();
   const [showSubscribe, setShowSubscribe] = useState(false);
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [purchaseHistory, setPurchaseHistory] = useState<Purchase[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [myProducts, setMyProducts] = useState<MyProduct[]>([]);
@@ -1046,6 +1048,12 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
         onClose={() => setShowSubscribe(false)}
         onSignInClick={onSignInClick}
       />
+      <PayoutInfoModal
+        open={showPayoutModal}
+        current={profile?.payout_info ?? null}
+        onClose={() => setShowPayoutModal(false)}
+        onSaved={() => { void refreshProfile(); }}
+      />
       {/* Phase 22: 영상 편집 모달 */}
       {editingVideo && (
         <VideoEditModal
@@ -1302,7 +1310,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => toast.info(t("mypage.payout.comingSoon"))}
+                        onClick={() => setShowPayoutModal(true)}
                         className="relative z-10 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-bold border border-white/10 transition-colors shadow-sm"
                       >
                         {profile?.payout_info?.bank_name ? t("mypage.payout.change") : t("mypage.payout.register")}
