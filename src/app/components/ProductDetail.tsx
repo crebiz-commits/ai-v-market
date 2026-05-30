@@ -1,7 +1,7 @@
 import { X, Heart, Send, Download, Gift, Check, MessageCircle, Crown, Lock, Flag, Bookmark, FileText, ShoppingCart } from "lucide-react";
 import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
 import { Button } from "./ui/button";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { CommentPanel } from "./CommentPanel";
@@ -117,7 +117,7 @@ interface ProductDetailProps {
   onNavigateToVideo?: (videoId: string) => void | Promise<void>;   // Phase 16: 연속 재생
 }
 
-export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, onViewCreator, onNavigateToVideo }: ProductDetailProps) {
+export function ProductDetail({ product: productProp, onClose, onAddToCart, onSignInClick, onViewCreator, onNavigateToVideo }: ProductDetailProps) {
   const { t } = useTranslation();
   const [isLiked, setIsLiked] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
@@ -136,6 +136,49 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
     subtitle_url: null,
     age_rating: "all",
   });
+  // 보강 필드 — Cinema/OTT 카드처럼 가벼운 페이로드로 진입한 경우 누락된 필드를 DB에서 직접 채움
+  const [extra, setExtra] = useState<{
+    description?: string;
+    genre?: string;
+    productionYear?: number;
+    castCredits?: string;
+    director?: string;
+    writer?: string;
+    composer?: string;
+    language?: string;
+    subtitleLanguage?: string;
+    aiModelVersion?: string;
+    prompt?: string;
+    seed?: string;
+    resolution?: string;
+    tags?: string[];
+    sponsorBrand?: string | null;
+    sponsorLogoUrl?: string | null;
+    sponsorDisclosure?: string | null;
+    sponsorLinkUrl?: string | null;
+  }>({});
+  // 진입 경로별 누락 필드를 DB fetch 결과로 보강한 통합 product (Cinema/OTT 가벼운 페이로드 보강용)
+  const product = useMemo(() => ({
+    ...productProp,
+    description: productProp.description ?? extra.description,
+    genre: productProp.genre ?? extra.genre,
+    productionYear: productProp.productionYear ?? extra.productionYear,
+    castCredits: productProp.castCredits ?? extra.castCredits,
+    director: productProp.director ?? extra.director,
+    writer: productProp.writer ?? extra.writer,
+    composer: productProp.composer ?? extra.composer,
+    language: productProp.language ?? extra.language,
+    subtitleLanguage: productProp.subtitleLanguage ?? extra.subtitleLanguage,
+    aiModelVersion: productProp.aiModelVersion ?? extra.aiModelVersion,
+    prompt: productProp.prompt ?? extra.prompt,
+    seed: productProp.seed ?? extra.seed,
+    resolution: productProp.resolution || extra.resolution,
+    tags: (productProp.tags && productProp.tags.length > 0) ? productProp.tags : extra.tags,
+    sponsorBrand: productProp.sponsorBrand ?? extra.sponsorBrand,
+    sponsorLogoUrl: productProp.sponsorLogoUrl ?? extra.sponsorLogoUrl,
+    sponsorDisclosure: productProp.sponsorDisclosure ?? extra.sponsorDisclosure,
+    sponsorLinkUrl: productProp.sponsorLinkUrl ?? extra.sponsorLinkUrl,
+  }), [productProp, extra]);
   // Phase 26: 연령 게이트
   const [ageGateOpen, setAgeGateOpen] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
@@ -217,16 +260,43 @@ export function ProductDetail({ product, onClose, onAddToCart, onSignInClick, on
     (async () => {
       const { data } = await supabase
         .from("videos")
-        .select("chapters, subtitle_url, age_rating")
+        .select(
+          "chapters, subtitle_url, age_rating, " +
+          "description, genre, production_year, cast_credits, " +
+          "director, writer, composer, language, subtitle_language, " +
+          "ai_model_version, prompt, seed, resolution, tags, " +
+          "sponsor_brand, sponsor_logo_url, sponsor_disclosure, sponsor_link_url"
+        )
         .eq("id", product.id)
         .maybeSingle();
       if (cancelled || !data) return;
+      const d = data as any;
       const meta = {
-        chapters: Array.isArray((data as any).chapters) ? (data as any).chapters : [],
-        subtitle_url: (data as any).subtitle_url || null,
-        age_rating: (data as any).age_rating || "all",
+        chapters: Array.isArray(d.chapters) ? d.chapters : [],
+        subtitle_url: d.subtitle_url || null,
+        age_rating: d.age_rating || "all",
       };
       setVideoMeta(meta);
+      setExtra({
+        description: d.description || undefined,
+        genre: d.genre || undefined,
+        productionYear: d.production_year || undefined,
+        castCredits: d.cast_credits || undefined,
+        director: d.director || undefined,
+        writer: d.writer || undefined,
+        composer: d.composer || undefined,
+        language: d.language || undefined,
+        subtitleLanguage: d.subtitle_language || undefined,
+        aiModelVersion: d.ai_model_version || undefined,
+        prompt: d.prompt || undefined,
+        seed: d.seed || undefined,
+        resolution: d.resolution || undefined,
+        tags: Array.isArray(d.tags) ? d.tags : undefined,
+        sponsorBrand: d.sponsor_brand ?? null,
+        sponsorLogoUrl: d.sponsor_logo_url ?? null,
+        sponsorDisclosure: d.sponsor_disclosure ?? null,
+        sponsorLinkUrl: d.sponsor_link_url ?? null,
+      });
       // Phase 26: 19+ 영상 + 미인증 사용자면 진입 시 자동 게이트
       if (meta.age_rating === "19" && !profile?.age_verified && user?.id !== (product.creatorId || undefined)) {
         setAgeGateOpen(true);
