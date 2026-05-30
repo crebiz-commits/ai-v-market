@@ -47,22 +47,17 @@ CREATE POLICY "Anyone can submit inquiry"
   ON public.business_inquiries FOR INSERT
   WITH CHECK (true);
 
+-- profiles.is_admin 단일 source of truth (admin_set_admin_role RPC로 부여/회수)
 DROP POLICY IF EXISTS "Admins can read all inquiries" ON public.business_inquiries;
 CREATE POLICY "Admins can read all inquiries"
   ON public.business_inquiries FOR SELECT
   USING (
-    auth.uid() IN (
-      SELECT id FROM auth.users
-      WHERE email IN ('crebizlogistics@gmail.com')
-    )
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
   );
 
 DROP POLICY IF EXISTS "Admins can update inquiries" ON public.business_inquiries;
 CREATE POLICY "Admins can update inquiries"
   ON public.business_inquiries FOR UPDATE
   USING (
-    auth.uid() IN (
-      SELECT id FROM auth.users
-      WHERE email IN ('crebizlogistics@gmail.com')
-    )
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
   );

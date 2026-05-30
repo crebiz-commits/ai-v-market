@@ -122,6 +122,9 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
         <p className="text-lg font-semibold text-foreground">접근 권한이 없습니다</p>
         <p className="text-sm">관리자 계정으로 로그인해 주세요</p>
         <p className="text-xs text-muted-foreground/50">현재 계정: {user.email}</p>
+        <p className="text-xs text-muted-foreground/60 max-w-xs text-center">
+          최근 관리자 권한을 부여받으셨다면, 로그아웃 후 다시 로그인하시면 메뉴가 표시됩니다.
+        </p>
         <Button onClick={onBackToSite} variant="outline">홈으로</Button>
       </div>
     );

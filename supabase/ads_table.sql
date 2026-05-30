@@ -49,17 +49,15 @@ CREATE POLICY "Anyone can view active ads"
   );
 
 -- 관리자만 모든 광고 조회/수정/삭제 가능
--- (Supabase Dashboard에서 관리자 이메일을 직접 설정하거나 admin 역할 사용)
+-- profiles.is_admin 단일 source of truth (admin_set_admin_role RPC로 부여/회수)
+DROP POLICY IF EXISTS "Admin full access" ON public.ads;
 CREATE POLICY "Admin full access"
   ON public.ads FOR ALL
   USING (
-    auth.uid() IN (
-      SELECT id FROM auth.users
-      WHERE email IN (
-        -- 여기에 관리자 이메일 추가
-        'admin@ai-v-market.com'
-      )
-    )
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
   );
 
 -- 노출/클릭 카운터 RPC 함수 (보안: 인증 없이도 카운트 증가 가능)

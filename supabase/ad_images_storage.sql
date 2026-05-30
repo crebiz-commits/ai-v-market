@@ -29,19 +29,13 @@ CREATE POLICY "Public read access for ad images"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'ad-images');
 
--- 정책: 관리자만 업로드 가능
+-- 정책: 관리자만 업로드 가능 (profiles.is_admin 단일 source of truth)
 DROP POLICY IF EXISTS "Admins can upload ad images" ON storage.objects;
 CREATE POLICY "Admins can upload ad images"
   ON storage.objects FOR INSERT
   WITH CHECK (
     bucket_id = 'ad-images'
-    AND auth.uid() IN (
-      SELECT id FROM auth.users
-      WHERE email IN (
-        'crebizlogistics@gmail.com'
-        -- 관리자 이메일을 추가하려면 위에 ', email' 형식으로 추가
-      )
-    )
+    AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
   );
 
 -- 정책: 관리자만 삭제 가능 (광고 삭제 시 같이 정리하기 위함)
@@ -50,8 +44,5 @@ CREATE POLICY "Admins can delete ad images"
   ON storage.objects FOR DELETE
   USING (
     bucket_id = 'ad-images'
-    AND auth.uid() IN (
-      SELECT id FROM auth.users
-      WHERE email IN ('crebizlogistics@gmail.com')
-    )
+    AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
   );
