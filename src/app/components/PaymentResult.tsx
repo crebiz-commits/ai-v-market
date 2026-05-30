@@ -103,8 +103,15 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
           try {
             const { data: { user } } = await supabase.auth.getUser();
             if (user?.id && user.email && parsedAmount) {
+              // order_id 형식: creaite-{payment_type}-{uuid} → 상품명 도출
+              const orderType = orderId.split("-")[1];
+              const ORDER_NAMES: Record<string, string> = {
+                subscription: "CREAITE 프리미엄 구독 (월)",
+                license: "영상 라이선스 구매",
+                ad_budget: "광고 예산 충전",
+              };
               const { subject, html } = buildSubscriptionReceiptEmail({
-                orderName: "CREAITE 결제",
+                orderName: ORDER_NAMES[orderType] || "CREAITE 결제",
                 amount: parsedAmount,
                 orderId,
                 paymentMethod: body?.method,

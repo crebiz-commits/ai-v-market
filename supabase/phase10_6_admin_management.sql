@@ -337,6 +337,8 @@ $$;
 -- D. 결제/환불 관리
 -- ════════════════════════════════════════════════════════════════════════════
 
+-- 반환 컬럼 변경(refund_reason/refund_requested_at 추가)으로 DROP 후 재생성 필요
+DROP FUNCTION IF EXISTS public.admin_get_all_payments(TEXT, TEXT, INTEGER, INTEGER);
 CREATE OR REPLACE FUNCTION public.admin_get_all_payments(
   p_status TEXT DEFAULT 'all',
   p_payment_type TEXT DEFAULT 'all',
@@ -344,19 +346,21 @@ CREATE OR REPLACE FUNCTION public.admin_get_all_payments(
   p_offset INTEGER DEFAULT 0
 )
 RETURNS TABLE (
-  id              BIGINT,
-  order_id        TEXT,
-  user_id         UUID,
-  user_name       TEXT,
-  user_email      TEXT,
-  payment_type    TEXT,
-  target_id       TEXT,
-  amount          INTEGER,
-  method          TEXT,
-  status          TEXT,
-  approved_at     TIMESTAMPTZ,
-  failure_reason  TEXT,
-  created_at      TIMESTAMPTZ
+  id                  BIGINT,
+  order_id            TEXT,
+  user_id             UUID,
+  user_name           TEXT,
+  user_email          TEXT,
+  payment_type        TEXT,
+  target_id           TEXT,
+  amount              INTEGER,
+  method              TEXT,
+  status              TEXT,
+  approved_at         TIMESTAMPTZ,
+  failure_reason      TEXT,
+  created_at          TIMESTAMPTZ,
+  refund_reason       TEXT,
+  refund_requested_at TIMESTAMPTZ
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -378,7 +382,9 @@ BEGIN
     pay.status,
     pay.approved_at,
     pay.failure_reason,
-    pay.created_at
+    pay.created_at,
+    pay.refund_reason,
+    pay.refund_requested_at
   FROM public.payments pay
   LEFT JOIN public.profiles p ON p.id = pay.user_id
   LEFT JOIN auth.users u ON u.id = pay.user_id
