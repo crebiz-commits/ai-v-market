@@ -347,6 +347,9 @@ RETURNS TABLE (
   total_revenue        INTEGER,
   payout_status        TEXT,
   paid_at              TIMESTAMPTZ,
+  tax_withholding      INTEGER,
+  net_amount           INTEGER,
+  tax_type_snapshot    TEXT,
   payout_bank          TEXT,
   payout_account       TEXT,
   payout_holder        TEXT
@@ -359,6 +362,7 @@ AS $$
     rd.id, rd.creator_id, p.display_name,
     rd.sale_revenue, rd.ad_revenue, rd.subscription_revenue, rd.total_revenue,
     rd.payout_status, rd.paid_at,
+    rd.tax_withholding, rd.net_amount, rd.tax_type_snapshot,
     p.payout_info->>'bank_name'      AS payout_bank,
     p.payout_info->>'account_number' AS payout_account,
     p.payout_info->>'account_holder' AS payout_holder

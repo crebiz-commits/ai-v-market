@@ -244,6 +244,8 @@ export interface RevenueSettledInfo {
   saleAmount?: number;
   adAmount?: number;
   subscriptionAmount?: number;
+  taxWithholding?: number;  // 원천징수액 (비사업자 3.3%)
+  netAmount?: number;       // 세후 실지급액
 }
 
 export function buildRevenueSettledEmail(info: RevenueSettledInfo): { subject: string; html: string } {
@@ -251,8 +253,12 @@ export function buildRevenueSettledEmail(info: RevenueSettledInfo): { subject: s
   const saleText = (info.saleAmount || 0).toLocaleString("ko-KR");
   const adText = (info.adAmount || 0).toLocaleString("ko-KR");
   const subText = (info.subscriptionAmount || 0).toLocaleString("ko-KR");
+  const hasTax = (info.taxWithholding || 0) > 0;
+  const netAmount = info.netAmount ?? info.totalAmount ?? 0;
+  const netText = netAmount.toLocaleString("ko-KR");
+  const withholdingText = (info.taxWithholding || 0).toLocaleString("ko-KR");
 
-  const subject = `[CREAITE] ${info.year}년 ${info.month}월 정산 완료 — ₩${totalText} 지급`;
+  const subject = `[CREAITE] ${info.year}년 ${info.month}월 정산 완료 — ₩${netText} 지급`;
 
   const html = `<!DOCTYPE html>
 <html lang="ko">
@@ -277,9 +283,17 @@ export function buildRevenueSettledEmail(info: RevenueSettledInfo): { subject: s
       <th style="text-align: left; padding: 12px; background: #f9f9f9; border-bottom: 1px solid #eee; font-weight: 600;">구독 수익</th>
       <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">₩${subText}</td>
     </tr>
+    <tr>
+      <th style="text-align: left; padding: 12px; background: #f9f9f9; border-bottom: 1px solid #eee; font-weight: 600;">총 수익</th>
+      <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">₩${totalText}</td>
+    </tr>
+    ${hasTax ? `<tr>
+      <th style="text-align: left; padding: 12px; background: #f9f9f9; border-bottom: 1px solid #eee; font-weight: 600; color: #b45309;">원천징수 (3.3%)</th>
+      <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; color: #b45309;">− ₩${withholdingText}</td>
+    </tr>` : ``}
     <tr style="background: #faf7ff;">
-      <th style="text-align: left; padding: 14px 12px; font-weight: 700; color: #6b46c1;">합계 (지급액)</th>
-      <td style="padding: 14px 12px; text-align: right; font-weight: 700; color: #a78bfa; font-size: 18px;">₩${totalText}</td>
+      <th style="text-align: left; padding: 14px 12px; font-weight: 700; color: #6b46c1;">지급액${hasTax ? " (세후)" : ""}</th>
+      <td style="padding: 14px 12px; text-align: right; font-weight: 700; color: #a78bfa; font-size: 18px;">₩${netText}</td>
     </tr>
   </table>
 

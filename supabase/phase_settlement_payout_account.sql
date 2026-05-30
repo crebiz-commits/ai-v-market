@@ -7,9 +7,11 @@
 --   → 정산 계좌 등록 기능(phase_payout_info.sql)을 만든 목적이 정산 화면에 연결 안 됨.
 --
 -- 변경:
---   RETURNS TABLE 에 payout_bank / payout_account / payout_holder 추가
---   (profiles.payout_info JSONB 에서 추출). 반환 타입 변경이라 DROP 후 재생성.
---   (클라이언트 AdminRevenueSettlement.tsx 는 이미 세 필드를 표시하도록 수정됨)
+--   RETURNS TABLE 에 payout_bank / payout_account / payout_holder 추가 (정산 계좌, R4)
+--   + tax_withholding / net_amount / tax_type_snapshot 추가 (Phase 32 세금 표시가
+--     이 RPC 미반환으로 그동안 죽어 있던 것 복구, R6).
+--   (profiles.payout_info JSONB 추출 + revenue_distributions 세금 컬럼). DROP 후 재생성.
+--   클라이언트 AdminRevenueSettlement.tsx 는 이미 표시하도록 수정됨.
 --
 -- 실행 방법:
 --   Supabase Dashboard → SQL Editor → 새 쿼리 ("+") → 본 파일 내용 붙여넣기 → Run
@@ -32,6 +34,9 @@ RETURNS TABLE (
   total_revenue        INTEGER,
   payout_status        TEXT,
   paid_at              TIMESTAMPTZ,
+  tax_withholding      INTEGER,
+  net_amount           INTEGER,
+  tax_type_snapshot    TEXT,
   payout_bank          TEXT,
   payout_account       TEXT,
   payout_holder        TEXT
@@ -44,6 +49,7 @@ AS $$
     rd.id, rd.creator_id, p.display_name,
     rd.sale_revenue, rd.ad_revenue, rd.subscription_revenue, rd.total_revenue,
     rd.payout_status, rd.paid_at,
+    rd.tax_withholding, rd.net_amount, rd.tax_type_snapshot,
     p.payout_info->>'bank_name'      AS payout_bank,
     p.payout_info->>'account_number' AS payout_account,
     p.payout_info->>'account_holder' AS payout_holder

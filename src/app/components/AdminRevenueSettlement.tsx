@@ -150,9 +150,16 @@ export function AdminRevenueSettlement() {
       return;
     }
 
-    // Phase 34 — 크리에이터에게 정산 완료 메일 (fire-and-forget)
+    // 갱신된 정산 데이터 재조회 — net_amount/원천징수 확보 + UI 반영
+    const { data: fresh } = await supabase.rpc("get_revenue_distributions_by_period", {
+      p_year: year,
+      p_month: month,
+    });
+    if (fresh) setRows(fresh);
+
+    // Phase 34 — 크리에이터에게 정산 완료 메일 (세후 net 금액 기준, fire-and-forget)
     try {
-      const row = rows.find((r) => r.id === id);
+      const row = (fresh || []).find((r: SettlementRow) => r.id === id) || rows.find((r) => r.id === id);
       if (row?.creator_id) {
         const { subject, html } = buildRevenueSettledEmail({
           year,
@@ -161,6 +168,8 @@ export function AdminRevenueSettlement() {
           saleAmount: row.sale_revenue,
           adAmount: row.ad_revenue,
           subscriptionAmount: row.subscription_revenue,
+          taxWithholding: row.tax_withholding,
+          netAmount: row.net_amount,
         });
         void sendNotification({
           user_id: row.creator_id,
@@ -175,7 +184,6 @@ export function AdminRevenueSettlement() {
     }
 
     toast.success("지급 완료 처리됨");
-    loadDistributions(year, month);
   };
 
   const totalPending = rows.filter(r => r.payout_status === "pending").reduce((s, r) => s + r.total_revenue, 0);
