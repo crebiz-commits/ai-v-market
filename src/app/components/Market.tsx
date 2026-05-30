@@ -39,10 +39,8 @@ interface Product {
   description?: string;
   tags?: string[];
 
-  // 라이선스 가격 (3종)
+  // 라이선스 가격 (All-in-One 단일가)
   priceStandard?: number;
-  priceCommercial?: number;
-  priceExclusive?: number;
 
   // AI 제작 증빙
   aiModelVersion?: string;
@@ -124,10 +122,8 @@ export function Market({ onProductClick }: MarketProps) {
             videoUrl: item.video_url || "",
             description: item.description || undefined,
             tags: Array.isArray(item.tags) ? item.tags : (typeof item.tags === "string" && item.tags ? item.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : []),
-            // 라이선스 3종
+            // 라이선스 (All-in-One 단일가)
             priceStandard: item.price_standard || 0,
-            priceCommercial: item.price_commercial || 0,
-            priceExclusive: item.price_exclusive || 0,
             // AI 제작 증빙
             aiModelVersion: item.ai_model_version || undefined,
             prompt: item.prompt || undefined,

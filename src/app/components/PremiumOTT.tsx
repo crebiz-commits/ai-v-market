@@ -26,8 +26,6 @@ interface OttVideo {
   // 라이선스 (ProductDetail prop 호환)
   price: number;
   priceStandard?: number;
-  priceCommercial?: number;
-  priceExclusive?: number;
   // AI 메타
   aiModelVersion?: string;
   prompt?: string;
@@ -98,8 +96,6 @@ export function PremiumOTT({ onSignInClick, onProductClick }: PremiumOTTProps) {
           productionYear: item.production_year,
           price: item.price_standard || 0,
           priceStandard: item.price_standard || 0,
-          priceCommercial: item.price_commercial || 0,
-          priceExclusive: item.price_exclusive || 0,
           aiModelVersion: item.ai_model_version,
           prompt: item.prompt,
           seed: item.seed,

@@ -79,10 +79,8 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
     subtitleLanguage: "",
     // 공개 설정
     visibility: "public" as "public" | "unlisted" | "private",
-    // 가격
+    // 가격 (All-in-One 단일가)
     standardPrice: "",
-    commercialPrice: "",
-    exclusivePrice: "",
     tags: "",
     // Phase 28: Sponsorship (협찬 정보)
     sponsorBrand: "",
@@ -691,10 +689,8 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
         hlsUrl: `https://${bunnyHostname}/${videoId}/playlist.m3u8`,
         duration: formData.duration || '0:00',
         tags: formData.tags || "",
-        // All-in-One 단일 라이선스 — DB 컬럼 3개에 동일 가격 저장 (호환성)
+        // All-in-One 단일 라이선스
         standardPrice: stripCommas(formData.standardPrice) || "0",
-        commercialPrice: stripCommas(formData.standardPrice) || "0",
-        exclusivePrice: stripCommas(formData.standardPrice) || "0",
         aiTool: formData.aiTool || '',
         aiModelVersion: formData.aiModelVersion || '',
         category: formData.category || '',
@@ -820,8 +816,6 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
       subtitleLanguage: "",
       visibility: "public",
       standardPrice: "",
-      commercialPrice: "",
-      exclusivePrice: "",
       tags: "",
     });
     setAgreedToTerms(false);

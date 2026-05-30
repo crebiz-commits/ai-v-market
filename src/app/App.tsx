@@ -116,10 +116,8 @@ interface VideoProduct {
   description?: string;
   tags?: string[];
 
-  // 라이선스 가격 (3종)
+  // 라이선스 가격 (All-in-One 단일가)
   priceStandard?: number;
-  priceCommercial?: number;
-  priceExclusive?: number;
 
   // AI 제작 증빙
   aiModelVersion?: string;
@@ -327,8 +325,6 @@ function AppContent() {
         description: data.description || "",
         tags: Array.isArray(data.tags) ? data.tags : [],
         priceStandard: data.price_standard || 0,
-        priceCommercial: data.price_commercial || 0,
-        priceExclusive: data.price_exclusive || 0,
         aiModelVersion: data.ai_model_version || "",
         seed: data.seed || "",
         highlightStart: data.highlight_start || 0,

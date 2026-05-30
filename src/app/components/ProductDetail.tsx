@@ -78,10 +78,8 @@ interface ProductDetailProps {
     description?: string;
     tags?: string[];
 
-    // 라이선스 3종
+    // 라이선스 (All-in-One 단일가)
     priceStandard?: number;
-    priceCommercial?: number;
-    priceExclusive?: number;
 
     // AI 제작 증빙
     aiModelVersion?: string;

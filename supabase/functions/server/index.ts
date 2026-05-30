@@ -287,9 +287,11 @@ app.post("/videos/save-metadata", async (c) => {
         views: "0",
         likes: 0,
         tags: (metadata.tags || "").split(',').map((t: string) => t.trim()).filter((t: string) => t !== ""),
+        // All-in-One 단일가: price_standard 만 사용. price_commercial/exclusive 는
+        // stale 컬럼(어디서도 안 읽힘) — NOT NULL 안전을 위해 standard 와 동일값 유지. schema cleanup 시 DROP 예정.
         price_standard: parseInt(metadata.standardPrice || "0"),
-        price_commercial: parseInt(metadata.commercialPrice || "0"),
-        price_exclusive: parseInt(metadata.exclusivePrice || "0"),
+        price_commercial: parseInt(metadata.standardPrice || "0"),
+        price_exclusive: parseInt(metadata.standardPrice || "0"),
         ai_tool: metadata.aiTool || '',
         category: metadata.category || '',
         genre: metadata.genre || '',

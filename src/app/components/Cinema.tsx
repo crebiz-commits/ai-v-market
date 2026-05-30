@@ -82,8 +82,6 @@ interface Product {
   videoUrl: string;
   tags?: string[];
   priceStandard?: number;
-  priceCommercial?: number;
-  priceExclusive?: number;
   highlightStart?: number;
   highlightEnd?: number;
   views?: number;

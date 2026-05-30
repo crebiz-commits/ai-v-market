@@ -58,10 +58,8 @@ interface Video {
   // Phase 26: 연령 등급
   age_rating?: "all" | "13" | "15" | "19";
 
-  // 라이선스 (3종 호환 — 현재는 priceStandard만 사용)
+  // 라이선스 (All-in-One 단일가)
   priceStandard?: number;
-  priceCommercial?: number;
-  priceExclusive?: number;
 
   // AI 제작 증빙
   aiModelVersion?: string;
@@ -719,10 +717,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
             age_rating: item.age_rating || "all",
             description: item.description || undefined,
             tags: Array.isArray(item.tags) ? item.tags : (typeof item.tags === "string" && item.tags ? item.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : []),
-            // 라이선스 (현재 단일 가격 — DB 컬럼 3개에 동일값)
+            // 라이선스 (All-in-One 단일가)
             priceStandard: item.price_standard || 0,
-            priceCommercial: item.price_commercial || 0,
-            priceExclusive: item.price_exclusive || 0,
             // AI 제작 증빙
             aiModelVersion: item.ai_model_version || undefined,
             prompt: item.prompt || undefined,
@@ -741,7 +737,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
             highlightEnd: item.highlight_end || 15,
           }));
           // Phase: Showcase Mode — 비관리자에게 Mock 100개 추가
-          const final = showcase ? mergeShowcase(formatted, showcaseToVideo) : formatted;
+          const final = showcase ? mergeShowcase<Video>(formatted, showcaseToVideo) : formatted;
           setVideos(final);
           if (final.length > 0) setActiveId(final[0].id);
 
