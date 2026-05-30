@@ -358,7 +358,7 @@ function AppContent() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [pendingCartAdd, setPendingCartAdd] = useState<{ product: VideoProduct; licenseType: "standard" | "commercial" | "extended" } | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const { user, signOut, isAuthenticated, loading } = useAuth();
+  const { user, profile, signOut, isAuthenticated, loading } = useAuth();
   // 비로그인 사용자가 〈둘러보기〉 클릭 시 LandingPage → DiscoveryFeed 로 전환
   const [hasExplored, setHasExplored] = useState(false);
 
@@ -814,7 +814,7 @@ function AppContent() {
                 className="gap-2 bg-transparent border-white/10 hover:bg-white/5 font-semibold"
               >
                 <LogOut className="w-4 h-4" />
-                {user?.name}
+                {profile?.display_name || user?.name}
               </Button>
             ) : (
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>

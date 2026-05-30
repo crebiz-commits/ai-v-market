@@ -308,7 +308,6 @@
     "tierPremiumPrice": "₩9,900/month",
     "tierPremiumDesc": "Full videos + ad removal",
     "subscribe": "Subscribe",
-    "comingSoon": "Subscription payment is coming soon.",
     "cancel": "Cancel",
     "benefit1": "Unlimited videos across Home / Cinema / OTT",
     "benefit2": "Full access to 10-min+ cinematic works",
@@ -670,7 +669,6 @@
       "currentTier": "Current subscription tier",
       "expiresAt": "Expires: {{date}}",
       "upgrade": "Upgrade",
-      "upgradeComingSoon": "Subscription payment is coming soon.",
       "freeDesc": "Highlight preview",
       "basicDesc": "Full video viewing",
       "premiumDesc": "Full video + ads removed"
@@ -687,7 +685,6 @@
       "title": "Payout Account",
       "notRegistered": "Not registered",
       "registerHint": "Register an account to receive payouts",
-      "comingSoon": "Payout account registration is coming soon.",
       "change": "Change",
       "register": "Register",
       "modal": {
