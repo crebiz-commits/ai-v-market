@@ -552,7 +552,19 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
       if (!videoId) throw new Error('영상 ID 가 없습니다');
       const libraryId = (import.meta as any).env?.VITE_BUNNY_LIBRARY_ID || '';
       const bunnyHostname = (import.meta as any).env?.VITE_BUNNY_HOSTNAME || `vz-${libraryId}.b-cdn.net`;
-      const mp4Url = `https://${bunnyHostname}/${videoId}/play_720p.mp4`;
+      // Bunny Free 인코딩은 소스 해상도까지만 mp4 렌디션 생성 → 영상마다 가용 해상도가 다름.
+      // play_720p.mp4 하드코딩 시 480p 이하 영상은 404. 높은→낮은 순으로 실제 존재하는 mp4 선택.
+      // (Bunny CDN 이 ACAO:* 를 주므로 cross-origin HEAD 로 상태 확인 가능)
+      const resolutions = ["1080p", "720p", "480p", "360p", "240p"];
+      let mp4Url = "";
+      for (const res of resolutions) {
+        const candidate = `https://${bunnyHostname}/${videoId}/play_${res}.mp4`;
+        try {
+          const head = await fetch(candidate, { method: "HEAD" });
+          if (head.ok) { mp4Url = candidate; break; }
+        } catch { /* 네트워크 오류 시 다음 해상도 시도 */ }
+      }
+      if (!mp4Url) throw new Error("다운로드 가능한 영상 파일을 찾지 못했습니다 (인코딩 처리 중일 수 있습니다)");
       window.open(mp4Url, '_blank', 'noopener,noreferrer');
       toast.success(t('mypage.purchases.downloadStarted'));
     } catch (err: any) {
