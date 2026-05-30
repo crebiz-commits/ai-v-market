@@ -250,34 +250,11 @@ $$;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Step 5: 본인 결제 내역 조회 RPC
+-- ⚠️ 이관됨 — 정본은 supabase/phase_user_payment_history.sql 의 get_my_payments
+--    (p_limit, p_offset 2-param + refund_reason/refund_requested_at 컬럼 포함).
+--    여기서 옛 1-param 버전을 다시 만들면 시그니처가 달라 중복 overload 가 생기므로 정의하지 않음.
+--    신규 환경 셋업 시 phase_user_payment_history.sql 을 반드시 함께 적용할 것.
 -- ────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION public.get_my_payments(
-  p_limit INTEGER DEFAULT 20
-)
-RETURNS TABLE (
-  id             BIGINT,
-  order_id       TEXT,
-  payment_type   TEXT,
-  target_id      TEXT,
-  amount         INTEGER,
-  method         TEXT,
-  status         TEXT,
-  approved_at    TIMESTAMPTZ,
-  failure_reason TEXT,
-  created_at     TIMESTAMPTZ
-)
-LANGUAGE sql
-SECURITY DEFINER
-STABLE
-AS $$
-  SELECT
-    id, order_id, payment_type, target_id, amount, method, status,
-    approved_at, failure_reason, created_at
-  FROM public.payments
-  WHERE user_id = auth.uid()
-  ORDER BY created_at DESC
-  LIMIT p_limit;
-$$;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Step 6: RLS

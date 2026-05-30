@@ -397,65 +397,11 @@ END;
 $$;
 
 -- 환불 처리 (수동) — payments.status = 'refunded' + 권한 회수
--- 실제 토스 API 환불 호출은 별도 Edge Function이 처리 (이 RPC는 DB 갱신만)
-CREATE OR REPLACE FUNCTION public.admin_refund_payment(
-  p_payment_id BIGINT,
-  p_admin_note TEXT DEFAULT NULL
-)
-RETURNS VOID
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  v_payment public.payments;
-BEGIN
-  PERFORM public.assert_admin();
-
-  SELECT * INTO v_payment FROM public.payments WHERE id = p_payment_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION '존재하지 않는 결제: %', p_payment_id;
-  END IF;
-
-  IF v_payment.status <> 'completed' THEN
-    RAISE EXCEPTION '환불 가능한 상태가 아닙니다 (현재: %)', v_payment.status;
-  END IF;
-
-  -- payments 상태 갱신
-  UPDATE public.payments
-  SET status = 'refunded',
-      failure_reason = COALESCE(p_admin_note, '관리자 환불'),
-      updated_at = now()
-  WHERE id = p_payment_id;
-
-  -- 권한 회수
-  IF v_payment.payment_type = 'subscription' THEN
-    -- 구독 즉시 만료 (premium → free)
-    UPDATE public.profiles
-    SET subscription_tier = 'free',
-        subscription_expires_at = NULL,
-        updated_at = now()
-    WHERE id = v_payment.user_id;
-
-  ELSIF v_payment.payment_type = 'license' THEN
-    -- 라이선스 주문 취소
-    UPDATE public.orders
-    SET status = 'refunded', updated_at = now()
-    WHERE buyer_id = v_payment.user_id
-      AND video_id = v_payment.target_id
-      AND payment_id = v_payment.payment_key;
-
-  ELSIF v_payment.payment_type = 'ad_budget' THEN
-    -- 광고 예산 차감
-    UPDATE public.ads
-    SET budget_krw = GREATEST(COALESCE(budget_krw, 0) - v_payment.amount, 0),
-        updated_at = now()
-    WHERE id = v_payment.target_id::UUID;
-  END IF;
-END;
-$$;
-
-COMMENT ON FUNCTION public.admin_refund_payment IS
-  '관리자 환불 처리: payments.status=refunded + 권한 회수 (구독/라이선스/광고예산). 토스 API 환불은 별도 처리 필요';
+-- ⚠️ 이관됨 — 정본은 supabase/phase_user_payment_history.sql 의 admin_refund_payment
+--    (completed + refund_requested 모두 처리 + admin_logs 감사 기록 + 광고예산 회수).
+--    여기서 옛 버전(completed 전용, 로그 없음)을 다시 만들면 정본을 회귀시키므로 정의하지 않음.
+--    실제 토스 API 환불은 supabase/functions/server/index.ts 의 /refund-payment 가 처리.
+--    신규 환경 셋업 시 phase_user_payment_history.sql 을 반드시 함께 적용할 것.
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 검증 쿼리:
