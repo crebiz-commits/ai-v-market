@@ -432,6 +432,12 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   const { user, profile, subscriptionTier, isSubscriber, signOut, isAuthenticated, refreshProfile } = useAuth();
   const [showSubscribe, setShowSubscribe] = useState(false);
   const [showPayoutModal, setShowPayoutModal] = useState(false);
+  // 정산 계좌는 보안상 profiles 직접 select 불가 → 본인 전용 RPC로 조회 (C2)
+  const [payoutInfo, setPayoutInfo] = useState<any | null>(null);
+  const loadPayoutInfo = async () => {
+    const { data } = await supabase.rpc("get_my_payout_info");
+    setPayoutInfo(data ?? null);
+  };
   const [purchaseHistory, setPurchaseHistory] = useState<Purchase[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [myProducts, setMyProducts] = useState<MyProduct[]>([]);
@@ -751,6 +757,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   useEffect(() => {
     if (isAuthenticated) {
       fetchMyData();
+      loadPayoutInfo();
     }
   }, [isAuthenticated, user?.id]);
 
@@ -1062,9 +1069,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
       />
       <PayoutInfoModal
         open={showPayoutModal}
-        current={profile?.payout_info ?? null}
+        current={payoutInfo}
         onClose={() => setShowPayoutModal(false)}
-        onSaved={() => { void refreshProfile(); }}
+        onSaved={() => { void loadPayoutInfo(); }}
       />
       {/* Phase 22: 영상 편집 모달 */}
       {editingVideo && (
@@ -1307,10 +1314,10 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                     <h3 className="text-lg font-bold text-white mb-5 flex items-center"><CreditCard className="w-5 h-5 mr-2 text-[#8b5cf6]" />{t("mypage.payout.title")}</h3>
                     <div className="bg-[#1c1c1e] p-5 rounded-xl border border-white/5 flex items-center justify-between relative overflow-hidden group">
                       <div className="relative z-10">
-                        {profile?.payout_info?.bank_name ? (
+                        {payoutInfo?.bank_name ? (
                           <>
-                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{profile.payout_info.bank_name}</p>
-                            <p className="text-lg text-gray-200 font-medium tracking-wider">{profile.payout_info.account_number}</p>
+                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{payoutInfo.bank_name}</p>
+                            <p className="text-lg text-gray-200 font-medium tracking-wider">{payoutInfo.account_number}</p>
                           </>
                         ) : (
                           <>
@@ -1325,7 +1332,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                         onClick={() => setShowPayoutModal(true)}
                         className="relative z-10 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-bold border border-white/10 transition-colors shadow-sm"
                       >
-                        {profile?.payout_info?.bank_name ? t("mypage.payout.change") : t("mypage.payout.register")}
+                        {payoutInfo?.bank_name ? t("mypage.payout.change") : t("mypage.payout.register")}
                       </motion.button>
                       <CreditCard className="absolute -right-4 -bottom-4 w-24 h-24 text-white/5 rotate-12 group-hover:text-white/10 transition-colors" />
                     </div>

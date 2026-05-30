@@ -140,12 +140,11 @@ function HiddenContentTab() {
       ({ error } = await supabase.rpc("admin_unhide_video", { p_video_id: r.target_id }));
     } else if (r.target_type === "user") {
       ({ error } = await supabase.rpc("admin_unsuspend_user", { p_user_id: r.target_id }));
+    } else if (r.target_type === "comment") {
+      // H5: 직접 UPDATE는 author-scoped RLS에 막혀 조용히 실패 → SECURITY DEFINER RPC 사용
+      ({ error } = await supabase.rpc("admin_unhide_comment", { p_comment_id: r.target_id }));
     } else {
-      const table = r.target_type === "comment" ? "comments" : "community_posts";
-      ({ error } = await supabase
-        .from(table)
-        .update({ is_hidden: false, hidden_reason: null, hidden_at: null })
-        .eq("id", r.target_id));
+      ({ error } = await supabase.rpc("admin_unhide_post", { p_post_id: r.target_id }));
     }
     setProcessingKey(null);
     if (error) return toast.error("복원 실패: " + error.message);

@@ -90,7 +90,8 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.update_video_moderation(TEXT, INTEGER, JSONB, TEXT) TO authenticated, service_role;
+-- H2(2026-05-31): authenticated 회수 — 본문에 권한검증이 없어 위변조 가능. Edge는 service_role로 호출.
+GRANT EXECUTE ON FUNCTION public.update_video_moderation(TEXT, INTEGER, JSONB, TEXT) TO service_role;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Step 3: RPC — get_moderation_queue
@@ -167,8 +168,14 @@ BEGIN
 
   UPDATE public.videos SET
     moderation_status = CASE p_decision WHEN 'pass' THEN 'passed' ELSE 'rejected' END,
-    is_hidden = CASE p_decision WHEN 'reject' THEN TRUE ELSE is_hidden END
+    -- H4(2026-05-31): pass 시 is_hidden=false 복원 (기존엔 통과해도 숨김 잔존)
+    is_hidden = CASE p_decision WHEN 'reject' THEN TRUE WHEN 'pass' THEN FALSE ELSE is_hidden END
   WHERE id = p_video_id;
+
+  -- M8(2026-05-31): 감사 로그
+  INSERT INTO public.admin_logs (admin_id, action, target_type, target_id, details)
+  VALUES (auth.uid(), 'resolve_moderation', 'video', p_video_id,
+    jsonb_build_object('decision', p_decision));
 END;
 $$;
 

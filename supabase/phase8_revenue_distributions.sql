@@ -324,7 +324,7 @@ AS $$
     sale_revenue, ad_revenue, subscription_revenue, total_revenue,
     payout_status, paid_at
   FROM public.revenue_distributions
-  WHERE creator_id = p_creator_id
+  WHERE creator_id = auth.uid()   -- H3(2026-05-31): IDOR 차단 — p_creator_id 무시, 항상 본인
   ORDER BY period_start DESC;
 $$;
 
