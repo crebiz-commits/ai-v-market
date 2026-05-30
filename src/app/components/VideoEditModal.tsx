@@ -2,18 +2,54 @@
 // Phase 22 — 영상 후편집 모달
 // 본인 업로드 영상의 썸네일/챕터/자막을 등록 후에도 수정 가능
 // ════════════════════════════════════════════════════════════════════════════
-import { useState, useEffect, useRef } from "react";
-import { X, Loader2, Upload as UploadIcon, Plus, Trash2, Image as ImageIcon, FileText, Clock as ClockIcon, Save, AlertCircle } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { X, Loader2, Upload as UploadIcon, Plus, Trash2, Image as ImageIcon, FileText, Clock as ClockIcon, Save, AlertCircle, Sparkles, Film, Tag as TagIcon, Briefcase } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { getCategoryLabel, getGenreLabel, getAiToolLabel, getLanguageLabel } from "../i18n/categoryLabels";
+
+// Upload.tsx와 동일한 선택지 (Phase 33 — 편집 모달에서도 동일 옵션 제공)
+const CATEGORIES = ["영화", "드라마", "애니메이션", "다큐멘터리", "뮤직비디오", "기타"];
+const GENRES = ["SF", "액션", "로맨스", "공포", "판타지", "스릴러", "드라마", "코미디", "자연·풍경", "추상", "기타"];
+const AI_TOOLS = [
+  "Sora", "Runway Gen-3", "Runway Gen-2", "Pika Labs", "Luma Dream Machine", "Kling AI",
+  "Seedance 2.0", "Veo 2", "Veo 3", "Hailuo AI", "Wan 2.1", "Hunyuan Video",
+  "Mochi 1", "LTX Studio", "Hedra", "Higgsfield", "Pixverse", "기타"
+];
+const RESOLUTIONS = ["720p", "1080p", "4K", "8K"];
+const LANGUAGES = ["한국어", "영어", "일본어", "중국어", "스페인어", "프랑스어", "독일어", "무음/instrumental", "기타"];
 
 interface Chapter {
   title: string;
   time_seconds: number;
+}
+
+interface ExtendedInitial {
+  title?: string;
+  description?: string;
+  category?: string;
+  genre?: string;
+  director?: string;
+  writer?: string;
+  composer?: string;
+  castCredits?: string;
+  productionYear?: number;
+  language?: string;
+  subtitleLanguage?: string;
+  aiTool?: string;
+  aiModelVersion?: string;
+  prompt?: string;
+  seed?: string;
+  resolution?: string;
+  tags?: string[];
+  sponsorBrand?: string | null;
+  sponsorLogoUrl?: string | null;
+  sponsorDisclosure?: string | null;
+  sponsorLinkUrl?: string | null;
 }
 
 interface VideoEditModalProps {
@@ -23,8 +59,15 @@ interface VideoEditModalProps {
   initialChapters?: Chapter[];
   initialSubtitleUrl?: string | null;
   initialAgeRating?: string;
+  initialExtended?: ExtendedInitial;   // Phase 33
   onClose: () => void;
-  onSaved?: (updates: { thumbnail?: string; chapters?: Chapter[]; subtitleUrl?: string | null; ageRating?: string }) => void;
+  onSaved?: (updates: {
+    thumbnail?: string;
+    chapters?: Chapter[];
+    subtitleUrl?: string | null;
+    ageRating?: string;
+    extended?: ExtendedInitial;   // Phase 33
+  }) => void;
 }
 
 const AGE_OPTIONS: { value: string; labelKey: string; color: string }[] = [
@@ -62,6 +105,7 @@ export function VideoEditModal({
   initialChapters = [],
   initialSubtitleUrl,
   initialAgeRating = "all",
+  initialExtended,
   onClose,
   onSaved,
 }: VideoEditModalProps) {
@@ -82,9 +126,41 @@ export function VideoEditModal({
 
   const [ageRating, setAgeRating] = useState<string>(initialAgeRating);
 
+  // Phase 33 — 확장 필드 (모두 문자열, productionYear만 number)
+  const [title, setTitle] = useState<string>(initialExtended?.title || "");
+  const [description, setDescription] = useState<string>(initialExtended?.description || "");
+  const [category, setCategory] = useState<string>(initialExtended?.category || "");
+  const [genre, setGenre] = useState<string>(initialExtended?.genre || "");
+  const [director, setDirector] = useState<string>(initialExtended?.director || "");
+  const [writer, setWriter] = useState<string>(initialExtended?.writer || "");
+  const [composer, setComposer] = useState<string>(initialExtended?.composer || "");
+  const [castCredits, setCastCredits] = useState<string>(initialExtended?.castCredits || "");
+  const [productionYear, setProductionYear] = useState<string>(
+    initialExtended?.productionYear ? String(initialExtended.productionYear) : ""
+  );
+  const [language, setLanguage] = useState<string>(initialExtended?.language || "");
+  const [subtitleLanguage, setSubtitleLanguage] = useState<string>(initialExtended?.subtitleLanguage || "");
+  const [aiTool, setAiTool] = useState<string>(initialExtended?.aiTool || "");
+  const [aiModelVersion, setAiModelVersion] = useState<string>(initialExtended?.aiModelVersion || "");
+  const [prompt, setPrompt] = useState<string>(initialExtended?.prompt || "");
+  const [seed, setSeed] = useState<string>(initialExtended?.seed || "");
+  const [resolution, setResolution] = useState<string>(initialExtended?.resolution || "");
+  const [tagsInput, setTagsInput] = useState<string>("");
+  const [tagsList, setTagsList] = useState<string[]>(initialExtended?.tags || []);
+  const [sponsorBrand, setSponsorBrand] = useState<string>(initialExtended?.sponsorBrand || "");
+  const [sponsorLogoUrl, setSponsorLogoUrl] = useState<string>(initialExtended?.sponsorLogoUrl || "");
+  const [sponsorDisclosure, setSponsorDisclosure] = useState<string>(initialExtended?.sponsorDisclosure || "유료 광고 포함");
+  const [sponsorLinkUrl, setSponsorLinkUrl] = useState<string>(initialExtended?.sponsorLinkUrl || "");
+  const [clearSponsor, setClearSponsor] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const subtitleInputRef = useRef<HTMLInputElement>(null);
+
+  const initialExtKey = useMemo(
+    () => JSON.stringify(initialExtended || {}),
+    [initialExtended]
+  );
 
   // 모달 열 때마다 초기값 리셋
   useEffect(() => {
@@ -98,8 +174,48 @@ export function VideoEditModal({
       setSubtitleFile(null);
       setClearSubtitle(false);
       setAgeRating(initialAgeRating || "all");
+      // Phase 33 확장 필드 리셋
+      setTitle(initialExtended?.title || "");
+      setDescription(initialExtended?.description || "");
+      setCategory(initialExtended?.category || "");
+      setGenre(initialExtended?.genre || "");
+      setDirector(initialExtended?.director || "");
+      setWriter(initialExtended?.writer || "");
+      setComposer(initialExtended?.composer || "");
+      setCastCredits(initialExtended?.castCredits || "");
+      setProductionYear(initialExtended?.productionYear ? String(initialExtended.productionYear) : "");
+      setLanguage(initialExtended?.language || "");
+      setSubtitleLanguage(initialExtended?.subtitleLanguage || "");
+      setAiTool(initialExtended?.aiTool || "");
+      setAiModelVersion(initialExtended?.aiModelVersion || "");
+      setPrompt(initialExtended?.prompt || "");
+      setSeed(initialExtended?.seed || "");
+      setResolution(initialExtended?.resolution || "");
+      setTagsList(initialExtended?.tags || []);
+      setTagsInput("");
+      setSponsorBrand(initialExtended?.sponsorBrand || "");
+      setSponsorLogoUrl(initialExtended?.sponsorLogoUrl || "");
+      setSponsorDisclosure(initialExtended?.sponsorDisclosure || "유료 광고 포함");
+      setSponsorLinkUrl(initialExtended?.sponsorLinkUrl || "");
+      setClearSponsor(false);
     }
-  }, [open, initialThumbnail, initialSubtitleUrl, initialAgeRating]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, initialThumbnail, initialSubtitleUrl, initialAgeRating, initialExtKey]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 태그 추가
+  const addTag = (raw: string) => {
+    const trimmed = raw.trim().replace(/^#/, "");
+    if (!trimmed) return;
+    if (tagsList.includes(trimmed)) {
+      toast.info(t("upload.tagsDuplicate", "이미 추가된 태그입니다"));
+      return;
+    }
+    if (tagsList.length >= 10) {
+      toast.info(t("upload.tagsMaxReached", "태그는 최대 10개"));
+      return;
+    }
+    setTagsList([...tagsList, trimmed]);
+  };
+  const removeTag = (idx: number) => setTagsList(tagsList.filter((_, i) => i !== idx));
 
   // 선택한 새 썸네일 변경 취소 (저장 전, 원본으로 복원)
   const handleResetThumbnail = () => {
@@ -209,7 +325,18 @@ export function VideoEditModal({
         setUploadingSubtitle(false);
       }
 
-      // 3. RPC로 메타데이터 일괄 갱신
+      // 3. RPC로 메타데이터 일괄 갱신 (Phase 33 — 확장 필드 포함)
+      const yearNum = productionYear.trim() ? parseInt(productionYear.trim(), 10) : null;
+      if (productionYear.trim() && (isNaN(yearNum as number) || (yearNum as number) < 1900 || (yearNum as number) > 2100)) {
+        toast.error(t("videoEditModal.productionYearInvalid", "제작 연도는 1900~2100 사이여야 합니다"));
+        setSaving(false);
+        return;
+      }
+      if (title !== "" && title.trim() === "") {
+        toast.error(t("videoEditModal.titleRequired", "제목은 비울 수 없습니다"));
+        setSaving(false);
+        return;
+      }
       const { error: rpcErr } = await supabase.rpc("update_my_video_metadata", {
         p_video_id: videoId,
         p_thumbnail: finalThumbnail ?? null,
@@ -217,6 +344,30 @@ export function VideoEditModal({
         p_subtitle_url: finalSubtitleUrl ?? null,
         p_clear_subtitle: willClearSubtitle,
         p_age_rating: ageRating,
+        // Phase 33 — 빈 문자열은 null 로 변환 (RPC COALESCE 패턴이라 null=변경없음, ''=공란저장이면 안 됨)
+        // 사용자가 명시적으로 비웠을 때만 ''로 갱신 → trim 후 빈문자열이면 ''  유지, 아니면 trim 값
+        p_title:            title.trim() || null,
+        p_description:      description,
+        p_category:         category || null,
+        p_genre:            genre || null,
+        p_director:         director,
+        p_writer:           writer,
+        p_composer:         composer,
+        p_cast_credits:     castCredits,
+        p_production_year:  yearNum,
+        p_language:         language,
+        p_subtitle_language: subtitleLanguage,
+        p_ai_tool:          aiTool || null,
+        p_ai_model_version: aiModelVersion,
+        p_prompt:           prompt,
+        p_seed:             seed,
+        p_resolution:       resolution || null,
+        p_tags:             tagsList,
+        p_sponsor_brand:    sponsorBrand,
+        p_sponsor_logo_url: sponsorLogoUrl,
+        p_sponsor_disclosure: sponsorDisclosure,
+        p_sponsor_link_url: sponsorLinkUrl,
+        p_clear_sponsor:    clearSponsor,
       });
       if (rpcErr) throw rpcErr;
 
@@ -226,6 +377,21 @@ export function VideoEditModal({
         chapters,
         subtitleUrl: willClearSubtitle ? null : (finalSubtitleUrl || subtitleUrl),
         ageRating,
+        extended: {
+          title: title.trim(),
+          description,
+          category,
+          genre,
+          director, writer, composer, castCredits,
+          productionYear: yearNum ?? undefined,
+          language, subtitleLanguage,
+          aiTool, aiModelVersion, prompt, seed, resolution,
+          tags: tagsList,
+          sponsorBrand: clearSponsor ? null : (sponsorBrand || null),
+          sponsorLogoUrl: clearSponsor ? null : (sponsorLogoUrl || null),
+          sponsorDisclosure: clearSponsor ? null : (sponsorDisclosure || null),
+          sponsorLinkUrl: clearSponsor ? null : (sponsorLinkUrl || null),
+        },
       });
       onClose();
     } catch (err: any) {
@@ -326,6 +492,99 @@ export function VideoEditModal({
                       {t("videoEditModal.thumbnailHint")}
                     </p>
                   )}
+                </div>
+              </div>
+            </section>
+
+            {/* 1.5. 기본 정보 (Phase 33) */}
+            <section>
+              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#8b5cf6]" />
+                {t("videoEditModal.basicInfoHeader", "기본 정보")}
+              </h3>
+              <p className="text-xs text-gray-500 mb-3">{t("videoEditModal.basicInfoHint", "제목·줄거리를 수정합니다")}</p>
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs text-gray-400">{t("upload.titleLabel", "제목")}</label>
+                    <span className={`text-[10px] ${title.length > 50 ? "text-amber-400" : "text-gray-600"}`}>{title.length}/60</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={e => setTitle(e.target.value)}
+                    maxLength={60}
+                    placeholder={t("upload.titlePlaceholder", "영상 제목")}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs text-gray-400">{t("upload.descriptionLabel", "줄거리")}</label>
+                    <span className={`text-[10px] ${description.length > 450 ? "text-amber-400" : "text-gray-600"}`}>{description.length}/500</span>
+                  </div>
+                  <textarea
+                    value={description}
+                    onChange={e => setDescription(e.target.value)}
+                    maxLength={500}
+                    rows={3}
+                    placeholder={t("upload.descriptionPlaceholder", "영상 줄거리·소개")}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1] resize-y"
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* 1.7. 카테고리·장르·언어 (Phase 33) */}
+            <section>
+              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <Film className="w-4 h-4 text-[#8b5cf6]" />
+                {t("videoEditModal.categoryHeader", "카테고리·언어")}
+              </h3>
+              <p className="text-xs text-gray-500 mb-3">{t("videoEditModal.categoryHint", "카테고리 변경은 시네마/OTT 노출 위치에 영향")}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.categoryLabel", "카테고리")}</label>
+                  <select
+                    value={category}
+                    onChange={e => setCategory(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6366f1]"
+                  >
+                    <option value="">—</option>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{getCategoryLabel(c, t)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.genreLabel", "장르")}</label>
+                  <select
+                    value={genre}
+                    onChange={e => setGenre(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6366f1]"
+                  >
+                    <option value="">—</option>
+                    {GENRES.map(g => <option key={g} value={g}>{getGenreLabel(g, t)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.languageLabel", "음성 언어")}</label>
+                  <select
+                    value={language}
+                    onChange={e => setLanguage(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6366f1]"
+                  >
+                    <option value="">—</option>
+                    {LANGUAGES.map(l => <option key={l} value={l}>{getLanguageLabel(l, t)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.subtitleLanguageLabel", "자막 언어")}</label>
+                  <input
+                    type="text"
+                    value={subtitleLanguage}
+                    onChange={e => setSubtitleLanguage(e.target.value)}
+                    placeholder={t("upload.subtitleLanguagePlaceholder", "예: 한국어,영어")}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]"
+                  />
                 </div>
               </div>
             </section>
@@ -464,6 +723,176 @@ export function VideoEditModal({
                 <p className="text-[11px] text-[#10b981] mt-2">
                   ✓ {subtitleFile.name} ({Math.round(subtitleFile.size / 1024)}KB)
                 </p>
+              )}
+            </section>
+
+            {/* 5. 시네마 크레딧 (Phase 33) */}
+            <section>
+              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <Film className="w-4 h-4 text-[#8b5cf6]" />
+                {t("videoEditModal.creditsHeader", "시네마 크레딧")}
+              </h3>
+              <p className="text-xs text-gray-500 mb-3">{t("videoEditModal.creditsHint", "감독·작가·작곡·출연진·제작 연도")}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.directorLabel", "감독")}</label>
+                  <input type="text" value={director} onChange={e => setDirector(e.target.value)} placeholder={t("upload.directorPlaceholder", "감독 이름")}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.writerLabel", "각본")}</label>
+                  <input type="text" value={writer} onChange={e => setWriter(e.target.value)} placeholder={t("upload.writerPlaceholder", "각본가")}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.composerLabel", "음악")}</label>
+                  <input type="text" value={composer} onChange={e => setComposer(e.target.value)} placeholder={t("upload.composerPlaceholder", "작곡가")}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.productionYearLabel", "제작 연도")}</label>
+                  <input type="number" min="1900" max="2100" value={productionYear} onChange={e => setProductionYear(e.target.value)} placeholder="2026"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.castLabel", "출연")}</label>
+                  <input type="text" value={castCredits} onChange={e => setCastCredits(e.target.value)} placeholder={t("upload.castPlaceholder", "주연 · 조연 (콤마 구분)")}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
+                </div>
+              </div>
+            </section>
+
+            {/* 6. AI 제작 정보 (Phase 33) */}
+            <section>
+              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#8b5cf6]" />
+                {t("videoEditModal.aiHeader", "AI 제작 정보")}
+              </h3>
+              <p className="text-xs text-gray-500 mb-3">{t("videoEditModal.aiHint", "AI 영상 진정성 검증용 — 도구·모델·프롬프트·시드")}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.aiToolLabel", "AI 도구")}</label>
+                  <select value={aiTool} onChange={e => setAiTool(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6366f1]">
+                    <option value="">—</option>
+                    {AI_TOOLS.map(a => <option key={a} value={a}>{getAiToolLabel(a, t)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.aiModelVersionLabel", "모델 버전")}</label>
+                  <input type="text" value={aiModelVersion} onChange={e => setAiModelVersion(e.target.value)} placeholder="Sora v2.1"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.resolutionLabel", "해상도")}</label>
+                  <select value={resolution} onChange={e => setResolution(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6366f1]">
+                    <option value="">—</option>
+                    {RESOLUTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.seedLabel", "시드값")}</label>
+                  <input type="text" value={seed} onChange={e => setSeed(e.target.value)} placeholder="8842751093"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.promptLabel", "프롬프트")}</label>
+                  <textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={3} placeholder={t("upload.promptPlaceholder", "AI 생성 프롬프트 전문")}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1] resize-y" />
+                </div>
+              </div>
+            </section>
+
+            {/* 7. 태그 (Phase 33) */}
+            <section>
+              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <TagIcon className="w-4 h-4 text-[#8b5cf6]" />
+                {t("videoEditModal.tagsHeader", "태그")}
+              </h3>
+              <p className="text-xs text-gray-500 mb-3">{t("videoEditModal.tagsHint", "검색·발견용 태그 (최대 10개)")} <span className="text-gray-600">{tagsList.length}/10</span></p>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {tagsList.map((tag, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 px-2 py-1 bg-[#6366f1]/15 border border-[#6366f1]/30 rounded-full text-xs text-[#a78bfa]">
+                    #{tag}
+                    <button onClick={() => removeTag(i)} className="text-[#a78bfa] hover:text-red-400" aria-label="remove">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={tagsInput}
+                  onChange={e => setTagsInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" || e.key === ",") {
+                      e.preventDefault();
+                      if (tagsInput.trim()) { addTag(tagsInput); setTagsInput(""); }
+                    } else if (e.key === "Backspace" && tagsInput === "" && tagsList.length > 0) {
+                      removeTag(tagsList.length - 1);
+                    }
+                  }}
+                  placeholder={t("upload.tagsPlaceholder", "태그 입력 후 Enter")}
+                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]"
+                />
+                <Button
+                  onClick={() => { if (tagsInput.trim()) { addTag(tagsInput); setTagsInput(""); } }}
+                  variant="outline"
+                  className="bg-[#6366f1]/20 hover:bg-[#6366f1]/30 text-[#a78bfa] border border-[#6366f1]/30 gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {t("common.add", "추가")}
+                </Button>
+              </div>
+            </section>
+
+            {/* 8. 협찬 (Phase 33) */}
+            <section>
+              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <Briefcase className="w-4 h-4 text-amber-400" />
+                {t("videoEditModal.sponsorHeader", "협찬·PPL")}
+              </h3>
+              <p className="text-xs text-gray-500 mb-3">{t("videoEditModal.sponsorHint", "유료 광고가 포함된 경우 반드시 입력 (법적 고지 의무)")}</p>
+              {clearSponsor && (
+                <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg mb-2">
+                  <AlertCircle className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs text-amber-300 flex-1">{t("videoEditModal.sponsorWillClear", "저장 시 협찬 정보가 모두 제거됩니다")}</span>
+                  <button onClick={() => setClearSponsor(false)} className="text-xs text-gray-400 hover:text-white underline">
+                    {t("common.cancel", "취소")}
+                  </button>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.sponsorBrandLabel", "협찬 브랜드")}</label>
+                  <input type="text" value={sponsorBrand} onChange={e => setSponsorBrand(e.target.value)} placeholder={t("upload.sponsorBrandPlaceholder", "예: ABC 화장품")}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.sponsorDisclosureLabel", "고지 문구")}</label>
+                  <input type="text" value={sponsorDisclosure} onChange={e => setSponsorDisclosure(e.target.value)} placeholder="유료 광고 포함"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.sponsorLogoUrlLabel", "로고 URL")}</label>
+                  <input type="url" value={sponsorLogoUrl} onChange={e => setSponsorLogoUrl(e.target.value)} placeholder="https://..."
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs text-gray-400 mb-1 block">{t("upload.sponsorLinkUrlLabel", "랜딩 URL")}</label>
+                  <input type="url" value={sponsorLinkUrl} onChange={e => setSponsorLinkUrl(e.target.value)} placeholder="https://..."
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
+                </div>
+              </div>
+              {(sponsorBrand || sponsorLogoUrl || sponsorLinkUrl) && !clearSponsor && (
+                <button
+                  onClick={() => setClearSponsor(true)}
+                  className="mt-2 text-xs text-gray-400 hover:text-red-400 underline"
+                >
+                  {t("videoEditModal.sponsorClear", "협찬 정보 모두 제거")}
+                </button>
               )}
             </section>
           </div>

@@ -81,6 +81,15 @@ body {
   height: 100% !important;
 }
 
+/* 네이티브 <select> 드롭다운 다크 테마 (옵션 글자 흰 배경 → 안 보임 이슈 해결) */
+select {
+  color-scheme: dark;
+}
+select option {
+  background-color: #1a1a1a;
+  color: #ffffff;
+}
+
 /* Admin form input base style */
 .input-base {
   width: 100%;

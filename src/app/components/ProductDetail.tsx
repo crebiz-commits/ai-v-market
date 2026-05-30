@@ -258,7 +258,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     if (!product.id) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("videos")
         .select(
           "chapters, subtitle_url, age_rating, " +
@@ -269,6 +269,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
         )
         .eq("id", product.id)
         .maybeSingle();
+      if (error) console.error("[ProductDetail] videos meta fetch error:", error);
       if (cancelled || !data) return;
       const d = data as any;
       const meta = {
@@ -1705,7 +1706,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
         onSignInClick={onSignInClick}
       />
 
-      {/* Phase 22: 영상 편집 모달 (본인 영상만) */}
+      {/* Phase 22 + 33: 영상 편집 모달 (본인 영상만) */}
       {isMyVideo && (
         <VideoEditModal
           open={editOpen}
@@ -1714,12 +1715,39 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
           initialChapters={videoMeta.chapters}
           initialSubtitleUrl={videoMeta.subtitle_url}
           initialAgeRating={videoMeta.age_rating}
+          initialExtended={{
+            title: product.title,
+            description: product.description,
+            category: product.category,
+            genre: product.genre,
+            director: product.director,
+            writer: product.writer,
+            composer: product.composer,
+            castCredits: product.castCredits,
+            productionYear: product.productionYear,
+            language: product.language,
+            subtitleLanguage: product.subtitleLanguage,
+            aiTool: product.tool,
+            aiModelVersion: product.aiModelVersion,
+            prompt: product.prompt,
+            seed: product.seed,
+            resolution: product.resolution,
+            tags: product.tags,
+            sponsorBrand: product.sponsorBrand,
+            sponsorLogoUrl: product.sponsorLogoUrl,
+            sponsorDisclosure: product.sponsorDisclosure,
+            sponsorLinkUrl: product.sponsorLinkUrl,
+          }}
           onClose={() => setEditOpen(false)}
           onSaved={(updates) => {
             setEditOpen(false);
             if (updates.chapters) setVideoMeta(prev => ({ ...prev, chapters: updates.chapters! }));
             if (updates.subtitleUrl !== undefined) setVideoMeta(prev => ({ ...prev, subtitle_url: updates.subtitleUrl ?? null }));
             if (updates.ageRating) setVideoMeta(prev => ({ ...prev, age_rating: updates.ageRating! }));
+            // Phase 33 — 확장 필드 갱신 (extra state 에 머지 → useMemo product 재계산)
+            if (updates.extended) {
+              setExtra(prev => ({ ...prev, ...updates.extended }));
+            }
           }}
         />
       )}
