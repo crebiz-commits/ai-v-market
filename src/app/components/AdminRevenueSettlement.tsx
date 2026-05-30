@@ -19,6 +19,10 @@ interface Distribution {
   tax_withholding?: number;
   net_amount?: number;
   tax_type_snapshot?: string | null;
+  // 정산 계좌 (지급 송금용)
+  payout_bank?: string | null;
+  payout_account?: string | null;
+  payout_holder?: string | null;
 }
 
 const TAX_TYPE_LABEL: Record<string, string> = {
@@ -325,6 +329,22 @@ export function AdminRevenueSettlement() {
                       <p className="font-mono font-bold text-green-400">{won(r.net_amount || 0)}</p>
                     </div>
                   </div>
+                )}
+                {/* 정산 계좌 (지급 송금용) — 미지급 행에 표시 */}
+                {r.payout_status !== "paid" && (
+                  r.payout_bank ? (
+                    <div className="mt-2 pt-2 border-t border-border/50 text-xs">
+                      <p className="text-muted-foreground text-[10px] mb-0.5">정산 계좌</p>
+                      <p className="font-mono">
+                        {r.payout_bank} {r.payout_account}
+                        {r.payout_holder && <span className="text-muted-foreground"> ({r.payout_holder})</span>}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mt-2 pt-2 border-t border-border/50 text-[11px] text-amber-400">
+                      ⚠️ 정산 계좌 미등록 — 크리에이터에게 등록 요청 필요
+                    </p>
+                  )
                 )}
                 {r.payout_status === "pending" && (
                   <Button

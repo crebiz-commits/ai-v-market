@@ -331,6 +331,8 @@ $$;
 -- ────────────────────────────────────────────────────────────────────────────
 -- Step 5: 어드민 — 월별 정산 요약 조회 RPC
 -- ────────────────────────────────────────────────────────────────────────────
+-- 반환 컬럼 추가(payout 계좌)로 DROP 후 재생성
+DROP FUNCTION IF EXISTS public.get_revenue_distributions_by_period(INTEGER, INTEGER);
 CREATE OR REPLACE FUNCTION public.get_revenue_distributions_by_period(
   p_year INTEGER,
   p_month INTEGER
@@ -344,7 +346,10 @@ RETURNS TABLE (
   subscription_revenue INTEGER,
   total_revenue        INTEGER,
   payout_status        TEXT,
-  paid_at              TIMESTAMPTZ
+  paid_at              TIMESTAMPTZ,
+  payout_bank          TEXT,
+  payout_account       TEXT,
+  payout_holder        TEXT
 )
 LANGUAGE sql
 SECURITY DEFINER
@@ -353,7 +358,10 @@ AS $$
   SELECT
     rd.id, rd.creator_id, p.display_name,
     rd.sale_revenue, rd.ad_revenue, rd.subscription_revenue, rd.total_revenue,
-    rd.payout_status, rd.paid_at
+    rd.payout_status, rd.paid_at,
+    p.payout_info->>'bank_name'      AS payout_bank,
+    p.payout_info->>'account_number' AS payout_account,
+    p.payout_info->>'account_holder' AS payout_holder
   FROM public.revenue_distributions rd
   LEFT JOIN public.profiles p ON p.id = rd.creator_id
   WHERE rd.period_start = make_date(p_year, p_month, 1)
