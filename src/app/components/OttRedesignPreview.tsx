@@ -66,7 +66,7 @@ function HeroPanels() {
 function MarqueeRow({ cat }: { cat: Cat }) {
   // 끊김 없는 무한 흐름: 항목 2벌 복제, 트랙을 -50%까지 이동
   const doubled = [...cat.items, ...cat.items];
-  const duration = `${cat.items.length * 6}s`;
+  const duration = `${cat.items.length * 12}s`; // 천천히 (이전 *6 대비 2배 느리게)
   return (
     <section className="mb-7">
       <h3 className="text-base md:text-lg font-bold px-4 md:px-6 mb-2.5">{cat.title}</h3>
@@ -76,15 +76,18 @@ function MarqueeRow({ cat }: { cat: Cat }) {
           style={{ animationDuration: duration }}
         >
           {doubled.map((it, i) => (
-            <button key={i} className="flex-shrink-0 w-52 md:w-64 group/card text-left">
-              <div className="relative aspect-video rounded-lg overflow-hidden bg-card">
-                <img src={it.image} alt="" className="w-full h-full object-cover group-hover/card:scale-105 transition-transform" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity" />
-                <span className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/15 backdrop-blur border border-white/40 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity">
-                  <Plus className="w-3.5 h-3.5 text-white" />
+            <button key={i} className="flex-shrink-0 w-64 md:w-80 group/card text-left">
+              <div className="relative aspect-video rounded-xl overflow-hidden bg-card">
+                <img src={it.image} alt="" className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500" />
+                {/* 제목·정보를 카드 안(하단 그라데이션)에 */}
+                <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/90 via-black/45 to-transparent">
+                  <p className="text-sm md:text-base font-bold text-white line-clamp-1">{it.title}</p>
+                  <p className="text-[11px] md:text-xs text-gray-300 line-clamp-1 mt-0.5">CREAITE · AI 시네마</p>
+                </div>
+                <span className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 backdrop-blur border border-white/30 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity">
+                  <Plus className="w-4 h-4 text-white" />
                 </span>
               </div>
-              <p className="text-xs md:text-sm font-semibold text-white mt-1.5 line-clamp-1 px-0.5">{it.title}</p>
             </button>
           ))}
         </div>
