@@ -13,13 +13,31 @@ const SEGMENTS = [
   { key: "creators", label: "크리에이터만",  icon: Film,   desc: "영상 1개 이상 업로드한 사용자" },
 ];
 
+// 클릭 시 이동 위치 — 선택형. key 가 그대로 link 값이 됨("" = 이동 없음, "video" = 영상ID 입력)
+const LINK_OPTIONS = [
+  { key: "",                 label: "이동 없음", desc: "공지 내용만 표시 (기본)" },
+  { key: "/?tab=discovery",  label: "홈",        desc: "" },
+  { key: "/?tab=market",     label: "시네마",     desc: "" },
+  { key: "/?tab=ott",        label: "OTT",       desc: "" },
+  { key: "/?tab=community",  label: "커뮤니티",   desc: "" },
+  { key: "/?tab=mypage",     label: "마이페이지", desc: "" },
+  { key: "video",            label: "특정 영상",  desc: "영상 ID 입력" },
+];
+
 export function AdminBroadcast() {
   const [segment, setSegment] = useState("all");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [link, setLink] = useState("");
+  const [linkChoice, setLinkChoice] = useState("");   // LINK_OPTIONS 의 key
+  const [videoId, setVideoId] = useState("");          // linkChoice === "video" 일 때만 사용
   const [sending, setSending] = useState(false);
   const [lastResult, setLastResult] = useState<{ count: number; segment: string } | null>(null);
+
+  // 선택값 → 실제 link 문자열 (없으면 null)
+  const resolvedLink =
+    linkChoice === "video"
+      ? (videoId.trim() ? `/?video=${encodeURIComponent(videoId.trim())}` : null)
+      : (linkChoice || null);
 
   const send = async () => {
     if (!title.trim()) {
@@ -35,7 +53,7 @@ export function AdminBroadcast() {
     const { data, error } = await supabase.rpc("admin_broadcast_notification", {
       p_title: title,
       p_body: body || null,
-      p_link: link || null,
+      p_link: resolvedLink,
       p_segment: segment,
     });
     setSending(false);
@@ -58,7 +76,7 @@ export function AdminBroadcast() {
           apikey: publicAnonKey,
           Authorization: `Bearer ${session?.access_token || publicAnonKey}`,
         },
-        body: JSON.stringify({ segment, title, body: body || null, link: link || null }),
+        body: JSON.stringify({ segment, title, body: body || null, link: resolvedLink }),
       });
       const pd = await res.json();
       if (res.ok && typeof pd?.pushed === "number" && pd.pushed > 0) {
@@ -70,7 +88,8 @@ export function AdminBroadcast() {
 
     setTitle("");
     setBody("");
-    setLink("");
+    setLinkChoice("");
+    setVideoId("");
   };
 
   return (
@@ -139,26 +158,45 @@ export function AdminBroadcast() {
         <p className="text-[10px] text-muted-foreground text-right mt-0.5">{body.length}/500</p>
       </div>
 
-      {/* 링크 */}
+      {/* 클릭 시 이동 위치 (선택형) */}
       <div>
-        <label className="block text-xs font-bold text-muted-foreground mb-1.5">클릭 시 이동 링크 (선택)</label>
-        <input
-          className="input-base"
-          placeholder="비우면 이동 없음 · 예: /?tab=ott"
-          value={link}
-          onChange={(e) => setLink(e.target.value)}
-        />
-        <div className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
-          <p className="mb-1">비워두면 클릭해도 이동하지 않습니다(공지 내용만 확인). 이동시키려면 아래 형식으로 입력:</p>
-          <ul className="space-y-0.5 font-mono text-[10px] text-blue-300/90">
-            <li>/?tab=discovery <span className="text-muted-foreground font-sans">— 홈</span></li>
-            <li>/?tab=market <span className="text-muted-foreground font-sans">— 시네마</span></li>
-            <li>/?tab=ott <span className="text-muted-foreground font-sans">— OTT</span></li>
-            <li>/?tab=community <span className="text-muted-foreground font-sans">— 커뮤니티</span></li>
-            <li>/?tab=mypage <span className="text-muted-foreground font-sans">— 마이페이지</span></li>
-            <li>/?video=영상ID <span className="text-muted-foreground font-sans">— 특정 영상</span></li>
-          </ul>
+        <label className="block text-xs font-bold text-muted-foreground mb-2">클릭 시 이동 위치 (선택)</label>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {LINK_OPTIONS.map(opt => (
+            <button
+              key={opt.key || "none"}
+              onClick={() => setLinkChoice(opt.key)}
+              className={`p-2.5 rounded-lg border-2 text-left transition-all ${
+                linkChoice === opt.key
+                  ? "border-[#6366f1] bg-[#6366f1]/10"
+                  : "border-border hover:border-[#6366f1]/40"
+              }`}
+            >
+              <p className="font-semibold text-sm">{opt.label}</p>
+              {opt.desc && <p className="text-[11px] text-muted-foreground mt-0.5">{opt.desc}</p>}
+            </button>
+          ))}
         </div>
+
+        {/* "특정 영상" 선택 시 영상 ID 입력 */}
+        {linkChoice === "video" && (
+          <div className="mt-2">
+            <input
+              className="input-base"
+              placeholder="영상 ID 입력 (예: abc123) — 비우면 이동 없음"
+              value={videoId}
+              onChange={(e) => setVideoId(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              영상 ID는 해당 영상 페이지 주소의 <span className="font-mono text-blue-300/90">?video=</span> 뒤 값입니다.
+            </p>
+          </div>
+        )}
+
+        {/* 현재 적용될 링크 미리보기 */}
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          적용 링크: <span className="font-mono text-blue-300/90">{resolvedLink || "(이동 없음)"}</span>
+        </p>
       </div>
 
       {/* 발송 버튼 */}
