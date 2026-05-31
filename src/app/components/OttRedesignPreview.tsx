@@ -95,7 +95,7 @@ function MarqueeRow({ cat }: { cat: Cat }) {
 
 export function OttRedesignPreview() {
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white pb-12">
+    <div className="h-screen overflow-y-auto bg-[#0a0a0a] text-white pb-12">
       <div className="max-w-[1800px] mx-auto px-4 pt-5 pb-2">
         <p className="text-xs text-[#a78bfa] font-bold tracking-widest uppercase">Preview · OTT 재설계</p>
         <p className="text-xs text-gray-500 mt-1">상단: 데스크탑 3분할 히어로 / 모바일 1개씩 5초 슬라이드 · 하단: 카테고리 행 좌우 교차 자동 흐름(마우스 올리면 정지)</p>

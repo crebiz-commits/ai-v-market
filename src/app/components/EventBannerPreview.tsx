@@ -6,7 +6,7 @@ const SAMPLE = getActiveEventBanners();
 
 export function EventBannerPreview() {
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
+    <div className="h-screen overflow-y-auto bg-[#0a0a0a] text-white">
       <div className="max-w-7xl mx-auto px-4 pt-6 pb-3">
         <p className="text-xs text-[#a78bfa] font-bold tracking-widest uppercase">Preview · 이벤트 배너</p>
         <h1 className="text-xl font-black mt-1">이벤트 배너 5종 (넓은 화면 최대 5개 / 모바일 1개 5초 슬라이드)</h1>
