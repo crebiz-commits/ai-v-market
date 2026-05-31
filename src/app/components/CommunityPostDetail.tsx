@@ -1,7 +1,8 @@
 import { motion } from "motion/react";
-import { ArrowLeft, Heart, MessageCircle, Bookmark, Send, Share2 } from "lucide-react";
+import { ArrowLeft, Heart, MessageCircle, Bookmark, Send, Share2, Flag } from "lucide-react";
 import { toast } from "sonner";
 import { CommentPanel } from "./CommentPanel";
+import { ReportModal } from "./ReportModal";
 import { useBackButton } from "../hooks/useBackButton";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -58,6 +59,7 @@ export function CommunityPostDetail({
 }: CommunityPostDetailProps) {
   const { t } = useTranslation();
   const [showComments, setShowComments] = useState(false);
+  const [showReport, setShowReport] = useState(false);  // M7: 커뮤니티 글 신고
 
   // 뒤로가기로 댓글 패널 → 상세 페이지 → 목록 순서로 닫힘
   useBackButton(showComments, () => setShowComments(false));
@@ -104,6 +106,13 @@ export function CommunityPostDetail({
           </button>
           <span className="font-semibold">{t("community.tabPosts")}</span>
           <div className="flex-1" />
+          <button
+            onClick={() => setShowReport(true)}
+            className="p-2 rounded-full hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+            aria-label={t("common.report", "신고")}
+          >
+            <Flag className="w-5 h-5" />
+          </button>
           <button
             onClick={handleShare}
             className="p-2 -mr-2 rounded-full hover:bg-white/10 transition-colors text-foreground"
@@ -244,6 +253,15 @@ export function CommunityPostDetail({
           </motion.div>
         </>
       )}
+
+      {/* M7: 커뮤니티 글 신고 */}
+      <ReportModal
+        open={showReport}
+        targetType="community_post"
+        targetId={post.id}
+        targetTitle={post.title}
+        onClose={() => setShowReport(false)}
+      />
     </motion.div>
   );
 }

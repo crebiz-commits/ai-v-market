@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Lightbulb, Trophy, MessageCircle, Heart, Bookmark, TrendingUp, Plus, X, Send, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Footer } from "./Footer";
@@ -9,11 +9,28 @@ import { CommunityPostDetail, Post } from "./CommunityPostDetail";
 import { CommunityChallengeDetail, Challenge } from "./CommunityChallengeDetail";
 import { useAuth } from "../contexts/AuthContext";
 import { useBackButton } from "../hooks/useBackButton";
+import { supabase } from "../utils/supabaseClient";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
-// 카테고리 값은 한글로 통일 (DB 저장값과 일치). 표시 시점에 i18n 변환.
-const POSTS_KO: Post[] = [
+// community_posts row → Post 매핑. (mock 데모는 CommunityMockShowcase.tsx 에 보존: ?preview=community-mock)
+function rowToPost(r: any, localeTag: string): Post {
+  return {
+    id: r.id,
+    author: r.author_name || "AI Creator",
+    avatar: r.author_avatar || "",
+    title: r.title,
+    content: r.content,
+    category: r.category || "일반",
+    likes: r.likes_count || 0,
+    comments: r.comments_count || 0,
+    timestamp: r.created_at ? new Date(r.created_at).toLocaleDateString(localeTag) : "",
+    image: r.image_url || undefined,
+  };
+}
+
+// (mock POSTS 보존본은 CommunityMockShowcase.tsx 로 이전됨)
+const _UNUSED_POSTS_KO: Post[] = [
   {
     id: "1",
     author: "AI Creator Pro",
@@ -231,7 +248,9 @@ export function Community({ onNavigate }: CommunityProps = {}) {
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
   const { user, isAuthenticated, profile } = useAuth();
-  const [posts, setPosts] = useState<Post[]>(isKo ? POSTS_KO : POSTS_EN);
+  const localeTag = isKo ? "ko-KR" : "en-US";
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(true);
   const challenges = isKo ? CHALLENGES_KO : CHALLENGES_EN;
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [bookmarkedPosts, setBookmarkedPosts] = useState<Set<string>>(new Set());
@@ -253,6 +272,24 @@ export function Community({ onNavigate }: CommunityProps = {}) {
   useBackButton(!!commentPostId, () => setCommentPostId(null));
   useBackButton(!!selectedPost, () => setSelectedPost(null));
   useBackButton(!!selectedChallenge, () => setSelectedChallenge(null));
+
+  // H10(2026-05-31): 커뮤니티 글 실제 DB 로드 (기존 mock 은 ?preview=community-mock 에 보존)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoadingPosts(true);
+      const { data, error } = await supabase
+        .from("community_posts")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (cancelled) return;
+      if (error) console.warn("[Community] 게시글 조회 실패:", error.message);
+      else setPosts((data || []).map((r) => rowToPost(r, localeTag)));
+      setLoadingPosts(false);
+    })();
+    return () => { cancelled = true; };
+  }, [localeTag]);
 
   const toggleLike = (postId: string) => {
     setLikedPosts(prev => {
@@ -277,19 +314,21 @@ export function Community({ onNavigate }: CommunityProps = {}) {
     }
     setSubmitting(true);
     try {
-      // 로컬 상태에 추가 (Supabase community_posts 테이블 연동은 테이블 생성 후 활성화)
-      const newPost: Post = {
-        id: `local-${Date.now()}`,
-        author: profile?.display_name || user?.name || t("community.anonymous"),
-        avatar: profile?.avatar_url || "",
-        title: writeTitle.trim(),
-        content: writeContent.trim(),
-        category: writeCategory,
-        likes: 0,
-        comments: 0,
-        timestamp: t("community.justNow"),
-      };
-      setPosts(prev => [newPost, ...prev]);
+      // H10(2026-05-31): 실제 community_posts 에 저장 (RLS: auth.uid()=user_id)
+      const { data, error } = await supabase
+        .from("community_posts")
+        .insert({
+          user_id: user!.id,
+          author_name: profile?.display_name || user?.name || t("community.anonymous"),
+          author_avatar: profile?.avatar_url || null,
+          title: writeTitle.trim(),
+          content: writeContent.trim(),
+          category: writeCategory,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      setPosts(prev => [rowToPost(data, localeTag), ...prev]);
       setWriteTitle("");
       setWriteContent("");
       setWriteCategory("일반");
@@ -334,6 +373,15 @@ export function Community({ onNavigate }: CommunityProps = {}) {
 
           <TabsContent value="posts" className="mt-0">
             <div className="space-y-4 pb-6 md:pb-8">
+              {loadingPosts && (
+                <div className="flex justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-[#6366f1]" /></div>
+              )}
+              {!loadingPosts && posts.length === 0 && (
+                <div className="text-center py-16 text-muted-foreground">
+                  <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p>{t("community.emptyPosts", "아직 게시글이 없습니다. 첫 글을 작성해보세요!")}</p>
+                </div>
+              )}
               <AnimatePresence initial={false}>
                 {posts.map((post) => (
                   <motion.div

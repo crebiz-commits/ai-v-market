@@ -1,0 +1,198 @@
+// ════════════════════════════════════════════════════════════════════════════
+// 커뮤니티 Mock 디자인 보존 스냅샷 (2026-05-31)
+//
+// Community.tsx 를 실제 DB 연동으로 전환하면서, 기존 mock(showcase) 디자인·데모
+// 콘텐츠를 보존용으로 동결한 페이지. 디자인 재사용 시 참고.
+// 접근: ?preview=community-mock
+// (실서비스 Community.tsx 와 독립 — 여기는 순수 mock, DB 미연동)
+// ════════════════════════════════════════════════════════════════════════════
+import { useState } from "react";
+import { Lightbulb, Trophy, MessageCircle, Heart, Bookmark, TrendingUp, Plus, X, Send, Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Footer } from "./Footer";
+import { Button } from "./ui/button";
+import { motion, AnimatePresence } from "motion/react";
+import { CommentPanel } from "./CommentPanel";
+import { CommunityPostDetail, Post } from "./CommunityPostDetail";
+import { CommunityChallengeDetail, Challenge } from "./CommunityChallengeDetail";
+import { useAuth } from "../contexts/AuthContext";
+import { useBackButton } from "../hooks/useBackButton";
+import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+
+const POSTS_KO: Post[] = [
+  { id: "1", author: "AI Creator Pro", avatar: "https://images.unsplash.com/photo-1595745688820-1a8bca9dd00f?w=100&h=100&fit=crop", title: "Sora로 영화 같은 영상 만드는 프롬프트 팁 5가지", content: "1. 카메라 무브먼트를 구체적으로 명시하세요 (dolly zoom, crane shot 등)\n2. 조명 스타일 지정 (cinematic lighting, golden hour)\n3. 감정을 표현하는 형용사 사용...", category: "팁", likes: 342, comments: 28, timestamp: "2시간 전", image: "https://images.unsplash.com/photo-1612000656409-16fcf948b2d9?w=400&h=300&fit=crop" },
+  { id: "2", author: "VideoMaster", avatar: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=100&h=100&fit=crop", title: "3월 챌린지: '미래 도시' 테마 영상 공모", content: "상금 총 500만원! Cyberpunk, 네온, 미래 도시를 주제로 15초 이내 AI 영상을 제작해주세요. 우수작은 메인 피드에 노출됩니다.", category: "챌린지", likes: 891, comments: 156, timestamp: "1일 전" },
+  { id: "3", author: "NatureLover", avatar: "https://images.unsplash.com/photo-1551728715-88730314d185?w=100&h=100&fit=crop", title: "Runway Gen-3 vs Pika Labs 실사 비교", content: "같은 프롬프트로 두 툴을 사용해봤습니다. 결과가 흥미롭네요. Runway는 디테일이 좋고, Pika는 자연스러운 움직임이 장점입니다.", category: "비교", likes: 567, comments: 89, timestamp: "3일 전", image: "https://images.unsplash.com/photo-1551728715-88730314d185?w=400&h=300&fit=crop" },
+  { id: "4", author: "PromptWizard", avatar: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=100&h=100&fit=crop", title: "프롬프트 공유: 네온 사이버펑크 도시 야경", content: '"Neon-lit cyberpunk city at night, flying cars, holographic billboards, rain-soaked streets, cinematic wide shot, blade runner style, 8k ultra detailed" - 이 프롬프트로 대박 영상 나왔어요!', category: "프롬프트", likes: 1203, comments: 234, timestamp: "5일 전" },
+  { id: "5", author: "AnimationStudio", avatar: "https://images.unsplash.com/photo-1772371272174-392cf9cfabae?w=100&h=100&fit=crop", title: "AI 애니메이션 제작 워크플로우 공유", content: "캐릭터 디자인 → AI 생성 → 편집 → 후보정까지 전 과정을 공유합니다. 질문 환영합니다!", category: "튜토리얼", likes: 678, comments: 92, timestamp: "1주일 전", image: "https://images.unsplash.com/photo-1772371272174-392cf9cfabae?w=400&h=300&fit=crop" }
+];
+
+const POSTS_EN: Post[] = [
+  { id: "1", author: "AI Creator Pro", avatar: "https://images.unsplash.com/photo-1595745688820-1a8bca9dd00f?w=100&h=100&fit=crop", title: "5 prompt tips for cinematic Sora videos", content: "1. Specify camera movement (dolly zoom, crane shot, etc.)\n2. Define lighting style (cinematic lighting, golden hour)\n3. Use emotional adjectives...", category: "팁", likes: 342, comments: 28, timestamp: "2h ago", image: "https://images.unsplash.com/photo-1612000656409-16fcf948b2d9?w=400&h=300&fit=crop" },
+  { id: "2", author: "VideoMaster", avatar: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=100&h=100&fit=crop", title: "March Challenge: 'Future City' theme video contest", content: "Total prize ₩5,000,000! Create a 15-second AI video on Cyberpunk, neon, or future city themes. Top entries get featured on the home feed.", category: "챌린지", likes: 891, comments: 156, timestamp: "1d ago" },
+  { id: "3", author: "NatureLover", avatar: "https://images.unsplash.com/photo-1551728715-88730314d185?w=100&h=100&fit=crop", title: "Runway Gen-3 vs Pika Labs realism comparison", content: "I tried the same prompt on both tools. Interesting results — Runway has better detail, while Pika produces more natural motion.", category: "비교", likes: 567, comments: 89, timestamp: "3d ago", image: "https://images.unsplash.com/photo-1551728715-88730314d185?w=400&h=300&fit=crop" },
+  { id: "4", author: "PromptWizard", avatar: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=100&h=100&fit=crop", title: "Prompt: Neon cyberpunk city at night", content: '"Neon-lit cyberpunk city at night, flying cars, holographic billboards, rain-soaked streets, cinematic wide shot, blade runner style, 8k ultra detailed" — this prompt produced amazing results!', category: "프롬프트", likes: 1203, comments: 234, timestamp: "5d ago" },
+  { id: "5", author: "AnimationStudio", avatar: "https://images.unsplash.com/photo-1772371272174-392cf9cfabae?w=100&h=100&fit=crop", title: "Sharing my AI animation workflow", content: "From character design → AI generation → editing → post-production, sharing the full process. Questions welcome!", category: "튜토리얼", likes: 678, comments: 92, timestamp: "1w ago", image: "https://images.unsplash.com/photo-1772371272174-392cf9cfabae?w=400&h=300&fit=crop" }
+];
+
+const getNextDeadline = (offsetDays: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const CHALLENGES_KO: Challenge[] = [
+  { id: "1", title: "미래 도시 챌린지", prize: "500만원", participants: 342, deadline: getNextDeadline(15), image: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=400&h=200&fit=crop", description: "Cyberpunk, 네온, 미래 도시를 주제로 한 15초 이내 AI 영상을 제작해주세요.\n\nBlade Runner, 사이버펑크 2077, 고스트 인 더 셸 같은 작품들에서 영감을 받아 자신만의 미래 도시 비전을 표현해 보세요. 디스토피아든 유토피아든, 어떤 미래를 그리느냐는 자유입니다.\n\n우수작은 CREAITE 메인 피드에 1주일 동안 무료 노출됩니다." },
+  { id: "2", title: "자연 다큐멘터리", prize: "300만원", participants: 189, deadline: getNextDeadline(20), image: "https://images.unsplash.com/photo-1551728715-88730314d185?w=400&h=200&fit=crop", description: "BBC Earth 같은 시네마틱 자연 다큐 스타일 영상을 만들어주세요.\n\n광활한 자연의 경이로움, 야생 동물의 생동감 넘치는 순간, 또는 작은 곤충의 미시 세계까지 — 어떤 자연이든 좋습니다. 시네마틱 연출과 감정적 임팩트가 핵심 평가 요소입니다." },
+  { id: "3", title: "추상 아트 비주얼", prize: "200만원", participants: 267, deadline: getNextDeadline(25), image: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=400&h=200&fit=crop", description: "추상적 비주얼, 컬러, 모션, 패턴을 활용한 실험적인 영상을 제작하세요.\n\n구체적인 주제 없이도 OK. 음악 시각화, 추상 표현주의, 사이키델릭 아트 등 자유롭게 표현해 주세요. 영상미와 독창성이 평가 기준입니다." },
+];
+
+const CHALLENGES_EN: Challenge[] = [
+  { id: "1", title: "Future City Challenge", prize: "₩5,000,000", participants: 342, deadline: getNextDeadline(15), image: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=400&h=200&fit=crop", description: "Create a 15-second AI video on Cyberpunk, neon, or future city themes.\n\nDraw inspiration from Blade Runner, Cyberpunk 2077, or Ghost in the Shell, and express your own vision of the future city. Whether dystopia or utopia, the vision is yours.\n\nTop entries will be featured on CREAITE's home feed for one week, free of charge." },
+  { id: "2", title: "Nature Documentary", prize: "₩3,000,000", participants: 189, deadline: getNextDeadline(20), image: "https://images.unsplash.com/photo-1551728715-88730314d185?w=400&h=200&fit=crop", description: "Make a cinematic nature documentary in the style of BBC Earth.\n\nFrom the wonders of vast landscapes, to the lively moments of wildlife, to the microcosm of tiny insects — any subject works. Cinematic direction and emotional impact are the key criteria." },
+  { id: "3", title: "Abstract Art Visuals", prize: "₩2,000,000", participants: 267, deadline: getNextDeadline(25), image: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=400&h=200&fit=crop", description: "Create an experimental video using abstract visuals, color, motion, and pattern.\n\nNo specific subject required. Feel free to express yourself with music visualization, abstract expressionism, psychedelic art, and more. Visual quality and originality are the evaluation criteria." },
+];
+
+const CATEGORIES = ["팁", "챌린지", "비교", "프롬프트", "튜토리얼", "일반", "질문"];
+const COMMUNITY_CATEGORY_KEY: Record<string, string> = { "팁": "communityCategory.tip", "챌린지": "communityCategory.challenge", "비교": "communityCategory.compare", "프롬프트": "communityCategory.prompt", "튜토리얼": "communityCategory.tutorial", "일반": "communityCategory.general", "질문": "communityCategory.question" };
+const CATEGORY_COLOR: Record<string, string> = { "챌린지": "bg-[#8b5cf6]/20 text-[#8b5cf6]", "팁": "bg-[#3b82f6]/20 text-[#3b82f6]", "프롬프트": "bg-[#10b981]/20 text-[#10b981]", "튜토리얼": "bg-[#f59e0b]/20 text-[#f59e0b]", "비교": "bg-[#ef4444]/20 text-[#ef4444]", "일반": "bg-[#6366f1]/20 text-[#6366f1]", "질문": "bg-[#06b6d4]/20 text-[#06b6d4]" };
+
+export function CommunityMockShowcase({ onNavigate }: { onNavigate?: (tab: string) => void } = {}) {
+  const { t, i18n } = useTranslation();
+  const isKo = (i18n.language || "en").startsWith("ko");
+  const { isAuthenticated, profile, user } = useAuth();
+  const [posts, setPosts] = useState<Post[]>(isKo ? POSTS_KO : POSTS_EN);
+  const challenges = isKo ? CHALLENGES_KO : CHALLENGES_EN;
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  const [bookmarkedPosts, setBookmarkedPosts] = useState<Set<string>>(new Set());
+  const [commentPostId, setCommentPostId] = useState<string | null>(null);
+  const [showWriteModal, setShowWriteModal] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
+  const [writeTitle, setWriteTitle] = useState("");
+  const [writeContent, setWriteContent] = useState("");
+  const [writeCategory, setWriteCategory] = useState("일반");
+  const [submitting, setSubmitting] = useState(false);
+
+  useBackButton(showWriteModal, () => setShowWriteModal(false));
+  useBackButton(!!commentPostId, () => setCommentPostId(null));
+  useBackButton(!!selectedPost, () => setSelectedPost(null));
+  useBackButton(!!selectedChallenge, () => setSelectedChallenge(null));
+
+  const toggleLike = (postId: string) => setLikedPosts(prev => { const s = new Set(prev); s.has(postId) ? s.delete(postId) : s.add(postId); return s; });
+  const toggleBookmark = (postId: string) => setBookmarkedPosts(prev => { const s = new Set(prev); s.has(postId) ? s.delete(postId) : s.add(postId); return s; });
+
+  const handleWritePost = async () => {
+    if (!writeTitle.trim() || !writeContent.trim()) { toast.error(t("community.titleAndContentRequired")); return; }
+    setSubmitting(true);
+    try {
+      const newPost: Post = { id: `local-${Date.now()}`, author: profile?.display_name || user?.name || t("community.anonymous"), avatar: profile?.avatar_url || "", title: writeTitle.trim(), content: writeContent.trim(), category: writeCategory, likes: 0, comments: 0, timestamp: t("community.justNow") };
+      setPosts(prev => [newPost, ...prev]);
+      setWriteTitle(""); setWriteContent(""); setWriteCategory("일반"); setShowWriteModal(false);
+      toast.success(t("community.submitSuccess"));
+    } catch { toast.error(t("community.submitFailed")); } finally { setSubmitting(false); }
+  };
+
+  const commentPost = commentPostId ? posts.find(p => p.id === commentPostId) : null;
+
+  return (
+    <div className="h-full overflow-y-auto bg-background relative">
+      <div className="max-w-4xl mx-auto p-4 md:p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl md:text-3xl font-bold">{t("community.title")} <span className="text-xs text-muted-foreground align-middle">(mock 보존본)</span></h2>
+          <Button onClick={() => { if (!isAuthenticated) { toast.error(t("community.writeRequiresLogin")); return; } setShowWriteModal(true); }} className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 font-bold" size="sm"><Plus className="w-4 h-4" />{t("community.write")}</Button>
+        </div>
+        <Tabs defaultValue="posts" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 bg-card mb-6">
+            <TabsTrigger value="posts">{t("community.tabPosts")}</TabsTrigger>
+            <TabsTrigger value="challenges">{t("community.tabChallenges")}</TabsTrigger>
+            <TabsTrigger value="trending">{t("community.tabTrending")}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="posts" className="mt-0">
+            <div className="space-y-4 pb-6 md:pb-8">
+              <AnimatePresence initial={false}>
+                {posts.map((post) => (
+                  <motion.div key={post.id} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }} onClick={() => setSelectedPost(post)} className="bg-card rounded-lg border border-border overflow-hidden cursor-pointer hover:border-[#6366f1]/50 transition-colors">
+                    <div className="p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          {post.avatar ? <img src={post.avatar} alt={post.author} className="w-full h-full object-cover" /> : <span className="text-white font-bold text-sm">{post.author.charAt(0)}</span>}
+                        </div>
+                        <div className="flex-1"><p className="font-medium">{post.author}</p><p className="text-xs text-muted-foreground">{post.timestamp}</p></div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${CATEGORY_COLOR[post.category] || "bg-[#6366f1]/20 text-[#6366f1]"}`}>{COMMUNITY_CATEGORY_KEY[post.category] ? t(COMMUNITY_CATEGORY_KEY[post.category]) : post.category}</span>
+                      </div>
+                      <h3 className="mb-2 font-semibold">{post.title}</h3>
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-3 whitespace-pre-line">{post.content}</p>
+                      {post.image && <img src={post.image} alt={post.title} className="w-full h-48 object-cover rounded-lg mb-3" />}
+                      <div className="flex items-center justify-between pt-3 border-t border-border">
+                        <div className="flex items-center gap-4">
+                          <button onClick={(e) => { e.stopPropagation(); toggleLike(post.id); }} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"><Heart className={`w-5 h-5 ${likedPosts.has(post.id) ? 'fill-[#ef4444] text-[#ef4444]' : ''}`} /><span>{post.likes + (likedPosts.has(post.id) ? 1 : 0)}</span></button>
+                          <button onClick={(e) => { e.stopPropagation(); setCommentPostId(post.id); }} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"><MessageCircle className="w-5 h-5" /><span>{post.comments}</span></button>
+                        </div>
+                        <button onClick={(e) => { e.stopPropagation(); toggleBookmark(post.id); }} className="text-muted-foreground hover:text-foreground transition-colors"><Bookmark className={`w-5 h-5 ${bookmarkedPosts.has(post.id) ? 'fill-[#6366f1] text-[#6366f1]' : ''}`} /></button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          </TabsContent>
+          <TabsContent value="challenges" className="mt-0">
+            <div className="space-y-4 pb-6 md:pb-8">
+              {challenges.map((challenge) => (
+                <div key={challenge.id} onClick={() => setSelectedChallenge(challenge)} className="bg-card rounded-lg border border-border overflow-hidden group cursor-pointer hover:border-[#6366f1]/50 transition-colors">
+                  <div className="relative h-32 overflow-hidden">
+                    <img src={challenge.image} alt={challenge.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                    <div className="absolute bottom-3 left-3 right-3"><h3 className="text-white mb-1">{challenge.title}</h3><div className="flex items-center gap-3 text-white/80 text-sm"><div className="flex items-center gap-1"><Trophy className="w-4 h-4 text-[#fbbf24]" /><span>{challenge.prize}</span></div><span>•</span><span>{t("community.participants", { count: challenge.participants })}</span></div></div>
+                  </div>
+                  <div className="p-4 flex items-center justify-between"><span className="text-sm text-muted-foreground">{t("community.deadlineLabel", { date: challenge.deadline })}</span><Button size="sm" onClick={(e) => { e.stopPropagation(); setSelectedChallenge(challenge); }} className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]">{t("community.viewDetail")}</Button></div>
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+          <TabsContent value="trending" className="mt-0">
+            <div className="space-y-4 pb-6 md:pb-8">
+              <div className="bg-card rounded-lg border border-border p-4">
+                <div className="flex items-center gap-2 mb-4"><TrendingUp className="w-5 h-5 text-[#6366f1]" /><h3>{t("community.trendingPromptKeywords")}</h3></div>
+                <div className="flex flex-wrap gap-2">{["cyberpunk", "cinematic", "8k", "neon lights", "futuristic", "nature", "abstract", "portrait", "anime style", "realistic"].map((tag) => (<span key={tag} className="px-3 py-1.5 bg-gradient-to-r from-[#6366f1]/10 to-[#8b5cf6]/10 border border-[#6366f1]/30 rounded-full text-sm cursor-pointer hover:border-[#6366f1] transition-colors">#{tag}</span>))}</div>
+              </div>
+              <div className="bg-card rounded-lg border border-border p-4">
+                <h3 className="mb-4">{t("community.weeklyTopPosts")}</h3>
+                <div className="space-y-3">{posts.slice(0, 3).map((post, i) => (<div key={post.id} className="flex items-start gap-3 pb-3 border-b border-border last:border-0 last:pb-0"><div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-white font-medium text-sm">{i + 1}</div><div className="flex-1 min-w-0"><p className="font-medium truncate">{post.title}</p><p className="text-xs text-muted-foreground">{post.likes} likes • {post.comments} comments</p></div></div>))}</div>
+              </div>
+              <div className="bg-card rounded-lg border border-border p-4">
+                <div className="flex items-center gap-2 mb-4"><Lightbulb className="w-5 h-5 text-[#fbbf24]" /><h3>{t("community.weeklyTips")}</h3></div>
+                <div className="space-y-3"><div className="p-3 bg-gradient-to-r from-[#6366f1]/5 to-[#8b5cf6]/5 rounded-lg border border-[#6366f1]/20"><p className="text-sm mb-2">{t("community.tip1")}</p><p className="text-xs text-muted-foreground">{t("community.tip1Example")}</p></div><div className="p-3 bg-gradient-to-r from-[#6366f1]/5 to-[#8b5cf6]/5 rounded-lg border border-[#6366f1]/20"><p className="text-sm mb-2">{t("community.tip2")}</p><p className="text-xs text-muted-foreground">{t("community.tip2Example")}</p></div></div>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+      <Footer onNavigate={onNavigate || (() => {})} />
+      <AnimatePresence>
+        {commentPostId && (<>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setCommentPostId(null)} className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" />
+          <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl overflow-hidden" style={{ maxHeight: "75vh" }}>
+            <CommentPanel postId={commentPostId} title={commentPost?.title} onClose={() => setCommentPostId(null)} mode="sheet" />
+          </motion.div>
+        </>)}
+      </AnimatePresence>
+      <AnimatePresence>{selectedPost && (<CommunityPostDetail post={selectedPost} isLiked={likedPosts.has(selectedPost.id)} isBookmarked={bookmarkedPosts.has(selectedPost.id)} onLike={() => toggleLike(selectedPost.id)} onBookmark={() => toggleBookmark(selectedPost.id)} onClose={() => setSelectedPost(null)} />)}</AnimatePresence>
+      <AnimatePresence>{selectedChallenge && (<CommunityChallengeDetail challenge={selectedChallenge} onClose={() => setSelectedChallenge(null)} />)}</AnimatePresence>
+      <AnimatePresence>
+        {showWriteModal && (<>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowWriteModal(false)} className="fixed inset-0 bg-black/70 z-50 backdrop-blur-sm" />
+          <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-[#1a1a1c] rounded-2xl border border-white/10 p-5 max-w-lg mx-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-bold text-white">{t("community.writeModalTitle")}</h3><button onClick={() => setShowWriteModal(false)} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-gray-400"><X className="w-5 h-5" /></button></div>
+            <div className="flex flex-wrap gap-2 mb-4">{CATEGORIES.map(cat => (<button key={cat} onClick={() => setWriteCategory(cat)} className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${writeCategory === cat ? "bg-[#6366f1] text-white" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}>{COMMUNITY_CATEGORY_KEY[cat] ? t(COMMUNITY_CATEGORY_KEY[cat]) : cat}</button>))}</div>
+            <input type="text" placeholder={t("community.titlePlaceholder")} value={writeTitle} onChange={e => setWriteTitle(e.target.value)} maxLength={100} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#6366f1] transition-colors mb-3" />
+            <textarea placeholder={t("community.contentPlaceholder")} value={writeContent} onChange={e => setWriteContent(e.target.value)} maxLength={2000} rows={5} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#6366f1] transition-colors resize-none mb-4" />
+            <div className="flex items-center justify-between"><span className="text-xs text-gray-600">{writeContent.length}/2000</span><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setShowWriteModal(false)} className="border-white/10">{t("community.cancel")}</Button><Button size="sm" onClick={handleWritePost} disabled={submitting || !writeTitle.trim() || writeContent.trim().length < 10} className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] gap-2">{submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}{t("community.submit")}</Button></div></div>
+          </motion.div>
+        </>)}
+      </AnimatePresence>
+    </div>
+  );
+}
