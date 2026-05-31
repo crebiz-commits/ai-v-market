@@ -34,7 +34,10 @@ function HeroPanels() {
     const el = ref.current; if (!el) return;
     const t = setInterval(() => {
       if (el.scrollWidth <= el.clientWidth + 4) return;
-      let next = el.scrollLeft + el.clientWidth;
+      // 한 칸(첫 카드 폭)씩 부드럽게 이동 — 데스크탑 2등분에서도 한 장씩 순환
+      const card = el.firstElementChild as HTMLElement | null;
+      const step = card ? card.offsetWidth : el.clientWidth;
+      let next = el.scrollLeft + step;
       if (next >= el.scrollWidth - 4) next = 0;
       el.scrollTo({ left: next, behavior: "smooth" });
     }, 5000);
@@ -43,7 +46,7 @@ function HeroPanels() {
   return (
     <div ref={ref} className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory">
       {HEROES.map((h) => (
-        <div key={h.id} className="snap-start flex-shrink-0 w-full md:w-1/3 p-1.5">
+        <div key={h.id} className="snap-start flex-shrink-0 w-full md:w-1/2 p-1.5">
           <button className="relative block w-full h-[52vh] md:h-[60vh] rounded-2xl overflow-hidden text-left group">
             <img src={h.image} alt="" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
@@ -66,7 +69,7 @@ function HeroPanels() {
 function MarqueeRow({ cat }: { cat: Cat }) {
   // 끊김 없는 무한 흐름: 항목 2벌 복제, 트랙을 -50%까지 이동
   const doubled = [...cat.items, ...cat.items];
-  const duration = `${cat.items.length * 20}s`; // 더 천천히
+  const duration = `${cat.items.length * 28}s`; // 더더 천천히
   return (
     <section className="mb-7">
       <h3 className="text-base md:text-lg font-bold px-4 md:px-6 mb-2.5">{cat.title}</h3>
@@ -76,7 +79,7 @@ function MarqueeRow({ cat }: { cat: Cat }) {
           style={{ animationDuration: duration }}
         >
           {doubled.map((it, i) => (
-            <button key={i} className="flex-shrink-0 w-72 md:w-[26rem] group/card text-left">
+            <button key={i} className="flex-shrink-0 w-80 md:w-[30rem] group/card text-left">
               <div className="relative aspect-video rounded-xl overflow-hidden bg-card">
                 <img src={it.image} alt="" className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500" />
                 {/* 제목·정보를 카드 안(하단 그라데이션)에 */}
