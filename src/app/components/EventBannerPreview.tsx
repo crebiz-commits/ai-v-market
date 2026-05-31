@@ -1,57 +1,8 @@
-import { EventBannerBoard, type BoardBanner } from "./EventBannerBoard";
+import { EventBannerBoard } from "./EventBannerBoard";
+import { getActiveEventBanners } from "../data/eventBanners";
 
-// ?preview=event-banner — 3카드 이벤트 배너 미리보기 (시네마엔 아직 미적용)
-const SAMPLE: BoardBanner[] = [
-  {
-    id: "special",
-    badge: "스페셜 이벤트",
-    title: "내가 만든 영상이 1000만 관객!",
-    subtitle: "집에서 간단하게 만든 AI영화, 너도 방구석 제임스카메론이 될 수 있다! 지금 바로 도전하세요.",
-    ctaLabel: "지금 도전하기",
-    link: "/?tab=upload",
-    image: "https://picsum.photos/seed/creaite-robot/900/450",
-    align: "left",
-  },
-  {
-    id: "slogan",
-    eyebrow: "크리에잇 슬로건",
-    title: "Create. Share. Profit. With AI.",
-    titleGradient: true,
-    subtitle: "창작하고, 공유하고, 부자가 되다. AI로.",
-    ctaLabel: "지금 바로 잇!! 하라",
-    link: "/?tab=discovery",
-    align: "center",
-  },
-  {
-    id: "contest",
-    title: "콘테스트 공모전 이벤트 배너",
-    subtitle: "당신의 창의력을 증명할 시간. 총 상금 5,000만원의 주인공이 되세요.",
-    badges: ["D-14", "진행중"],
-    link: "/?tab=community",
-    image: "https://picsum.photos/seed/creaite-contest/900/450",
-    align: "left",
-  },
-  {
-    id: "subscribe",
-    badge: "런칭 특가",
-    title: "프리미엄 첫 달 50% 할인",
-    subtitle: "모든 AI 시네마·OTT를 광고 없이 무제한으로 즐기세요.",
-    ctaLabel: "구독하기",
-    link: "/?tab=mypage",
-    image: "https://picsum.photos/seed/creaite-premium/900/450",
-    align: "left",
-  },
-  {
-    id: "ranking",
-    eyebrow: "위클리 랭킹",
-    title: "이번 주 TOP 크리에이터",
-    subtitle: "가장 사랑받은 AI 영상과 크리에이터를 만나보세요.",
-    ctaLabel: "랭킹 보기",
-    link: "/?tab=ott",
-    align: "left",
-    gradient: "from-[#1e1b4b] via-[#3b0764] to-[#0d0d14]",
-  },
-];
+// ?preview=event-banner — 시네마와 동일한 데이터(eventBanners.ts) 미리보기
+const SAMPLE = getActiveEventBanners();
 
 export function EventBannerPreview() {
   return (

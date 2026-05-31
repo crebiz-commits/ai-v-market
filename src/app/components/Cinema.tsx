@@ -21,7 +21,8 @@ import { TrendingHeroSection } from "./TrendingHeroSection";
 import { Footer } from "./Footer";
 import { useAgeRatings } from "../hooks/useAgeRatings";
 import { CoverFlow } from "./CoverFlow";
-import { EventBanner } from "./EventBanner";
+import { EventBannerBoard } from "./EventBannerBoard";
+import { getActiveEventBanners } from "../data/eventBanners";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { useTranslation } from "react-i18next";
@@ -237,8 +238,10 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
         </div>
       </div>
 
-      {/* 이벤트/프로모 배너 (활성 이벤트 있을 때만 노출, 슬림·닫기 가능) */}
-      <EventBanner onNavigate={onNavigate} />
+      {/* 이벤트/프로모 배너 보드 (활성 이벤트 있을 때만 노출. 넓은 화면 최대 5개 / 모바일 1개 5초 슬라이드) */}
+      <div className="mt-3">
+        <EventBannerBoard banners={getActiveEventBanners()} onNavigate={onNavigate} />
+      </div>
 
       <div className="mt-4">
           {/* 🎡 CoverFlow — 원통형 캐러셀 (CREAITE만의 시그니처 UI) */}
