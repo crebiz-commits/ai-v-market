@@ -24,8 +24,9 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
 
     // 청크 로드 실패 (새 배포 후 옛 청크 URL 참조) → 자동 새로고침
-    // sessionStorage 가드로 무한 루프 방지
+    // 시간 기반 가드: 15초 내 재새로고침만 막아 무한 루프 방지, 그 이후 배포 청크에러는 자동복구
     const RELOAD_KEY = 'creaite_chunk_reload_attempted';
+    const RELOAD_COOLDOWN_MS = 15000;
     const msg = error?.message || String(error);
     const isChunkError =
       msg.includes('Failed to fetch dynamically imported') ||
@@ -33,8 +34,9 @@ export class ErrorBoundary extends Component<Props, State> {
       msg.includes('Importing a module script failed') ||
       error?.name === 'ChunkLoadError';
 
-    if (isChunkError && !sessionStorage.getItem(RELOAD_KEY)) {
-      sessionStorage.setItem(RELOAD_KEY, 'true');
+    const last = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
+    if (isChunkError && Date.now() - last > RELOAD_COOLDOWN_MS) {
+      sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
       // 즉시 새로고침 (사용자가 ErrorBoundary 화면 거의 못 봄)
       setTimeout(() => window.location.reload(), 100);
     }

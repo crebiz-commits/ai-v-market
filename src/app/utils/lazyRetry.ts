@@ -26,10 +26,13 @@ function isChunkLoadError(err: any): boolean {
   return CHUNK_ERROR_PATTERNS.some((p) => msg.includes(p)) || err?.name === "ChunkLoadError";
 }
 
+const RELOAD_COOLDOWN_MS = 15000; // 15초 내 재새로고침 금지(무한 루프 방지), 그 이후엔 새 배포 청크에러 자동복구 허용
+
 function reloadOnce() {
   if (typeof window === "undefined") return;
-  if (sessionStorage.getItem(RELOAD_KEY)) return;  // 이미 한 번 새로고침함 — 무한 루프 방지
-  sessionStorage.setItem(RELOAD_KEY, "true");
+  const last = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
+  if (Date.now() - last < RELOAD_COOLDOWN_MS) return; // 방금 새로고침했으면 루프 방지
+  sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
   window.location.reload();
 }
 
