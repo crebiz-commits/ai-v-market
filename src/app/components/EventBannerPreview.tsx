@@ -31,6 +31,26 @@ const SAMPLE: BoardBanner[] = [
     image: "https://picsum.photos/seed/creaite-contest/900/450",
     align: "left",
   },
+  {
+    id: "subscribe",
+    badge: "런칭 특가",
+    title: "프리미엄 첫 달 50% 할인",
+    subtitle: "모든 AI 시네마·OTT를 광고 없이 무제한으로 즐기세요.",
+    ctaLabel: "구독하기",
+    link: "/?tab=mypage",
+    image: "https://picsum.photos/seed/creaite-premium/900/450",
+    align: "left",
+  },
+  {
+    id: "ranking",
+    eyebrow: "위클리 랭킹",
+    title: "이번 주 TOP 크리에이터",
+    subtitle: "가장 사랑받은 AI 영상과 크리에이터를 만나보세요.",
+    ctaLabel: "랭킹 보기",
+    link: "/?tab=ott",
+    align: "left",
+    gradient: "from-[#1e1b4b] via-[#3b0764] to-[#0d0d14]",
+  },
 ];
 
 export function EventBannerPreview() {
@@ -38,9 +58,9 @@ export function EventBannerPreview() {
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <div className="max-w-7xl mx-auto px-4 pt-6 pb-3">
         <p className="text-xs text-[#a78bfa] font-bold tracking-widest uppercase">Preview · 이벤트 배너</p>
-        <h1 className="text-xl font-black mt-1">3카드 이벤트 배너 (데스크탑 3개 / 모바일 1개 5초 슬라이드)</h1>
+        <h1 className="text-xl font-black mt-1">이벤트 배너 5종 (넓은 화면 최대 5개 / 모바일 1개 5초 슬라이드)</h1>
         <p className="text-xs text-gray-500 mt-1">
-          화면을 좁히면(모바일) 1개씩 보이며 5초마다 자동으로 오른쪽으로 넘어갑니다. 넓히면 3개가 한 줄에 보입니다.
+          화면 폭에 따라 1→2→3→4→5개로 채워집니다. 좁은 화면(모바일)은 1개씩 + 5초마다 우측 자동 슬라이드.
         </p>
       </div>
 

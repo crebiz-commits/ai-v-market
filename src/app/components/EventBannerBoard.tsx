@@ -70,15 +70,16 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
   if (banners.length === 0) return null;
 
   return (
-    <div className="max-w-7xl mx-auto px-2 md:px-4">
+    <div className="max-w-[1800px] mx-auto px-2 md:px-4">
       <div
         ref={scrollRef}
         onScroll={onScroll}
         className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory"
         style={{ scrollbarWidth: "none" }}
       >
+        {/* 반응형: 모바일 1 / sm 2 / md 3 / lg 4 / xl+ 5 → 넓은 전체화면에서 폭을 채움 */}
         {banners.map((b) => (
-          <div key={b.id} className="snap-start flex-shrink-0 w-full md:w-1/3 p-2">
+          <div key={b.id} className="snap-start flex-shrink-0 w-full sm:w-1/2 md:w-1/3 lg:w-1/4 xl:w-1/5 p-2">
             <button
               onClick={() => go(b.link)}
               className="relative w-full h-44 md:h-48 rounded-2xl overflow-hidden text-left group block"
