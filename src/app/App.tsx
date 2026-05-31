@@ -83,6 +83,7 @@ const TrendingCardPreview = lazy(() => import("./components/TrendingCardPreview"
 const NetflixCardPreview = lazy(() => import("./components/NetflixCardPreview").then(m => ({ default: m.NetflixCardPreview })));
 const ProductDetailPreview = lazy(() => import("./components/ProductDetailPreview").then(m => ({ default: m.ProductDetailPreview })));
 const CommunityMockShowcase = lazy(() => import("./components/CommunityMockShowcase").then(m => ({ default: m.CommunityMockShowcase })));
+const EventBannerPreview = lazy(() => import("./components/EventBannerPreview").then(m => ({ default: m.EventBannerPreview })));
 const CreatorRevenueGuide = lazy(() => import("./components/CreatorRevenueGuide").then(m => ({ default: m.CreatorRevenueGuide })));
 
 // 비로그인 사용자 첫 화면 (Netflix 패턴 랜딩)
@@ -163,6 +164,7 @@ function AppContent() {
       "netflix-card": <NetflixCardPreview />,
       "product-detail": <ProductDetailPreview />,
       "community-mock": <CommunityMockShowcase />,
+      "event-banner": <EventBannerPreview />,
     };
     if (previewMap[previewParam]) {
       return <Suspense fallback={<PageLoading />}>{previewMap[previewParam]}</Suspense>;
