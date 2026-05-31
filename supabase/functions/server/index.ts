@@ -816,7 +816,7 @@ app.post('/send-email', async (c) => {
     const callerId = caller.user.id;
 
     // providedTo 는 무시 — 수신자는 항상 user_id 로 서버 조회(임의 외부주소 발송 차단)
-    const { user_id, type, subject, html } = await c.req.json();
+    const { user_id, type, subject, html, link: clientLink } = await c.req.json();
 
     if (!user_id || !type || !subject || !html) {
       return c.json({ error: 'Missing required fields' }, 400);
@@ -840,6 +840,38 @@ app.post('/send-email', async (c) => {
       return c.json({ error: 'Recipient email not found' }, 400);
     }
     const to = userData.user.email;
+
+    // ── 인앱 알림(벨 패널) 기록 ──────────────────────────────────────────────
+    // notifications 테이블 INSERT — 이메일/푸시와 동일 이벤트를 벨에도 표시.
+    // service_role 이라 RLS 우회(타 사용자에게 가는 actor 알림도 기록 가능).
+    // 가장 부드러운 채널이므로 이메일 설정 OFF여도 벨엔 남김(활동 내역).
+    // 표시용 짧은 본문 + 클릭 이동 link 를 타입별로 매핑.
+    const INAPP: Record<string, { type: string; body: string; link: string }> = {
+      welcome:                 { type: 'system',   body: 'CREAITE에 오신 것을 환영합니다',  link: '/' },
+      subscription_receipt:    { type: 'purchase', body: '결제가 완료되었습니다',            link: '/?tab=mypage' },
+      refund_completed:        { type: 'purchase', body: '환불이 완료되었습니다',            link: '/?tab=mypage' },
+      comment_reply:           { type: 'comment',  body: '새 답글이 달렸습니다',              link: '/' },
+      new_follower:            { type: 'system',   body: '새 팔로워가 생겼습니다',            link: '/?tab=channel' },
+      revenue_settled:         { type: 'sale',     body: '정산이 완료되었습니다',            link: '/?tab=mypage' },
+      report_result:           { type: 'system',   body: '신고 검토 결과가 도착했습니다',    link: '/' },
+      ad_budget_low:           { type: 'system',   body: '광고 예산이 임박했습니다',          link: '/' },
+      new_video_from_followed: { type: 'system',   body: '팔로우한 채널의 새 영상',          link: '/' },
+    };
+    const inapp = INAPP[type] || { type: 'system', body: '탭하여 확인하세요', link: '/' };
+    const inappTitle = String(subject || '').replace(/^\[CREAITE\]\s*/, '').slice(0, 200);
+    const inappLink = (typeof clientLink === 'string' && clientLink) ? clientLink.slice(0, 500) : inapp.link;
+    try {
+      await supabase.from('notifications').insert({
+        user_id,
+        type: inapp.type,
+        title: inappTitle,
+        body: inapp.body,
+        link: inappLink,
+        read: false,
+      });
+    } catch (e) {
+      console.warn('[send-email] 인앱 알림 기록 실패:', e);
+    }
 
     // 1. 사용자 알림 설정 확인
     const { data: shouldSend, error: checkError } = await supabase.rpc(
@@ -908,8 +940,8 @@ app.post('/send-email', async (c) => {
     });
 
     // 4. 웹 푸시도 발송 — 구독 기기가 있으면 (구독 자체가 사용자 동의). 이메일과 동일 알림.
-    const pushTitle = subject.replace(/^\[CREAITE\]\s*/, '');
-    await sendWebPushToUser(supabase, user_id, pushTitle, '탭하여 확인하세요', '/');
+    //    인앱 벨과 동일한 짧은 본문 + 딥링크(link) 사용 → 탭 시 해당 화면으로 이동.
+    await sendWebPushToUser(supabase, user_id, inappTitle, inapp.body, inappLink);
 
     return c.json({ success: true, message_id: resendData.id });
   } catch (err: any) {

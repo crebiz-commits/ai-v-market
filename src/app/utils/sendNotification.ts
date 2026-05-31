@@ -52,6 +52,8 @@ export async function sendNotification(params: {
   to?: string;
   subject: string;
   html: string;
+  /** 인앱 알림(벨)/웹 푸시 클릭 시 이동할 경로. 생략 시 Edge Function이 타입별 기본값 사용 */
+  link?: string;
 }): Promise<SendNotificationResult> {
   try {
     // H1: /send-email 은 호출자 인증을 요구 → 사용자 access token 전달 (anon key 아님)

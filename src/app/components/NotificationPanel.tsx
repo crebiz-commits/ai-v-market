@@ -10,6 +10,7 @@ interface Notification {
   type: "like" | "comment" | "purchase" | "sale" | "system" | "challenge";
   title: string;
   body?: string;
+  link?: string;
   read: boolean;
   created_at: string;
 }
@@ -104,9 +105,11 @@ function timeAgo(dateStr: string, isKo: boolean): string {
 interface NotificationPanelProps {
   onClose: () => void;
   onUnreadCountChange?: (count: number) => void;
+  /** 알림 클릭 시 link(예: "/?video=X", "/?tab=mypage")로 이동 */
+  onNavigate?: (link: string) => void;
 }
 
-export function NotificationPanel({ onClose, onUnreadCountChange }: NotificationPanelProps) {
+export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: NotificationPanelProps) {
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
   const SAMPLE = isKo ? SAMPLE_KO : SAMPLE_EN;
@@ -166,6 +169,15 @@ export function NotificationPanel({ onClose, onUnreadCountChange }: Notification
     } catch {}
   };
 
+  const handleClick = (notif: Notification) => {
+    void markRead(notif.id);
+    // 샘플(미인증)은 이동 안 함. link 있으면 해당 화면으로 이동 + 패널 닫기.
+    if (!notif.id.startsWith("s") && notif.link && notif.link !== "/") {
+      onNavigate?.(notif.link);
+      onClose();
+    }
+  };
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
@@ -218,7 +230,7 @@ export function NotificationPanel({ onClose, onUnreadCountChange }: Notification
                 key={notif.id}
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                onClick={() => markRead(notif.id)}
+                onClick={() => handleClick(notif)}
                 className={`w-full flex gap-3 px-4 py-3 hover:bg-white/5 transition-colors text-left border-b border-white/5 ${
                   !notif.read ? "bg-white/[0.03]" : ""
                 }`}
@@ -227,7 +239,7 @@ export function NotificationPanel({ onClose, onUnreadCountChange }: Notification
                   {TYPE_ICON[notif.type]}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm leading-snug ${notif.read ? "text-gray-400" : "text-white font-medium"}`}>
+                  <p className={`text-sm leading-snug line-clamp-2 ${notif.read ? "text-gray-400" : "text-white font-medium"}`}>
                     {notif.title}
                   </p>
                   {notif.body && (

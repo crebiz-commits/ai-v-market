@@ -343,6 +343,19 @@ function AppContent() {
     }
   };
 
+  // 알림(벨) 클릭 시 link 파싱 → 영상/탭으로 이동
+  const handleNotificationNavigate = (link: string) => {
+    setActivePanel(null);
+    if (!link || link === "/") return;
+    try {
+      const url = new URL(link, window.location.origin);
+      const video = url.searchParams.get("video");
+      const tab = url.searchParams.get("tab");
+      if (video) { void loadAndOpenVideo(video); return; }
+      if (tab) { setActiveTab(tab as Tab); return; }
+    } catch { /* 잘못된 link 무시 */ }
+  };
+
   // 첫 마운트 시 URL ?video=<id> 있으면 ProductDetail 자동 열기
   // (공유 링크, OG 봇 이후 일반 사용자 진입, 외부 사이트 링크 모두 대상)
   useEffect(() => {
@@ -867,6 +880,7 @@ function AppContent() {
                   <NotificationPanel
                     onClose={() => setActivePanel(null)}
                     onUnreadCountChange={setUnreadNotifications}
+                    onNavigate={handleNotificationNavigate}
                   />
                 )}
               </Suspense>
@@ -907,6 +921,7 @@ function AppContent() {
                     <NotificationPanel
                       onClose={() => setActivePanel(null)}
                       onUnreadCountChange={setUnreadNotifications}
+                      onNavigate={handleNotificationNavigate}
                     />
                   )}
                 </Suspense>
