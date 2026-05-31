@@ -144,10 +144,21 @@ export function AdminBroadcast() {
         <label className="block text-xs font-bold text-muted-foreground mb-1.5">클릭 시 이동 링크 (선택)</label>
         <input
           className="input-base"
-          placeholder="/?video=video_id 또는 /about 등"
+          placeholder="비우면 이동 없음 · 예: /?tab=ott"
           value={link}
           onChange={(e) => setLink(e.target.value)}
         />
+        <div className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
+          <p className="mb-1">비워두면 클릭해도 이동하지 않습니다(공지 내용만 확인). 이동시키려면 아래 형식으로 입력:</p>
+          <ul className="space-y-0.5 font-mono text-[10px] text-blue-300/90">
+            <li>/?tab=discovery <span className="text-muted-foreground font-sans">— 홈</span></li>
+            <li>/?tab=market <span className="text-muted-foreground font-sans">— 시네마</span></li>
+            <li>/?tab=ott <span className="text-muted-foreground font-sans">— OTT</span></li>
+            <li>/?tab=community <span className="text-muted-foreground font-sans">— 커뮤니티</span></li>
+            <li>/?tab=mypage <span className="text-muted-foreground font-sans">— 마이페이지</span></li>
+            <li>/?video=영상ID <span className="text-muted-foreground font-sans">— 특정 영상</span></li>
+          </ul>
+        </div>
       </div>
 
       {/* 발송 버튼 */}
