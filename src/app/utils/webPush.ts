@@ -71,7 +71,8 @@ export async function unsubscribeFromPush(): Promise<void> {
   const reg = await navigator.serviceWorker.ready;
   const sub = await reg.pushManager.getSubscription();
   if (sub) {
-    await supabase.rpc("delete_push_subscription", { p_endpoint: sub.endpoint }).catch(() => {});
-    await sub.unsubscribe().catch(() => {});
+    // supabase rpc 빌더는 .catch 가 없으므로 try/catch 로 (이전 .catch 체이닝이 런타임 에러였음)
+    try { await supabase.rpc("delete_push_subscription", { p_endpoint: sub.endpoint }); } catch { /* ignore */ }
+    try { await sub.unsubscribe(); } catch { /* ignore */ }
   }
 }
