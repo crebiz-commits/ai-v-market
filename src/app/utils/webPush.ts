@@ -10,7 +10,11 @@
 // ════════════════════════════════════════════════════════════════════════════
 import { supabase } from "./supabaseClient";
 
-const VAPID_PUBLIC = (import.meta as any).env?.VITE_VAPID_PUBLIC_KEY || "";
+// VAPID 공개키 — 브라우저에 공개되는 값이라 코드 내장 안전(비밀은 private key뿐, Edge 시크릿 보관).
+// 환경변수(VITE_VAPID_PUBLIC_KEY)가 있으면 우선, 없으면 아래 기본값 사용 → Vercel env 누락에도 푸시 동작.
+const VAPID_PUBLIC =
+  (import.meta as any).env?.VITE_VAPID_PUBLIC_KEY ||
+  "BFfca01CqmKW4GngZAPbUIntj4a39HHIhgN2-Wjw-RDAU-0r2eKPil3-2CUGVwoBm3fZMJCCC-AREEM-dXhgC4Y";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
