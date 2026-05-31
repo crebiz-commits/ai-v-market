@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Loader2, Megaphone, Send, Users, Crown, Film } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
+import { projectId, publicAnonKey } from "../../../utils/supabase/info";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 
@@ -44,8 +45,29 @@ export function AdminBroadcast() {
       return;
     }
     const count = data as number;
-    toast.success(`${count}명에게 발송됨`);
+    toast.success(`${count}명에게 인앱 발송됨`);
     setLastResult({ count, segment: segLabel });
+
+    // 잠금화면 푸시도 발송 (구독 기기 대상) — 실패해도 인앱 발송은 이미 성공
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/server/broadcast-push`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: publicAnonKey,
+          Authorization: `Bearer ${session?.access_token || publicAnonKey}`,
+        },
+        body: JSON.stringify({ segment, title, body: body || null, link: link || null }),
+      });
+      const pd = await res.json();
+      if (res.ok && typeof pd?.pushed === "number" && pd.pushed > 0) {
+        toast.success(`잠금화면 푸시 ${pd.pushed}대 발송`);
+      }
+    } catch (e) {
+      console.warn("[broadcast] 푸시 발송 실패:", e);
+    }
+
     setTitle("");
     setBody("");
     setLink("");
@@ -57,10 +79,10 @@ export function AdminBroadcast() {
       <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-200 text-xs">
         <p className="font-semibold mb-1">📢 공지 발송 안내</p>
         <ul className="text-blue-200/80 space-y-0.5">
-          <li>• 인앱 알림으로 발송됩니다 (notifications 테이블 INSERT)</li>
-          <li>• 사용자는 종 아이콘(🔔)에서 확인합니다</li>
+          <li>• 인앱 알림(🔔) + 잠금화면 푸시로 발송됩니다</li>
+          <li>• 푸시는 "이 기기에서 푸시 받기"를 켠 구독 기기에만 도달합니다</li>
           <li>• 정지된 계정에는 발송하지 않습니다</li>
-          <li>• 이메일/푸시는 향후 별도 작업 (Resend/FCM 연동)</li>
+          <li>• 이메일 발송은 향후 별도 작업 (Resend 연동)</li>
         </ul>
       </div>
 

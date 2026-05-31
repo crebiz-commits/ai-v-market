@@ -38,6 +38,35 @@ async function sendWebPushToUser(supabase: any, userId: string, title: string, b
   }
 }
 
+// ── 여러 구독에 일괄 웹 푸시 (공지 발송용, 만료 구독 자동 정리) ───────────────
+async function sendWebPushToSubs(
+  supabase: any,
+  subs: Array<{ endpoint: string; p256dh: string; auth: string }>,
+  title: string,
+  body: string,
+  url = "/",
+): Promise<number> {
+  const vapidPublic = Deno.env.get("VAPID_PUBLIC_KEY");
+  const vapidPrivate = Deno.env.get("VAPID_PRIVATE_KEY");
+  if (!vapidPublic || !vapidPrivate || !subs?.length) return 0;
+  webpush.setVapidDetails("mailto:support@creaite.net", vapidPublic, vapidPrivate);
+  const payload = JSON.stringify({ title, body, url });
+  let ok = 0;
+  await Promise.all(
+    subs.map((s) =>
+      webpush
+        .sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload)
+        .then(() => { ok++; })
+        .catch(async (e: any) => {
+          if (e?.statusCode === 404 || e?.statusCode === 410) {
+            await supabase.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+          }
+        })
+    )
+  );
+  return ok;
+}
+
 // Supabase 클라이언트 생성 함수
 const getSupabaseClient = (useServiceRole = false) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -947,6 +976,65 @@ app.post('/send-email', async (c) => {
   } catch (err: any) {
     console.error('[send-email] 예외:', err);
     return c.json({ error: '이메일 발송 중 서버 오류: ' + (err?.message || err) }, 500);
+  }
+});
+
+// ============================================
+// 어드민 공지 푸시 발송 (Phase 10.7 보강 — 인앱 벨 INSERT 는 admin_broadcast_notification RPC 가,
+// 잠금화면 푸시는 이 엔드포인트가 담당. AdminBroadcast.tsx 가 둘 다 호출)
+// ============================================
+// 호출: POST /server/broadcast-push   Body: { segment, title, body, link }
+app.post('/broadcast-push', async (c) => {
+  try {
+    const supabase = getSupabaseClient(true);
+
+    // 호출자 인증 + 어드민 검증
+    const token = (c.req.header('authorization') || '').replace(/^Bearer\s+/i, '');
+    if (!token) return c.json({ error: '인증이 필요합니다' }, 401);
+    const { data: caller, error: callerErr } = await supabase.auth.getUser(token);
+    if (callerErr || !caller?.user) return c.json({ error: '인증 실패' }, 401);
+    const { data: prof } = await supabase.from('profiles').select('is_admin').eq('id', caller.user.id).single();
+    if (!prof?.is_admin) return c.json({ error: '어드민만 발송 가능합니다' }, 403);
+
+    const { segment = 'all', title, body, link } = await c.req.json();
+    if (!title) return c.json({ error: '제목이 필요합니다' }, 400);
+    if (!['all', 'premium', 'free', 'creators'].includes(segment)) {
+      return c.json({ error: '잘못된 세그먼트' }, 400);
+    }
+
+    // 모든 푸시 구독(작은 테이블)을 가져온 뒤 세그먼트로 필터 — 전체 profiles 스캔 회피
+    const { data: subs } = await supabase
+      .from('push_subscriptions')
+      .select('endpoint, p256dh, auth, user_id');
+    if (!subs || !subs.length) return c.json({ success: true, pushed: 0 });
+
+    // 정지 계정 제외 (정지자는 보통 소수)
+    const { data: suspended } = await supabase.from('profiles').select('id').eq('is_suspended', true);
+    const suspendedSet = new Set((suspended || []).map((r: any) => r.id));
+    let allowed = (uid: string) => !suspendedSet.has(uid);
+
+    if (segment === 'premium' || segment === 'free') {
+      const { data: tierUsers } = await supabase.from('profiles').select('id').eq('subscription_tier', segment);
+      const tierSet = new Set((tierUsers || []).map((r: any) => r.id));
+      const base = allowed; allowed = (uid: string) => base(uid) && tierSet.has(uid);
+    } else if (segment === 'creators') {
+      const { data: vids } = await supabase.from('videos').select('creator_id');
+      const creatorSet = new Set((vids || []).map((r: any) => r.creator_id).filter(Boolean));
+      const base = allowed; allowed = (uid: string) => base(uid) && creatorSet.has(uid);
+    }
+
+    const targets = subs.filter((s: any) => allowed(s.user_id));
+    const pushed = await sendWebPushToSubs(
+      supabase,
+      targets,
+      String(title).replace(/^\[CREAITE\]\s*/, '').slice(0, 200),
+      (body && String(body).slice(0, 200)) || '탭하여 확인하세요',
+      (typeof link === 'string' && link) ? link.slice(0, 500) : '/',
+    );
+    return c.json({ success: true, pushed });
+  } catch (err: any) {
+    console.error('[broadcast-push] 예외:', err);
+    return c.json({ error: '공지 푸시 중 서버 오류: ' + (err?.message || err) }, 500);
   }
 });
 
