@@ -26,6 +26,11 @@ const ACTION_META: Record<string, { label: string; icon: typeof User; color: str
   delete_video:           { label: "영상 삭제",        icon: Trash2,        color: "text-red-400" },
   refund_payment:         { label: "환불 처리",        icon: RotateCcw,     color: "text-amber-300" },
   broadcast_notification: { label: "공지 발송",        icon: Megaphone,     color: "text-blue-400" },
+  hide_comment:           { label: "댓글 숨김",        icon: EyeOff,        color: "text-amber-300" },
+  unhide_comment:         { label: "댓글 복원",        icon: Eye,           color: "text-green-400" },
+  delete_comment:         { label: "댓글 삭제",        icon: Trash2,        color: "text-red-400" },
+  unhide_post:            { label: "커뮤니티글 복원",  icon: Eye,           color: "text-green-400" },
+  resolve_moderation:     { label: "AI 검토 결정",     icon: ShieldCheck,   color: "text-blue-400" },
 };
 
 const ACTIONS_FILTER = [
@@ -34,6 +39,8 @@ const ACTIONS_FILTER = [
   { key: "set_admin_role",         label: "권한 변경" },
   { key: "hide_video",             label: "영상 숨김" },
   { key: "delete_video",           label: "영상 삭제" },
+  { key: "hide_comment",           label: "댓글 숨김" },
+  { key: "resolve_moderation",     label: "AI 검토" },
   { key: "refund_payment",         label: "환불" },
   { key: "broadcast_notification", label: "공지" },
 ];

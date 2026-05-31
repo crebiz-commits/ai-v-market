@@ -83,21 +83,26 @@ export function AdminReports() {
     // Phase 34 — 신고자에게 처리 결과 메일 발송 (keep/remove만, dismiss 제외)
     if (action === "keep" || action === "remove") {
       try {
-        const report = reports.find((r) => r.id === id);
-        if (report?.reporter_id) {
+        const clicked = reports.find((r) => r.id === id);
+        if (clicked) {
           const targetTypeLabel =
-            TARGET_LABELS[report.target_type]?.replace(/^.+\s/, "") || report.target_type;
-          const { subject, html } = buildReportResultEmail({
-            action,
-            targetTypeLabel,
-          });
-          void sendNotification({
-            user_id: report.reporter_id,
-            type: "report_result",
-            // to 생략 — Edge Function이 user_id로 자동 조회
-            subject,
-            html,
-          });
+            TARGET_LABELS[clicked.target_type]?.replace(/^.+\s/, "") || clicked.target_type;
+          const { subject, html } = buildReportResultEmail({ action, targetTypeLabel });
+          // M6(2026-05-31): 같은 대상의 모든 신고자에게 통지 (moderate_report가 일괄 처리하므로)
+          const reporterIds = Array.from(new Set(
+            reports
+              .filter((r) => r.target_type === clicked.target_type && r.target_id === clicked.target_id && r.reporter_id)
+              .map((r) => r.reporter_id)
+          ));
+          for (const rid of reporterIds) {
+            void sendNotification({
+              user_id: rid,
+              type: "report_result",
+              // to 생략 — Edge Function이 user_id로 자동 조회
+              subject,
+              html,
+            });
+          }
         }
       } catch (mailErr) {
         console.warn("[AdminReports] 신고 결과 메일 발송 실패:", mailErr);
@@ -209,9 +214,15 @@ export function AdminReports() {
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted font-bold">
                       {TARGET_LABELS[primary.target_type] || primary.target_type}
                     </span>
-                    {primary.report_count >= 3 && (
+                    {/* L3(2026-05-31): user 신고는 자동 숨김 대상이 아님 → 배지 제외 */}
+                    {primary.report_count >= 3 && primary.target_type !== "user" && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 font-bold">
                         ⚠️ 신고 {primary.report_count}건 — 자동 숨김됨
+                      </span>
+                    )}
+                    {primary.report_count >= 3 && primary.target_type === "user" && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-bold">
+                        신고 {primary.report_count}건 — 수동 검토 필요
                       </span>
                     )}
                   </div>

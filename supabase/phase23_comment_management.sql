@@ -170,7 +170,7 @@ BEGIN
 
   SELECT creator_id INTO v_creator_id FROM public.videos WHERE id = v_video_id;
 
-  IF v_creator_id <> v_uid THEN
+  IF v_creator_id IS DISTINCT FROM v_uid THEN  -- M5(2026-05-31): NULL creator_id 우회 차단
     RAISE EXCEPTION '영상 작성자만 핀 고정할 수 있습니다';
   END IF;
 
@@ -220,7 +220,7 @@ BEGIN
 
   SELECT creator_id INTO v_creator_id FROM public.videos WHERE id = v_video_id;
 
-  IF v_creator_id <> v_uid THEN
+  IF v_creator_id IS DISTINCT FROM v_uid THEN  -- M5(2026-05-31): NULL creator_id 우회 차단
     RAISE EXCEPTION '영상 작성자만 하트를 줄 수 있습니다';
   END IF;
 

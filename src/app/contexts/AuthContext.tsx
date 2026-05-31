@@ -230,7 +230,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // 테스트 모드: 이메일 자동 확인되므로 바로 로그인
-      await signIn(email, password);
+      // M3(2026-05-31): 계정은 생성됐으나 자동 로그인만 실패한 경우 — '가입 실패'로 오인 방지
+      try {
+        await signIn(email, password);
+      } catch {
+        throw new Error('가입은 완료됐습니다. 로그인 화면에서 이메일/비밀번호로 다시 로그인해 주세요.');
+      }
 
       // Phase 34 — 환영 메일 발송 (fire-and-forget, 실패해도 가입 흐름 무관)
       if (data?.user?.id) {
