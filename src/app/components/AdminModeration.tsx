@@ -40,6 +40,7 @@ export function AdminModeration() {
   const [aiCount, setAiCount] = useState<number>(0);
 
   // AI 검토 대기 카운트 미리 조회 (탭 배지)
+  // L5(2026-05-31): 마운트 시 1회만 (이전 [tab] 의존 → 탭 전환마다 중복 조회). AI 탭의 onCountChange 가 이후 최신화.
   useEffect(() => {
     (async () => {
       const { data } = await supabase.rpc("get_moderation_queue", {
@@ -48,7 +49,7 @@ export function AdminModeration() {
       });
       setAiCount(Array.isArray(data) ? data.length : 0);
     })();
-  }, [tab]);
+  }, []);
 
   return (
     <div>
@@ -101,7 +102,8 @@ function TabButton({
         <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
           active ? "bg-[#a78bfa] text-white" : "bg-amber-500/20 text-amber-300"
         }`}>
-          {count}
+          {/* L5: 조회 limit 100 cap 에서 잘리면 99+ 로 표시 */}
+          {count > 99 ? "99+" : count}
         </span>
       )}
     </button>

@@ -154,6 +154,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (mounted) setProfile(p);
     };
 
+    // M2(2026-05-31): OAuth(구글 등) 신규 가입자 welcome 메일.
+    // 이메일 가입은 signUp 에서 발송하므로 provider !== 'email' 만 대상.
+    // 신규 판정: created_at 2분 내 + localStorage 가드로 중복/재로그인 발송 방지.
+    const maybeSendOAuthWelcome = (u: any) => {
+      try {
+        const provider = u?.app_metadata?.provider;
+        if (!provider || provider === 'email') return;
+        const createdAt = u?.created_at ? new Date(u.created_at).getTime() : 0;
+        if (!createdAt || Date.now() - createdAt > 120000) return; // 가입 직후만
+        const key = `creaite_welcome_${u.id}`;
+        if (localStorage.getItem(key)) return;
+        localStorage.setItem(key, '1');
+        const name = u.user_metadata?.name || u.user_metadata?.full_name || u.email?.split('@')[0] || 'CREAITE 회원';
+        const { subject, html } = buildWelcomeEmail(name);
+        void sendNotification({ user_id: u.id, type: 'welcome', to: u.email, subject, html });
+      } catch (e) {
+        console.warn('[AuthContext] OAuth welcome 발송 실패:', e);
+      }
+    };
+
     // 3. 인증 상태 변경 리스너 즉시 등록
     console.log('[AuthContext] Subscribing to auth state changes...');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -166,6 +186,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (session) {
         updateUserState(session.user, session.access_token);
+        // M2: OAuth 신규 가입자 환영 메일 (실제 로그인 이벤트만)
+        if (event === 'SIGNED_IN' && session.user) maybeSendOAuthWelcome(session.user);
       } else {
         updateUserState(null, null);
       }

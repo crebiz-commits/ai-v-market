@@ -25,6 +25,8 @@ export interface ContentSettings {
   minDurationForPreroll: number;
   /** Mid-roll 광고 적용 최소 영상 길이 */
   minDurationForMidroll: number;
+  /** 같은 콘텐츠 신고 N건 누적 시 자동 숨김 임계값 */
+  autoHideThreshold: number;
 }
 
 const DEFAULTS: ContentSettings = {
@@ -34,6 +36,7 @@ const DEFAULTS: ContentSettings = {
   cinemaPreviewSeconds: 60,
   minDurationForPreroll: 60,
   minDurationForMidroll: 600,
+  autoHideThreshold: 3,
 };
 
 const SettingsContext = createContext<ContentSettings>(DEFAULTS);
@@ -49,6 +52,7 @@ const KEY_MAP: Record<string, keyof ContentSettings> = {
   cinema_preview_seconds:           "cinemaPreviewSeconds",
   min_duration_for_preroll_seconds: "minDurationForPreroll",
   min_duration_for_midroll_seconds: "minDurationForMidroll",
+  auto_hide_threshold:              "autoHideThreshold",
 };
 
 export function SettingsProvider({ children }: { children: ReactNode }) {

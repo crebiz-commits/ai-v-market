@@ -12,6 +12,7 @@ import { supabase } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 import { sendNotification, buildReportResultEmail } from "../utils/sendNotification";
+import { useSettings } from "../contexts/SettingsContext";
 
 interface ReportRow {
   id: number;
@@ -43,6 +44,8 @@ const TARGET_LABELS: Record<string, string> = {
 };
 
 export function AdminReports() {
+  // L2(2026-05-31): 자동 숨김 임계값을 platform_settings 에서 동적 조회 (하드코딩 3 제거)
+  const { autoHideThreshold } = useSettings();
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<number | null>(null);
@@ -215,12 +218,12 @@ export function AdminReports() {
                       {TARGET_LABELS[primary.target_type] || primary.target_type}
                     </span>
                     {/* L3(2026-05-31): user 신고는 자동 숨김 대상이 아님 → 배지 제외 */}
-                    {primary.report_count >= 3 && primary.target_type !== "user" && (
+                    {primary.report_count >= autoHideThreshold && primary.target_type !== "user" && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 font-bold">
                         ⚠️ 신고 {primary.report_count}건 — 자동 숨김됨
                       </span>
                     )}
-                    {primary.report_count >= 3 && primary.target_type === "user" && (
+                    {primary.report_count >= autoHideThreshold && primary.target_type === "user" && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-bold">
                         신고 {primary.report_count}건 — 수동 검토 필요
                       </span>

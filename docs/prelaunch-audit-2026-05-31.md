@@ -82,7 +82,7 @@
 ## 🟡 MEDIUM (9)
 
 - **M1.** `/moderate-video` 인증 부재 → 임의 호출로 Vision API 비용 소모 + 타인 모더레이션 상태 교란 (`index.ts:885-1009`). (보안영역서도 중복 확인)
-- **M2.** OAuth(Google/Kakao) 신규 가입자 welcome 메일 미발송 (`AuthContext.tsx:254~`).
+- **M2.** ✅ OAuth(Google/Kakao) 신규 가입자 welcome 메일 — SIGNED_IN 시 provider!=email + created_at 2분내 + localStorage 가드로 발송 (`AuthContext.tsx`).
 - **M3.** 이메일 가입 직후 자동로그인 실패 시 '가입 실패'로 오인 + welcome 누락 (`AuthContext.tsx:235`).
 - **M4.** 댓글 heart/block 실패 toast가 버튼 라벨 재사용(조용한 실패) (`CommentPanel.tsx:395,422`).
 - **M5.** toggle_pin/heart: videos.creator_id NULL이면 소유자검증 통과 → 임의 유저 핀/하트 (`phase23_comment_management.sql:173,223`).
@@ -96,10 +96,10 @@
 ## 🟢 LOW (5)
 
 - **L1.** `AdminRevenueSettlement.tsx:162` 미정의 타입 `SettlementRow` 참조(→ `Distribution`). 오늘 R5 커밋(bd856e0)에서 유입. 런타임 무해, 타입체크만 실패.
-- **L2.** 어드민 신고 큐 '자동 숨김' 배지 임계값 3 하드코딩 ↔ platform_settings.auto_hide_threshold 불일치 (`AdminReports.tsx:212`).
+- **L2.** ✅ 자동숨김 배지 임계값 — SettingsContext.autoHideThreshold(platform_settings.auto_hide_threshold 동적, fallback 3)로 교체 (`AdminReports.tsx`+`SettingsContext.tsx`).
 - **L3.** user 신고 누적 시 자동 숨김 안 되는데 배지는 '자동 숨김됨' 오표시 (`phase10_reports.sql:170` + `AdminReports.tsx:212`).
 - **L4.** 댓글 hide/unhide/delete 로그가 활동로그 화면에 라벨·필터 누락 (`AdminActivityLog.tsx:20-39`).
-- **L5.** AI 검토 대기 배지 카운트 100/50 cap에서 잘림 + 탭 전환마다 중복조회 (`AdminModeration.tsx:43-51`).
+- **L5.** ✅ AI 검토 배지 — 마운트 1회 조회([]의존, 탭전환 중복제거) + cap 도달 시 99+ 표시 (`AdminModeration.tsx`).
 
 ---
 
