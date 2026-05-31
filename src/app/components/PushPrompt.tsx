@@ -46,14 +46,18 @@ export function PushPrompt() {
   }, [isAuthenticated]);
 
   const enable = async () => {
+    if (busy) return;
     setBusy(true);
+    // 배너는 즉시 닫고(체감 속도↑) 진행 상태를 토스트로 — FCM 구독 등록은 네트워크 왕복이라 1~몇 초 소요
+    setShow(false);
+    const tid = toast.loading(t("pushPrompt.enabling", "알림을 켜는 중…"));
     try {
       await subscribeToPush();
-      toast.success(t("pushPrompt.enabled", "알림을 켰습니다. 새 소식을 바로 받아보세요."));
-      setShow(false);
-      localStorage.setItem(DISMISS_KEY, Date.now().toString());
+      toast.success(t("pushPrompt.enabled", "알림을 켰습니다. 새 소식을 바로 받아보세요."), { id: tid });
+      localStorage.setItem(DISMISS_KEY, Date.now().toString()); // 성공 시 영구 미노출
     } catch (err: any) {
-      toast.error(err?.message || t("pushPrompt.failed", "알림 설정에 실패했습니다."));
+      toast.error(err?.message || t("pushPrompt.failed", "알림 설정에 실패했습니다."), { id: tid });
+      // 실패 시 DISMISS 미설정 → 다음에 다시 안내
     } finally {
       setBusy(false);
     }
