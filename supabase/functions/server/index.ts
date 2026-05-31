@@ -848,11 +848,11 @@ app.post('/send-email', async (c) => {
     // 표시용 짧은 본문 + 클릭 이동 link 를 타입별로 매핑.
     const INAPP: Record<string, { type: string; body: string; link: string }> = {
       welcome:                 { type: 'system',   body: 'CREAITE에 오신 것을 환영합니다',  link: '/' },
-      subscription_receipt:    { type: 'purchase', body: '결제가 완료되었습니다',            link: '/?tab=mypage' },
-      refund_completed:        { type: 'purchase', body: '환불이 완료되었습니다',            link: '/?tab=mypage' },
+      subscription_receipt:    { type: 'purchase', body: '결제가 완료되었습니다',            link: '/?tab=mypage&section=settings' },
+      refund_completed:        { type: 'purchase', body: '환불이 완료되었습니다',            link: '/?tab=mypage&section=settings' },
       comment_reply:           { type: 'comment',  body: '새 답글이 달렸습니다',              link: '/' },
       new_follower:            { type: 'system',   body: '새 팔로워가 생겼습니다',            link: '/?tab=channel' },
-      revenue_settled:         { type: 'sale',     body: '정산이 완료되었습니다',            link: '/?tab=mypage' },
+      revenue_settled:         { type: 'sale',     body: '정산이 완료되었습니다',            link: '/?tab=mypage&section=sales' },
       report_result:           { type: 'system',   body: '신고 검토 결과가 도착했습니다',    link: '/' },
       ad_budget_low:           { type: 'system',   body: '광고 예산이 임박했습니다',          link: '/' },
       new_video_from_followed: { type: 'system',   body: '팔로우한 채널의 새 영상',          link: '/' },

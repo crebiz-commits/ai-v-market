@@ -306,6 +306,8 @@ interface MyPageProps {
   onVideoClick?: (videoId: string) => void;  // Phase 17: 시청 기록에서 영상 클릭
   onViewMyChannel?: () => void;              // 내 채널 가기 (Channel 탭으로 이동)
   onNavigate?: (tab: string) => void;
+  initialTab?: string | null;               // 알림 클릭 등 외부에서 특정 탭으로 진입 (예: 결제 알림 → settings)
+  onInitialTabConsumed?: () => void;         // 초기 탭 적용 후 신호 소거
 }
 
 // 모드 선택 화면 (마이 탭 진입 시)
@@ -421,9 +423,17 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
 };
 
-export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigate }: MyPageProps) {
+export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigate, initialTab, onInitialTabConsumed }: MyPageProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("profile");
+  // 알림 클릭 등 외부에서 특정 탭으로 진입 (예: 결제 알림 → settings 의 결제내역)
+  useEffect(() => {
+    const VALID = ['profile', 'purchases', 'sales', 'comments', 'history', 'playlists', 'settings'];
+    if (initialTab && VALID.includes(initialTab)) {
+      setActiveTab(initialTab);
+      onInitialTabConsumed?.();
+    }
+  }, [initialTab, onInitialTabConsumed]);
   const [pageMode, setPageMode] = useState<PageMode>(() => {
     if (typeof window === 'undefined') return 'select';
     const saved = localStorage.getItem(PAGE_MODE_STORAGE_KEY);

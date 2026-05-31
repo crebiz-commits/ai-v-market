@@ -298,6 +298,8 @@ function AppContent() {
   };
   // 채널 탭 외부에서 "채널 보기" 클릭 시 어떤 크리에이터를 열지 신호 (Channel이 mount 후 selectedCreatorId로 채택)
   const [pendingCreatorId, setPendingCreatorId] = useState<string | null>(null);
+  // 알림 클릭 등으로 마이페이지 특정 탭(결제내역=settings 등)으로 진입할 때 신호
+  const [pendingMyPageTab, setPendingMyPageTab] = useState<string | null>(null);
   const handleViewCreator = (creatorId: string) => {
     setPendingCreatorId(creatorId);
     setSelectedProduct(null);
@@ -356,8 +358,13 @@ function AppContent() {
       const url = new URL(link, window.location.origin);
       const video = url.searchParams.get("video");
       const tab = url.searchParams.get("tab");
+      const section = url.searchParams.get("section");
       if (video) { void loadAndOpenVideo(video, { openComments: url.searchParams.get("comment") === "1" }); return; }
-      if (tab) { setActiveTab(tab as Tab); return; }
+      if (tab) {
+        if (tab === "mypage" && section) setPendingMyPageTab(section);
+        setActiveTab(tab as Tab);
+        return;
+      }
     } catch { /* 잘못된 link 무시 */ }
   };
 
@@ -619,6 +626,8 @@ function AppContent() {
             onViewMyChannel={user?.id ? () => handleViewCreator(user.id) : undefined}
             onVideoClick={loadAndOpenVideo}
             onNavigate={(tab) => setActiveTab(tab as Tab)}
+            initialTab={pendingMyPageTab}
+            onInitialTabConsumed={() => setPendingMyPageTab(null)}
           />
         );
       case "admin":
