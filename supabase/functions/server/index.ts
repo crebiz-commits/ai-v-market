@@ -775,25 +775,40 @@ app.post('/toss-confirm', async (c) => {
 
 app.post('/send-email', async (c) => {
   try {
-    const { user_id, type, to: providedTo, subject, html } = await c.req.json();
+    const supabase = getSupabaseClient(true);
+
+    // H1(2026-05-31): 호출자 인증 — 공개 anon key 만으로 임의 to/html 발송하던 오픈릴레이 차단
+    const token = (c.req.header('authorization') || '').replace(/^Bearer\s+/i, '');
+    if (!token) return c.json({ error: '인증이 필요합니다' }, 401);
+    const { data: caller, error: callerErr } = await supabase.auth.getUser(token);
+    if (callerErr || !caller?.user) return c.json({ error: '인증 실패' }, 401);
+    const callerId = caller.user.id;
+
+    // providedTo 는 무시 — 수신자는 항상 user_id 로 서버 조회(임의 외부주소 발송 차단)
+    const { user_id, type, subject, html } = await c.req.json();
 
     if (!user_id || !type || !subject || !html) {
       return c.json({ error: 'Missing required fields' }, 400);
     }
 
-    const supabase = getSupabaseClient(true);
-
-    // Phase 34 단계 3-3 보강: to가 없으면 user_id로 email 자동 조회
-    // (댓글 답글/팔로우/정산 등 타인 알림은 클라이언트가 수신자 email 모름)
-    let to = providedTo;
-    if (!to) {
-      const { data: userData, error: userErr } = await supabase.auth.admin.getUserById(user_id);
-      if (userErr || !userData?.user?.email) {
-        console.error('[send-email] user_id로 email 조회 실패:', user_id, userErr);
-        return c.json({ error: 'Recipient email not found' }, 400);
-      }
-      to = userData.user.email;
+    // H1: type 별 발신 권한 — self(본인) / admin(어드민) / actor(인증 사용자 행위)
+    const SELF_TYPES = ['welcome', 'subscription_receipt'];
+    const ADMIN_TYPES = ['report_result', 'revenue_settled', 'refund_completed', 'ad_budget_low'];
+    if (SELF_TYPES.includes(type)) {
+      if (user_id !== callerId) return c.json({ error: '본인에게만 발송 가능한 알림입니다' }, 403);
+    } else if (ADMIN_TYPES.includes(type)) {
+      const { data: prof } = await supabase.from('profiles').select('is_admin').eq('id', callerId).single();
+      if (!prof?.is_admin) return c.json({ error: '어드민만 발송 가능한 알림입니다' }, 403);
     }
+    // actor types(comment_reply/new_follower/new_video_from_followed): 인증된 사용자면 허용
+
+    // 수신자 email 은 항상 user_id 로 조회 (클라이언트가 to 를 임의 지정 못 함)
+    const { data: userData, error: userErr } = await supabase.auth.admin.getUserById(user_id);
+    if (userErr || !userData?.user?.email) {
+      console.error('[send-email] user_id로 email 조회 실패:', user_id, userErr);
+      return c.json({ error: 'Recipient email not found' }, 400);
+    }
+    const to = userData.user.email;
 
     // 1. 사용자 알림 설정 확인
     const { data: shouldSend, error: checkError } = await supabase.rpc(
@@ -884,23 +899,36 @@ app.post('/send-email', async (c) => {
 
 app.post('/moderate-video', async (c) => {
   try {
+    const supabase = getSupabaseClient(true);
+
+    // M1(2026-05-31): 호출자 인증 — 무인증 시 임의 video_id로 Vision API 비용 어뷰징/상태 위변조 가능
+    const token = (c.req.header('authorization') || '').replace(/^Bearer\s+/i, '');
+    if (!token) return c.json({ error: '인증이 필요합니다' }, 401);
+    const { data: caller, error: callerErr } = await supabase.auth.getUser(token);
+    if (callerErr || !caller?.user) return c.json({ error: '인증 실패' }, 401);
+    const callerId = caller.user.id;
+
     const { video_id } = await c.req.json();
 
     if (!video_id) {
       return c.json({ error: 'Missing video_id' }, 400);
     }
 
-    const supabase = getSupabaseClient(true);
-
-    // 1. 영상 정보 조회 (thumbnail URL)
+    // 1. 영상 정보 조회 (thumbnail URL + 소유자)
     const { data: video, error: vidErr } = await supabase
       .from('videos')
-      .select('id, thumbnail')
+      .select('id, thumbnail, creator_id')
       .eq('id', video_id)
       .single();
 
     if (vidErr || !video) {
       return c.json({ error: 'Video not found', details: vidErr }, 404);
+    }
+
+    // M1: 영상 소유자 또는 어드민만 (service_role 클라이언트라 grant/RLS 우회 조회)
+    if (video.creator_id !== callerId) {
+      const { data: prof } = await supabase.from('profiles').select('is_admin').eq('id', callerId).single();
+      if (!prof?.is_admin) return c.json({ error: '권한이 없습니다' }, 403);
     }
 
     if (!video.thumbnail) {

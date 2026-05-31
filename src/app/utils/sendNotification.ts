@@ -13,6 +13,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import { projectId, publicAnonKey } from "../../../utils/supabase/info";
+import { supabase } from "./supabaseClient";
 
 const serverUrl = `https://${projectId}.supabase.co/functions/v1/server`;
 
@@ -53,11 +54,15 @@ export async function sendNotification(params: {
   html: string;
 }): Promise<SendNotificationResult> {
   try {
+    // H1: /send-email 은 호출자 인증을 요구 → 사용자 access token 전달 (anon key 아님)
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
     const res = await fetch(`${serverUrl}/send-email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${publicAnonKey}`,
+        apikey: publicAnonKey,
+        Authorization: `Bearer ${accessToken || publicAnonKey}`,
       },
       body: JSON.stringify(params),
     });
