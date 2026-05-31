@@ -260,35 +260,7 @@ export function NotificationSettings() {
         </div>
       </div>
 
-      {/* 푸시 알림 그룹 */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide">
-            {t("notificationSettings.pushSection")}
-          </h4>
-          <span className="text-[10px] font-bold text-amber-400/80 bg-amber-400/10 px-2 py-0.5 rounded-full">
-            {t("notificationSettings.pushBadge")}
-          </span>
-        </div>
-        <p className="text-xs text-gray-500 mb-3">{t("notificationSettings.pushDescription")}</p>
-        <div className="space-y-1 opacity-60">
-          {ITEMS.map((item) => (
-            <div
-              key={item.pushKey}
-              className="flex items-start justify-between gap-4 py-3 border-b border-white/5 last:border-b-0"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white">{t(item.labelKey)}</p>
-              </div>
-              <Switch
-                checked={prefs[item.pushKey]}
-                onCheckedChange={(v) => handleToggle(item.pushKey, v)}
-                disabled={saving.has(item.pushKey)}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* 푸시 알림은 상단 "이 기기에서 푸시 받기" 토글로 통합 — 옛 per-type "준비 중" 섹션 제거(2026-05-31) */}
     </div>
   );
 }
