@@ -115,6 +115,13 @@ export function Ott({ onProductClick, onNavigate }: OttProps) {
   }, [trending, genreRows]);
   const ageRatings = useAgeRatings(allVideoIds);
 
+  // 히어로 인덱스 — trending 로드 시 1회만 랜덤. (이전엔 render 본문 Math.random 이라
+  //  ageRatings 등으로 재렌더될 때마다 히어로가 바뀌어 깜빡이던 버그)
+  const heroIdx = useMemo(() => {
+    const pool = Math.min(5, trending.length);
+    return pool > 0 ? Math.floor(Math.random() * pool) : 0;
+  }, [trending]);
+
   // 카드 단계 잠금 가드
   const ageGuard = (v: CarouselVideo) => {
     const rating = ageRatings[v.id];
@@ -195,10 +202,7 @@ export function Ott({ onProductClick, onNavigate }: OttProps) {
     );
   }
 
-  // 히어로: Top 5 중 랜덤 (진입할 때마다 다른 영상)
-  // featured: 히어로 제외한 나머지에서 (중복 방지)
-  const heroPool = Math.min(5, trending.length);
-  const heroIdx = heroPool > 0 ? Math.floor(Math.random() * heroPool) : 0;
+  // 히어로: Top 5 중 랜덤(heroIdx, 위 useMemo로 1회 고정) / featured: 히어로 제외 나머지
   const hero = trending[heroIdx];
   const featured = trending.filter((_, i) => i !== heroIdx).slice(0, 5);
 
