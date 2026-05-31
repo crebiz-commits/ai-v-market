@@ -42,6 +42,11 @@ interface AuthContextType {
   signInWithKakao: () => Promise<void>;
   signOut: () => void;
   isAuthenticated: boolean;
+  // H8: 비밀번호 재설정
+  passwordRecovery: boolean;                                  // 재설정 메일 링크로 진입한 상태
+  requestPasswordReset: (email: string) => Promise<void>;     // 재설정 메일 발송
+  updatePassword: (newPassword: string) => Promise<void>;     // 새 비밀번호 설정
+  clearPasswordRecovery: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -51,6 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);  // H8
 
   // 신규 Edge Function 'server'로 통일 (legacy 'make-server-f4aeac42' 제거)
   const serverUrl = `https://${projectId}.supabase.co/functions/v1/server`;
@@ -154,6 +160,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('[AuthContext] Auth event received:', event);
       
       if (!mounted) return;
+
+      // H8: 비밀번호 재설정 메일 링크로 진입 → 새 비밀번호 설정 화면 노출 플래그
+      if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true);
 
       if (session) {
         updateUserState(session.user, session.access_token);
@@ -326,6 +335,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     (!profile?.subscription_expires_at ||
       new Date(profile.subscription_expires_at).getTime() > Date.now());
 
+  // H8: 비밀번호 재설정 메일 발송 (로그인 전 계정 복구)
+  const requestPasswordReset = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+    if (error) throw error;
+  };
+  // H8: 새 비밀번호 설정 (recovery 세션 또는 로그인 상태에서)
+  const updatePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    setPasswordRecovery(false);
+  };
+  const clearPasswordRecovery = () => setPasswordRecovery(false);
+
   const value = {
     user,
     profile,
@@ -341,6 +365,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signInWithKakao,
     signOut,
     isAuthenticated: !!user,
+    passwordRecovery,
+    requestPasswordReset,
+    updatePassword,
+    clearPasswordRecovery,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

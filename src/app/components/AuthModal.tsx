@@ -21,7 +21,18 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp, signInWithGoogle, signInWithKakao } = useAuth();
+  const { signIn, signUp, signInWithGoogle, signInWithKakao, requestPasswordReset } = useAuth();
+
+  // H8: 비밀번호 재설정 메일 발송
+  const handleForgotPassword = async () => {
+    if (!email.trim()) { toast.error(t("auth.enterEmailFirst", "이메일을 먼저 입력해주세요.")); return; }
+    try {
+      await requestPasswordReset(email.trim());
+      toast.success(t("auth.resetEmailSent", "비밀번호 재설정 메일을 보냈습니다. 메일함을 확인해주세요."));
+    } catch (err: any) {
+      toast.error(err?.message || t("auth.resetEmailFailed", "재설정 메일 발송에 실패했습니다."));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,6 +261,18 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                       minLength={6}
                     />
                   </div>
+
+                  {mode === "signin" && (
+                    <div className="text-right -mt-1">
+                      <button
+                        type="button"
+                        onClick={handleForgotPassword}
+                        className="text-[12.5px] text-gray-500 hover:text-[#fe2c55] hover:underline font-medium"
+                      >
+                        {t("auth.forgotPassword")}
+                      </button>
+                    </div>
+                  )}
 
                   <Button
                     type="submit"

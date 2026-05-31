@@ -62,6 +62,7 @@ const SearchPage = lazy(() => import("./components/SearchPage").then(m => ({ def
 // 모달·패널 (열릴 때만 로드)
 const ProductDetail = lazy(() => import("./components/ProductDetail").then(m => ({ default: m.ProductDetail })));
 const AuthModal = lazy(() => import("./components/AuthModal").then(m => ({ default: m.AuthModal })));
+const PasswordResetScreen = lazy(() => import("./components/PasswordResetScreen").then(m => ({ default: m.PasswordResetScreen })));
 const CartPanel = lazy(() => import("./components/CartPanel").then(m => ({ default: m.CartPanel })));
 const NotificationPanel = lazy(() => import("./components/NotificationPanel").then(m => ({ default: m.NotificationPanel })));
 
@@ -360,7 +361,7 @@ function AppContent() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [pendingCartAdd, setPendingCartAdd] = useState<{ product: VideoProduct; licenseType: "standard" | "commercial" | "extended" } | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const { user, profile, signOut, isAuthenticated, loading } = useAuth();
+  const { user, profile, signOut, isAuthenticated, loading, passwordRecovery } = useAuth();
   // 비로그인 사용자가 〈둘러보기〉 클릭 시 LandingPage → DiscoveryFeed 로 전환
   const [hasExplored, setHasExplored] = useState(false);
 
@@ -1027,6 +1028,13 @@ function AppContent() {
       {showAuthModal && (
         <Suspense fallback={null}>
           <AuthModal onClose={() => setShowAuthModal(false)} />
+        </Suspense>
+      )}
+
+      {/* H8: 비밀번호 재설정 화면 (재설정 메일 링크 진입 시) */}
+      {passwordRecovery && (
+        <Suspense fallback={null}>
+          <PasswordResetScreen />
         </Suspense>
       )}
 
