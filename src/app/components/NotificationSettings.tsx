@@ -14,8 +14,9 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../utils/supabaseClient";
 import { Switch } from "./ui/switch";
-import { Bell, Loader2 } from "lucide-react";
+import { Bell, Loader2, Smartphone } from "lucide-react";
 import { toast } from "sonner";
+import { subscribeToPush, unsubscribeFromPush, isPushSubscribed, isPushSupported } from "../utils/webPush";
 
 interface NotificationPreferences {
   email_welcome: boolean;
@@ -107,6 +108,33 @@ export function NotificationSettings() {
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<Set<string>>(new Set());
+  // 웹 푸시 (이 기기)
+  const pushSupported = isPushSupported();
+  const [pushOn, setPushOn] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    if (pushSupported) isPushSubscribed().then(setPushOn).catch(() => {});
+  }, [pushSupported]);
+
+  const handlePushToggle = async (value: boolean) => {
+    setPushBusy(true);
+    try {
+      if (value) {
+        await subscribeToPush();
+        setPushOn(true);
+        toast.success(t("notificationSettings.pushEnabled", "이 기기에서 푸시 알림을 받습니다."));
+      } else {
+        await unsubscribeFromPush();
+        setPushOn(false);
+        toast.success(t("notificationSettings.pushDisabled", "푸시 알림을 해제했습니다."));
+      }
+    } catch (err: any) {
+      toast.error(err?.message || t("notificationSettings.pushError", "푸시 설정에 실패했습니다."));
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!user?.id) return;
@@ -180,6 +208,22 @@ export function NotificationSettings() {
         {t("notificationSettings.title")}
       </h3>
       <p className="text-sm text-gray-500 mb-5">{t("notificationSettings.subtitle")}</p>
+
+      {/* 웹 푸시 (이 기기) — 잠금화면/알림함 푸시 */}
+      {pushSupported && (
+        <div className="mb-7 p-3.5 rounded-xl bg-[#1c1c1e] border border-white/5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Smartphone className="w-4 h-4 text-[#a78bfa] shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-white">{t("notificationSettings.pushDeviceLabel", "이 기기에서 푸시 받기")}</p>
+              <p className="text-[11px] text-gray-500">{t("notificationSettings.pushDeviceDesc", "잠금화면·알림함으로 알림을 받습니다 (iOS는 홈화면 설치 필요)")}</p>
+            </div>
+          </div>
+          {pushBusy
+            ? <Loader2 className="w-4 h-4 animate-spin text-gray-500 shrink-0" />
+            : <Switch checked={pushOn} onCheckedChange={handlePushToggle} />}
+        </div>
+      )}
 
       {/* 이메일 알림 그룹 */}
       <div className="mb-7">

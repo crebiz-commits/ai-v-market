@@ -3,9 +3,40 @@ import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import * as kv from "./kv_store.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import webpush from "npm:web-push@3.6.7";
 
 // Supabase Edge Function 함수 이름이 path prefix로 포함되므로 basePath 설정
 const app = new Hono().basePath('/server');
+
+// ── 웹 푸시 발송 헬퍼 (구독 기기에 푸시, 만료 구독 자동 정리) ─────────────────
+async function sendWebPushToUser(supabase: any, userId: string, title: string, body: string, url = "/") {
+  try {
+    const vapidPublic = Deno.env.get("VAPID_PUBLIC_KEY");
+    const vapidPrivate = Deno.env.get("VAPID_PRIVATE_KEY");
+    if (!vapidPublic || !vapidPrivate) return;
+    const { data: subs } = await supabase
+      .from("push_subscriptions")
+      .select("endpoint, p256dh, auth")
+      .eq("user_id", userId);
+    if (!subs || !subs.length) return;
+    webpush.setVapidDetails("mailto:support@creaite.net", vapidPublic, vapidPrivate);
+    const payload = JSON.stringify({ title, body, url });
+    await Promise.all(
+      subs.map((s: any) =>
+        webpush
+          .sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload)
+          .catch(async (e: any) => {
+            // 만료/해지된 구독(404/410) 정리
+            if (e?.statusCode === 404 || e?.statusCode === 410) {
+              await supabase.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+            }
+          })
+      )
+    );
+  } catch (e) {
+    console.warn("[push] 발송 실패:", e);
+  }
+}
 
 // Supabase 클라이언트 생성 함수
 const getSupabaseClient = (useServiceRole = false) => {
@@ -875,6 +906,10 @@ app.post('/send-email', async (c) => {
       p_status: 'sent',
       p_resend_message_id: resendData.id,
     });
+
+    // 4. 웹 푸시도 발송 — 구독 기기가 있으면 (구독 자체가 사용자 동의). 이메일과 동일 알림.
+    const pushTitle = subject.replace(/^\[CREAITE\]\s*/, '');
+    await sendWebPushToUser(supabase, user_id, pushTitle, '탭하여 확인하세요', '/');
 
     return c.json({ success: true, message_id: resendData.id });
   } catch (err: any) {
