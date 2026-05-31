@@ -66,7 +66,7 @@ function HeroPanels() {
 function MarqueeRow({ cat }: { cat: Cat }) {
   // 끊김 없는 무한 흐름: 항목 2벌 복제, 트랙을 -50%까지 이동
   const doubled = [...cat.items, ...cat.items];
-  const duration = `${cat.items.length * 12}s`; // 천천히 (이전 *6 대비 2배 느리게)
+  const duration = `${cat.items.length * 20}s`; // 더 천천히
   return (
     <section className="mb-7">
       <h3 className="text-base md:text-lg font-bold px-4 md:px-6 mb-2.5">{cat.title}</h3>
@@ -76,7 +76,7 @@ function MarqueeRow({ cat }: { cat: Cat }) {
           style={{ animationDuration: duration }}
         >
           {doubled.map((it, i) => (
-            <button key={i} className="flex-shrink-0 w-64 md:w-80 group/card text-left">
+            <button key={i} className="flex-shrink-0 w-72 md:w-[26rem] group/card text-left">
               <div className="relative aspect-video rounded-xl overflow-hidden bg-card">
                 <img src={it.image} alt="" className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500" />
                 {/* 제목·정보를 카드 안(하단 그라데이션)에 */}
