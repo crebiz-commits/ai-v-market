@@ -390,6 +390,50 @@ function AppContent() {
   // 비로그인 사용자가 〈둘러보기〉 클릭 시 LandingPage → DiscoveryFeed 로 전환
   const [hasExplored, setHasExplored] = useState(false);
 
+  // 앱을 켜둔 동안(포그라운드) 새 알림 실시간 수신 → 벨 배지 즉시 갱신 + 화면 내 토스트
+  // (다른 앱처럼 앱 열어둔 상태에서도 공지/알림이 바로 뜨도록. 잠금화면 푸시는 서비스워커가 별도 담당)
+  // + 진입 시 안 읽은 알림 수 초기 로드
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) {
+      setUnreadNotifications(0);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { count } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("read", false);
+      if (!cancelled && typeof count === "number") setUnreadNotifications(count);
+    })();
+
+    const channel = supabase
+      .channel(`notif-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        (payload: any) => {
+          const n = payload.new || {};
+          setUnreadNotifications((c) => c + 1);
+          toast(n.title || "새 알림", {
+            description: n.body || undefined,
+            action:
+              n.link && n.link !== "/"
+                ? { label: "보기", onClick: () => handleNotificationNavigate(n.link) }
+                : undefined,
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+    // handleNotificationNavigate 는 매 렌더 재생성되나 재구독 불필요 → 의존성 제외
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id]);
+
   // YouTube 패턴: 어떤 영상이든 재생되면 다른 모든 영상을 즉시 일시정지
   // + 우선순위 영상(data-priority-video) 보호: 모달/전체화면 영상은 백그라운드 autoplay에 의해 멈추지 않음
   useEffect(() => {
