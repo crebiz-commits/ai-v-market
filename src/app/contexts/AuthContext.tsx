@@ -56,18 +56,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const serverUrl = `https://${projectId}.supabase.co/functions/v1/server`;
 
   // profile 가져오기 (가입 직후엔 트리거가 아직 처리 중일 수 있어 1회 재시도)
-  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, display_name, avatar_url, banner_url, bio, subscription_tier, subscription_started_at, subscription_expires_at, is_admin, birthdate, age_verified')
-      .eq('id', userId)
-      .maybeSingle();
-
+  const fetchProfile = useCallback(async (_userId: string): Promise<Profile | null> => {
+    // 보안(C2): profiles 테이블 직접 select 대신 본인 전체 프로필 RPC.
+    // profiles SELECT 는 공개 컬럼만 GRANT 되어 있고, 민감 컬럼(email/payout_info/
+    // birthdate/business_* 등)은 본인만 이 RPC(auth.uid())로 읽는다.
+    const { data, error } = await supabase.rpc('get_my_profile');
     if (error) {
       console.error('[AuthContext] fetchProfile error:', error.message);
       return null;
     }
-    return data as Profile | null;
+    return (data as Profile) ?? null;
   }, []);
 
   const refreshProfile = useCallback(async () => {

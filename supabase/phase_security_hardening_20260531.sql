@@ -6,13 +6,25 @@
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ── C2: profiles 민감 컬럼 공개 노출 차단 ────────────────────────────────────
--- profiles SELECT 정책이 USING(true)라 모든 컬럼이 anon/authenticated에 노출됨.
--- RLS는 행 단위만 제어 → 컬럼 단위 REVOKE로 금융/사업자 PII를 차단.
--- (display_name/avatar_url 등 공개 컬럼은 그대로 SELECT 가능)
-REVOKE SELECT (payout_info)        ON public.profiles FROM anon, authenticated;
-REVOKE SELECT (business_number)    ON public.profiles FROM anon, authenticated;
-REVOKE SELECT (business_name)      ON public.profiles FROM anon, authenticated;
-REVOKE SELECT (tax_invoice_email)  ON public.profiles FROM anon, authenticated;
+-- profiles SELECT 정책이 USING(true)라 모든 컬럼(email/name/settlement_*/payout_info/
+-- birthdate/business_* 등 PII 포함)이 anon/authenticated에 노출됨.
+-- 주의: 테이블 단위 GRANT SELECT 가 있으면 컬럼단위 REVOKE 는 무효(테이블 grant가 덮음).
+-- → 테이블 SELECT 를 통째로 회수하고, 공개 안전 컬럼만 다시 GRANT 한다.
+REVOKE SELECT ON public.profiles FROM anon, authenticated;
+GRANT SELECT (id, display_name, avatar_url, banner_url, bio, subscription_tier, created_at)
+  ON public.profiles TO anon, authenticated;
+
+-- 본인 전체 프로필 조회 (AuthContext). SECURITY DEFINER로 본인 행 전체 반환 → 보호컬럼 우회 없이 본인만.
+CREATE OR REPLACE FUNCTION public.get_my_profile()
+RETURNS public.profiles
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT * FROM public.profiles WHERE id = auth.uid();
+$$;
+GRANT EXECUTE ON FUNCTION public.get_my_profile() TO authenticated;
 
 -- 본인 정산계좌 조회용 (MyPage 카드/모달). SECURITY DEFINER로 본인 것만 반환.
 CREATE OR REPLACE FUNCTION public.get_my_payout_info()
@@ -25,6 +37,9 @@ AS $$
   SELECT payout_info FROM public.profiles WHERE id = auth.uid();
 $$;
 GRANT EXECUTE ON FUNCTION public.get_my_payout_info() TO authenticated;
+
+-- PostgREST 스키마 캐시 갱신
+NOTIFY pgrst, 'reload schema';
 
 -- ── H2: update_video_moderation 권한 축소 ────────────────────────────────────
 -- SECURITY DEFINER인데 본문에 권한검증이 없어 authenticated 전체에 열려 있으면
