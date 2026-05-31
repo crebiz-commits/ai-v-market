@@ -118,9 +118,10 @@ interface ProductDetailProps {
   onSignInClick?: () => void;
   onViewCreator?: (creatorId: string) => void;
   onNavigateToVideo?: (videoId: string) => void | Promise<void>;   // Phase 16: 연속 재생
+  autoOpenComments?: boolean;   // 알림(답글) 클릭 진입 시 댓글창 자동 열기
 }
 
-export function ProductDetail({ product: productProp, onClose, onAddToCart, onSignInClick, onViewCreator, onNavigateToVideo }: ProductDetailProps) {
+export function ProductDetail({ product: productProp, onClose, onAddToCart, onSignInClick, onViewCreator, onNavigateToVideo, autoOpenComments }: ProductDetailProps) {
   const { t } = useTranslation();
   const [isLiked, setIsLiked] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
@@ -189,6 +190,10 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   const [ageGateOpen, setAgeGateOpen] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  // 알림(답글) 클릭으로 진입 시 댓글창 자동 열기 (영상 바뀌면 재평가)
+  useEffect(() => {
+    if (autoOpenComments) setShowComments(true);
+  }, [autoOpenComments, product.id]);
   // 크리에이터 아바타·이름 — Phase 6.6 (videos.creator는 snapshot이라 항상 최신 profiles 정보 우선)
   const creatorInfo = useCreatorInfo([product.creatorId]);
   const creatorAvatar = product.creatorId ? creatorInfo[product.creatorId]?.avatar : null;

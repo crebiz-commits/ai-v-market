@@ -284,6 +284,8 @@ function AppContent() {
     return () => window.removeEventListener("popstate", handler);
   }, []);
   const [selectedProduct, setSelectedProductRaw] = useState<VideoProduct | null>(null);
+  // 알림(답글) 클릭으로 진입 시 ProductDetail 의 댓글창 자동 열기
+  const [openCommentsOnOpen, setOpenCommentsOnOpen] = useState(false);
   // Showcase Mode: demo- prefix 영상은 진입 차단 + 안내 토스트
   const setSelectedProduct = (product: VideoProduct | null) => {
     if (product?.id?.startsWith("demo-")) {
@@ -291,6 +293,7 @@ function AppContent() {
       import("./utils/showcase").then(m => m.handleShowcaseClick(product.id));
       return;
     }
+    setOpenCommentsOnOpen(false); // 일반 진입은 댓글 자동 열기 안 함 (loadAndOpenVideo 가 필요 시 직후 true 설정)
     setSelectedProductRaw(product);
   };
   // 채널 탭 외부에서 "채널 보기" 클릭 시 어떤 크리에이터를 열지 신호 (Channel이 mount 후 selectedCreatorId로 채택)
@@ -301,7 +304,7 @@ function AppContent() {
     setActiveTab("channel");
   };
   // Phase 16/17: 영상 ID로 ProductDetail 열기 (시청 기록 클릭, 연속 재생 등에서 재사용)
-  const loadAndOpenVideo = async (videoId: string) => {
+  const loadAndOpenVideo = async (videoId: string, opts?: { openComments?: boolean }) => {
     try {
       const { data, error } = await supabase
         .from("videos")
@@ -338,6 +341,8 @@ function AppContent() {
         sponsorDisclosure: data.sponsor_disclosure || null,
         sponsorLinkUrl: data.sponsor_link_url || null,
       } as VideoProduct);
+      // setSelectedProduct 가 먼저 false 로 리셋하므로, 댓글 자동 열기는 그 직후 설정
+      if (opts?.openComments) setOpenCommentsOnOpen(true);
     } catch (err: any) {
       toast.error(t("app.videoFetchFailed", { message: err?.message || err }));
     }
@@ -351,7 +356,7 @@ function AppContent() {
       const url = new URL(link, window.location.origin);
       const video = url.searchParams.get("video");
       const tab = url.searchParams.get("tab");
-      if (video) { void loadAndOpenVideo(video); return; }
+      if (video) { void loadAndOpenVideo(video, { openComments: url.searchParams.get("comment") === "1" }); return; }
       if (tab) { setActiveTab(tab as Tab); return; }
     } catch { /* 잘못된 link 무시 */ }
   };
@@ -1035,6 +1040,7 @@ function AppContent() {
             onAddToCart={addToCart}
             onViewCreator={handleViewCreator}
             onNavigateToVideo={loadAndOpenVideo}
+            autoOpenComments={openCommentsOnOpen}
           />
         </Suspense>
       )}
