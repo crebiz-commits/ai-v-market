@@ -27,6 +27,7 @@ import { SplashScreen } from "./components/SplashScreen";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CartItem } from "./components/CartPanel";
 import { InstallButtonHeader, InstallBannerMobile } from "./components/InstallPrompt";
+import { PushPrompt } from "./components/PushPrompt";
 import { CreaiteText } from "./components/CreaiteText";
 import { CreaiteLogo } from "./components/CreaiteLogo";
 import { useBackButton, isInternalBackEvent } from "./hooks/useBackButton";
@@ -1114,6 +1115,9 @@ function AppContent() {
 
       {/* PWA 앱 설치 배너 (모바일, 첫 방문자) */}
       <InstallBannerMobile />
+
+      {/* 카톡식 푸시 권한 자동 프롬프트 (로그인 후 1회, 한 번 탭하면 구독) */}
+      <PushPrompt />
 
       {/* Toast Notifications */}
       <Toaster />
