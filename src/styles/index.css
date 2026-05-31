@@ -69,6 +69,14 @@ body {
   display: none;
 }
 
+/* 마퀴(무한 자동 흐름) — OTT 카테고리 행 (한 줄 우측·다음 줄 좌측). 트랙엔 항목 2벌 복제 → 끊김 없음 */
+@keyframes marquee-left  { from { transform: translateX(0); }      to { transform: translateX(-50%); } }
+@keyframes marquee-right { from { transform: translateX(-50%); }   to { transform: translateX(0); } }
+.marquee-left  { animation: marquee-left  linear infinite; }
+.marquee-right { animation: marquee-right linear infinite; }
+.marquee-row:hover .marquee-left,
+.marquee-row:hover .marquee-right { animation-play-state: paused; }
+
 /* Video.js Full Screen Cover */
 .vjs-cover .vjs-tech {
   object-fit: cover !important;
