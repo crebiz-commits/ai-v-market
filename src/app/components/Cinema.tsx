@@ -13,7 +13,7 @@
 // 카테고리 행 고정 순서 (영상이 있는 카테고리만 표시됨)
 const FIXED_CATEGORY_ORDER = ["영화", "드라마", "애니메이션", "다큐멘터리", "뮤직비디오", "기타"];
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Film, Search as SearchIcon } from "lucide-react";
+import { Loader2, Film } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
@@ -21,7 +21,7 @@ import { TrendingHeroSection } from "./TrendingHeroSection";
 import { Footer } from "./Footer";
 import { useAgeRatings } from "../hooks/useAgeRatings";
 import { CoverFlow } from "./CoverFlow";
-import { Input } from "./ui/input";
+import { EventBanner } from "./EventBanner";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { useTranslation } from "react-i18next";
@@ -147,9 +147,6 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
     return Array.from(ids).filter(id => !id.startsWith("demo-")); // showcase mock 제외
   }, [recommended, continueWatching, trending, newReleases, top10, categoryRows]);
   const ageRatings = useAgeRatings(allVideoIds);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<CarouselVideo[]>([]);
-  const [searching, setSearching] = useState(false);
 
   const isOtt = tier === "ott";
   const heroTitle = isOtt ? t("cinema.heroOttTitle") : t("cinema.heroCinemaTitle");
@@ -212,26 +209,6 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
     loadAll();
   }, [tier]);
 
-  // 검색
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      setSearching(true);
-      const { data } = await supabase
-        .from("v_available_videos")
-        .select("*")
-        .ilike("title", `%${searchQuery}%`)
-        .eq(tier === "cinema" ? "show_on_cinema" : "show_on_ott", true)
-        .limit(20);
-      setSearchResults((data as any) || []);
-      setSearching(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery, tier]);
-
   const handleClick = (v: CarouselVideo) => onProductClick(toProduct(v));
   const handleAddToCart = onAddToCart
     ? (v: CarouselVideo) => onAddToCart(toProduct(v))
@@ -250,53 +227,20 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
 
   return (
     <div className="h-full overflow-y-auto bg-background pb-20">
-      {/* 헤더 */}
+      {/* 헤더 — 검색은 상단 헤더 🔍(통합 검색)로 일원화. 시네마 인페이지 검색 제거(2026-05-31) */}
       <div className="px-4 md:px-6 pt-4 pb-3 sticky top-0 bg-background/95 backdrop-blur-sm z-20">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-black flex items-center gap-2">
-              {isOtt ? "👑" : "🎬"} {heroTitle}
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">{heroSubtitle}</p>
-          </div>
-        </div>
-
-        {/* 검색 */}
-        <div className="relative">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            className="pl-9 bg-card border-border"
-            placeholder={t("cinema.searchPlaceholder", { tier: heroTitle })}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        <div>
+          <h1 className="text-2xl md:text-3xl font-black flex items-center gap-2">
+            {isOtt ? "👑" : "🎬"} {heroTitle}
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">{heroSubtitle}</p>
         </div>
       </div>
 
-      {/* 검색 결과 */}
-      {searchQuery.trim() ? (
-        <div className="mt-4">
-          {searching ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="w-6 h-6 text-[#6366f1] animate-spin" />
-            </div>
-          ) : searchResults.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-8">
-              {t("cinema.noSearchResults", { query: searchQuery })}
-            </p>
-          ) : (
-            <VideoRowCarousel
-              title={t("cinema.searchResultsTitle", { query: searchQuery })}
-              subtitle={t("cinema.searchResultsSubtitle", { count: searchResults.length })}
-              videos={searchResults}
-              onVideoClick={handleClick}
-              onAddToCart={handleAddToCart}
-              ageRatings={ageRatings}
-            />
-          )}
-        </div>
-      ) : (
-        <div className="mt-4">
+      {/* 이벤트/프로모 배너 (활성 이벤트 있을 때만 노출, 슬림·닫기 가능) */}
+      <EventBanner onNavigate={onNavigate} />
+
+      <div className="mt-4">
           {/* 🎡 CoverFlow — 원통형 캐러셀 (CREAITE만의 시그니처 UI) */}
           {(() => {
             // 추천이 비어있으면 인기/신규/top10 영상으로 fallback (중복 제거 후 상위 7개)
@@ -409,7 +353,6 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
             </div>
           )}
         </div>
-      )}
       <Footer onNavigate={onNavigate || (() => {})} />
     </div>
   );
