@@ -1,23 +1,19 @@
 // ════════════════════════════════════════════════════════════════════════════
-// OTT 페이지 — A(시네마틱 매거진) + D(장르별 캐러셀) 합본
-// 디자인 채택: 2026-05-16
-// 시그니처 그라데이션: brandColors.BRAND_GRADIENT (보라→핑크→황색)
-//
-// 구조:
-//   1. 풀블리드 히어로 (Trending #1, "지금 보기" + "작품 정보")
-//   2. EDITOR'S PICK 매거진 (큰 1 + 작은 4)
-//   3. 장르별 캐러셀 (좌/우 화살표로 슬라이드) — 상위 5개 장르
+// OTT 페이지 — 재설계 (2026-06-01)
+//   1. 상단 히어로: 데스크탑 2등분 / 모바일 1개씩 5초 자동 슬라이드 (트렌딩 상위)
+//   2. 하단 카테고리 행: 한 줄 우측·다음 줄 좌측으로 천천히 자동 흐름(마퀴),
+//      가로형 카드 + 제목/정보 카드 안. 마우스 올리면 정지. (쿠팡플레이 하단 스타일)
+//   ↳ 연령 게이트(블러/잠금) + 쇼케이스 합성 유지.
 // ════════════════════════════════════════════════════════════════════════════
-import { useEffect, useMemo, useState, useRef } from "react";
-import { Play, Info, Wand2, Heart, Sparkles, ChevronLeft, ChevronRight, Loader2, Lock } from "lucide-react";
-import { motion } from "motion/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Play, Info, Plus, Lock, Loader2 } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { type CarouselVideo } from "./VideoRowCarousel";
 import { Footer } from "./Footer";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
-import { BRAND_GRADIENT_TEXT, BRAND_BADGE_BG, getGenreStyle } from "../utils/brandColors";
+import { getGenreStyle } from "../utils/brandColors";
 import { useTranslation } from "react-i18next";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { useAgeRatings } from "../hooks/useAgeRatings";
@@ -47,7 +43,6 @@ interface OttProps {
   onNavigate?: (tab: string) => void;
 }
 
-// ShowcaseVideo → CarouselVideo
 function showcaseToCarousel(s: ShowcaseVideo): CarouselVideo {
   return {
     id: s.id,
@@ -96,6 +91,8 @@ interface GenreRow {
   videos: CarouselVideo[];
 }
 
+type AgeGuard = (v: CarouselVideo) => { rating?: string; isAgeLocked: boolean };
+
 export function Ott({ onProductClick, onNavigate }: OttProps) {
   const { t } = useTranslation();
   const { profile, user } = useAuth();
@@ -106,24 +103,15 @@ export function Ott({ onProductClick, onNavigate }: OttProps) {
   const [trending, setTrending] = useState<CarouselVideo[]>([]);
   const [genreRows, setGenreRows] = useState<GenreRow[]>([]);
 
-  // Phase 26 보강: 카드용 age_rating 일괄 조회
   const allVideoIds = useMemo(() => {
     const ids = new Set<string>();
-    trending.forEach(v => ids.add(v.id));
-    genreRows.forEach(r => r.videos.forEach(v => ids.add(v.id)));
-    return Array.from(ids).filter(id => !id.startsWith("demo-"));
+    trending.forEach((v) => ids.add(v.id));
+    genreRows.forEach((r) => r.videos.forEach((v) => ids.add(v.id)));
+    return Array.from(ids).filter((id) => !id.startsWith("demo-"));
   }, [trending, genreRows]);
   const ageRatings = useAgeRatings(allVideoIds);
 
-  // 히어로 인덱스 — trending 로드 시 1회만 랜덤. (이전엔 render 본문 Math.random 이라
-  //  ageRatings 등으로 재렌더될 때마다 히어로가 바뀌어 깜빡이던 버그)
-  const heroIdx = useMemo(() => {
-    const pool = Math.min(5, trending.length);
-    return pool > 0 ? Math.floor(Math.random() * pool) : 0;
-  }, [trending]);
-
-  // 카드 단계 잠금 가드
-  const ageGuard = (v: CarouselVideo) => {
+  const ageGuard: AgeGuard = (v) => {
     const rating = ageRatings[v.id];
     const isMyVideo = !!user?.id && !!v.creator_id && user.id === v.creator_id;
     return { rating, isAgeLocked: !isMyVideo && shouldBlur(rating, ageVerified) };
@@ -133,20 +121,18 @@ export function Ott({ onProductClick, onNavigate }: OttProps) {
     async function loadAll() {
       setLoading(true);
       try {
-        // 1. 트렌딩 — 히어로 + 매거진용 (상위 5개 사용)
         const { data: trd } = await supabase.rpc("get_trending_videos", {
           p_tier: "ott",
           p_hours: 168,
           p_limit: 10,
         });
 
-        // 2. 장르별 — get_categories_with_count로 상위 카테고리 찾고 각각 fetch
         const { data: cats } = await supabase.rpc("get_categories_with_count", {
           p_tier: "ott",
           p_min_count: 1,
         });
 
-        const topCategories = (cats || []).slice(0, 5);
+        const topCategories = (cats || []).slice(0, 6);
         const rows: GenreRow[] = await Promise.all(
           topCategories.map(async (cat: { category: string }) => {
             const { data } = await supabase.rpc("get_videos_by_category", {
@@ -158,20 +144,17 @@ export function Ott({ onProductClick, onNavigate }: OttProps) {
           })
         );
 
-        // Showcase 합성
         const merge = (real: CarouselVideo[], opts?: { category?: string }) =>
           showcase ? mergeShowcase(real, showcaseToCarousel, { tier: "ott", ...opts }) : real;
 
         setTrending(merge(trd || []));
 
-        // 장르별 행에 showcase 합성 + 부족하면 mock 카테고리 추가
-        const mergedRows = rows.map(r => ({ ...r, videos: merge(r.videos, { category: r.category }) }));
+        const mergedRows = rows.map((r) => ({ ...r, videos: merge(r.videos, { category: r.category }) }));
 
         if (showcase && mergedRows.length < 5) {
-          // 실제 카테고리가 부족할 때 mock 카테고리로 채움
           const showcaseCategories = ["drama", "thriller", "romance", "action", "comedy"];
           for (const cat of showcaseCategories) {
-            if (mergedRows.find(r => r.category === cat)) continue;
+            if (mergedRows.find((r) => r.category === cat)) continue;
             const mockOnly = mergeShowcase([] as CarouselVideo[], showcaseToCarousel, {
               tier: "ott",
               category: cat,
@@ -181,7 +164,7 @@ export function Ott({ onProductClick, onNavigate }: OttProps) {
             if (mergedRows.length >= 5) break;
           }
         }
-        setGenreRows(mergedRows);
+        setGenreRows(mergedRows.filter((r) => r.videos.length > 0));
       } catch (err: any) {
         console.warn("[Ott] 로딩 실패:", err?.message);
       } finally {
@@ -193,7 +176,7 @@ export function Ott({ onProductClick, onNavigate }: OttProps) {
 
   if (loading) {
     return (
-      <div className="h-full overflow-y-auto bg-[#0a0a0a] flex flex-col">
+      <div className="h-full overflow-y-auto bg-black flex flex-col">
         <div className="flex-1 flex items-center justify-center">
           <Loader2 className="w-10 h-10 text-[#a78bfa] animate-spin" />
         </div>
@@ -202,353 +185,224 @@ export function Ott({ onProductClick, onNavigate }: OttProps) {
     );
   }
 
-  // 히어로: Top 5 중 랜덤(heroIdx, 위 useMemo로 1회 고정) / featured: 히어로 제외 나머지
-  const hero = trending[heroIdx];
-  const featured = trending.filter((_, i) => i !== heroIdx).slice(0, 5);
+  // 히어로: 트렌딩 상위 4편 (데스크탑 2등분, 모바일 1개씩 순환)
+  const heroes = trending.slice(0, 4);
 
-  if (!hero) {
+  if (heroes.length === 0 && genreRows.length === 0) {
     return (
-      <div className="h-full overflow-y-auto bg-[#0a0a0a] flex flex-col">
-        <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
-          {t("ott.noVideos")}
-        </div>
+      <div className="h-full overflow-y-auto bg-black flex flex-col">
+        <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">{t("ott.noVideos")}</div>
         <Footer onNavigate={onNavigate || (() => {})} />
       </div>
     );
   }
 
-  const heroGuard = ageGuard(hero);
-
   return (
     <div className="h-full overflow-y-auto bg-black pb-12">
-      {/* ━━━ 풀블리드 히어로 ━━━ */}
-      <HeroSection
-        video={hero}
-        onClick={() => onProductClick(toProduct(hero))}
-        rating={heroGuard.rating}
-        isAgeLocked={heroGuard.isAgeLocked}
-      />
-
-      {/* ━━━ EDITOR'S PICK 매거진 ━━━ */}
-      {featured.length > 0 && (
-        <EditorsPick
-          videos={featured}
-          onClick={(v) => onProductClick(toProduct(v))}
-          ageGuard={ageGuard}
-        />
+      {/* ━━━ 2등분 히어로 ━━━ */}
+      {heroes.length > 0 && (
+        <div className="max-w-[1800px] mx-auto px-2 md:px-4 pt-3">
+          <HeroPanels videos={heroes} onClick={(v) => onProductClick(toProduct(v))} ageGuard={ageGuard} />
+        </div>
       )}
 
-      {/* ━━━ AI 시네마 소개 헤더 ━━━ */}
-      <div className="max-w-7xl mx-auto px-6 mt-16 mb-6">
-        <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-3 ${BRAND_BADGE_BG}`}>
-          <Wand2 className="w-4 h-4 text-[#a78bfa]" />
-          <span className="text-xs font-bold text-[#a78bfa]">{t("ott.sectionHeaderEyebrow")}</span>
-        </div>
-        <h2 className={`text-3xl md:text-4xl font-black mb-2 ${BRAND_GRADIENT_TEXT}`}>
-          {t("ott.sectionHeaderTitle")}
-        </h2>
-        <p className="text-sm text-gray-500">{t("ott.sectionHeaderSubtitle")}</p>
+      {/* ━━━ 카테고리 마퀴 행 (좌우 교차) ━━━ */}
+      <div className="max-w-[1800px] mx-auto mt-6">
+        {genreRows.map((row, i) => (
+          <MarqueeRow
+            key={row.category}
+            category={row.category}
+            videos={row.videos}
+            dir={i % 2 === 0 ? "right" : "left"}
+            onClick={(v) => onProductClick(toProduct(v))}
+            ageGuard={ageGuard}
+          />
+        ))}
+        {genreRows.length === 0 && (
+          <div className="px-6 py-12 text-center text-gray-500 text-sm">{t("ott.noGenreContent")}</div>
+        )}
       </div>
 
-      {/* ━━━ 장르별 캐러셀 ━━━ */}
-      {genreRows.map((row) => (
-        <GenreCarousel
-          key={row.category}
-          category={row.category}
-          videos={row.videos}
-          onClick={(v) => onProductClick(toProduct(v))}
-          ageGuard={ageGuard}
-        />
-      ))}
-
-      {genreRows.length === 0 && (
-        <div className="max-w-7xl mx-auto px-6 py-12 text-center text-gray-500 text-sm">
-          {t("ott.noGenreContent")}
-        </div>
-      )}
       <Footer onNavigate={onNavigate || (() => {})} />
     </div>
   );
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 풀블리드 히어로
+// 2등분 히어로 (모바일 1개씩 5초 자동 슬라이드)
 // ────────────────────────────────────────────────────────────────────────────
-function HeroSection({
-  video,
-  onClick,
-  rating,
-  isAgeLocked,
-}: {
-  video: CarouselVideo;
-  onClick: () => void;
-  rating?: string;
-  isAgeLocked?: boolean;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div className="relative h-[70vh] min-h-[500px] overflow-hidden">
-      <img src={video.thumbnail || ""} alt="" className={`absolute inset-0 w-full h-full object-cover ${isAgeLocked ? "blur-2xl scale-110" : ""}`} />
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/30 to-transparent" />
-
-      {/* Phase 26 보강: 19+ 잠금 오버레이 */}
-      {isAgeLocked && (
-        <button
-          onClick={onClick}
-          className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center bg-black/55 hover:bg-black/65 transition-colors"
-        >
-          <div className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center mb-3 shadow-2xl">
-            <Lock className="w-8 h-8 text-white" />
-          </div>
-          <p className="text-2xl font-black text-white mb-1">{t("video.ageGateLockTitle")}</p>
-          <p className="text-sm text-gray-300 underline">{t("video.ageGateLockHint")}</p>
-        </button>
-      )}
-
-      {/* Phase 26 보강: 연령 등급 배지 (우상단) */}
-      {rating && rating !== "all" && (
-        <div className="absolute top-4 right-4 z-10">
-          <AgeBadge rating={rating} size="md" />
-        </div>
-      )}
-
-      <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12 max-w-2xl">
-        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full mb-3 ${BRAND_BADGE_BG}`}>
-          <Wand2 className="w-3 h-3 text-[#a78bfa]" />
-          <span className="text-[10px] font-bold text-[#a78bfa] uppercase tracking-widest">{t("ott.creaiteOriginal")}</span>
-        </div>
-        <h1 className="text-4xl md:text-6xl font-black mb-4 leading-tight drop-shadow-lg">{video.title}</h1>
-        <p className="text-sm md:text-base text-gray-300 mb-6 line-clamp-3 max-w-xl">
-          {t("ott.heroDescription", { creator: video.creator_display_name || video.creator })}
-        </p>
-        <div className="flex gap-3">
-          <button
-            onClick={onClick}
-            className="px-6 md:px-8 py-2.5 md:py-3 bg-white text-black font-bold rounded-lg flex items-center gap-2 hover:bg-gray-200 transition-colors text-sm md:text-base"
-          >
-            <Play className="w-5 h-5 fill-black" /> {t("ott.watchNow")}
-          </button>
-          <button
-            onClick={onClick}
-            className="px-6 md:px-8 py-2.5 md:py-3 bg-white/20 backdrop-blur-md text-white font-bold rounded-lg flex items-center gap-2 hover:bg-white/30 transition-colors border border-white/30 text-sm md:text-base"
-          >
-            <Info className="w-5 h-5" /> {t("ott.moreInfo")}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// EDITOR'S PICK 매거진 (큰 1 + 작은 4)
-// ────────────────────────────────────────────────────────────────────────────
-function EditorsPick({
+function HeroPanels({
   videos,
   onClick,
   ageGuard,
 }: {
   videos: CarouselVideo[];
   onClick: (v: CarouselVideo) => void;
-  ageGuard: (v: CarouselVideo) => { rating?: string; isAgeLocked: boolean };
+  ageGuard: AgeGuard;
 }) {
   const { t } = useTranslation();
-  if (videos.length === 0) return null;
-  const bigGuard = ageGuard(videos[0]);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const id = setInterval(() => {
+      if (el.scrollWidth <= el.clientWidth + 4) return;
+      const card = el.firstElementChild as HTMLElement | null;
+      const step = card ? card.offsetWidth : el.clientWidth;
+      let next = el.scrollLeft + step;
+      if (next >= el.scrollWidth - 4) next = 0;
+      el.scrollTo({ left: next, behavior: "smooth" });
+    }, 5000);
+    return () => clearInterval(id);
+  }, [videos.length]);
+
   return (
-    <div className="max-w-7xl mx-auto px-6 mt-12">
-      <h3 className="text-xs font-bold text-[#a78bfa] uppercase tracking-widest mb-4">{t("ott.editorsPickHeader")}</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* 큰 매거진 카드 */}
-        <button
-          onClick={() => onClick(videos[0])}
-          className="md:col-span-2 md:row-span-2 relative h-[400px] rounded-2xl overflow-hidden group cursor-pointer text-left"
-        >
-          <img
-            src={videos[0].thumbnail || ""}
-            alt=""
-            className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${bigGuard.isAgeLocked ? "blur-2xl scale-110" : ""}`}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-          {bigGuard.isAgeLocked && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-center px-4">
-              <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center mb-2">
-                <Lock className="w-6 h-6 text-white" />
-              </div>
-              <p className="text-base font-black text-white">{t("video.ageGateLockTitle")}</p>
-            </div>
-          )}
-          {bigGuard.rating && bigGuard.rating !== "all" && (
-            <div className="absolute top-3 right-3">
-              <AgeBadge rating={bigGuard.rating} size="sm" />
-            </div>
-          )}
-          <div className="absolute bottom-0 left-0 right-0 p-6">
-            <span className="text-[10px] font-bold text-[#a78bfa] uppercase tracking-widest">{t("ott.cinematicShort")}</span>
-            <h4 className="text-2xl font-black mt-1 mb-1">{videos[0].title}</h4>
-            <p className="text-sm text-gray-300">{videos[0].creator_display_name || videos[0].creator}</p>
-          </div>
-        </button>
-        {/* 작은 카드 4개 */}
-        {videos.slice(1, 5).map((v) => {
-          const g = ageGuard(v);
-          return (
-          <button
-            key={v.id}
-            onClick={() => onClick(v)}
-            className="relative h-[195px] rounded-2xl overflow-hidden group cursor-pointer text-left"
-          >
-            <img
-              src={v.thumbnail || ""}
-              alt=""
-              className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${g.isAgeLocked ? "blur-xl scale-110" : ""}`}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
-            {g.isAgeLocked && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-center">
-                <div className="w-9 h-9 rounded-full bg-red-600 flex items-center justify-center mb-1.5">
-                  <Lock className="w-5 h-5 text-white" />
+    <div ref={ref} className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory">
+      {videos.map((v) => {
+        const g = ageGuard(v);
+        return (
+          <div key={v.id} className="snap-start flex-shrink-0 w-full md:w-1/2 p-1.5">
+            <button
+              onClick={() => onClick(v)}
+              className="relative block w-full h-[52vh] md:h-[60vh] rounded-2xl overflow-hidden text-left group"
+            >
+              {v.thumbnail && (
+                <img
+                  src={v.thumbnail}
+                  alt=""
+                  className={`absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ${g.isAgeLocked ? "blur-2xl scale-110" : ""}`}
+                />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+
+              {g.isAgeLocked ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/55 text-center">
+                  <div className="w-14 h-14 rounded-full bg-red-600 flex items-center justify-center mb-2 shadow-2xl">
+                    <Lock className="w-7 h-7 text-white" />
+                  </div>
+                  <p className="text-xl font-black text-white mb-0.5">{t("video.ageGateLockTitle")}</p>
+                  <p className="text-xs text-gray-300 underline">{t("video.ageGateLockHint")}</p>
                 </div>
-                <p className="text-xs font-black text-white">{t("video.ageGateLockTitle")}</p>
-              </div>
-            )}
-            {g.rating && g.rating !== "all" && (
-              <div className="absolute top-2 right-2">
-                <AgeBadge rating={g.rating} size="xs" />
-              </div>
-            )}
-            <div className="absolute bottom-0 left-0 right-0 p-4">
-              <h4 className="text-sm font-bold line-clamp-1">{v.title}</h4>
-              <p className="text-[11px] text-gray-400">{v.creator_display_name || v.creator}</p>
-            </div>
-          </button>
-          );
-        })}
-      </div>
+              ) : (
+                <div className="absolute bottom-0 left-0 right-0 p-5 md:p-6">
+                  <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold text-white bg-gradient-to-r from-[#a78bfa] via-[#ec4899] to-[#f59e0b] mb-2">
+                    {t("ott.creaiteOriginal")}
+                  </span>
+                  <h2 className="text-2xl md:text-3xl font-black text-white leading-tight mb-1 line-clamp-2">{v.title}</h2>
+                  <p className="text-xs md:text-sm text-gray-300 mb-3 line-clamp-1">
+                    {v.creator_display_name || v.creator || ""}
+                  </p>
+                  <div className="flex gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white text-black text-xs font-bold">
+                      <Play className="w-4 h-4 fill-black" /> {t("ott.watchNow")}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/15 backdrop-blur border border-white/30 text-white text-xs font-bold">
+                      <Info className="w-4 h-4" /> {t("ott.moreInfo")}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {g.rating && g.rating !== "all" && (
+                <div className="absolute top-3 right-3">
+                  <AgeBadge rating={g.rating} size="md" />
+                </div>
+              )}
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 장르별 캐러셀 (좌/우 화살표 + scroll-snap)
+// 카테고리 마퀴 행 (좌/우 자동 흐름, 마우스 hover 시 정지)
 // ────────────────────────────────────────────────────────────────────────────
-function GenreCarousel({
+function MarqueeRow({
   category,
   videos,
+  dir,
   onClick,
   ageGuard,
 }: {
   category: string;
   videos: CarouselVideo[];
+  dir: "left" | "right";
   onClick: (v: CarouselVideo) => void;
-  ageGuard: (v: CarouselVideo) => { rating?: string; isAgeLocked: boolean };
+  ageGuard: AgeGuard;
 }) {
   const { t } = useTranslation();
   const style = getGenreStyle(category);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  const scrollBy = (dir: "left" | "right") => {
-    if (!scrollRef.current) return;
-    const amount = scrollRef.current.clientWidth * 0.8;
-    scrollRef.current.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
-  };
-
   if (videos.length === 0) return null;
 
-  return (
-    <div className="max-w-7xl mx-auto px-6 mb-8">
-      {/* 헤더 (그라데이션 배경) */}
-      <div className={`bg-gradient-to-r ${style.gradient} rounded-2xl p-5 mb-3 relative overflow-hidden`}>
-        <div className="flex items-center justify-between relative z-10">
-          <div>
-            <h4 className="text-xl font-black flex items-center gap-2">
-              <span className="text-2xl">{style.emoji}</span>
-              {t(style.labelKey)}
-            </h4>
-            <p className="text-xs text-white/70 mt-1">{t(style.subtitleKey)}</p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => scrollBy("left")}
-              className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 flex items-center justify-center transition-colors"
-              aria-label={t("ott.previous")}
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => scrollBy("right")}
-              className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 flex items-center justify-center transition-colors"
-              aria-label={t("ott.next")}
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-        <div className="absolute -right-10 -bottom-10 opacity-20">
-          <Sparkles className="w-32 h-32" />
-        </div>
-      </div>
+  // 끊김 없는 무한 흐름: 항목 2벌 복제, 트랙을 -50%까지 이동. 카드당 약 28s (천천히)
+  const doubled = [...videos, ...videos];
+  const duration = `${videos.length * 28}s`;
 
-      <div
-        ref={scrollRef}
-        className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory scroll-smooth"
-        style={{ scrollbarWidth: "none" }}
-      >
-        {videos.map((v) => {
-          const g = ageGuard(v);
-          return (
-          <motion.button
-            key={v.id}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => onClick(v)}
-            className="flex-shrink-0 w-[180px] md:w-[220px] cursor-pointer group snap-start text-left"
-          >
-            <div className="aspect-[2/3] rounded-lg overflow-hidden mb-2 relative">
-              <img
-                src={v.thumbnail || ""}
-                alt=""
-                className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${g.isAgeLocked ? "blur-xl scale-110" : ""}`}
-              />
-              {!g.isAgeLocked && v.ai_tool && (
-                <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/70 backdrop-blur rounded text-[9px] font-bold flex items-center gap-1">
-                  <Wand2 className="w-2.5 h-2.5" /> {v.ai_tool}
+  return (
+    <section className="mb-7">
+      <h3 className="text-base md:text-lg font-bold px-4 md:px-6 mb-2.5 flex items-center gap-2">
+        <span className="text-xl">{style.emoji}</span>
+        {t(style.labelKey)}
+      </h3>
+      <div className="marquee-row overflow-hidden">
+        <div
+          className={`flex gap-3 w-max ${dir === "right" ? "marquee-right" : "marquee-left"}`}
+          style={{ animationDuration: duration }}
+        >
+          {doubled.map((v, i) => {
+            const g = ageGuard(v);
+            return (
+              <button
+                key={`${v.id}-${i}`}
+                onClick={() => onClick(v)}
+                className="flex-shrink-0 w-80 md:w-[30rem] group/card text-left"
+              >
+                <div className="relative aspect-video rounded-xl overflow-hidden bg-card">
+                  {v.thumbnail && (
+                    <img
+                      src={v.thumbnail}
+                      alt=""
+                      className={`w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500 ${g.isAgeLocked ? "blur-xl scale-110" : ""}`}
+                    />
+                  )}
+
+                  {g.isAgeLocked ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 text-center">
+                      <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center mb-1.5">
+                        <Lock className="w-5 h-5 text-white" />
+                      </div>
+                      <p className="text-xs font-black text-white">{t("video.ageGateLockTitle")}</p>
+                    </div>
+                  ) : (
+                    <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/90 via-black/45 to-transparent">
+                      <p className="text-sm md:text-base font-bold text-white line-clamp-1">{v.title}</p>
+                      <p className="text-[11px] md:text-xs text-gray-300 line-clamp-1 mt-0.5">
+                        {v.creator_display_name || v.creator || "CREAITE"}
+                        {v.ai_tool ? ` · ${v.ai_tool}` : ""}
+                      </p>
+                    </div>
+                  )}
+
+                  {g.rating && g.rating !== "all" && (
+                    <div className="absolute top-2 left-2">
+                      <AgeBadge rating={g.rating} size="xs" />
+                    </div>
+                  )}
+
+                  {!g.isAgeLocked && (
+                    <span className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 backdrop-blur border border-white/30 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity">
+                      <Plus className="w-4 h-4 text-white" />
+                    </span>
+                  )}
                 </div>
-              )}
-              {v.duration && (
-                <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/70 rounded text-[10px] font-bold">
-                  {v.duration}
-                </div>
-              )}
-              {/* Phase 26 보강: 19+ 잠금 */}
-              {g.isAgeLocked && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 text-center pointer-events-none">
-                  <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center mb-1.5">
-                    <Lock className="w-5 h-5 text-white" />
-                  </div>
-                  <p className="text-xs font-black text-white">{t("video.ageGateLockTitle")}</p>
-                </div>
-              )}
-              {g.rating && g.rating !== "all" && (
-                <div className="absolute top-2 right-2">
-                  <AgeBadge rating={g.rating} size="xs" />
-                </div>
-              )}
-              {!g.isAgeLocked && (
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                  <p className="text-xs text-gray-300 flex items-center gap-1">
-                    <Heart className="w-3 h-3 fill-pink-500 text-pink-500" />
-                    {((v as any).likes || 0).toLocaleString()}
-                  </p>
-                </div>
-              )}
-            </div>
-            <p className="text-sm font-bold line-clamp-1">{v.title}</p>
-            <p className="text-[11px] text-gray-500">{v.creator_display_name || v.creator}</p>
-          </motion.button>
-          );
-        })}
+              </button>
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
