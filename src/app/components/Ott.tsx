@@ -6,7 +6,9 @@
 //   ↳ 연령 게이트(블러/잠금) + 쇼케이스 합성 유지.
 // ════════════════════════════════════════════════════════════════════════════
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Play, Info, Plus, Lock, Loader2 } from "lucide-react";
+import { Play, Info, Plus, Lock, Loader2, Volume2, VolumeX } from "lucide-react";
+import videojs from "video.js";
+import "video.js/dist/video-js.css";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { type CarouselVideo } from "./VideoRowCarousel";
@@ -41,6 +43,8 @@ interface Product {
 interface OttProps {
   onProductClick: (product: Product) => void;
   onNavigate?: (tab: string) => void;
+  // 풀블리드 히어로 스크롤 시 글로벌 헤더 배경 토글 (App.tsx)
+  onHeroScroll?: (scrolled: boolean) => void;
 }
 
 function showcaseToCarousel(s: ShowcaseVideo): CarouselVideo {
@@ -93,7 +97,7 @@ interface GenreRow {
 
 type AgeGuard = (v: CarouselVideo) => { rating?: string; isAgeLocked: boolean };
 
-export function Ott({ onProductClick, onNavigate }: OttProps) {
+export function Ott({ onProductClick, onNavigate, onHeroScroll }: OttProps) {
   const { t } = useTranslation();
   const { profile, user } = useAuth();
   const showcase = shouldShowShowcase(profile?.is_admin);
@@ -102,6 +106,10 @@ export function Ott({ onProductClick, onNavigate }: OttProps) {
   const [loading, setLoading] = useState(true);
   const [trending, setTrending] = useState<CarouselVideo[]>([]);
   const [genreRows, setGenreRows] = useState<GenreRow[]>([]);
+  // 풀블리드 히어로: 자동재생 영상 소스(hls) + 음소거 토글
+  const [heroSrc, setHeroSrc] = useState<{ url: string; start: number; end: number } | null>(null);
+  const [heroMuted, setHeroMuted] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const allVideoIds = useMemo(() => {
     const ids = new Set<string>();
@@ -116,6 +124,31 @@ export function Ott({ onProductClick, onNavigate }: OttProps) {
     const isMyVideo = !!user?.id && !!v.creator_id && user.id === v.creator_id;
     return { rating, isAgeLocked: !isMyVideo && shouldBlur(rating, ageVerified) };
   };
+
+  // 히어로(트렌딩 1위)의 재생 URL(+하이라이트 구간) 로딩 — RPC엔 video_url 이 없어 별도 조회
+  const heroId = trending[0]?.id;
+  useEffect(() => {
+    setHeroSrc(null);
+    if (!heroId || heroId.startsWith("demo-") || heroId.startsWith("showcase")) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("videos")
+        .select("video_url, highlight_start, highlight_end")
+        .eq("id", heroId)
+        .maybeSingle();
+      if (!cancelled && data?.video_url) {
+        setHeroSrc({ url: data.video_url, start: data.highlight_start || 0, end: data.highlight_end || 15 });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [heroId]);
+
+  // 탭 진입/재진입 시 헤더 투명 초기화 (스크롤 0 상태)
+  useEffect(() => {
+    onHeroScroll?.(false);
+    return () => onHeroScroll?.(false);
+  }, [onHeroScroll]);
 
   useEffect(() => {
     async function loadAll() {
@@ -198,16 +231,25 @@ export function Ott({ onProductClick, onNavigate }: OttProps) {
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-black pb-12">
-      {/* ━━━ 2등분 히어로 ━━━ */}
+    <div
+      ref={scrollRef}
+      onScroll={(e) => onHeroScroll?.((e.currentTarget.scrollTop || 0) > 80)}
+      className="h-full overflow-y-auto bg-black pb-12"
+    >
+      {/* ━━━ 풀블리드 단일 히어로 (영상 자동재생) ━━━ */}
       {heroes.length > 0 && (
-        <div className="max-w-[1800px] mx-auto px-2 md:px-4 pt-3">
-          <HeroPanels videos={heroes} onClick={(v) => onProductClick(toProduct(v))} ageGuard={ageGuard} />
-        </div>
+        <HeroBillboard
+          video={heroes[0]}
+          src={heroSrc}
+          ageGuard={ageGuard}
+          muted={heroMuted}
+          onToggleMute={() => setHeroMuted((m) => !m)}
+          onClick={(v) => onProductClick(toProduct(v))}
+        />
       )}
 
       {/* ━━━ 카테고리 마퀴 행 (좌우 교차) ━━━ */}
-      <div className="max-w-[1800px] mx-auto mt-6">
+      <div className="max-w-[1800px] mx-auto mt-6 relative">
         {genreRows.map((row, i) => (
           <MarqueeRow
             key={row.category}
@@ -228,92 +270,168 @@ export function Ott({ onProductClick, onNavigate }: OttProps) {
   );
 }
 
+// 히어로에 등록된 실제 영상이 없을 때 당분간 보여줄 샘플 미리보기 영상 (영상 등록 시 자동 대체)
+// Tears of Steel — 블렌더 재단 오픈무비(CC) SF 시네마틱·드라마틱(로봇·미래도시, HLS 스트리밍)
+const FALLBACK_HERO_VIDEO = "https://test-streams.mux.dev/tos_ismc/main.m3u8";
+
 // ────────────────────────────────────────────────────────────────────────────
-// 2등분 히어로 (모바일 1개씩 5초 자동 슬라이드)
+// 풀블리드 단일 히어로 (영상 자동재생 — 음소거·하이라이트 구간 반복, 소리 토글)
+//  · 헤더 영역까지 꽉 차는 배경. video.js 로 HLS 재생.
+//  · 실제 video_url 이 없으면 당분간 샘플 미리보기 영상을 전체 반복 재생 (폴백).
 // ────────────────────────────────────────────────────────────────────────────
-function HeroPanels({
-  videos,
-  onClick,
+function HeroBillboard({
+  video,
+  src,
   ageGuard,
+  muted,
+  onToggleMute,
+  onClick,
 }: {
-  videos: CarouselVideo[];
-  onClick: (v: CarouselVideo) => void;
+  video: CarouselVideo;
+  src: { url: string; start: number; end: number } | null;
   ageGuard: AgeGuard;
+  muted: boolean;
+  onToggleMute: () => void;
+  onClick: (v: CarouselVideo) => void;
 }) {
   const { t } = useTranslation();
-  const ref = useRef<HTMLDivElement>(null);
+  const g = ageGuard(video);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const playerRef = useRef<any>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
 
+  // 실제 영상이 없으면 샘플 미리보기 영상으로 폴백 (영상 등록 전 임시)
+  const isFallback = !src?.url;
+  const playUrl = src?.url || FALLBACK_HERO_VIDEO;
+  // 연령 잠금만 자동재생 제외 (블러 썸네일). 그 외엔 실제 영상 또는 폴백 영상 재생
+  const useVideo = !g.isAgeLocked;
+
+  // video.js 플레이어 생성/삭제 — DiscoveryFeed 와 동일한 메모리 누수 방지 패턴
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const id = setInterval(() => {
-      if (el.scrollWidth <= el.clientWidth + 4) return;
-      const card = el.firstElementChild as HTMLElement | null;
-      const step = card ? card.offsetWidth : el.clientWidth;
-      let next = el.scrollLeft + step;
-      if (next >= el.scrollWidth - 4) next = 0;
-      el.scrollTo({ left: next, behavior: "smooth" });
-    }, 5000);
-    return () => clearInterval(id);
-  }, [videos.length]);
+    if (!useVideo || !videoRef.current) return;
+    setIsPlaying(false);
+
+    const player = videojs(videoRef.current, {
+      autoplay: true,
+      controls: false,
+      loop: isFallback,           // 폴백 영상은 전체 반복 / 실제 영상은 하이라이트 구간 반복
+      muted: true,
+      fill: true,
+      fluid: false,        // 비율 상자(letterbox) 모드 끄기 — 항상 컨테이너 꽉 채움
+      playsinline: true,
+      preload: "auto",
+      crossOrigin: "anonymous",
+      sources: [{
+        src: playUrl,
+        type: playUrl.includes(".m3u8") ? "application/x-mpegURL" : "video/mp4",
+      }],
+    });
+    playerRef.current = player;
+    player.muted(true);
+    player.ready(() => {
+      player.currentTime(isFallback ? 0 : (src?.start || 0));
+      player.play()?.catch(() => {});
+    });
+    player.on("playing", () => setIsPlaying(true));
+    player.on("pause", () => setIsPlaying(false));
+    // 실제 영상일 때만 하이라이트 구간 반복 (폴백은 loop:true 로 전체 반복)
+    if (!isFallback && src) {
+      player.on("timeupdate", () => {
+        const s = src.start || 0;
+        let e = src.end || 15;
+        const d = player.duration();
+        if (typeof d === "number" && d > 0 && e > d) e = d;
+        const tt = player.currentTime();
+        if (typeof tt === "number" && tt >= e) {
+          player.currentTime(s);
+          player.play()?.catch(() => {});
+        }
+      });
+    }
+
+    return () => {
+      setIsPlaying(false);
+      if (playerRef.current) {
+        playerRef.current.dispose();
+        playerRef.current = null;
+      }
+    };
+  }, [useVideo, playUrl, isFallback]);
+
+  // 음소거 토글 동기화
+  useEffect(() => {
+    const p = playerRef.current;
+    if (p && !p.isDisposed()) p.muted(muted);
+  }, [muted]);
 
   return (
-    <div ref={ref} className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory">
-      {videos.map((v) => {
-        const g = ageGuard(v);
-        return (
-          <div key={v.id} className="snap-start flex-shrink-0 w-full md:w-1/2 p-1.5">
-            <button
-              onClick={() => onClick(v)}
-              className="relative block w-full h-[52vh] md:h-[60vh] rounded-2xl overflow-hidden text-left group"
-            >
-              {v.thumbnail && (
-                <img
-                  src={v.thumbnail}
-                  alt=""
-                  className={`absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ${g.isAgeLocked ? "blur-2xl scale-110" : ""}`}
-                />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+    <section className="relative w-full h-[90vh] md:h-[84vh]">
+      <button onClick={() => onClick(video)} className="absolute inset-0 w-full h-full text-left">
+        {/* 썸네일 (poster) — 영상 재생 시작되면 페이드아웃 */}
+        {video.thumbnail && (
+          <img
+            src={video.thumbnail}
+            alt=""
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${g.isAgeLocked ? "blur-2xl scale-110" : ""} ${isPlaying ? "opacity-0" : "opacity-100"}`}
+          />
+        )}
+        {/* 영상 — video.js 내부 <video> 가 컨테이너를 꽉 채우도록(cover) 강제 (모바일 레터박스 방지) */}
+        {useVideo && (
+          <div className="absolute inset-0 w-full h-full pointer-events-none [&_.video-js]:!absolute [&_.video-js]:!inset-0 [&_.video-js]:!w-full [&_.video-js]:!h-full [&_.video-js]:!pt-0 [&_video]:!w-full [&_video]:!h-full [&_video]:!object-cover">
+            <video ref={videoRef} className="video-js w-full h-full" playsInline poster={video.thumbnail || undefined} />
+          </div>
+        )}
 
-              {g.isAgeLocked ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/55 text-center">
-                  <div className="w-14 h-14 rounded-full bg-red-600 flex items-center justify-center mb-2 shadow-2xl">
-                    <Lock className="w-7 h-7 text-white" />
-                  </div>
-                  <p className="text-xl font-black text-white mb-0.5">{t("video.ageGateLockTitle")}</p>
-                  <p className="text-xs text-gray-300 underline">{t("video.ageGateLockHint")}</p>
-                </div>
-              ) : (
-                <div className="absolute bottom-0 left-0 right-0 p-5 md:p-6">
-                  <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold text-white bg-gradient-to-r from-[#a78bfa] via-[#ec4899] to-[#f59e0b] mb-2">
-                    {t("ott.creaiteOriginal")}
-                  </span>
-                  <h2 className="text-2xl md:text-3xl font-black text-white leading-tight mb-1 line-clamp-2">{v.title}</h2>
-                  <p className="text-xs md:text-sm text-gray-300 mb-3 line-clamp-1">
-                    {v.creator_display_name || v.creator || ""}
-                  </p>
-                  <div className="flex gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white text-black text-xs font-bold">
-                      <Play className="w-4 h-4 fill-black" /> {t("ott.watchNow")}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/15 backdrop-blur border border-white/30 text-white text-xs font-bold">
-                      <Info className="w-4 h-4" /> {t("ott.moreInfo")}
-                    </span>
-                  </div>
-                </div>
-              )}
+        {/* 하단: 텍스트 가독성용 — 아래 1/2 에만 옅게 (영상이 더 보이도록) */}
+        <div className="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none" />
+      </button>
 
-              {g.rating && g.rating !== "all" && (
-                <div className="absolute top-3 right-3">
-                  <AgeBadge rating={g.rating} size="md" />
-                </div>
-              )}
+      {/* 음소거 토글 (영상 재생 중에만) */}
+      {useVideo && (
+        <button
+          onClick={onToggleMute}
+          className="absolute bottom-6 right-5 md:right-8 z-10 w-11 h-11 rounded-full bg-black/50 backdrop-blur border border-white/30 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+          aria-label={muted ? t("video.unmute", "음소거 해제") : t("video.mute", "음소거")}
+        >
+          {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+        </button>
+      )}
+
+      {/* 연령 잠금 / 일반 정보 */}
+      {g.isAgeLocked ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/55 text-center pointer-events-none">
+          <div className="w-14 h-14 rounded-full bg-red-600 flex items-center justify-center mb-2 shadow-2xl">
+            <Lock className="w-7 h-7 text-white" />
+          </div>
+          <p className="text-xl font-black text-white mb-0.5">{t("video.ageGateLockTitle")}</p>
+          <p className="text-xs text-gray-300 underline">{t("video.ageGateLockHint")}</p>
+        </div>
+      ) : (
+        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12 max-w-[1800px] mx-auto pointer-events-none">
+          <span className="inline-block px-2.5 py-1 rounded-full text-[10px] md:text-xs font-bold text-white bg-gradient-to-r from-[#a78bfa] via-[#ec4899] to-[#f59e0b] mb-3">
+            {t("ott.creaiteOriginal")}
+          </span>
+          <h2 className="text-3xl md:text-5xl font-black text-white leading-tight mb-1.5 max-w-2xl line-clamp-2 drop-shadow-lg">{video.title}</h2>
+          <p className="text-sm md:text-base text-gray-200 mb-4 max-w-xl line-clamp-1 drop-shadow">
+            {video.creator_display_name || video.creator || ""}
+          </p>
+          <div className="flex gap-2.5 pointer-events-auto">
+            <button onClick={() => onClick(video)} className="inline-flex items-center gap-1.5 px-5 md:px-7 py-2.5 rounded-lg bg-white text-black text-sm font-bold hover:bg-white/90 transition-colors">
+              <Play className="w-5 h-5 fill-black" /> {t("ott.watchNow")}
+            </button>
+            <button onClick={() => onClick(video)} className="inline-flex items-center gap-1.5 px-5 md:px-7 py-2.5 rounded-lg bg-white/15 backdrop-blur border border-white/30 text-white text-sm font-bold hover:bg-white/25 transition-colors">
+              <Info className="w-5 h-5" /> {t("ott.moreInfo")}
             </button>
           </div>
-        );
-      })}
-    </div>
+        </div>
+      )}
+
+      {g.rating && g.rating !== "all" && (
+        <div className="absolute top-16 right-4 md:right-8 z-10">
+          <AgeBadge rating={g.rating} size="md" />
+        </div>
+      )}
+    </section>
   );
 }
 

@@ -12,7 +12,7 @@
 // 초기화 스크립트를 가장 먼저 import (콘솔 필터 설치)
 import './init';
 
-import { useState, useEffect, useCallback, Suspense, type ReactElement } from "react";
+import { useState, useEffect, useCallback, Suspense, type ReactElement, type CSSProperties } from "react";
 import { lazyRetry as lazy } from "./utils/lazyRetry";
 import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, Loader2, Crown, Users } from "lucide-react";
 import { HamburgerMenu } from "./components/HamburgerMenu";
@@ -388,6 +388,8 @@ function AppContent() {
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [activePanel, setActivePanel] = useState<Panel>(null);
+  // OTT 홈 풀블리드 히어로: 헤더를 투명 오버레이로, 스크롤 내려가면 배경 생김
+  const [heroScrolled, setHeroScrolled] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [pendingCartAdd, setPendingCartAdd] = useState<{ product: VideoProduct; licenseType: "standard" | "commercial" | "extended" } | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -653,7 +655,7 @@ function AppContent() {
       case "market":
         return <Cinema onProductClick={setSelectedProduct} onAddToCart={(p) => addToCart(p)} tier="cinema" onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "ott":
-        return <Ott onProductClick={setSelectedProduct} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <Ott onProductClick={setSelectedProduct} onNavigate={(tab) => setActiveTab(tab as Tab)} onHeroScroll={setHeroScrolled} />;
       case "upload":
         return <Upload onSignInClick={() => setShowAuthModal(true)} onViewMyProducts={() => setActiveTab("mypage")} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "community":
@@ -721,15 +723,27 @@ function AppContent() {
 
   const springTransition: any = { type: "spring", stiffness: 500, damping: 30 };
 
+  // OTT 홈만 풀블리드 히어로 → 헤더를 투명 오버레이로 띄움 (스크롤 내려가면 배경)
+  const isOttHome = activeTab === "ott" && !activePanel;
+  const headerTransparent = isOttHome && !heroScrolled;
+  // 인라인 style 로 position 강제 (framer-motion 이 className 의 absolute 를 덮어쓰는 문제 방지)
+  const headerPosStyle: CSSProperties = isOttHome
+    ? { position: "absolute", top: 0, left: 0, right: 0 }
+    : { position: "sticky", top: 0 };
+  const headerBgClass = headerTransparent
+    ? "bg-transparent"
+    : "bg-background/80 backdrop-blur-xl border-b border-white/5 shadow-sm";
+
   return (
-    <div className="h-[100dvh] flex flex-col bg-background text-foreground overflow-hidden selection:bg-[#6366f1]/30">
+    <div className="relative h-[100dvh] flex flex-col bg-background text-foreground overflow-hidden selection:bg-[#6366f1]/30">
 
       {/* Mobile Top Header */}
       <motion.header
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="md:hidden border-b border-white/5 bg-background/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm"
+        style={headerPosStyle}
+        className={`md:hidden z-50 transition-colors duration-300 ${headerBgClass}`}
       >
         <div className="flex items-center justify-between h-14 px-4">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab("discovery")}>
@@ -799,7 +813,8 @@ function AppContent() {
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="hidden md:block border-b border-white/5 bg-background/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm"
+        style={headerPosStyle}
+        className={`hidden md:block z-50 transition-colors duration-300 ${headerBgClass}`}
       >
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
           <motion.div
