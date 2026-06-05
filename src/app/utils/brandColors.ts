@@ -2,6 +2,7 @@
 // CREAITE 브랜드 컬러 시스템
 // 2026-05-16 OTT 페이지 디자인 채택과 함께 토큰화
 // ════════════════════════════════════════════════════════════════════════════
+import { Drama, Swords, Fingerprint, Heart, Laugh, Ghost, Globe, Palette, Music, Wand2, Orbit, Clapperboard, type LucideIcon } from "lucide-react";
 
 /**
  * 메인 시그니처 그라데이션 (보라 → 핑크 → 황색)
@@ -34,8 +35,10 @@ export interface GenreStyle {
   subtitleKey: string;
   /** Tailwind 그라데이션 클래스 (from-XXX to-XXX) */
   gradient: string;
-  /** 이모지 또는 아이콘 식별자 */
+  /** 이모지 (레거시 — 일부 화면에서 사용) */
   emoji: string;
+  /** Lucide 라인 아이콘 (OTT 카테고리 라벨에서 사용) */
+  Icon: LucideIcon;
 }
 
 export const GENRE_STYLES: Record<string, GenreStyle> = {
@@ -45,6 +48,7 @@ export const GENRE_STYLES: Record<string, GenreStyle> = {
     subtitleKey: "genreSubtitle.drama",
     gradient: "from-amber-700 to-orange-900",
     emoji: "🎭",
+    Icon: Drama,
   },
   action: {
     key: "action",
@@ -52,6 +56,7 @@ export const GENRE_STYLES: Record<string, GenreStyle> = {
     subtitleKey: "genreSubtitle.action",
     gradient: "from-red-700 to-rose-900",
     emoji: "💥",
+    Icon: Swords,
   },
   thriller: {
     key: "thriller",
@@ -59,6 +64,7 @@ export const GENRE_STYLES: Record<string, GenreStyle> = {
     subtitleKey: "genreSubtitle.thriller",
     gradient: "from-slate-700 to-zinc-900",
     emoji: "🔍",
+    Icon: Fingerprint,
   },
   romance: {
     key: "romance",
@@ -66,6 +72,7 @@ export const GENRE_STYLES: Record<string, GenreStyle> = {
     subtitleKey: "genreSubtitle.romance",
     gradient: "from-rose-700 via-pink-600 to-fuchsia-700",
     emoji: "💕",
+    Icon: Heart,
   },
   comedy: {
     key: "comedy",
@@ -73,6 +80,7 @@ export const GENRE_STYLES: Record<string, GenreStyle> = {
     subtitleKey: "genreSubtitle.comedy",
     gradient: "from-yellow-600 to-amber-700",
     emoji: "😂",
+    Icon: Laugh,
   },
   horror: {
     key: "horror",
@@ -80,6 +88,7 @@ export const GENRE_STYLES: Record<string, GenreStyle> = {
     subtitleKey: "genreSubtitle.horror",
     gradient: "from-gray-900 via-slate-900 to-zinc-950",
     emoji: "👻",
+    Icon: Ghost,
   },
   documentary: {
     key: "documentary",
@@ -87,6 +96,7 @@ export const GENRE_STYLES: Record<string, GenreStyle> = {
     subtitleKey: "genreSubtitle.documentary",
     gradient: "from-blue-700 to-indigo-900",
     emoji: "🎬",
+    Icon: Globe,
   },
   animation: {
     key: "animation",
@@ -94,6 +104,7 @@ export const GENRE_STYLES: Record<string, GenreStyle> = {
     subtitleKey: "genreSubtitle.animation",
     gradient: "from-teal-600 to-emerald-800",
     emoji: "🎨",
+    Icon: Palette,
   },
   music: {
     key: "music",
@@ -101,6 +112,7 @@ export const GENRE_STYLES: Record<string, GenreStyle> = {
     subtitleKey: "genreSubtitle.music",
     gradient: "from-violet-700 to-purple-900",
     emoji: "🎵",
+    Icon: Music,
   },
   fantasy: {
     key: "fantasy",
@@ -108,6 +120,7 @@ export const GENRE_STYLES: Record<string, GenreStyle> = {
     subtitleKey: "genreSubtitle.fantasy",
     gradient: "from-violet-700 via-purple-700 to-fuchsia-900",
     emoji: "🌌",
+    Icon: Wand2,
   },
   "sci-fi": {
     key: "sci-fi",
@@ -115,6 +128,7 @@ export const GENRE_STYLES: Record<string, GenreStyle> = {
     subtitleKey: "genreSubtitle.scifi",
     gradient: "from-cyan-700 via-blue-700 to-indigo-900",
     emoji: "🚀",
+    Icon: Orbit,
   },
 };
 
@@ -125,6 +139,7 @@ export const DEFAULT_GENRE_STYLE: GenreStyle = {
   subtitleKey: "genreSubtitle.other",
   gradient: "from-gray-700 to-gray-900",
   emoji: "🎞️",
+  Icon: Clapperboard,
 };
 
 // 한글 카테고리명 → GENRE_STYLES 키 매핑 (DB가 한글로 저장됨)

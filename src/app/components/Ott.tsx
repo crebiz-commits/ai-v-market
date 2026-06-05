@@ -6,7 +6,7 @@
 //   ↳ 연령 게이트(블러/잠금) + 쇼케이스 합성 유지.
 // ════════════════════════════════════════════════════════════════════════════
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Play, Info, Plus, Lock, Loader2, Volume2, VolumeX } from "lucide-react";
+import { Play, Info, Plus, Lock, Loader2, Volume2, VolumeX, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import { supabase } from "../utils/supabaseClient";
@@ -97,6 +97,34 @@ interface GenreRow {
 
 type AgeGuard = (v: CarouselVideo) => { rating?: string; isAgeLocked: boolean };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 시간대 무드 편성: 접속 시각에 따라 카테고리(장르) 행 순서를 재배치.
+//  · 영상이 아니라 "장르 행"을 정렬 → 영상 수와 무관하게 자동 동작.
+//  · order 의 키는 getGenreStyle().key 와 동일. 목록에 없는 장르는 중간, "default"(기타)는 항상 맨 뒤.
+// ─────────────────────────────────────────────────────────────────────────────
+interface ProgrammingBand { id: string; emoji: string; name: string; tagline: string; order: string[] }
+const PROGRAMMING_BANDS: ProgrammingBand[] = [
+  { id: "dawn",    emoji: "🌌", name: "잠 못 드는 새벽", tagline: "긴장감으로 깨어 있는 시간", order: ["horror", "thriller", "sci-fi", "fantasy"] },
+  { id: "morning", emoji: "🌅", name: "하루를 여는 아침", tagline: "잔잔하게 시작하는 한 편",   order: ["documentary", "drama", "animation", "music"] },
+  { id: "day",     emoji: "☀️", name: "활기찬 낮",       tagline: "가볍고 신나는 무드",       order: ["comedy", "action", "animation", "sci-fi"] },
+  { id: "evening", emoji: "🌆", name: "함께 보는 저녁",   tagline: "누군가와 나누는 시간",     order: ["drama", "romance", "comedy", "fantasy"] },
+  { id: "night",   emoji: "🌙", name: "몰입의 밤",        tagline: "깊이 빠져드는 한 편",     order: ["thriller", "romance", "sci-fi", "drama", "horror"] },
+];
+function currentBand(): ProgrammingBand {
+  const h = new Date().getHours();
+  if (h >= 2 && h < 5) return PROGRAMMING_BANDS[0];
+  if (h >= 5 && h < 11) return PROGRAMMING_BANDS[1];
+  if (h >= 11 && h < 17) return PROGRAMMING_BANDS[2];
+  if (h >= 17 && h < 21) return PROGRAMMING_BANDS[3];
+  return PROGRAMMING_BANDS[4]; // 21–02
+}
+function bandRank(genreKey: string, band: ProgrammingBand): number {
+  const idx = band.order.indexOf(genreKey);
+  if (idx >= 0) return idx;            // 이 시간대 우선 장르 (위에서부터)
+  if (genreKey === "default") return 999; // 기타/미분류는 항상 맨 뒤
+  return 100;                          // 나머지 알려진 장르
+}
+
 export function Ott({ onProductClick, onNavigate, onHeroScroll }: OttProps) {
   const { t } = useTranslation();
   const { profile, user } = useAuth();
@@ -124,6 +152,15 @@ export function Ott({ onProductClick, onNavigate, onHeroScroll }: OttProps) {
     const isMyVideo = !!user?.id && !!v.creator_id && user.id === v.creator_id;
     return { rating, isAgeLocked: !isMyVideo && shouldBlur(rating, ageVerified) };
   };
+
+  // 시간대 무드 편성 — 접속 시각에 따라 카테고리 행 순서 재배치 ("기타"는 항상 맨 뒤)
+  const band = useMemo(() => currentBand(), []);
+  const orderedRows = useMemo(
+    () => [...genreRows].sort(
+      (a, b) => bandRank(getGenreStyle(a.category).key, band) - bandRank(getGenreStyle(b.category).key, band),
+    ),
+    [genreRows, band],
+  );
 
   // 히어로(트렌딩 1위)의 재생 URL(+하이라이트 구간) 로딩 — RPC엔 video_url 이 없어 별도 조회
   const heroId = trending[0]?.id;
@@ -248,19 +285,33 @@ export function Ott({ onProductClick, onNavigate, onHeroScroll }: OttProps) {
         />
       )}
 
-      {/* ━━━ 카테고리 마퀴 행 (좌우 교차) ━━━ */}
-      <div className="max-w-[1800px] mx-auto mt-6 relative">
-        {genreRows.map((row, i) => (
-          <MarqueeRow
+      {/* ━━━ 시간대 무드 편성 헤더 ━━━ */}
+      {orderedRows.length > 0 && (
+        <div className="max-w-[1800px] mx-auto px-4 md:px-6 mt-7 mb-1">
+          <div className="flex items-center gap-1.5 text-[#a78bfa] text-xs font-bold mb-1">
+            <Clock className="w-3.5 h-3.5" /> {t("ott.programmingNow", "지금 이 시간의 편성")}
+          </div>
+          <h2 className="text-xl md:text-2xl font-black flex items-center gap-2">
+            <span>{band.emoji}</span> {band.name}
+          </h2>
+          <p className="text-xs md:text-sm text-gray-400 mt-0.5">{band.tagline}</p>
+        </div>
+      )}
+
+      {/* ━━━ 카테고리 마퀴 행 (좌우 교차) — 시간대 무드 순서 ━━━ */}
+      <div className="max-w-[1800px] mx-auto mt-3 relative">
+        {orderedRows.map((row, i) => (
+          <CategoryRow
             key={row.category}
             category={row.category}
             videos={row.videos}
             dir={i % 2 === 0 ? "right" : "left"}
+            highlighted={band.order.includes(getGenreStyle(row.category).key)}
             onClick={(v) => onProductClick(toProduct(v))}
             ageGuard={ageGuard}
           />
         ))}
-        {genreRows.length === 0 && (
+        {orderedRows.length === 0 && (
           <div className="px-6 py-12 text-center text-gray-500 text-sm">{t("ott.noGenreContent")}</div>
         )}
       </div>
@@ -436,41 +487,78 @@ function HeroBillboard({
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 카테고리 마퀴 행 (좌/우 자동 흐름, 마우스 hover 시 정지)
+// 카테고리 행 — 기본 자동 흐름(좌/우) + 데스크탑 화살표로 그 방향 추가 진행.
+//  · 마우스 올리면 자동 흐름 일시정지(클릭/화살표 조작 편하게). 항목 2벌 복제로 무한 루프.
 // ────────────────────────────────────────────────────────────────────────────
-function MarqueeRow({
+function CategoryRow({
   category,
   videos,
   dir,
+  highlighted,
   onClick,
   ageGuard,
 }: {
   category: string;
   videos: CarouselVideo[];
   dir: "left" | "right";
+  highlighted?: boolean;
   onClick: (v: CarouselVideo) => void;
   ageGuard: AgeGuard;
 }) {
   const { t } = useTranslation();
   const style = getGenreStyle(category);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const pausedRef = useRef(false);
+  const doubled = [...videos, ...videos]; // 무한 루프용 2벌 복제
+
+  // 기본 자동 흐름 (방향: dir) — hover 시 일시정지. scrollWidth/2 지점에서 되감아 끊김 없음.
+  // scrollLeft 는 정수 반올림되므로 소수 속도를 누적해 1px 이상 모일 때만 적용 (수동 스크롤과도 호환).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (dir === "right") el.scrollLeft = el.scrollWidth / 2;
+    let raf = 0;
+    let acc = 0;
+    const SPEED = 0.25; // px/frame (느린 흐름)
+    const step = () => {
+      if (!pausedRef.current && el.scrollWidth > el.clientWidth + 4) {
+        acc += SPEED;
+        if (acc >= 1) {
+          const inc = Math.floor(acc);
+          acc -= inc;
+          const half = el.scrollWidth / 2;
+          el.scrollLeft += dir === "left" ? inc : -inc;
+          if (el.scrollLeft >= half) el.scrollLeft -= half;
+          else if (el.scrollLeft <= 0) el.scrollLeft += half;
+        }
+      }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [dir, videos.length]);
+
   if (videos.length === 0) return null;
 
-  // 끊김 없는 무한 흐름: 항목 2벌 복제, 트랙을 -50%까지 이동. 카드당 약 28s (천천히)
-  const doubled = [...videos, ...videos];
-  const duration = `${videos.length * 28}s`;
+  const labelOnLeft = dir === "right"; // 라벨/시작 위치 (행마다 좌우 교차)
+  const scroll = (d: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const amount = el.clientWidth * 0.8;
+    el.scrollBy({ left: d === "left" ? -amount : amount, behavior: "smooth" });
+  };
 
   return (
-    <section className="mb-7">
-      <h3 className="text-base md:text-lg font-bold px-4 md:px-6 mb-2.5 flex items-center gap-2">
-        <span className="text-xl">{style.emoji}</span>
-        {t(style.labelKey)}
-      </h3>
-      <div className="marquee-row overflow-hidden">
-        <div
-          className={`flex gap-3 w-max ${dir === "right" ? "marquee-right" : "marquee-left"}`}
-          style={{ animationDuration: duration }}
-        >
-          {doubled.map((v, i) => {
+    <section
+      className="relative mb-7 group/row"
+      onMouseEnter={() => { pausedRef.current = true; }}
+      onMouseLeave={() => { pausedRef.current = false; }}
+    >
+      <div
+        ref={scrollRef}
+        className={`flex gap-3 overflow-x-auto scrollbar-hide ${labelOnLeft ? "pl-12 md:pl-28 md:pr-14" : "pr-12 md:pr-28 md:pl-14"}`}
+      >
+        {doubled.map((v, i) => {
             const g = ageGuard(v);
             return (
               <button
@@ -520,6 +608,35 @@ function MarqueeRow({
             );
           })}
         </div>
+
+      {/* 데스크탑 좌우 nav 화살표 (모바일 숨김 · hover 시 표시 · 클릭 시 좌우 스크롤) */}
+      <button
+        onClick={() => scroll("left")}
+        aria-label={t("videoRow.previous", "이전")}
+        className="hidden md:flex absolute left-0 top-0 bottom-0 z-10 w-12 items-center justify-center bg-gradient-to-r from-[#0a0a0a]/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity hover:from-[#0a0a0a]"
+      >
+        <ChevronLeft className="w-7 h-7 text-white" />
+      </button>
+      <button
+        onClick={() => scroll("right")}
+        aria-label={t("videoRow.next", "다음")}
+        className="hidden md:flex absolute right-0 top-0 bottom-0 z-10 w-12 items-center justify-center bg-gradient-to-l from-[#0a0a0a]/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity hover:from-[#0a0a0a]"
+      >
+        <ChevronRight className="w-7 h-7 text-white" />
+      </button>
+
+      {/* 반투명 브랜드 카테고리 패널 — 모바일: 가장자리 / 데스크탑: 화살표 옆(안쪽).
+          highlighted(=지금 시간 추천)면 따뜻한 시그니처 그라데이션으로 강조 */}
+      <div
+        className={`absolute top-0 bottom-0 z-20 w-9 md:w-11 flex flex-col items-center justify-center gap-1.5 backdrop-blur-md border-white/15
+          ${labelOnLeft ? "left-0 md:left-12 border-r" : "right-0 md:right-12 border-l"}
+          ${highlighted
+            ? (labelOnLeft ? "bg-gradient-to-r from-[#a78bfa]/65 via-[#ec4899]/45 to-transparent" : "bg-gradient-to-l from-[#a78bfa]/65 via-[#ec4899]/45 to-transparent")
+            : (labelOnLeft ? "bg-gradient-to-r from-[#6366f1]/60 via-[#8b5cf6]/35 to-transparent" : "bg-gradient-to-l from-[#6366f1]/60 via-[#8b5cf6]/35 to-transparent")}`}
+        title={highlighted ? t("ott.programmingPick", "지금 시간 추천") : undefined}
+      >
+        <style.Icon className="w-5 h-5 md:w-7 md:h-7 text-white drop-shadow-lg" strokeWidth={2.2} />
+        <span className="[writing-mode:vertical-rl] text-xs md:text-base font-black text-white tracking-wide drop-shadow">{t(style.labelKey)}</span>
       </div>
     </section>
   );
