@@ -42,6 +42,7 @@ interface Product {
 
 interface OttProps {
   onProductClick: (product: Product) => void;
+  onPlayProduct?: (product: Product) => void;   // 히어로 "지금 보기" → 상세 + 전체화면 재생
   onNavigate?: (tab: string) => void;
   // 풀블리드 히어로 스크롤 시 글로벌 헤더 배경 토글 (App.tsx)
   onHeroScroll?: (scrolled: boolean) => void;
@@ -125,7 +126,7 @@ function bandRank(genreKey: string, band: ProgrammingBand): number {
   return 100;                          // 나머지 알려진 장르
 }
 
-export function Ott({ onProductClick, onNavigate, onHeroScroll }: OttProps) {
+export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }: OttProps) {
   const { t } = useTranslation();
   const { profile, user } = useAuth();
   const showcase = shouldShowShowcase(profile?.is_admin);
@@ -163,7 +164,8 @@ export function Ott({ onProductClick, onNavigate, onHeroScroll }: OttProps) {
   );
 
   // 히어로(트렌딩 1위)의 재생 URL(+하이라이트 구간) 로딩 — RPC엔 video_url 이 없어 별도 조회
-  const heroId = trending[0]?.id;
+  // 히어로 영상: 트렌딩 1위, 없으면 카테고리 행 첫 영화로 폴백 (render 의 heroes[0] 과 일치)
+  const heroId = (trending[0] ?? genreRows.flatMap((r) => r.videos)[0])?.id;
   useEffect(() => {
     setHeroSrc(null);
     if (!heroId || heroId.startsWith("demo-") || heroId.startsWith("showcase")) return;
@@ -175,7 +177,10 @@ export function Ott({ onProductClick, onNavigate, onHeroScroll }: OttProps) {
         .eq("id", heroId)
         .maybeSingle();
       if (!cancelled && data?.video_url) {
-        setHeroSrc({ url: data.video_url, start: data.highlight_start || 0, end: data.highlight_end || 15 });
+        const hStart = data.highlight_start || 0;
+        // 히어로 미리보기: 크리에이터 하이라이트(기본 30초) 그대로, 없으면 +30초
+        const hEnd = data.highlight_end || (hStart + 30);
+        setHeroSrc({ url: data.video_url, start: hStart, end: hEnd });
       }
     })();
     return () => { cancelled = true; };
@@ -202,13 +207,13 @@ export function Ott({ onProductClick, onNavigate, onHeroScroll }: OttProps) {
           p_min_count: 1,
         });
 
-        const topCategories = (cats || []).slice(0, 6);
+        const topCategories = (cats || []).slice(0, 12); // 모든 장르 행 노출 (빈 카테고리 없음)
         const rows: GenreRow[] = await Promise.all(
           topCategories.map(async (cat: { category: string }) => {
             const { data } = await supabase.rpc("get_videos_by_category", {
               p_category: cat.category,
               p_tier: "ott",
-              p_limit: 12,
+              p_limit: 50, // 넷플릭스식: 사실상 카테고리 전부 노출 (작은 제한 없음)
             });
             return { category: cat.category, videos: data || [] };
           })
@@ -255,8 +260,9 @@ export function Ott({ onProductClick, onNavigate, onHeroScroll }: OttProps) {
     );
   }
 
-  // 히어로: 트렌딩 상위 4편 (데스크탑 2등분, 모바일 1개씩 순환)
-  const heroes = trending.slice(0, 4);
+  // 히어로: 트렌딩 상위 (조회수 기반). 트렌딩이 비면(신규 등록 등) 카테고리 행의 실제 영화로 폴백.
+  const heroFallback = genreRows.flatMap((r) => r.videos);
+  const heroes = (trending.length > 0 ? trending : heroFallback).slice(0, 4);
 
   if (heroes.length === 0 && genreRows.length === 0) {
     return (
@@ -282,6 +288,7 @@ export function Ott({ onProductClick, onNavigate, onHeroScroll }: OttProps) {
           muted={heroMuted}
           onToggleMute={() => setHeroMuted((m) => !m)}
           onClick={(v) => onProductClick(toProduct(v))}
+          onPlay={(v) => (onPlayProduct ?? onProductClick)(toProduct(v))}
         />
       )}
 
@@ -337,13 +344,15 @@ function HeroBillboard({
   muted,
   onToggleMute,
   onClick,
+  onPlay,
 }: {
   video: CarouselVideo;
   src: { url: string; start: number; end: number } | null;
   ageGuard: AgeGuard;
   muted: boolean;
   onToggleMute: () => void;
-  onClick: (v: CarouselVideo) => void;
+  onClick: (v: CarouselVideo) => void;   // 작품 정보 / 섹션 클릭 → 상세
+  onPlay: (v: CarouselVideo) => void;    // 지금 보기 → 상세 + 전체화면 재생
 }) {
   const { t } = useTranslation();
   const g = ageGuard(video);
@@ -467,7 +476,7 @@ function HeroBillboard({
             {video.creator_display_name || video.creator || ""}
           </p>
           <div className="flex gap-2.5 pointer-events-auto">
-            <button onClick={() => onClick(video)} className="inline-flex items-center gap-1.5 px-5 md:px-7 py-2.5 rounded-lg bg-white text-black text-sm font-bold hover:bg-white/90 transition-colors">
+            <button onClick={() => onPlay(video)} className="inline-flex items-center gap-1.5 px-5 md:px-7 py-2.5 rounded-lg bg-white text-black text-sm font-bold hover:bg-white/90 transition-colors">
               <Play className="w-5 h-5 fill-black" /> {t("ott.watchNow")}
             </button>
             <button onClick={() => onClick(video)} className="inline-flex items-center gap-1.5 px-5 md:px-7 py-2.5 rounded-lg bg-white/15 backdrop-blur border border-white/30 text-white text-sm font-bold hover:bg-white/25 transition-colors">

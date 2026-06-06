@@ -118,7 +118,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
 
   // 하이라이트 구간 (홈 피드/큐레이션 노출용 10~30초)
   const [videoDurationSec, setVideoDurationSec] = useState(0);
-  const [highlight, setHighlight] = useState<{ start: number; end: number }>({ start: 0, end: 15 });
+  const [highlight, setHighlight] = useState<{ start: number; end: number }>({ start: 0, end: 30 });
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const fileObjectUrlRef = useRef<string | null>(null);
 
@@ -343,12 +343,12 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
 
       // 2.5. 하이라이트 기본 구간 설정 (영상 중간 15초)
       setVideoDurationSec(duration);
-      if (duration <= 15) {
-        // 짧은 영상은 전체를 하이라이트로
+      if (duration <= 30) {
+        // 30초 미만 영상은 전체를 하이라이트로 (처음부터 전체 재생)
         setHighlight({ start: 0, end: duration });
       } else {
         const defaultStart = Math.max(0, duration * 0.4);
-        const defaultEnd = Math.min(duration, defaultStart + 15);
+        const defaultEnd = Math.min(duration, defaultStart + 30);
         setHighlight({ start: defaultStart, end: defaultEnd });
       }
 
@@ -797,7 +797,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
     setCustomThumbnail(null);
     setTagInput("");
     setVideoDurationSec(0);
-    setHighlight({ start: 0, end: 15 });
+    setHighlight({ start: 0, end: 30 });
     setShowPreview(false);
     if (fileObjectUrlRef.current) {
       URL.revokeObjectURL(fileObjectUrlRef.current);
@@ -824,8 +824,16 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
       language: "",
       subtitleLanguage: "",
       visibility: "public",
+      licenseType: "original",
+      licenseSourceUrl: "",
+      attribution: "",
+      originalCreator: "",
       standardPrice: "",
       tags: "",
+      sponsorBrand: "",
+      sponsorLogoUrl: "",
+      sponsorDisclosure: "유료 광고 포함",
+      sponsorLinkUrl: "",
     });
     setAgreedToTerms(false);
     if (fileInputRef.current) {

@@ -119,9 +119,10 @@ interface ProductDetailProps {
   onViewCreator?: (creatorId: string) => void;
   onNavigateToVideo?: (videoId: string) => void | Promise<void>;   // Phase 16: 연속 재생
   autoOpenComments?: boolean;   // 알림(답글) 클릭 진입 시 댓글창 자동 열기
+  startFullscreen?: boolean;    // OTT "지금 보기" 진입 시 플레이어 자동 전체화면
 }
 
-export function ProductDetail({ product: productProp, onClose, onAddToCart, onSignInClick, onViewCreator, onNavigateToVideo, autoOpenComments }: ProductDetailProps) {
+export function ProductDetail({ product: productProp, onClose, onAddToCart, onSignInClick, onViewCreator, onNavigateToVideo, autoOpenComments, startFullscreen }: ProductDetailProps) {
   const { t } = useTranslation();
   const [isLiked, setIsLiked] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
@@ -603,6 +604,20 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   // iframe 실제 노출 여부 — 미리보기 컷오프 + Phase 26: 19+ 미인증 차단 + 자체 광고 재생 중 차단
   // (v2 정책: OTT 즉시 차단 제거 — 모든 영상 1분 미리보기 통일)
   const iframeBlocked = cinemaCutoffTriggered || isAgeLocked || !!prerollAd;
+
+  // OTT "지금 보기" 진입 → 플레이어 자동 전체화면 (클릭 직후라 transient activation 유효)
+  const fsRequestedRef = useRef(false);
+  useEffect(() => {
+    if (!startFullscreen || fsRequestedRef.current) return;
+    if (iframeBlocked || !bunnyEmbedUrl) return;
+    fsRequestedRef.current = true;
+    const id = setTimeout(() => {
+      const el: any = iframeRef.current;
+      if (el?.requestFullscreen) el.requestFullscreen().catch(() => {});
+      else if (el?.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    }, 150);
+    return () => clearTimeout(id);
+  }, [startFullscreen, iframeBlocked, bunnyEmbedUrl]);
 
   // ── Phase 28: Overlay 광고 (재생 중 30% 지점, 1분+ 영상만) ──
   const [overlayAd, setOverlayAd] = useState<AdRpcResult | null>(null);

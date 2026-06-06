@@ -7,8 +7,8 @@
 import { toast } from "sonner";
 import { SHOWCASE_VIDEOS, isShowcaseId, type ShowcaseVideo } from "../data/showcaseVideos";
 
-/** 베타 오픈 시 false로 변경 → 모든 Mock 데이터 사라짐 */
-export const SHOWCASE_ENABLED = true;
+/** 베타 오픈 시 false로 변경 → 모든 Mock 데이터 사라짐 (2026-06-06: 실제 시드 146편 등록으로 OFF) */
+export const SHOWCASE_ENABLED = false;
 
 export { isShowcaseId };
 

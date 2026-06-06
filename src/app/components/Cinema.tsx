@@ -11,7 +11,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 // 카테고리 행 고정 순서 (영상이 있는 카테고리만 표시됨)
-const FIXED_CATEGORY_ORDER = ["영화", "드라마", "애니메이션", "다큐멘터리", "뮤직비디오", "기타"];
+const FIXED_CATEGORY_ORDER = ["드라마", "SF", "액션", "코미디", "공포", "스릴러", "로맨스", "판타지", "애니메이션", "다큐멘터리", "음악"];
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Film } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
@@ -64,7 +64,7 @@ function toCoverFlowVideo(v: CarouselVideo & { video_url?: string }): any {
     tool: v.ai_tool || "",
     price: v.price_standard || 0,
     highlightStart: v.highlight_start ?? 0,
-    highlightEnd: v.highlight_end ?? 15,
+    highlightEnd: v.highlight_end ?? ((v.highlight_start ?? 0) + 30),
   };
 }
 
@@ -118,7 +118,7 @@ function toProduct(v: CarouselVideo): Product {
     videoUrl: "",  // VideoRowCarousel은 raw video_url 없음 — ProductDetail에서 자체 조회
     priceStandard: v.price_standard || 0,
     highlightStart: v.highlight_start ?? 0,
-    highlightEnd: v.highlight_end ?? 15,
+    highlightEnd: v.highlight_end ?? ((v.highlight_start ?? 0) + 30),
     views: typeof v.views === "number" ? v.views : 0,
     likes: typeof v.likes === "number" ? v.likes : 0,
   };
@@ -172,9 +172,9 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 24, p_limit: 10 }),
           supabase.rpc("get_new_releases", { p_tier: tier, p_days: 14, p_limit: 10 }),
           supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 720, p_limit: 10 }),  // 30일 (이달의 BEST)
-          // 카테고리 6종 고정 순서로 병렬 호출
+          // 카테고리별 병렬 호출 (넷플릭스식: 작은 제한 없이 카테고리 전부 노출)
           ...FIXED_CATEGORY_ORDER.map((cat) =>
-            supabase.rpc("get_videos_by_category", { p_category: cat, p_tier: tier, p_limit: 12 }),
+            supabase.rpc("get_videos_by_category", { p_category: cat, p_tier: tier, p_limit: 50 }),
           ),
         ]);
 

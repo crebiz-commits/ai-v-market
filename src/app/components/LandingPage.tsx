@@ -10,9 +10,10 @@ import { Button } from "./ui/button";
 
 interface LandingPageProps {
   onLogin: () => void;
-  onExplore: () => void;             // "콘텐츠 둘러보기" → 비로그인 상태로 DiscoveryFeed 진입
+  onExplore: () => void;             // "콘텐츠 둘러보기" → DiscoveryFeed 진입
   onSubscribe?: () => void;           // 가격 프로모의 "구독 시작"
   onNavigate?: (tab: string) => void; // 정책·약관 페이지 이동
+  isAuthenticated?: boolean;          // 로그인 사용자: "지금 시작하기" → 로그인 모달 대신 바로 입장
 }
 
 // 포스터 슬롯 — 실제 영상 또는 mock 시네마 포스터 (public/landing-posters/*.jpg)
@@ -125,7 +126,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   );
 }
 
-export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate }: LandingPageProps) {
+export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAuthenticated }: LandingPageProps) {
   const { t } = useTranslation();
   // 초기값은 mock 포스터 — fetch 중에도 화면이 비어 보이지 않음
   const [posterSlots, setPosterSlots] = useState<PosterSlot[]>(MOCK_POSTERS);
@@ -212,11 +213,11 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate }: Lan
             className="flex flex-col sm:flex-row items-center justify-center gap-3"
           >
             <Button
-              onClick={onLogin}
+              onClick={isAuthenticated ? onExplore : onLogin}
               className="w-full sm:w-auto px-8 py-6 text-base font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white rounded-xl shadow-[0_10px_40px_-10px_rgba(99,102,241,0.6)] border border-white/10 gap-2"
             >
               <Crown className="w-5 h-5" />
-              지금 시작하기
+              {isAuthenticated ? "지금 시청하기" : "지금 시작하기"}
             </Button>
             <Button
               onClick={onExplore}
@@ -418,11 +419,11 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate }: Lan
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Button
-                onClick={onSubscribe || onLogin}
+                onClick={isAuthenticated ? onExplore : (onSubscribe || onLogin)}
                 className="w-full sm:w-auto px-8 py-6 text-base font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white rounded-xl shadow-[0_10px_40px_-10px_rgba(99,102,241,0.6)] gap-2"
               >
                 <Crown className="w-5 h-5" />
-                지금 시작하기
+                {isAuthenticated ? "지금 시청하기" : "지금 시작하기"}
               </Button>
               <Button
                 onClick={onExplore}

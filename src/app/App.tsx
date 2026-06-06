@@ -291,6 +291,8 @@ function AppContent() {
   const [selectedProduct, setSelectedProductRaw] = useState<VideoProduct | null>(null);
   // 알림(답글) 클릭으로 진입 시 ProductDetail 의 댓글창 자동 열기
   const [openCommentsOnOpen, setOpenCommentsOnOpen] = useState(false);
+  // OTT "지금 보기" 진입 시 플레이어 자동 전체화면
+  const [productFullscreen, setProductFullscreen] = useState(false);
   // Showcase Mode: demo- prefix 영상은 진입 차단 + 안내 토스트
   const setSelectedProduct = (product: VideoProduct | null) => {
     if (product?.id?.startsWith("demo-")) {
@@ -299,6 +301,17 @@ function AppContent() {
       return;
     }
     setOpenCommentsOnOpen(false); // 일반 진입은 댓글 자동 열기 안 함 (loadAndOpenVideo 가 필요 시 직후 true 설정)
+    setProductFullscreen(false);  // "작품 정보"/카드 진입은 전체화면 아님
+    setSelectedProductRaw(product);
+  };
+  // OTT "지금 보기" — 상세 진입 + 플레이어 자동 전체화면
+  const playProduct = (product: VideoProduct | null) => {
+    if (product?.id?.startsWith("demo-")) {
+      import("./utils/showcase").then(m => m.handleShowcaseClick(product.id));
+      return;
+    }
+    setOpenCommentsOnOpen(false);
+    setProductFullscreen(true);
     setSelectedProductRaw(product);
   };
   // 채널 탭 외부에서 "채널 보기" 클릭 시 어떤 크리에이터를 열지 신호 (Channel이 mount 후 selectedCreatorId로 채택)
@@ -640,10 +653,11 @@ function AppContent() {
   const renderContent = () => {
     switch (activeTab) {
       case "discovery":
-        // 비로그인 + 〈둘러보기〉 미클릭 → Netflix 패턴 랜딩 페이지
-        if (!isAuthenticated && !hasExplored) {
+        // 〈둘러보기〉 미클릭 → Netflix 패턴 랜딩 페이지 (로그인/로그아웃 통일 — 모두 랜딩 먼저)
+        if (!hasExplored) {
           return (
             <LandingPage
+              isAuthenticated={isAuthenticated}
               onLogin={() => setShowAuthModal(true)}
               onExplore={() => setHasExplored(true)}
               onSubscribe={() => setShowAuthModal(true)}
@@ -655,7 +669,7 @@ function AppContent() {
       case "market":
         return <Cinema onProductClick={setSelectedProduct} onAddToCart={(p) => addToCart(p)} tier="cinema" onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "ott":
-        return <Ott onProductClick={setSelectedProduct} onNavigate={(tab) => setActiveTab(tab as Tab)} onHeroScroll={setHeroScrolled} />;
+        return <Ott onProductClick={setSelectedProduct} onPlayProduct={playProduct} onNavigate={(tab) => setActiveTab(tab as Tab)} onHeroScroll={setHeroScrolled} />;
       case "upload":
         return <Upload onSignInClick={() => setShowAuthModal(true)} onViewMyProducts={() => setActiveTab("mypage")} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "community":
@@ -1108,12 +1122,13 @@ function AppContent() {
         <Suspense fallback={null}>
           <ProductDetail
             product={selectedProduct}
-            onClose={() => setSelectedProduct(null)}
+            onClose={() => { setProductFullscreen(false); setSelectedProduct(null); }}
             onSignInClick={() => setShowAuthModal(true)}
             onAddToCart={addToCart}
             onViewCreator={handleViewCreator}
             onNavigateToVideo={loadAndOpenVideo}
             autoOpenComments={openCommentsOnOpen}
+            startFullscreen={productFullscreen}
           />
         </Suspense>
       )}

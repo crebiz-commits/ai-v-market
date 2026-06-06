@@ -381,9 +381,9 @@ const MovieSection = memo(({
 
     player.on('timeupdate', () => {
       const s = video.highlightStart || 0;
-      let e = video.highlightEnd || 15;
+      let e = video.highlightEnd || (s + 30);
       const d = player.duration();
-      if (typeof d === 'number' && d > 0 && e > d) e = d;
+      if (typeof d === 'number' && d > 0 && e > d) e = d; // 30초 미만이면 전체 재생
       const t = player.currentTime();
       if (typeof t === 'number' && t >= e) {
         player.currentTime(s);
@@ -607,6 +607,46 @@ const MovieSection = memo(({
 
 MovieSection.displayName = "MovieSection";
 
+// DB row → Video 매핑 (초기 로드 + 무한 스크롤 페이지에서 공통 사용)
+function mapVideoRow(item: any): Video {
+  return {
+    id: item.id,
+    thumbnail: item.thumbnail,
+    title: item.title,
+    creator: item.creator || "AI Creator",
+    creatorId: item.creator_id || undefined,
+    likes: item.likes || 0,
+    price: item.price_standard || 0,
+    duration: item.duration || "0:00",
+    durationSeconds: item.duration_seconds || 0,
+    resolution: item.resolution || undefined,
+    tool: item.ai_tool || "AI Tool",
+    category: item.category || undefined,
+    genre: item.genre || undefined,
+    videoUrl: item.video_url || "",
+    age_rating: item.age_rating || "all",
+    description: item.description || undefined,
+    tags: Array.isArray(item.tags) ? item.tags : (typeof item.tags === "string" && item.tags ? item.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : []),
+    priceStandard: item.price_standard || 0,
+    aiModelVersion: item.ai_model_version || undefined,
+    prompt: item.prompt || undefined,
+    seed: item.seed || undefined,
+    director: item.director || undefined,
+    writer: item.writer || undefined,
+    composer: item.composer || undefined,
+    castCredits: item.cast_credits || undefined,
+    productionYear: item.production_year || undefined,
+    language: item.language || undefined,
+    subtitleLanguage: item.subtitle_language || undefined,
+    visibility: item.visibility || "public",
+    highlightStart: item.highlight_start || 0,
+    highlightEnd: item.highlight_end || ((item.highlight_start || 0) + 30),
+  } as Video;
+}
+
+// 홈 피드 한 페이지 크기 (무한 스크롤)
+const FEED_PAGE_SIZE = 12;
+
 export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: DiscoveryFeedProps) {
   const [videos, setVideos] = useState<Video[]>([]);
   const [ads, setAds] = useState<Ad[]>([]);
@@ -618,6 +658,12 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
   const [shareTarget, setShareTarget] = useState<Video | null>(null);
   const [fullscreenVideo, setFullscreenVideo] = useState<Video | null>(null);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  // 무한 스크롤 — 전 영상을 페이지 단위로 끊김 없이 로드
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const offsetRef = useRef(0);          // 다음 페이지 시작 위치 (DB row 기준)
+  const hasMoreRef = useRef(true);      // 클로저 stale 방지용
+  const fetchingRef = useRef(false);    // 중복 호출 방지
   const { user, profile } = useAuth();
   const { isBlocked } = useBlockedUsers();
   const showcase = shouldShowShowcase(profile?.is_admin);
@@ -674,110 +720,102 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
     };
   }, [fullscreenVideo]);
 
-  // Fetch initial data (videos + ads in parallel)
+  // 무한 스크롤: 다음 페이지 로드 — 전 영상을 우선순위(최신순) 순서대로 끊김 없이.
+  // 홈 피드는 "모든 영상의 하이라이트 코너"이므로 100편이든 10000편이든 전부 노출된다.
+  const loadMore = useCallback(async () => {
+    if (fetchingRef.current || !hasMoreRef.current) return;
+    fetchingRef.current = true;
+    setLoadingMore(true);
+    try {
+      const from = offsetRef.current;
+      // 개인화 추천: 시청이력·좋아요·팔로우 기반 순위 (비로그인/이력없음은 인기+최신).
+      // 모든 show_on_home 영상이 포함되며 우선순위만 달라짐. id 타이브레이커로 페이지 안정.
+      const { data, error } = await supabase.rpc("get_home_feed", {
+        p_limit: FEED_PAGE_SIZE,
+        p_offset: from,
+      });
+      if (error) throw error;
+      const rows = data || [];
+      offsetRef.current = from + rows.length;
+      if (rows.length < FEED_PAGE_SIZE) { hasMoreRef.current = false; setHasMore(false); }
+      if (rows.length > 0) {
+        let mapped = rows.map(mapVideoRow);
+        // Showcase Mode(데모)일 때만 첫 페이지에 Mock 합성 (현재 비활성)
+        if (from === 0 && showcase) mapped = mergeShowcase<Video>(mapped, showcaseToVideo);
+        setVideos((prev) => {
+          const seen = new Set(prev.map((v) => v.id));
+          return [...prev, ...mapped.filter((v) => !seen.has(v.id))];
+        });
+        setActiveId((prev) => prev ?? mapped[0]?.id ?? null);
+        // 댓글 수 — 새 페이지 영상만 조회해 누적 병합
+        const ids = mapped.map((v) => v.id).filter((id) => !id.startsWith("demo-"));
+        if (ids.length > 0) {
+          const { data: countData } = await supabase.from("comments")
+            .select("video_id").in("video_id", ids).is("parent_id", null);
+          if (countData) {
+            const counts: Record<string, number> = {};
+            countData.forEach((c: any) => { counts[c.video_id] = (counts[c.video_id] || 0) + 1; });
+            setCommentCounts((prev) => ({ ...prev, ...counts }));
+          }
+        }
+      }
+    } catch (e) {
+      console.error("loadMore error:", e);
+    } finally {
+      fetchingRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [showcase]);
+
+  // 초기 로드: 광고 + 좋아요 상태 + 첫 페이지 영상 (user 변경 시 처음부터 재시작)
   useEffect(() => {
-    async function fetchData() {
+    let cancelled = false;
+    (async () => {
       setLoading(true);
+      // 페이지네이션 상태 리셋
+      offsetRef.current = 0;
+      hasMoreRef.current = true;
+      fetchingRef.current = false;
+      setHasMore(true);
+      setVideos([]);
+      setActiveId(null);
       try {
-        const [videoResult, adResult] = await Promise.all([
-          // 홈 피드: show_on_home=true (Phase 1 분류 — 모든 영상이 홈에 노출되지만
-          // 향후 비공개/검수 등 정책 시 false 가능) + visibility public/null
-          supabase.from("videos").select("*")
-            .or("visibility.eq.public,visibility.is.null")
-            .eq("show_on_home", true)
-            .order("created_at", { ascending: false }).limit(20),
-          // 홈 피드 광고: feed_display 타입만 (또는 ad_type 컬럼 없는 레거시)
-          // video_preroll은 영상 재생 직전에만 노출되므로 피드에 표시 안 함
-          supabase.from("ads").select("id,title,advertiser,image_url,video_url,thumbnail_url,link_url,cta_text,interval_count,ad_type")
-            .eq("is_active", true)
-            .or("ad_type.eq.feed_display,ad_type.is.null")
-            .or("starts_at.is.null,starts_at.lte." + new Date().toISOString())
-            .or("ends_at.is.null,ends_at.gte." + new Date().toISOString()),
-        ]);
+        // 홈 피드 광고: feed_display 타입만 (video_preroll은 재생 직전에만 노출)
+        const adResult = await supabase.from("ads")
+          .select("id,title,advertiser,image_url,video_url,thumbnail_url,link_url,cta_text,interval_count,ad_type")
+          .eq("is_active", true)
+          .or("ad_type.eq.feed_display,ad_type.is.null")
+          .or("starts_at.is.null,starts_at.lte." + new Date().toISOString())
+          .or("ends_at.is.null,ends_at.gte." + new Date().toISOString());
+        if (!cancelled && adResult.data && adResult.data.length > 0) setAds(adResult.data as Ad[]);
 
-        if (videoResult.error) throw videoResult.error;
-
-        if (videoResult.data) {
-          const formatted = videoResult.data.map((item: any) => ({
-            id: item.id,
-            thumbnail: item.thumbnail,
-            title: item.title,
-            creator: item.creator || "AI Creator",
-            creatorId: item.creator_id || undefined,
-            likes: item.likes || 0,
-            price: item.price_standard || 0,
-            duration: item.duration || "0:00",
-            durationSeconds: item.duration_seconds || 0,
-            resolution: item.resolution || undefined,
-            tool: item.ai_tool || "AI Tool",
-            category: item.category || undefined,
-            genre: item.genre || undefined,
-            videoUrl: item.video_url || "",
-            // Phase 26: 연령 등급
-            age_rating: item.age_rating || "all",
-            description: item.description || undefined,
-            tags: Array.isArray(item.tags) ? item.tags : (typeof item.tags === "string" && item.tags ? item.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : []),
-            // 라이선스 (All-in-One 단일가)
-            priceStandard: item.price_standard || 0,
-            // AI 제작 증빙
-            aiModelVersion: item.ai_model_version || undefined,
-            prompt: item.prompt || undefined,
-            seed: item.seed || undefined,
-            // 시네마 메타데이터
-            director: item.director || undefined,
-            writer: item.writer || undefined,
-            composer: item.composer || undefined,
-            castCredits: item.cast_credits || undefined,
-            productionYear: item.production_year || undefined,
-            language: item.language || undefined,
-            subtitleLanguage: item.subtitle_language || undefined,
-            // 공개 설정 + 하이라이트
-            visibility: item.visibility || "public",
-            highlightStart: item.highlight_start || 0,
-            highlightEnd: item.highlight_end || 15,
-          }));
-          // Phase: Showcase Mode — 비관리자에게 Mock 100개 추가
-          const final = showcase ? mergeShowcase<Video>(formatted, showcaseToVideo) : formatted;
-          setVideos(final);
-          if (final.length > 0) setActiveId(final[0].id);
-
-          // 댓글 수 fetch
-          const videoIds = formatted.map((v: Video) => v.id);
-          if (videoIds.length > 0) {
-            const { data: countData } = await supabase
-              .from("comments")
-              .select("video_id")
-              .in("video_id", videoIds)
-              .is("parent_id", null);
-            if (countData) {
-              const counts: Record<string, number> = {};
-              countData.forEach((c: any) => {
-                counts[c.video_id] = (counts[c.video_id] || 0) + 1;
-              });
-              setCommentCounts(counts);
-            }
-          }
-
-          if (user) {
-            const { data: likesData } = await supabase
-              .from("video_likes")
-              .select("video_id")
-              .eq("user_id", user.id);
-            if (likesData) setLikedVideos(new Set(likesData.map(l => l.video_id)));
-          }
+        if (!cancelled && user) {
+          const { data: likesData } = await supabase.from("video_likes")
+            .select("video_id").eq("user_id", user.id);
+          if (!cancelled && likesData) setLikedVideos(new Set(likesData.map((l) => l.video_id)));
         }
 
-        if (adResult.data && adResult.data.length > 0) {
-          setAds(adResult.data as Ad[]);
-        }
+        if (!cancelled) await loadMore();
       } catch (error) {
         console.error("Error fetching discovery data:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    }
-    fetchData();
-  }, [user?.id]);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, loadMore]);
+
+  // 무한 스크롤 트리거: 피드 끝 근처 sentinel이 보이면 다음 페이지 로드
+  useEffect(() => {
+    if (loading) return;
+    const sentinels = Array.from(document.querySelectorAll<HTMLElement>(".feed-load-sentinel"));
+    if (sentinels.length === 0) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) loadMore();
+    }, { root: null, rootMargin: "800px 0px" });
+    sentinels.forEach((s) => io.observe(s));
+    return () => io.disconnect();
+  }, [loading, loadMore]);
 
   // 노출 트래킹
   const handleAdImpression = useCallback(async (adId: string) => {
@@ -946,7 +984,14 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
             )}
           </div>
         ))}
-        <div className="py-20 text-center text-gray-300 text-[10px] font-bold">END OF FEED</div>
+        {/* 무한 스크롤 sentinel — 끝 근처에서 다음 페이지 자동 로드 */}
+        <div className="feed-load-sentinel h-1" aria-hidden />
+        {loadingMore && (
+          <div className="py-10 flex justify-center"><Loader2 className="w-6 h-6 text-[#6366f1] animate-spin" /></div>
+        )}
+        {!hasMore && (
+          <div className="py-20 text-center text-gray-300 text-[10px] font-bold">END OF FEED</div>
+        )}
       </div>
 
       <div className="desktop-feed-container min-h-screen p-8 lg:p-12 overflow-y-auto bg-[#0a0a0a]">
@@ -973,6 +1018,14 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
               />
             ))}
           </div>
+          {/* 무한 스크롤 sentinel (데스크탑) */}
+          <div className="feed-load-sentinel h-1" aria-hidden />
+          {loadingMore && (
+            <div className="py-10 flex justify-center"><Loader2 className="w-6 h-6 text-[#6366f1] animate-spin" /></div>
+          )}
+          {!hasMore && (
+            <div className="py-12 text-center text-gray-400 text-xs font-bold uppercase tracking-widest">End of Feed</div>
+          )}
         </div>
       </div>
 
