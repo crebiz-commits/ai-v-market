@@ -79,6 +79,11 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
     subtitleLanguage: "",
     // 공개 설정
     visibility: "public" as "public" | "unlisted" | "private",
+    // 라이선스/출처 (어드민 시드 콘텐츠 전용 — is_admin 일 때만 노출)
+    licenseType: "original" as "original" | "cc0" | "cc-by" | "cc-by-sa" | "public-domain",
+    licenseSourceUrl: "",
+    attribution: "",
+    originalCreator: "",
     // 가격 (All-in-One 단일가)
     standardPrice: "",
     tags: "",
@@ -709,6 +714,11 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
         subtitleLanguage: formData.subtitleLanguage || '',
         // 공개 설정
         visibility: formData.visibility || 'public',
+        // 라이선스/출처 (어드민 시드 콘텐츠용 — 일반 업로드는 기본 'original')
+        licenseType: profile?.is_admin ? formData.licenseType : 'original',
+        licenseSourceUrl: profile?.is_admin ? (formData.licenseSourceUrl?.trim() || '') : '',
+        attribution: profile?.is_admin ? (formData.attribution?.trim() || '') : '',
+        originalCreator: profile?.is_admin ? (formData.originalCreator?.trim() || '') : '',
         // 하이라이트 구간 (홈 피드/큐레이션 노출용)
         highlightStart: highlight.start,
         highlightEnd: highlight.end,
@@ -1448,6 +1458,79 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
                   </div>
                 </div>
               </details>
+
+              {/* 어드민 전용 — 오픈 라이선스 시드 콘텐츠 출처/라이선스 기록 (일반 크리에이터엔 미노출) */}
+              {profile?.is_admin && (
+                <details className="group rounded-lg border border-[#a78bfa]/40 bg-[#6366f1]/5 overflow-hidden" open>
+                  <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between hover:bg-card transition-colors">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🛡️</span>
+                      <span className="font-semibold">라이선스·출처</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-[#a78bfa]/20 text-[#a78bfa]">ADMIN</span>
+                    </div>
+                    <ChevronDown className="w-5 h-5 text-gray-300 group-open:rotate-180 transition-transform" />
+                  </summary>
+                  <div className="px-4 pb-4 space-y-4 border-t border-border">
+                    <p className="text-xs text-muted-foreground pt-3">
+                      오픈 라이선스(CC0/CC-BY/퍼블릭도메인) 시드 콘텐츠를 올릴 때만 사용. 일반 크리에이터에겐 보이지 않습니다.
+                    </p>
+                    <div>
+                      <Label htmlFor="licenseType" className="mb-2 block text-sm">라이선스 종류</Label>
+                      <select
+                        id="licenseType"
+                        value={formData.licenseType}
+                        onChange={(e) => setFormData({ ...formData, licenseType: e.target.value as typeof formData.licenseType })}
+                        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="original">직접 제작 (본인 창작)</option>
+                        <option value="cc0">CC0 (퍼블릭도메인 헌정)</option>
+                        <option value="cc-by">CC-BY (출처표기)</option>
+                        <option value="cc-by-sa">CC-BY-SA (출처표기 + 동일조건)</option>
+                        <option value="public-domain">Public Domain (퍼블릭도메인)</option>
+                      </select>
+                    </div>
+                    {formData.licenseType !== "original" && (
+                      <>
+                        <div>
+                          <Label htmlFor="licenseSourceUrl" className="mb-2 block text-sm">원본 출처 URL</Label>
+                          <Input
+                            id="licenseSourceUrl"
+                            value={formData.licenseSourceUrl}
+                            onChange={(e) => setFormData({ ...formData, licenseSourceUrl: e.target.value })}
+                            placeholder="예: https://studio.blender.org/films/sintel/"
+                            className="bg-background"
+                            maxLength={300}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="originalCreator" className="mb-2 block text-sm">원작자</Label>
+                            <Input
+                              id="originalCreator"
+                              value={formData.originalCreator}
+                              onChange={(e) => setFormData({ ...formData, originalCreator: e.target.value })}
+                              placeholder="예: Blender Foundation"
+                              className="bg-background"
+                              maxLength={100}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="attribution" className="mb-2 block text-sm">크레딧 문구</Label>
+                            <Input
+                              id="attribution"
+                              value={formData.attribution}
+                              onChange={(e) => setFormData({ ...formData, attribution: e.target.value })}
+                              placeholder="예: © Blender Foundation (CC BY)"
+                              className="bg-background"
+                              maxLength={200}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </details>
+              )}
 
               {/* Phase 28: Sponsorship — 협찬·후원 정보 (선택) */}
               <details className="group rounded-lg border border-border bg-card/50 overflow-hidden">

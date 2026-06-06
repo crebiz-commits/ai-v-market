@@ -373,6 +373,11 @@ app.post("/videos/save-metadata", async (c) => {
         subtitle_language: metadata.subtitleLanguage || '',
         // 공개 설정
         visibility: ['public', 'unlisted', 'private'].includes(metadata.visibility) ? metadata.visibility : 'public',
+        // 라이선스/출처 (어드민 시드 콘텐츠용 — 일반 업로드는 기본 'original')
+        license_type: ['original', 'cc0', 'cc-by', 'cc-by-sa', 'public-domain'].includes(metadata.licenseType) ? metadata.licenseType : 'original',
+        license_source_url: metadata.licenseSourceUrl || '',
+        attribution: metadata.attribution || '',
+        original_creator: metadata.originalCreator || '',
         // 하이라이트 구간
         highlight_start: highlightStartNum,
         highlight_end: highlightEndNum,

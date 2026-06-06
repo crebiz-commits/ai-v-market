@@ -163,6 +163,10 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     sponsorLogoUrl?: string | null;
     sponsorDisclosure?: string | null;
     sponsorLinkUrl?: string | null;
+    licenseType?: string;
+    licenseSourceUrl?: string;
+    attribution?: string;
+    originalCreator?: string;
   }>({});
   // 진입 경로별 누락 필드를 DB fetch 결과로 보강한 통합 product (Cinema/OTT 가벼운 페이로드 보강용)
   const product = useMemo(() => ({
@@ -185,6 +189,10 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     sponsorLogoUrl: productProp.sponsorLogoUrl ?? extra.sponsorLogoUrl,
     sponsorDisclosure: productProp.sponsorDisclosure ?? extra.sponsorDisclosure,
     sponsorLinkUrl: productProp.sponsorLinkUrl ?? extra.sponsorLinkUrl,
+    licenseType: extra.licenseType,
+    licenseSourceUrl: extra.licenseSourceUrl,
+    attribution: extra.attribution,
+    originalCreator: extra.originalCreator,
   }), [productProp, extra]);
   // Phase 26: 연령 게이트
   const [ageGateOpen, setAgeGateOpen] = useState(false);
@@ -277,6 +285,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
           "director, writer, composer, language, subtitle_language, " +
           "ai_model_version, prompt, seed, resolution, tags, " +
           "sponsor_brand, sponsor_logo_url, sponsor_disclosure, sponsor_link_url, " +
+          "license_type, license_source_url, attribution, original_creator, " +
           "likes, views"
         )
         .eq("id", product.id)
@@ -309,6 +318,10 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
         sponsorLogoUrl: d.sponsor_logo_url ?? null,
         sponsorDisclosure: d.sponsor_disclosure ?? null,
         sponsorLinkUrl: d.sponsor_link_url ?? null,
+        licenseType: d.license_type || undefined,
+        licenseSourceUrl: d.license_source_url || undefined,
+        attribution: d.attribution || undefined,
+        originalCreator: d.original_creator || undefined,
       });
       // Phase 31.6 — 카운트 최신화 (캐러셀 stale 데이터 보정)
       if (typeof d.likes === "number") setLikesCount(d.likes);
@@ -1650,6 +1663,26 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                 </div>
               </div>
             </div>
+
+            {/* 출처·라이선스 (오픈 라이선스 시드 콘텐츠 — CC-BY 출처표기) */}
+            {(product.attribution || product.originalCreator || (product.licenseType && product.licenseType !== "original")) && (
+              <div className="mt-4">
+                <h3 className="mb-3">출처·라이선스</h3>
+                <div className="bg-card p-4 rounded-lg border border-border space-y-2 text-sm">
+                  {product.attribution
+                    ? <p className="text-foreground/80">{product.attribution}</p>
+                    : product.originalCreator && <p className="text-foreground/80">원작: {product.originalCreator}</p>}
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {product.licenseType && product.licenseType !== "original" && (
+                      <span className="px-1.5 py-0.5 rounded bg-[#6366f1]/15 text-[#a78bfa] font-semibold uppercase">{product.licenseType}</span>
+                    )}
+                    {product.licenseSourceUrl && (
+                      <a href={product.licenseSourceUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">원본 출처</a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 구매 액션은 라이선스 박스 안으로 통합됨 (Phase 31.4) */}
           </div>
