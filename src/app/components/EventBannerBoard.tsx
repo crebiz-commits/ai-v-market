@@ -70,14 +70,16 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
   if (banners.length === 0) return null;
 
   return (
-    <div className="max-w-[1800px] mx-auto px-2 md:px-4">
+    // 카드 p-2(슬롯 안 패딩)로 5개가 정확히 폭에 맞음 → 넘침 없음(데스크탑 자동슬라이드/찔끔 방지),
+    // 모바일은 1개 꽉. 바깥 여백(px-1 md:px-2)만 줄여 가장자리에 더 붙임.
+    <div className="px-1 md:px-2">
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+        className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-1"
         style={{ scrollbarWidth: "none" }}
       >
-        {/* 반응형: 모바일 1 / sm 2 / md 3 / lg 4 / xl+ 5 → 넓은 전체화면에서 폭을 채움 */}
+        {/* 반응형: 모바일 1 / sm 2 / md 3 / lg 4 / xl+ 5 */}
         {banners.map((b) => (
           <div key={b.id} className="snap-start flex-shrink-0 w-full sm:w-1/2 md:w-1/3 lg:w-1/4 xl:w-1/5 p-2">
             <button
