@@ -246,7 +246,8 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
       <div className="mt-4">
           {/* 🎡 CoverFlow — 원통형 캐러셀 (CREAITE만의 시그니처 UI) */}
           {(() => {
-            // 추천이 비어있으면 인기/신규/top10 영상으로 fallback (중복 제거 후 상위 7개)
+            // 추천(get_recommended_videos) 기준 — 추천이 1순위로 채워지고(p_limit 15),
+            // 부족할 때만 트렌딩/신규/월간BEST로 메움. 중복 제거 후 상위 11개.
             const seen = new Set<string>();
             const heroVideos = [...recommended, ...trending, ...newReleases, ...top10]
               .filter((v) => {
@@ -254,7 +255,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
                 seen.add(v.id);
                 return true;
               })
-              .slice(0, 7);
+              .slice(0, 11);
 
             if (heroVideos.length === 0) return null;
 

@@ -461,11 +461,11 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
                   />
                   
 
-                  {/* Play Button for center item */}
+                  {/* Play Button for center item — 글래스모피즘, 카드 정중앙 */}
                   {index === centerIndex && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-[#6366f1]/90 to-[#8b5cf6]/90 backdrop-blur-sm border-2 border-white transition-all flex items-center justify-center shadow-lg">
-                        <Play className="w-4 h-4 md:w-5 md:h-5 text-white ml-0.5" fill="white" />
+                      <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/[0.07] backdrop-blur-md border border-white/20 flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.35)] opacity-85">
+                        <Play className="w-2.5 h-2.5 md:w-3 md:h-3 text-[#c4b5fd] ml-0.5" fill="currentColor" strokeWidth={0} />
                       </div>
                     </div>
                   )}

@@ -106,11 +106,11 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
                 {b.eyebrow && (
                   <span className="text-[11px] font-semibold text-[#c4b5fd] tracking-widest uppercase mb-1.5">{b.eyebrow}</span>
                 )}
-                <h3 className={`font-black leading-tight ${b.align === "center" ? "text-2xl md:text-3xl" : "text-lg md:text-xl"} ${b.titleGradient ? `text-transparent bg-clip-text bg-gradient-to-r ${BRAND} italic` : "text-white"} ${b.badge ? "mt-6" : ""}`}>
+                <h3 className={`font-black leading-tight ${b.align === "center" ? "text-xl md:text-3xl" : "text-lg md:text-xl"} ${b.titleGradient ? `text-transparent bg-clip-text bg-gradient-to-r ${BRAND} italic` : "text-white"} ${b.badge ? "mt-6" : ""}`}>
                   {b.title}
                 </h3>
                 {b.subtitle && (
-                  <p className="text-xs md:text-sm text-gray-300 mt-1.5 line-clamp-2 max-w-md">{b.subtitle}</p>
+                  <p className="text-xs md:text-sm text-gray-300 mt-1.5 line-clamp-1 md:line-clamp-2 max-w-md">{b.subtitle}</p>
                 )}
 
                 {b.badges && b.badges.length > 0 && (
