@@ -7,8 +7,6 @@
 // ════════════════════════════════════════════════════════════════════════════
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Play, Info, Plus, Lock, Loader2, Volume2, VolumeX, Clock, ChevronLeft, ChevronRight } from "lucide-react";
-import videojs from "video.js";
-import "video.js/dist/video-js.css";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { type CarouselVideo } from "./VideoRowCarousel";
@@ -135,8 +133,9 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
   const [loading, setLoading] = useState(true);
   const [trending, setTrending] = useState<CarouselVideo[]>([]);
   const [genreRows, setGenreRows] = useState<GenreRow[]>([]);
-  // 풀블리드 히어로: 자동재생 영상 소스(hls) + 음소거 토글
-  const [heroSrc, setHeroSrc] = useState<{ url: string; start: number; end: number } | null>(null);
+  // 풀블리드 히어로: 자동재생 영상 소스 + 음소거 토글.
+  // clipUrl(미리 잘린 30초 하이라이트 클립)이 있으면 seek 없이 처음부터 재생(안정적).
+  const [heroSrc, setHeroSrc] = useState<{ url: string; start: number; end: number; clipUrl?: string } | null>(null);
   const [heroMuted, setHeroMuted] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -173,14 +172,14 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
     (async () => {
       const { data } = await supabase
         .from("videos")
-        .select("video_url, highlight_start, highlight_end")
+        .select("video_url, highlight_start, highlight_end, hero_clip_url")
         .eq("id", heroId)
         .maybeSingle();
       if (!cancelled && data?.video_url) {
         const hStart = data.highlight_start || 0;
         // 히어로 미리보기: 크리에이터 하이라이트(기본 30초) 그대로, 없으면 +30초
         const hEnd = data.highlight_end || (hStart + 30);
-        setHeroSrc({ url: data.video_url, start: hStart, end: hEnd });
+        setHeroSrc({ url: data.video_url, start: hStart, end: hEnd, clipUrl: data.hero_clip_url || undefined });
       }
     })();
     return () => { cancelled = true; };
@@ -347,7 +346,7 @@ function HeroBillboard({
   onPlay,
 }: {
   video: CarouselVideo;
-  src: { url: string; start: number; end: number } | null;
+  src: { url: string; start: number; end: number; clipUrl?: string } | null;
   ageGuard: AgeGuard;
   muted: boolean;
   onToggleMute: () => void;
@@ -357,95 +356,26 @@ function HeroBillboard({
   const { t } = useTranslation();
   const g = ageGuard(video);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const playerRef = useRef<any>(null);
-  // 영상이 "실제로 하이라이트 구간을 렌더링하기 시작"했는지. 그 전엔 포스터를 깔아둬 검은 화면 방지.
+  // 영상이 실제로 재생을 시작했는지. 그 전엔 포스터를 깔아둬 검은/멈춤 화면 방지.
   const [videoReady, setVideoReady] = useState(false);
 
-  // 실제 영상이 없으면 샘플 미리보기 영상으로 폴백 (영상 등록 전 임시)
-  const isFallback = !src?.url;
-  // 히어로는 풀영화의 하이라이트(예: 25분 지점)로 deep seek 하는데, HLS 스트리밍 seek 은
-  // 불안정(영상 멈춤). Bunny MP4 폴백(progressive seek, Range 지원)으로 재생해 멈춤/검은화면 방지.
-  const playUrl = src?.url
-    ? (src.url.includes("/playlist.m3u8") ? src.url.replace("/playlist.m3u8", "/play_240p.mp4") : src.url)
-    : FALLBACK_HERO_VIDEO;
+  // 재생 소스 우선순위: 미리 잘린 30초 하이라이트 클립(seek 불필요·100% 안정) →
+  //   풀영상 MP4 폴백 → 샘플 폴백. 클립이 있으면 deep seek 자체를 안 하므로 멈춤·검은화면이 없다.
+  const playUrl = src?.clipUrl
+    ? src.clipUrl
+    : src?.url
+      ? (src.url.includes("/playlist.m3u8") ? src.url.replace("/playlist.m3u8", "/play_240p.mp4") : src.url)
+      : FALLBACK_HERO_VIDEO;
   // 연령 잠금만 자동재생 제외 (블러 썸네일). 그 외엔 실제 영상 또는 폴백 영상 재생
   const useVideo = !g.isAgeLocked;
 
-  // video.js 플레이어 생성/삭제 — DiscoveryFeed 와 동일한 메모리 누수 방지 패턴
+  // 네이티브 <video> 사용(배경 영상 표준). playUrl 변경 시 노출 초기화 → 포스터부터 다시.
+  useEffect(() => { setVideoReady(false); }, [playUrl]);
+
+  // 음소거 토글을 네이티브 video 에 동기화
   useEffect(() => {
-    if (!useVideo || !videoRef.current) return;
-    setVideoReady(false);
-
-    const player = videojs(videoRef.current, {
-      autoplay: true,
-      controls: false,
-      loop: isFallback,           // 폴백 영상은 전체 반복 / 실제 영상은 하이라이트 구간 반복
-      muted: true,
-      fill: true,
-      fluid: false,        // 비율 상자(letterbox) 모드 끄기 — 항상 컨테이너 꽉 채움
-      playsinline: true,
-      preload: "auto",
-      crossOrigin: "anonymous",
-      sources: [{
-        src: playUrl,
-        type: playUrl.includes(".m3u8") ? "application/x-mpegURL" : "video/mp4",
-      }],
-    });
-    playerRef.current = player;
-    player.muted(true);
-    const seekTarget = isFallback ? 0 : (src?.start || 0);
-    player.ready(() => { player.play()?.catch(() => {}); });
-    if (seekTarget > 0) {
-      // ⚠️ ready() 시점엔 메타데이터 로드 전이라 currentTime 설정이 무시됨 → 0초부터 재생.
-      // loadedmetadata/canplay 후에 seek 해야 하이라이트 지점으로 실제 이동한다.
-      const doSeek = () => {
-        try {
-          if (Math.abs((player.currentTime() || 0) - seekTarget) > 1) player.currentTime(seekTarget);
-          player.play()?.catch(() => {});
-        } catch { /* noop */ }
-      };
-      player.one("loadedmetadata", doSeek);
-      player.one("canplay", doSeek);
-    }
-    if (isFallback) {
-      // 폴백 영상은 0초부터 전체 반복 → seek 없으니 재생 시작되면 바로 노출
-      player.on("playing", () => setVideoReady(true));
-    } else if (src) {
-      // 실제 영상: 하이라이트 구간으로 seek → 그 구간을 "실제로 진행 중"일 때만 노출.
-      // seek/버퍼링/멈춤 동안엔 videoReady=false 라 포스터가 보여 검은화면·멈춤화면이 안 생긴다.
-      let lastT = -1;
-      player.on("timeupdate", () => {
-        const s = src.start || 0;
-        let e = src.end || 15;
-        const d = player.duration();
-        if (typeof d === "number" && d > 0 && e > d) e = d;
-        const tt = player.currentTime();
-        if (typeof tt === "number") {
-          // 하이라이트 구간에서 시간이 실제로 흐를 때만 노출(멈춰 있으면 포스터 유지)
-          if (tt >= s - 0.3 && tt > lastT) setVideoReady(true);
-          lastT = tt;
-          if (tt >= e) {
-            player.currentTime(s);
-            player.play()?.catch(() => {});
-          }
-        }
-      });
-    }
-
-    return () => {
-      setVideoReady(false);
-      if (playerRef.current) {
-        playerRef.current.dispose();
-        playerRef.current = null;
-      }
-    };
-  }, [useVideo, playUrl, isFallback]);
-
-  // 음소거 토글 동기화
-  useEffect(() => {
-    const p = playerRef.current;
-    if (p && !p.isDisposed()) p.muted(muted);
-  }, [muted]);
+    if (videoRef.current) videoRef.current.muted = muted;
+  }, [muted, videoReady]);
 
   return (
     <section className="relative w-full h-[90vh] md:h-[84vh]">
@@ -458,11 +388,23 @@ function HeroBillboard({
             className={`absolute inset-0 w-full h-full object-cover ${g.isAgeLocked ? "blur-2xl scale-110" : ""}`}
           />
         )}
-        {/* 영상 — 하이라이트 구간 렌더링 시작(videoReady) 전까진 투명(opacity-0)이라 포스터가 보인다.
-            video.js 내부 <video> 가 컨테이너를 꽉 채우도록(cover) 강제 (모바일 레터박스 방지) */}
+        {/* 영상 — 네이티브 <video> 배경재생. 재생 시작(videoReady) 전까진 투명이라 포스터가 보임.
+            key={playUrl} 로 소스 변경 시 재마운트하여 자동재생 재시작. */}
         {useVideo && (
-          <div className={`absolute inset-0 w-full h-full pointer-events-none transition-opacity duration-700 ${videoReady ? "opacity-100" : "opacity-0"} [&_.video-js]:!absolute [&_.video-js]:!inset-0 [&_.video-js]:!w-full [&_.video-js]:!h-full [&_.video-js]:!pt-0 [&_video]:!w-full [&_video]:!h-full [&_video]:!object-cover`}>
-            <video ref={videoRef} className="video-js w-full h-full" playsInline poster={video.thumbnail || undefined} />
+          <div className={`absolute inset-0 w-full h-full pointer-events-none transition-opacity duration-700 ${videoReady ? "opacity-100" : "opacity-0"}`}>
+            <video
+              key={playUrl}
+              ref={videoRef}
+              className="w-full h-full object-cover"
+              src={playUrl}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="auto"
+              onTimeUpdate={() => { const v = videoRef.current; if (v && v.currentTime > 0.05) setVideoReady(true); }}
+              onPlaying={() => { const v = videoRef.current; if (v && v.currentTime > 0.05) setVideoReady(true); }}
+            />
           </div>
         )}
 
