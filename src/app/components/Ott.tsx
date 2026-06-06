@@ -358,18 +358,23 @@ function HeroBillboard({
   const g = ageGuard(video);
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<any>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  // 영상이 "실제로 하이라이트 구간을 렌더링하기 시작"했는지. 그 전엔 포스터를 깔아둬 검은 화면 방지.
+  const [videoReady, setVideoReady] = useState(false);
 
   // 실제 영상이 없으면 샘플 미리보기 영상으로 폴백 (영상 등록 전 임시)
   const isFallback = !src?.url;
-  const playUrl = src?.url || FALLBACK_HERO_VIDEO;
+  // 히어로는 풀영화의 하이라이트(예: 25분 지점)로 deep seek 하는데, HLS 스트리밍 seek 은
+  // 불안정(영상 멈춤). Bunny MP4 폴백(progressive seek, Range 지원)으로 재생해 멈춤/검은화면 방지.
+  const playUrl = src?.url
+    ? (src.url.includes("/playlist.m3u8") ? src.url.replace("/playlist.m3u8", "/play_240p.mp4") : src.url)
+    : FALLBACK_HERO_VIDEO;
   // 연령 잠금만 자동재생 제외 (블러 썸네일). 그 외엔 실제 영상 또는 폴백 영상 재생
   const useVideo = !g.isAgeLocked;
 
   // video.js 플레이어 생성/삭제 — DiscoveryFeed 와 동일한 메모리 누수 방지 패턴
   useEffect(() => {
     if (!useVideo || !videoRef.current) return;
-    setIsPlaying(false);
+    setVideoReady(false);
 
     const player = videojs(videoRef.current, {
       autoplay: true,
@@ -388,29 +393,47 @@ function HeroBillboard({
     });
     playerRef.current = player;
     player.muted(true);
-    player.ready(() => {
-      player.currentTime(isFallback ? 0 : (src?.start || 0));
-      player.play()?.catch(() => {});
-    });
-    player.on("playing", () => setIsPlaying(true));
-    player.on("pause", () => setIsPlaying(false));
-    // 실제 영상일 때만 하이라이트 구간 반복 (폴백은 loop:true 로 전체 반복)
-    if (!isFallback && src) {
+    const seekTarget = isFallback ? 0 : (src?.start || 0);
+    player.ready(() => { player.play()?.catch(() => {}); });
+    if (seekTarget > 0) {
+      // ⚠️ ready() 시점엔 메타데이터 로드 전이라 currentTime 설정이 무시됨 → 0초부터 재생.
+      // loadedmetadata/canplay 후에 seek 해야 하이라이트 지점으로 실제 이동한다.
+      const doSeek = () => {
+        try {
+          if (Math.abs((player.currentTime() || 0) - seekTarget) > 1) player.currentTime(seekTarget);
+          player.play()?.catch(() => {});
+        } catch { /* noop */ }
+      };
+      player.one("loadedmetadata", doSeek);
+      player.one("canplay", doSeek);
+    }
+    if (isFallback) {
+      // 폴백 영상은 0초부터 전체 반복 → seek 없으니 재생 시작되면 바로 노출
+      player.on("playing", () => setVideoReady(true));
+    } else if (src) {
+      // 실제 영상: 하이라이트 구간으로 seek → 그 구간을 "실제로 진행 중"일 때만 노출.
+      // seek/버퍼링/멈춤 동안엔 videoReady=false 라 포스터가 보여 검은화면·멈춤화면이 안 생긴다.
+      let lastT = -1;
       player.on("timeupdate", () => {
         const s = src.start || 0;
         let e = src.end || 15;
         const d = player.duration();
         if (typeof d === "number" && d > 0 && e > d) e = d;
         const tt = player.currentTime();
-        if (typeof tt === "number" && tt >= e) {
-          player.currentTime(s);
-          player.play()?.catch(() => {});
+        if (typeof tt === "number") {
+          // 하이라이트 구간에서 시간이 실제로 흐를 때만 노출(멈춰 있으면 포스터 유지)
+          if (tt >= s - 0.3 && tt > lastT) setVideoReady(true);
+          lastT = tt;
+          if (tt >= e) {
+            player.currentTime(s);
+            player.play()?.catch(() => {});
+          }
         }
       });
     }
 
     return () => {
-      setIsPlaying(false);
+      setVideoReady(false);
       if (playerRef.current) {
         playerRef.current.dispose();
         playerRef.current = null;
@@ -427,17 +450,18 @@ function HeroBillboard({
   return (
     <section className="relative w-full h-[90vh] md:h-[84vh]">
       <button onClick={() => onClick(video)} className="absolute inset-0 w-full h-full text-left">
-        {/* 썸네일 (poster) — 영상 재생 시작되면 페이드아웃 */}
+        {/* 썸네일 (poster) — 항상 베이스로 깔아둠. 영상이 준비되면 그 위로 영상이 페이드인 (검은 화면 방지) */}
         {video.thumbnail && (
           <img
             src={video.thumbnail}
             alt=""
-            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${g.isAgeLocked ? "blur-2xl scale-110" : ""} ${isPlaying ? "opacity-0" : "opacity-100"}`}
+            className={`absolute inset-0 w-full h-full object-cover ${g.isAgeLocked ? "blur-2xl scale-110" : ""}`}
           />
         )}
-        {/* 영상 — video.js 내부 <video> 가 컨테이너를 꽉 채우도록(cover) 강제 (모바일 레터박스 방지) */}
+        {/* 영상 — 하이라이트 구간 렌더링 시작(videoReady) 전까진 투명(opacity-0)이라 포스터가 보인다.
+            video.js 내부 <video> 가 컨테이너를 꽉 채우도록(cover) 강제 (모바일 레터박스 방지) */}
         {useVideo && (
-          <div className="absolute inset-0 w-full h-full pointer-events-none [&_.video-js]:!absolute [&_.video-js]:!inset-0 [&_.video-js]:!w-full [&_.video-js]:!h-full [&_.video-js]:!pt-0 [&_video]:!w-full [&_video]:!h-full [&_video]:!object-cover">
+          <div className={`absolute inset-0 w-full h-full pointer-events-none transition-opacity duration-700 ${videoReady ? "opacity-100" : "opacity-0"} [&_.video-js]:!absolute [&_.video-js]:!inset-0 [&_.video-js]:!w-full [&_.video-js]:!h-full [&_.video-js]:!pt-0 [&_video]:!w-full [&_video]:!h-full [&_video]:!object-cover`}>
             <video ref={videoRef} className="video-js w-full h-full" playsInline poster={video.thumbnail || undefined} />
           </div>
         )}

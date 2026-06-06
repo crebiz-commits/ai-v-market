@@ -86,6 +86,7 @@ const CommunityMockShowcase = lazy(() => import("./components/CommunityMockShowc
 const EventBannerPreview = lazy(() => import("./components/EventBannerPreview").then(m => ({ default: m.EventBannerPreview })));
 const OttRedesignPreview = lazy(() => import("./components/OttRedesignPreview").then(m => ({ default: m.OttRedesignPreview })));
 const ExternalAdPreview = lazy(() => import("./components/ExternalAdPreview").then(m => ({ default: m.ExternalAdPreview })));
+const DesktopHeaderPreview = lazy(() => import("./components/DesktopHeaderPreview").then(m => ({ default: m.DesktopHeaderPreview })));
 const CreatorRevenueGuide = lazy(() => import("./components/CreatorRevenueGuide").then(m => ({ default: m.CreatorRevenueGuide })));
 
 // 비로그인 사용자 첫 화면 (Netflix 패턴 랜딩)
@@ -169,6 +170,7 @@ function AppContent() {
       "event-banner": <EventBannerPreview />,
       "ott-redesign": <OttRedesignPreview />,
       "external-ad": <ExternalAdPreview />,
+      "desktop-header": <DesktopHeaderPreview />,
     };
     if (previewMap[previewParam]) {
       return <Suspense fallback={<PageLoading />}>{previewMap[previewParam]}</Suspense>;
@@ -729,7 +731,7 @@ function AppContent() {
   const desktopTabs: { id: Tab; label: string; icon: any }[] = [
     { id: "discovery", label: t("nav.home"), icon: Home },
     { id: "market", label: t("nav.cinema"), icon: Film },
-    { id: "ott", label: t("nav.ott"), icon: Crown },
+    { id: "ott", label: t("nav.ottShort"), icon: Crown },
     { id: "upload", label: t("nav.upload"), icon: UploadIcon },
     { id: "community", label: t("nav.community"), icon: MessageSquare },
     { id: "channel", label: t("nav.channel"), icon: Users },
@@ -846,7 +848,7 @@ function AppContent() {
           </motion.div>
 
           {/* Desktop Navigation */}
-          <nav className="flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-white/5">
+          <nav className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
             {desktopTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -854,12 +856,13 @@ function AppContent() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as Tab)}
-                  className={`relative flex items-center gap-2 px-4 py-2 rounded-lg transition-colors duration-200 text-sm font-semibold select-none
+                  title={tab.label}
+                  className={`relative flex items-center gap-2 px-3 py-2 rounded-lg transition-colors duration-200 text-sm font-semibold select-none whitespace-nowrap shrink-0
                     ${isActive ? "text-white" : "text-muted-foreground hover:text-gray-200 hover:bg-white/5"}
                   `}
                 >
                   <Icon className="w-[18px] h-[18px] shrink-0" />
-                  <span>{tab.label}</span>
+                  <span className="hidden xl:inline">{tab.label}</span>
                   {isActive && (
                     <motion.div
                       layoutId="desktop-active-tab"
