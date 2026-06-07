@@ -23,7 +23,7 @@ const BANNERS: (BoardBanner & { activeFrom?: string; activeTo?: string })[] = [
     subtitle: "집에서 간단하게 만든 AI영화, 너도 방구석 제임스카메론이 될 수 있다! 지금 바로 도전하세요.",
     ctaLabel: "지금 도전하기",
     link: "/?tab=upload",
-    image: "https://picsum.photos/seed/creaite-robot/900/450",
+    image: "https://tvbpiuwmvrccfnplhwer.supabase.co/storage/v1/object/public/video-thumbnails/banners/cinema-audience.jpg",
     align: "left",
   },
   {
@@ -42,7 +42,7 @@ const BANNERS: (BoardBanner & { activeFrom?: string; activeTo?: string })[] = [
     subtitle: "당신의 창의력을 증명할 시간. 총 상금 5,000만원의 주인공이 되세요.",
     badges: ["D-14", "진행중"],
     link: "/?tab=community",
-    image: "https://picsum.photos/seed/creaite-contest/900/450",
+    image: "https://tvbpiuwmvrccfnplhwer.supabase.co/storage/v1/object/public/video-thumbnails/banners/contest-award.jpg",
     align: "left",
   },
   {
@@ -52,7 +52,7 @@ const BANNERS: (BoardBanner & { activeFrom?: string; activeTo?: string })[] = [
     subtitle: "모든 AI 시네마·OTT를 광고 없이 무제한으로 즐기세요.",
     ctaLabel: "구독하기",
     link: "/?tab=mypage",
-    image: "https://picsum.photos/seed/creaite-premium/900/450",
+    image: "https://tvbpiuwmvrccfnplhwer.supabase.co/storage/v1/object/public/video-thumbnails/banners/premium-movienight.jpg",
     align: "left",
   },
   {
