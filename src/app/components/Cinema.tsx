@@ -130,7 +130,6 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
   const showcase = shouldShowShowcase(profile?.is_admin);
   const [loading, setLoading] = useState(true);
   const [recommended, setRecommended] = useState<CarouselVideo[]>([]);
-  const [continueWatching, setContinueWatching] = useState<CarouselVideo[]>([]);
   const [trending, setTrending] = useState<CarouselVideo[]>([]);
   const [newReleases, setNewReleases] = useState<CarouselVideo[]>([]);
   const [top10, setTop10] = useState<CarouselVideo[]>([]);
@@ -140,13 +139,12 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
   const allVideoIds = useMemo(() => {
     const ids = new Set<string>();
     recommended.forEach(v => ids.add(v.id));
-    continueWatching.forEach(v => ids.add(v.id));
     trending.forEach(v => ids.add(v.id));
     newReleases.forEach(v => ids.add(v.id));
     top10.forEach(v => ids.add(v.id));
     categoryRows.forEach(r => r.videos.forEach(v => ids.add(v.id)));
     return Array.from(ids).filter(id => !id.startsWith("demo-")); // showcase mock 제외
-  }, [recommended, continueWatching, trending, newReleases, top10, categoryRows]);
+  }, [recommended, trending, newReleases, top10, categoryRows]);
   const ageRatings = useAgeRatings(allVideoIds);
 
   const isOtt = tier === "ott";
@@ -161,14 +159,12 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
       try {
         const [
           { data: rec },
-          { data: cont },
           { data: trd },
           { data: nrl },
           { data: top },
           ...categoryResults
         ] = await Promise.all([
           supabase.rpc("get_recommended_videos", { p_tier: tier, p_limit: 15 }),
-          supabase.rpc("get_continue_watching", { p_limit: 10 }),
           supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 24, p_limit: 10 }),
           supabase.rpc("get_new_releases", { p_tier: tier, p_days: 14, p_limit: 10 }),
           supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 720, p_limit: 10 }),  // 30일 (이달의 BEST)
@@ -182,17 +178,33 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
         const merge = (real: CarouselVideo[], opts?: { category?: string }) =>
           showcase ? mergeShowcase(real, showcaseToCarousel, { tier, ...opts }) : real;
 
-        setRecommended(merge(rec || []));
-        // 이어 보기는 시네마 tier일 때만 (OTT는 별도)
-        setContinueWatching(
-          (cont || []).filter((v: CarouselVideo) => {
-            if (tier === "ott") return (v.duration_seconds || 0) >= 600;
-            return (v.duration_seconds || 0) >= 180 && (v.duration_seconds || 0) < 600;
-          })
-        );
-        setTrending(merge(trd || []));
+        // 인기 영상 풀(좋아요순) — 베타라 조회/추천 데이터가 적은 섹션을 채우는 폴백.
+        // 카테고리 영상 전부 + 추천 + 신규를 모아 좋아요순 정렬.
+        const popPool: CarouselVideo[] = [
+          ...((rec || []) as CarouselVideo[]),
+          ...((nrl || []) as CarouselVideo[]),
+          ...categoryResults.flatMap((r: any) => ((r?.data || []) as CarouselVideo[])),
+        ].sort((a, b) => (b.likes || 0) - (a.likes || 0));
+        // base(실제 데이터)를 앞에 두고 popPool 인기순으로 target 개까지 채움(중복 제거).
+        const fillPopular = (base: CarouselVideo[], target: number): CarouselVideo[] => {
+          const seen = new Set(base.map((v) => v.id));
+          const out = [...base];
+          for (const v of popPool) {
+            if (out.length >= target) break;
+            if (seen.has(v.id)) continue;
+            seen.add(v.id);
+            out.push(v);
+          }
+          return out;
+        };
+
+        // 추천: 개인화 결과(많이 본 사용자는 시청영상 제외돼 마를 수 있음) + 인기순 보충
+        setRecommended(merge(fillPopular((rec || []) as CarouselVideo[], 15)));
+        // 지금 뜨는(24h): 최근 24시간 조회 데이터 없으면 인기순으로 보충
+        setTrending(merge(fillPopular((trd || []) as CarouselVideo[], 10)));
         setNewReleases(merge(nrl || []));
-        setTop10(merge(top || []));
+        // 이달의 BEST(30일 트렌딩): 실제 조회 영상 앞 + 인기순 보충
+        setTop10(merge(fillPopular((top || []) as CarouselVideo[], 10)));
 
         // 카테고리별 영상 행 — 고정 순서 (영화·드라마·애니메이션·다큐멘터리·뮤직비디오·기타)
         // 영상 1개 이상 있는 카테고리만 표시 (showcase 모드는 mock 합성됨)
@@ -261,13 +273,10 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
 
             return (
               <div className="mb-8 mt-2 md:-mb-10 lg:-mb-20">
-                <div className="px-4 md:px-6 mb-3">
-                  <h2 className="text-base md:text-lg font-bold flex items-center gap-2">
-                    {t("cinema.coverflowTitle")}
-                  </h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {t("cinema.coverflowSubtitle")}
-                  </p>
+                {/* 다른 섹션과 동일한 한 줄 헤더(고정 h-7 + 설명 인라인) */}
+                <div className="px-4 md:px-6 mb-2 h-7 flex items-end gap-2 overflow-hidden">
+                  <h2 className="text-base md:text-xl font-bold">{t("cinema.coverflowTitle")}</h2>
+                  <p className="text-xs md:text-sm text-muted-foreground">{t("cinema.coverflowSubtitle")}</p>
                 </div>
                 <CoverFlow
                   videos={heroVideos.map(toCoverFlowVideo)}
@@ -289,19 +298,6 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
               ageRatings={ageRatings}
             />
           </div>
-
-          {/* 이어 보기 */}
-          {continueWatching.length > 0 && (
-            <VideoRowCarousel
-              title={t("cinema.continueWatchingTitle")}
-              subtitle={t("cinema.continueWatchingSubtitle")}
-              videos={continueWatching}
-              onVideoClick={handleClick}
-              onAddToCart={handleAddToCart}
-              showProgress={true}
-              ageRatings={ageRatings}
-            />
-          )}
 
           {/* 인기 (24h) — 히어로 + 네온 글로우 캐러셀 */}
           <TrendingHeroSection

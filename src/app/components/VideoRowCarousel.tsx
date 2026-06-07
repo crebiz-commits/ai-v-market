@@ -290,9 +290,10 @@ export function VideoRowCarousel({
   if (videos.length === 0) {
     return (
       <div className="mb-6">
-        <div className="px-4 md:px-6 mb-2">
+        <div className="px-4 md:px-6 mb-2 h-7 flex items-end gap-2 overflow-hidden">
           <h2 className="text-base md:text-xl font-bold">{title}</h2>
-          {subtitle && <p className="text-xs md:text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
+          {/* 설명은 제목 오른쪽 옆에 인라인 → 모든 섹션 헤더가 한 줄 높이로 통일(빈 공간 X) */}
+          {subtitle && <p className="text-xs md:text-sm text-muted-foreground">{subtitle}</p>}
         </div>
         <div className="px-4 md:px-6">
           <p className="text-sm text-muted-foreground/60 italic">{emptyText}</p>
@@ -303,12 +304,10 @@ export function VideoRowCarousel({
 
   return (
     <div className="mb-6 group/row">
-      {/* 헤더 */}
-      <div className="px-4 md:px-6 mb-2 flex items-center justify-between">
-        <div>
-          <h2 className="text-base md:text-xl font-bold">{title}</h2>
-          {subtitle && <p className="text-xs md:text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
-        </div>
+      {/* 헤더 — 설명을 제목 오른쪽 옆에 인라인 배치 → 모든 섹션 한 줄 높이로 통일 */}
+      <div className="px-4 md:px-6 mb-2 h-7 flex items-end gap-2 overflow-hidden">
+        <h2 className="text-base md:text-xl font-bold">{title}</h2>
+        {subtitle && <p className="text-xs md:text-sm text-muted-foreground">{subtitle}</p>}
       </div>
 
       {/* 캐러셀 컨테이너 */}
@@ -325,7 +324,7 @@ export function VideoRowCarousel({
         {/* 가로 스크롤 영역 */}
         <div
           ref={scrollRef}
-          className="flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory px-4 md:px-6 pb-2 scrollbar-hide"
+          className="flex items-start gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory px-4 md:px-6 pb-2 scrollbar-hide"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {videos.map((video, idx) => {

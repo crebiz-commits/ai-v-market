@@ -89,9 +89,9 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
     if (!emptyMessage) return null;
     return (
       <section className="px-4 md:px-6 mb-8">
-        <div className="mb-3">
+        <div className="mb-2 h-7 flex items-end gap-2 overflow-hidden">
           <h2 className="text-base md:text-xl font-bold">{title}</h2>
-          {subtitle && <p className="text-xs md:text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
+          {subtitle && <p className="text-xs md:text-sm text-muted-foreground">{subtitle}</p>}
         </div>
         <p className="text-sm text-muted-foreground py-4">{emptyMessage}</p>
       </section>
@@ -102,10 +102,10 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
 
   return (
     <section className="mb-8">
-      {/* 섹션 제목 */}
-      <div className="px-4 md:px-6 mb-3">
+      {/* 섹션 제목 — VideoRowCarousel 과 동일하게 한 줄(설명 인라인) + mb-2 로 간격 통일 */}
+      <div className="px-4 md:px-6 mb-2 h-7 flex items-end gap-2 overflow-hidden">
         <h2 className="text-base md:text-xl font-bold">{title}</h2>
-        {subtitle && <p className="text-xs md:text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
+        {subtitle && <p className="text-xs md:text-sm text-muted-foreground">{subtitle}</p>}
       </div>
 
       {/* 1~10위 — 같은 크기 세로형 네온 글로우 가로 캐러셀 */}
