@@ -114,6 +114,7 @@
     "tabPosts": "Posts",
     "tabChallenges": "Challenges",
     "tabTrending": "Trending",
+    "tabCollab": "Collab",
     "participants": "{{count}} joined",
     "deadlineLabel": "Deadline: {{date}}",
     "viewDetail": "View details",

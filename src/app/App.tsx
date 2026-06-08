@@ -87,6 +87,7 @@ const EventBannerPreview = lazy(() => import("./components/EventBannerPreview").
 const OttRedesignPreview = lazy(() => import("./components/OttRedesignPreview").then(m => ({ default: m.OttRedesignPreview })));
 const ExternalAdPreview = lazy(() => import("./components/ExternalAdPreview").then(m => ({ default: m.ExternalAdPreview })));
 const DesktopHeaderPreview = lazy(() => import("./components/DesktopHeaderPreview").then(m => ({ default: m.DesktopHeaderPreview })));
+const TrendingRankPreview = lazy(() => import("./components/TrendingRankPreview").then(m => ({ default: m.TrendingRankPreview })));
 const CreatorRevenueGuide = lazy(() => import("./components/CreatorRevenueGuide").then(m => ({ default: m.CreatorRevenueGuide })));
 
 // 비로그인 사용자 첫 화면 (Netflix 패턴 랜딩)
@@ -171,6 +172,7 @@ function AppContent() {
       "ott-redesign": <OttRedesignPreview />,
       "external-ad": <ExternalAdPreview />,
       "desktop-header": <DesktopHeaderPreview />,
+      "trending-rank": <TrendingRankPreview />,
     };
     if (previewMap[previewParam]) {
       return <Suspense fallback={<PageLoading />}>{previewMap[previewParam]}</Suspense>;
@@ -322,6 +324,10 @@ function AppContent() {
   const [pendingCreatorId, setPendingCreatorId] = useState<string | null>(null);
   // 알림 클릭 등으로 마이페이지 특정 탭(결제내역=settings 등)으로 진입할 때 신호
   const [pendingMyPageTab, setPendingMyPageTab] = useState<string | null>(null);
+  // 시네마 콘테스트 배너 등으로 커뮤니티 특정 탭(챌린지 등)으로 진입할 때 신호
+  const [pendingCommunityTab, setPendingCommunityTab] = useState<string | null>(null);
+  // 챌린지 '참가하기' → 업로드 진입 시 출품작 태그 컨텍스트 전달
+  const [pendingChallenge, setPendingChallenge] = useState<{ tag: string; title: string } | null>(null);
   const handleViewCreator = (creatorId: string) => {
     setPendingCreatorId(creatorId);
     setSelectedProduct(null);
@@ -671,13 +677,25 @@ function AppContent() {
         }
         return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} onViewCreator={handleViewCreator} />;
       case "market":
-        return <Cinema onProductClick={setSelectedProduct} onAddToCart={(p) => addToCart(p)} tier="cinema" onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <Cinema onProductClick={setSelectedProduct} onAddToCart={(p) => addToCart(p)} tier="cinema" onNavigate={(tab, sub) => { setActiveTab(tab as Tab); if (tab === "community" && sub) setPendingCommunityTab(sub); }} />;
       case "ott":
         return <Ott onProductClick={setSelectedProduct} onPlayProduct={playProduct} onNavigate={(tab) => setActiveTab(tab as Tab)} onHeroScroll={setHeroScrolled} />;
       case "upload":
-        return <Upload onSignInClick={() => setShowAuthModal(true)} onViewMyProducts={() => setActiveTab("mypage")} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <Upload onSignInClick={() => setShowAuthModal(true)} onViewMyProducts={() => setActiveTab("mypage")} onNavigate={(tab) => setActiveTab(tab as Tab)} challengeContext={pendingChallenge} onChallengeContextConsumed={() => setPendingChallenge(null)} />;
       case "community":
-        return <Community onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return (
+          <Community
+            onNavigate={(tab) => setActiveTab(tab as Tab)}
+            initialTab={pendingCommunityTab}
+            onInitialTabConsumed={() => setPendingCommunityTab(null)}
+            onChallengeParticipate={(challenge) => {
+              if (!isAuthenticated) { setShowAuthModal(true); return; }
+              if (challenge.tag) setPendingChallenge({ tag: challenge.tag, title: challenge.title });
+              setActiveTab("upload");
+            }}
+            onPlayVideo={(videoId) => loadAndOpenVideo(videoId)}
+          />
+        );
       case "channel":
         return (
           <Channel

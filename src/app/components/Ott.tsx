@@ -13,6 +13,7 @@ import { type CarouselVideo } from "./VideoRowCarousel";
 import { Footer } from "./Footer";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
+import { GENRES } from "../data/genres";
 import { getGenreStyle } from "../utils/brandColors";
 import { useTranslation } from "react-i18next";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
@@ -201,20 +202,15 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
           p_limit: 10,
         });
 
-        const { data: cats } = await supabase.rpc("get_categories_with_count", {
-          p_tier: "ott",
-          p_min_count: 1,
-        });
-
-        const topCategories = (cats || []).slice(0, 12); // 모든 장르 행 노출 (빈 카테고리 없음)
+        // 장르 기준(업로드 장르 목록과 동일 순서) — 장르별 병렬 호출. 영상 있는 장르만 표시(아래 filter).
         const rows: GenreRow[] = await Promise.all(
-          topCategories.map(async (cat: { category: string }) => {
-            const { data } = await supabase.rpc("get_videos_by_category", {
-              p_category: cat.category,
+          GENRES.map(async (g) => {
+            const { data } = await supabase.rpc("get_videos_by_genre", {
+              p_genre: g,
               p_tier: "ott",
-              p_limit: 50, // 넷플릭스식: 사실상 카테고리 전부 노출 (작은 제한 없음)
+              p_limit: 50,
             });
-            return { category: cat.category, videos: data || [] };
+            return { category: g, videos: data || [] };
           })
         );
 

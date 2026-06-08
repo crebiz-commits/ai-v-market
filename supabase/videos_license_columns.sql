@@ -9,20 +9,26 @@
 --   Supabase Dashboard → SQL Editor → 새 쿼리("+")에 이 파일 내용 붙여넣기 → Run
 --   (IF NOT EXISTS 라 이미 적용된 컬럼은 안전하게 스킵)
 -- ════════════════════════════════════════════════════════════════════════════
-
 -- 라이선스 종류 (기본 original = 본인 창작)
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS license_type TEXT DEFAULT 'original'
-  CHECK (license_type IN ('original', 'cc0', 'cc-by', 'cc-by-sa', 'public-domain'));
-
+ALTER TABLE videos
+ADD COLUMN IF NOT EXISTS license_type TEXT DEFAULT 'original' CHECK (
+    license_type IN (
+      'original',
+      'cc0',
+      'cc-by',
+      'cc-by-sa',
+      'public-domain'
+    )
+  );
 -- 원본 출처 URL (예: archive.org / studio.blender.org 링크)
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS license_source_url TEXT DEFAULT '';
-
+ALTER TABLE videos
+ADD COLUMN IF NOT EXISTS license_source_url TEXT DEFAULT '';
 -- 출처표기(크레딧) 문구 (예: "© Blender Foundation — studio.blender.org (CC BY)")
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS attribution TEXT DEFAULT '';
-
+ALTER TABLE videos
+ADD COLUMN IF NOT EXISTS attribution TEXT DEFAULT '';
 -- 원작자명 (선택)
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS original_creator TEXT DEFAULT '';
-
+ALTER TABLE videos
+ADD COLUMN IF NOT EXISTS original_creator TEXT DEFAULT '';
 COMMENT ON COLUMN videos.license_type IS '라이선스: original(본인창작)/cc0/cc-by/cc-by-sa/public-domain';
 COMMENT ON COLUMN videos.license_source_url IS '오픈 라이선스 원본 출처 URL';
 COMMENT ON COLUMN videos.attribution IS 'CC-BY 등 출처표기 크레딧 문구';

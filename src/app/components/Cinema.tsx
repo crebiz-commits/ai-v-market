@@ -10,9 +10,8 @@
 //   - 카테고리별 (고정 순서: 영화·드라마·애니메이션·다큐멘터리·뮤직비디오·기타)
 // ════════════════════════════════════════════════════════════════════════════
 
-// 카테고리 행 고정 순서 (영상이 있는 카테고리만 표시됨)
-const FIXED_CATEGORY_ORDER = ["드라마", "SF", "액션", "코미디", "공포", "스릴러", "로맨스", "판타지", "애니메이션", "다큐멘터리", "음악"];
 import { useEffect, useMemo, useState } from "react";
+import { GENRES } from "../data/genres";  // 장르 단일 출처 (업로드/시네마/OTT 공유)
 import { Loader2, Film } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -26,7 +25,7 @@ import { getActiveEventBanners } from "../data/eventBanners";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { useTranslation } from "react-i18next";
-import { getCategoryLabel } from "../i18n/categoryLabels";
+import { getGenreLabel } from "../i18n/categoryLabels";
 
 // ShowcaseVideo → CarouselVideo 변환
 function showcaseToCarousel(s: ShowcaseVideo): CarouselVideo {
@@ -93,7 +92,7 @@ interface CinemaProps {
   onProductClick: (product: Product) => void;
   onAddToCart?: (product: Product) => void;  // 카드 hover '+' 버튼 — App.tsx의 addToCart 호출
   tier?: "cinema" | "ott";   // 시네마(3분+) 또는 OTT(10분+)
-  onNavigate?: (tab: string) => void;
+  onNavigate?: (tab: string, sub?: string) => void;
 }
 
 interface CategoryRow {
@@ -168,9 +167,9 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 24, p_limit: 10 }),
           supabase.rpc("get_new_releases", { p_tier: tier, p_days: 14, p_limit: 10 }),
           supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 720, p_limit: 10 }),  // 30일 (이달의 BEST)
-          // 카테고리별 병렬 호출 (넷플릭스식: 작은 제한 없이 카테고리 전부 노출)
-          ...FIXED_CATEGORY_ORDER.map((cat) =>
-            supabase.rpc("get_videos_by_category", { p_category: cat, p_tier: tier, p_limit: 50 }),
+          // 장르별 병렬 호출 (넷플릭스식: 작은 제한 없이 장르 전부 노출)
+          ...GENRES.map((g) =>
+            supabase.rpc("get_videos_by_genre", { p_genre: g, p_tier: tier, p_limit: 50 }),
           ),
         ]);
 
@@ -206,11 +205,10 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
         // 이달의 BEST(30일 트렌딩): 실제 조회 영상 앞 + 인기순 보충
         setTop10(merge(fillPopular((top || []) as CarouselVideo[], 10)));
 
-        // 카테고리별 영상 행 — 고정 순서 (영화·드라마·애니메이션·다큐멘터리·뮤직비디오·기타)
-        // 영상 1개 이상 있는 카테고리만 표시 (showcase 모드는 mock 합성됨)
-        const rows: CategoryRow[] = FIXED_CATEGORY_ORDER.map((cat, i) => ({
-          category: cat,
-          videos: merge((categoryResults[i] as any)?.data || [], { category: cat }),
+        // 장르별 영상 행 — 업로드 장르 순서(SF·액션·로맨스…). 영상 1개 이상 있는 장르만 표시.
+        const rows: CategoryRow[] = GENRES.map((g, i) => ({
+          category: g,
+          videos: merge((categoryResults[i] as any)?.data || [], { category: g }),
         })).filter((row) => row.videos.length > 0);
         setCategoryRows(rows);
       } catch (err: any) {
@@ -334,7 +332,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           {categoryRows.map((row) => (
             <VideoRowCarousel
               key={row.category}
-              title={t("cinema.categoryRowTitle", { category: getCategoryLabel(row.category, t) })}
+              title={t("cinema.categoryRowTitle", { category: getGenreLabel(row.category, t) })}
               videos={row.videos}
               onVideoClick={handleClick}
               onAddToCart={handleAddToCart}

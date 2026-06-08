@@ -27,7 +27,7 @@ const BRAND = "from-[#a78bfa] via-[#ec4899] to-[#f59e0b]";
 
 interface Props {
   banners: BoardBanner[];
-  onNavigate?: (tab: string) => void;
+  onNavigate?: (tab: string, sub?: string) => void;
 }
 
 export function EventBannerBoard({ banners, onNavigate }: Props) {
@@ -62,8 +62,10 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
     if (!link) return;
     if (/^https?:\/\//i.test(link)) { window.open(link, "_blank", "noopener"); return; }
     try {
-      const tab = new URL(link, window.location.origin).searchParams.get("tab");
-      if (tab) onNavigate?.(tab);
+      const params = new URL(link, window.location.origin).searchParams;
+      const tab = params.get("tab");
+      const sub = params.get("sub");
+      if (tab) onNavigate?.(tab, sub || undefined);
     } catch { /* ignore */ }
   };
 

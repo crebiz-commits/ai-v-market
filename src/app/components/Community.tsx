@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Lightbulb, Trophy, MessageCircle, Heart, Bookmark, TrendingUp, Plus, X, Send, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Trophy, MessageCircle, Heart, Bookmark, Plus, X, Send, Loader2, Handshake, UserPlus, HelpCircle, Briefcase, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Footer } from "./Footer";
 import { Button } from "./ui/button";
@@ -47,8 +47,8 @@ const _UNUSED_POSTS_KO: Post[] = [
     id: "2",
     author: "VideoMaster",
     avatar: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=100&h=100&fit=crop",
-    title: "3월 챌린지: '미래 도시' 테마 영상 공모",
-    content: "상금 총 500만원! Cyberpunk, 네온, 미래 도시를 주제로 15초 이내 AI 영상을 제작해주세요. 우수작은 메인 피드에 노출됩니다.",
+    title: "이달의 챌린지: '미래 도시' 테마 영상 공모",
+    content: "매달 열리는 CREAITE 콘테스트! 이달의 테마는 미래 도시입니다. 5분 이내 AI 영상으로 도전하세요. 1등 30만원·2등 20만원·3등 10만원, 우수작은 메인 피드에 노출됩니다.",
     category: "챌린지",
     likes: 891,
     comments: 156,
@@ -108,8 +108,8 @@ const POSTS_EN: Post[] = [
     id: "2",
     author: "VideoMaster",
     avatar: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=100&h=100&fit=crop",
-    title: "March Challenge: 'Future City' theme video contest",
-    content: "Total prize ₩5,000,000! Create a 15-second AI video on Cyberpunk, neon, or future city themes. Top entries get featured on the home feed.",
+    title: "Monthly Challenge: 'Future City' theme video contest",
+    content: "CREAITE's monthly contest! This month's theme is Future City. Create an AI video up to 5 minutes to enter. 1st ₩300,000 · 2nd ₩200,000 · 3rd ₩100,000, top entries get featured on the home feed.",
     category: "챌린지",
     likes: 891,
     comments: 156,
@@ -158,65 +158,187 @@ const getNextDeadline = (offsetDays: number) => {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 };
 
+// 마감일("YYYY.MM.DD") 기준 남은 일수
+const getDaysLeft = (deadline: string): number => {
+  const [y, m, d] = deadline.split(".").map(Number);
+  if (!y || !m || !d) return 0;
+  const target = new Date(y, m - 1, d);
+  const now = new Date();
+  return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+};
+
+// 챌린지 진행 상태 — 'ended'(마감) / 'upcoming'(예고, 참가자 0) / 'ongoing'(진행중)
+const getChallengeStatus = (c: { deadline: string; participants: number }): "ended" | "upcoming" | "ongoing" => {
+  if (getDaysLeft(c.deadline) < 0) return "ended";
+  if (c.participants === 0) return "upcoming";
+  return "ongoing";
+};
+
 const CHALLENGES_KO: Challenge[] = [
   {
     id: "1",
-    title: "미래 도시 챌린지",
-    prize: "500만원",
+    title: "이달의 챌린지 · 미래 도시",
+    tag: "future-city",
+    prize: "총 60만원",
     participants: 342,
     deadline: getNextDeadline(15),
     image: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=400&h=200&fit=crop",
-    description: "Cyberpunk, 네온, 미래 도시를 주제로 한 15초 이내 AI 영상을 제작해주세요.\n\nBlade Runner, 사이버펑크 2077, 고스트 인 더 셸 같은 작품들에서 영감을 받아 자신만의 미래 도시 비전을 표현해 보세요. 디스토피아든 유토피아든, 어떤 미래를 그리느냐는 자유입니다.\n\n우수작은 CREAITE 메인 피드에 1주일 동안 무료 노출됩니다.",
+    description: "매달 열리는 CREAITE 콘테스트, 이달의 테마는 '미래 도시'입니다.\n\nCyberpunk, 네온, 미래 도시를 주제로 한 5분 이내 AI 영상을 제작해주세요. Blade Runner, 사이버펑크 2077, 고스트 인 더 셸 같은 작품들에서 영감을 받아 자신만의 미래 도시 비전을 표현해 보세요. 디스토피아든 유토피아든, 어떤 미래를 그리느냐는 자유입니다.\n\n🏆 1등 30만원 · 2등 20만원 · 3등 10만원\n우수작은 CREAITE 메인 피드에 1주일 동안 무료 노출됩니다.",
   },
   {
     id: "2",
-    title: "자연 다큐멘터리",
-    prize: "300만원",
+    title: "지난 달 · 자연 다큐멘터리",
+    tag: "nature-doc",
+    prize: "총 60만원",
     participants: 189,
-    deadline: getNextDeadline(20),
+    deadline: getNextDeadline(-5),
     image: "https://images.unsplash.com/photo-1551728715-88730314d185?w=400&h=200&fit=crop",
-    description: "BBC Earth 같은 시네마틱 자연 다큐 스타일 영상을 만들어주세요.\n\n광활한 자연의 경이로움, 야생 동물의 생동감 넘치는 순간, 또는 작은 곤충의 미시 세계까지 — 어떤 자연이든 좋습니다. 시네마틱 연출과 감정적 임팩트가 핵심 평가 요소입니다.",
+    description: "BBC Earth 같은 시네마틱 자연 다큐 스타일 영상을 만드는 챌린지였습니다. (마감된 지난 회차)\n\n광활한 자연의 경이로움, 야생 동물의 생동감 넘치는 순간, 또는 작은 곤충의 미시 세계까지 — 어떤 자연이든 좋습니다. 시네마틱 연출과 감정적 임팩트가 핵심 평가 요소였습니다.\n\n🏆 1등 30만원 · 2등 20만원 · 3등 10만원",
   },
   {
     id: "3",
-    title: "추상 아트 비주얼",
-    prize: "200만원",
-    participants: 267,
-    deadline: getNextDeadline(25),
+    title: "다음 달 예고 · 추상 아트 비주얼",
+    tag: "abstract-art",
+    prize: "총 60만원",
+    participants: 0,
+    deadline: getNextDeadline(40),
     image: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=400&h=200&fit=crop",
-    description: "추상적 비주얼, 컬러, 모션, 패턴을 활용한 실험적인 영상을 제작하세요.\n\n구체적인 주제 없이도 OK. 음악 시각화, 추상 표현주의, 사이키델릭 아트 등 자유롭게 표현해 주세요. 영상미와 독창성이 평가 기준입니다.",
+    description: "다음 달 콘테스트 테마는 '추상 아트 비주얼'입니다. (오픈 예정)\n\n추상적 비주얼, 컬러, 모션, 패턴을 활용한 실험적인 영상을 제작하세요. 구체적인 주제 없이도 OK. 음악 시각화, 추상 표현주의, 사이키델릭 아트 등 자유롭게 표현해 주세요. 영상미와 독창성이 평가 기준입니다.\n\n🏆 1등 30만원 · 2등 20만원 · 3등 10만원",
   },
 ];
 
 const CHALLENGES_EN: Challenge[] = [
   {
     id: "1",
-    title: "Future City Challenge",
-    prize: "₩5,000,000",
+    title: "This Month · Future City",
+    tag: "future-city",
+    prize: "₩600,000 total",
     participants: 342,
     deadline: getNextDeadline(15),
     image: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=400&h=200&fit=crop",
-    description: "Create a 15-second AI video on Cyberpunk, neon, or future city themes.\n\nDraw inspiration from Blade Runner, Cyberpunk 2077, or Ghost in the Shell, and express your own vision of the future city. Whether dystopia or utopia, the vision is yours.\n\nTop entries will be featured on CREAITE's home feed for one week, free of charge.",
+    description: "CREAITE's monthly contest — this month's theme is 'Future City'.\n\nCreate an AI video (up to 5 minutes) on Cyberpunk, neon, or future city themes. Draw inspiration from Blade Runner, Cyberpunk 2077, or Ghost in the Shell, and express your own vision of the future city. Whether dystopia or utopia, the vision is yours.\n\n🏆 1st ₩300,000 · 2nd ₩200,000 · 3rd ₩100,000\nTop entries will be featured on CREAITE's home feed for one week, free of charge.",
   },
   {
     id: "2",
-    title: "Nature Documentary",
-    prize: "₩3,000,000",
+    title: "Last Month · Nature Documentary",
+    tag: "nature-doc",
+    prize: "₩600,000 total",
     participants: 189,
-    deadline: getNextDeadline(20),
+    deadline: getNextDeadline(-5),
     image: "https://images.unsplash.com/photo-1551728715-88730314d185?w=400&h=200&fit=crop",
-    description: "Make a cinematic nature documentary in the style of BBC Earth.\n\nFrom the wonders of vast landscapes, to the lively moments of wildlife, to the microcosm of tiny insects — any subject works. Cinematic direction and emotional impact are the key criteria.",
+    description: "A challenge to make a cinematic nature documentary in the style of BBC Earth. (Closed — past round)\n\nFrom the wonders of vast landscapes, to the lively moments of wildlife, to the microcosm of tiny insects — any subject works. Cinematic direction and emotional impact were the key criteria.\n\n🏆 1st ₩300,000 · 2nd ₩200,000 · 3rd ₩100,000",
   },
   {
     id: "3",
-    title: "Abstract Art Visuals",
-    prize: "₩2,000,000",
-    participants: 267,
-    deadline: getNextDeadline(25),
+    title: "Next Month · Abstract Art Visuals",
+    tag: "abstract-art",
+    prize: "₩600,000 total",
+    participants: 0,
+    deadline: getNextDeadline(40),
     image: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=400&h=200&fit=crop",
-    description: "Create an experimental video using abstract visuals, color, motion, and pattern.\n\nNo specific subject required. Feel free to express yourself with music visualization, abstract expressionism, psychedelic art, and more. Visual quality and originality are the evaluation criteria.",
+    description: "Next month's contest theme is 'Abstract Art Visuals'. (Coming soon)\n\nCreate an experimental video using abstract visuals, color, motion, and pattern. No specific subject required. Feel free to express yourself with music visualization, abstract expressionism, psychedelic art, and more. Visual quality and originality are the evaluation criteria.\n\n🏆 1st ₩300,000 · 2nd ₩200,000 · 3rd ₩100,000",
   },
 ];
+
+// ─── 크리에이터 협업 공간 ────────────────────────────────────────────────
+type CollabType = "recruit" | "join" | "help" | "outsource";
+
+interface CollabPost {
+  id: string;
+  type: CollabType;
+  title: string;
+  author: string;
+  avatar: string;
+  description: string;
+  roles: string[];        // 필요 역할/스킬
+  reward: string;         // 보상 형태
+  status: "open" | "closed";
+  applicants: number;
+  timestamp: string;
+}
+
+const COLLAB_KO: CollabPost[] = [
+  {
+    id: "c1", type: "recruit",
+    title: "AI 단편 SF 영화 팀원 모집 (음악·사운드 담당)",
+    author: "방구석카메론", avatar: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=100&h=100&fit=crop",
+    description: "5분 분량 SF 단편을 제작 중입니다. 영상은 거의 완성됐고, 분위기에 맞는 오리지널 BGM과 사운드 디자인을 함께해 주실 분을 찾습니다. 완성작은 시네마 콘테스트에 함께 출품해요!",
+    roles: ["음악/BGM", "사운드 디자인"], reward: "수익 배분 (협의)", status: "open", applicants: 4, timestamp: "3시간 전",
+  },
+  {
+    id: "c2", type: "join",
+    title: "시나리오/스토리 작가입니다. 영상 팀에 합류하고 싶어요",
+    author: "이야기공장", avatar: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=100&h=100&fit=crop",
+    description: "단편 시나리오·기획을 주로 합니다. AI 영상 제작은 서툴지만 탄탄한 스토리로 기여할 수 있어요. 함께 작업할 영상 크리에이터분들 연락 주세요. 포트폴리오 있습니다.",
+    roles: ["시나리오", "기획/스토리보드"], reward: "포트폴리오/수익 배분", status: "open", applicants: 2, timestamp: "어제",
+  },
+  {
+    id: "c3", type: "help",
+    title: "Runway Gen-3 립싱크가 자꾸 깨지는데 도와주실 분",
+    author: "초보크리에이터", avatar: "https://images.unsplash.com/photo-1612000656409-16fcf948b2d9?w=100&h=100&fit=crop",
+    description: "캐릭터 대사 장면에서 입 모양이 어색하게 나옵니다. 워크플로우나 후보정 팁 공유해 주시면 정말 감사하겠습니다. 짧게 화면 공유 통화도 가능해요!",
+    roles: ["립싱크", "후보정 노하우"], reward: "무급 (커피 기프티콘 💛)", status: "open", applicants: 7, timestamp: "2일 전",
+  },
+  {
+    id: "c4", type: "outsource",
+    title: "[유료] 썸네일·포스터 디자인 외주 구합니다",
+    author: "월간콘테스트팬", avatar: "https://images.unsplash.com/photo-1772371272174-392cf9cfabae?w=100&h=100&fit=crop",
+    description: "업로드할 영상 5편의 썸네일과 포스터 디자인을 맡아주실 분을 찾습니다. 톤앤매너 가이드 제공. 건당 단가는 작업물 보고 협의하고 싶어요.",
+    roles: ["썸네일 디자인", "포스터/키비주얼"], reward: "건당 유료 (협의)", status: "open", applicants: 11, timestamp: "4일 전",
+  },
+  {
+    id: "c5", type: "recruit",
+    title: "뮤직비디오 공동 제작 — 모션그래픽 가능하신 분",
+    author: "네온웨이브", avatar: "https://images.unsplash.com/photo-1551728715-88730314d185?w=100&h=100&fit=crop",
+    description: "인디 뮤지션의 곡으로 AI 뮤직비디오를 만듭니다. 비주얼 컨셉은 잡혀 있고, 모션그래픽/타이포 연출을 더해주실 분을 모셔요. 결과물은 양쪽 채널에 동시 공개 예정.",
+    roles: ["모션그래픽", "타이포그래피"], reward: "수익 배분 + 크레딧", status: "closed", applicants: 9, timestamp: "1주일 전",
+  },
+];
+
+const COLLAB_EN: CollabPost[] = [
+  {
+    id: "c1", type: "recruit",
+    title: "Looking for a music/sound partner for an AI sci-fi short",
+    author: "BedroomCameron", avatar: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=100&h=100&fit=crop",
+    description: "Producing a 5-minute sci-fi short. The visuals are almost done — looking for someone to create an original score and sound design that fits the mood. We'll submit the finished piece to the cinema contest together!",
+    roles: ["Music/Score", "Sound Design"], reward: "Revenue share (TBD)", status: "open", applicants: 4, timestamp: "3h ago",
+  },
+  {
+    id: "c2", type: "join",
+    title: "Scriptwriter here — I'd love to join a video team",
+    author: "StoryFactory", avatar: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=100&h=100&fit=crop",
+    description: "I mostly write short scripts and concepts. I'm new to AI video, but I can contribute a solid story. Reach out if you're a video creator looking for a writer. Portfolio available.",
+    roles: ["Script", "Concept/Storyboard"], reward: "Portfolio / revenue share", status: "open", applicants: 2, timestamp: "yesterday",
+  },
+  {
+    id: "c3", type: "help",
+    title: "Runway Gen-3 lip-sync keeps breaking — any help?",
+    author: "NewbieCreator", avatar: "https://images.unsplash.com/photo-1612000656409-16fcf948b2d9?w=100&h=100&fit=crop",
+    description: "Mouth shapes look off in dialogue scenes. Would really appreciate any workflow or post-production tips. Happy to hop on a quick screen-share call too!",
+    roles: ["Lip-sync", "Post-production tips"], reward: "Unpaid (coffee on me 💛)", status: "open", applicants: 7, timestamp: "2d ago",
+  },
+  {
+    id: "c4", type: "outsource",
+    title: "[Paid] Looking for thumbnail & poster design",
+    author: "MonthlyContestFan", avatar: "https://images.unsplash.com/photo-1772371272174-392cf9cfabae?w=100&h=100&fit=crop",
+    description: "Need thumbnails and posters for 5 upcoming videos. Tone & manner guide provided. Per-piece rate to be discussed based on your work.",
+    roles: ["Thumbnail design", "Poster/Key visual"], reward: "Paid per piece (TBD)", status: "open", applicants: 11, timestamp: "4d ago",
+  },
+  {
+    id: "c5", type: "recruit",
+    title: "Co-producing a music video — motion graphics wanted",
+    author: "NeonWave", avatar: "https://images.unsplash.com/photo-1551728715-88730314d185?w=100&h=100&fit=crop",
+    description: "Making an AI music video for an indie musician's track. The visual concept is set — looking for someone to add motion graphics / typography. Result will be released on both channels.",
+    roles: ["Motion graphics", "Typography"], reward: "Revenue share + credit", status: "closed", applicants: 9, timestamp: "1w ago",
+  },
+];
+
+const COLLAB_TYPE_META: Record<CollabType, { ko: string; en: string; cls: string; Icon: any }> = {
+  recruit:   { ko: "팀원 모집", en: "Recruiting",   cls: "bg-[#8b5cf6]/20 text-[#a78bfa] border-[#8b5cf6]/40", Icon: UserPlus },
+  join:      { ko: "참여 희망", en: "Available",    cls: "bg-[#10b981]/20 text-[#34d399] border-[#10b981]/40", Icon: Handshake },
+  help:      { ko: "도움 요청", en: "Need help",    cls: "bg-[#f59e0b]/20 text-[#fbbf24] border-[#f59e0b]/40", Icon: HelpCircle },
+  outsource: { ko: "외주 · 유료", en: "Hiring · paid", cls: "bg-[#3b82f6]/20 text-[#60a5fa] border-[#3b82f6]/40", Icon: Briefcase },
+};
 
 const CATEGORIES = ["팁", "챌린지", "비교", "프롬프트", "튜토리얼", "일반", "질문"];
 
@@ -242,16 +364,31 @@ const CATEGORY_COLOR: Record<string, string> = {
 
 interface CommunityProps {
   onNavigate?: (tab: string) => void;
+  initialTab?: string | null;               // 외부에서 특정 탭으로 진입 (예: 시네마 콘테스트 배너 → challenges)
+  onInitialTabConsumed?: () => void;         // 초기 탭 적용 후 신호 소거
+  onChallengeParticipate?: (challenge: Challenge) => void;  // 챌린지 참가 → 업로드 진입
+  onPlayVideo?: (videoId: string) => void;   // 참여작 클릭 → 영상 재생
 }
 
-export function Community({ onNavigate }: CommunityProps = {}) {
+export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChallengeParticipate, onPlayVideo }: CommunityProps = {}) {
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
   const { user, isAuthenticated, profile } = useAuth();
   const localeTag = isKo ? "ko-KR" : "en-US";
+  const [activeTab, setActiveTab] = useState("posts");
+  // 외부에서 특정 탭으로 진입 (예: 시네마 콘테스트 공모전 배너 → 챌린지 탭)
+  useEffect(() => {
+    const VALID = ['posts', 'challenges', 'collab'];
+    if (initialTab && VALID.includes(initialTab)) {
+      setActiveTab(initialTab);
+      onInitialTabConsumed?.();
+    }
+  }, [initialTab, onInitialTabConsumed]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const challenges = isKo ? CHALLENGES_KO : CHALLENGES_EN;
+  const collabs = isKo ? COLLAB_KO : COLLAB_EN;
+  const [collabFilter, setCollabFilter] = useState<"all" | CollabType>("all");
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [bookmarkedPosts, setBookmarkedPosts] = useState<Set<string>>(new Set());
   const [commentPostId, setCommentPostId] = useState<string | null>(null);
@@ -260,6 +397,13 @@ export function Community({ onNavigate }: CommunityProps = {}) {
   // 상세 페이지 state
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
+  // 챌린지 참가 → 오버레이를 먼저 닫고(useBackButton history 정리), 닫힘 애니메이션 완료 후 업로드로 이동.
+  // (오버레이 언마운트의 history.back() 과 탭 이동 pushState 가 충돌해 게시글 탭으로 튕기는 문제 방지)
+  const pendingParticipateRef = useRef<Challenge | null>(null);
+  const handleChallengeParticipate = (challenge: Challenge) => {
+    pendingParticipateRef.current = challenge;
+    setSelectedChallenge(null);
+  };
 
   // Write modal state
   const [writeTitle, setWriteTitle] = useState("");
@@ -364,11 +508,35 @@ export function Community({ onNavigate }: CommunityProps = {}) {
           </Button>
         </div>
 
-        <Tabs defaultValue="posts" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-card mb-6">
-            <TabsTrigger value="posts">{t("community.tabPosts")}</TabsTrigger>
-            <TabsTrigger value="challenges">{t("community.tabChallenges")}</TabsTrigger>
-            <TabsTrigger value="trending">{t("community.tabTrending")}</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3 bg-[#1c1c1e] p-1.5 rounded-2xl mb-6 border border-white/5 shadow-inner">
+            {([
+              { id: 'posts', label: t("community.tabPosts") },
+              { id: 'challenges', label: t("community.tabChallenges") },
+              { id: 'collab', label: t("community.tabCollab") },
+            ] as { id: string; label: string }[]).map(tab => {
+              const isActive = activeTab === tab.id;
+              return (
+                <TabsTrigger
+                  key={tab.id}
+                  value={tab.id}
+                  className={`relative py-3 rounded-xl transition-all duration-300 font-bold text-[13px] md:text-sm
+                    ${isActive ? 'text-white' : 'text-gray-500 hover:text-gray-300'}
+                  data-[state=active]:bg-transparent data-[state=active]:shadow-none`}
+                >
+                  <span className="relative z-10 flex items-center justify-center">
+                    {tab.label}
+                  </span>
+                  {isActive && (
+                    <motion.div
+                      layoutId="community-active-tab"
+                      className="absolute inset-0 bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#ec4899] rounded-xl shadow-lg shadow-[#8b5cf6]/30 -z-0"
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                </TabsTrigger>
+              )
+            })}
           </TabsList>
 
           <TabsContent value="posts" className="mt-0">
@@ -455,16 +623,64 @@ export function Community({ onNavigate }: CommunityProps = {}) {
           </TabsContent>
 
           <TabsContent value="challenges" className="mt-0">
-            <div className="space-y-4 pb-6 md:pb-8">
-              {challenges.map((challenge) => (
+            <div className="space-y-5 pb-6 md:pb-8">
+              {/* 매월 정기 콘테스트 히어로 */}
+              <div className="relative overflow-hidden rounded-2xl border border-[#8b5cf6]/30 bg-gradient-to-br from-[#1e1b4b] via-[#3b0764] to-[#0d0d14] p-5 md:p-7">
+                {/* 장식 글로우 */}
+                <div className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full bg-[#8b5cf6]/20 blur-3xl" />
+                <div className="pointer-events-none absolute -bottom-20 -left-10 w-56 h-56 rounded-full bg-[#ec4899]/10 blur-3xl" />
+                <div className="relative">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-white/10 border border-white/20 text-[#e9d5ff] backdrop-blur-sm">
+                    <Trophy className="w-3.5 h-3.5 text-[#fbbf24]" />
+                    {isKo ? "매월 정기 콘테스트" : "Monthly Contest"}
+                  </span>
+                  <h2 className="mt-3 text-xl md:text-3xl font-black text-white leading-tight">
+                    {isKo ? "매달 열리는 AI 영상 챌린지" : "Monthly AI Video Challenge"}
+                  </h2>
+                  <p className="mt-1.5 text-sm text-purple-200/80 max-w-lg">
+                    {isKo
+                      ? "매월 새로운 테마가 열립니다. 누구나 무료로 참가하고, 우수작은 메인 피드에 노출돼요."
+                      : "A new theme every month. Free to enter — top entries get featured on the home feed."}
+                  </p>
+                  {/* 상금 티어 */}
+                  <div className="mt-4 grid grid-cols-3 gap-2 md:gap-3 max-w-md">
+                    {[
+                      { emoji: "🥇", rank: isKo ? "1등" : "1st", amount: isKo ? "30만원" : "₩300K", ring: "border-[#fbbf24]/40 bg-[#fbbf24]/10" },
+                      { emoji: "🥈", rank: isKo ? "2등" : "2nd", amount: isKo ? "20만원" : "₩200K", ring: "border-white/20 bg-white/5" },
+                      { emoji: "🥉", rank: isKo ? "3등" : "3rd", amount: isKo ? "10만원" : "₩100K", ring: "border-[#f59e0b]/30 bg-[#f59e0b]/10" },
+                    ].map((p) => (
+                      <div key={p.rank} className={`rounded-xl border ${p.ring} px-2 py-2.5 text-center backdrop-blur-sm`}>
+                        <div className="text-lg md:text-xl leading-none">{p.emoji}</div>
+                        <div className="mt-1 text-[10px] md:text-xs text-purple-200/70 font-medium">{p.rank}</div>
+                        <div className="text-sm md:text-base font-extrabold text-white">{p.amount}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 챌린지 목록 */}
+              {challenges.map((challenge) => {
+                const status = getChallengeStatus(challenge);
+                const daysLeft = getDaysLeft(challenge.deadline);
+                const statusMeta = {
+                  ongoing: { label: isKo ? `진행중 · D-${daysLeft}` : `Open · D-${daysLeft}`, cls: "bg-[#10b981]/90 text-white" },
+                  upcoming: { label: isKo ? "오픈 예정" : "Coming soon", cls: "bg-[#6366f1]/90 text-white" },
+                  ended: { label: isKo ? "마감" : "Closed", cls: "bg-white/15 text-white/70 backdrop-blur-sm" },
+                }[status];
+                return (
                 <div
                   key={challenge.id}
                   onClick={() => setSelectedChallenge(challenge)}
-                  className="bg-card rounded-lg border border-border overflow-hidden group cursor-pointer hover:border-[#6366f1]/50 transition-colors"
+                  className={`bg-card rounded-xl border border-border overflow-hidden group cursor-pointer hover:border-[#6366f1]/50 transition-colors ${status === "ended" ? "opacity-70" : ""}`}
                 >
                   <div className="relative h-32 overflow-hidden">
-                    <img src={challenge.image} alt={challenge.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                    <img src={challenge.image} alt={challenge.title} className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-300 ${status === "ended" ? "grayscale" : ""}`} />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                    {/* 상태 배지 */}
+                    <span className={`absolute top-3 left-3 px-2.5 py-1 rounded-md text-[11px] font-bold ${statusMeta.cls}`}>
+                      {statusMeta.label}
+                    </span>
                     <div className="absolute bottom-3 left-3 right-3">
                       <h3 className="text-white mb-1">{challenge.title}</h3>
                       <div className="flex items-center gap-3 text-white/80 text-sm">
@@ -488,58 +704,130 @@ export function Community({ onNavigate }: CommunityProps = {}) {
                     </Button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </TabsContent>
 
-          <TabsContent value="trending" className="mt-0">
-            <div className="space-y-4 pb-6 md:pb-8">
-              <div className="bg-card rounded-lg border border-border p-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <TrendingUp className="w-5 h-5 text-[#6366f1]" />
-                  <h3>{t("community.trendingPromptKeywords")}</h3>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {["cyberpunk", "cinematic", "8k", "neon lights", "futuristic", "nature", "abstract", "portrait", "anime style", "realistic"].map((tag) => (
-                    <span key={tag} className="px-3 py-1.5 bg-gradient-to-r from-[#6366f1]/10 to-[#8b5cf6]/10 border border-[#6366f1]/30 rounded-full text-sm cursor-pointer hover:border-[#6366f1] transition-colors">
-                      #{tag}
-                    </span>
-                  ))}
+          <TabsContent value="collab" className="mt-0">
+            <div className="space-y-5 pb-6 md:pb-8">
+              {/* 협업 공간 히어로 */}
+              <div className="relative overflow-hidden rounded-2xl border border-[#8b5cf6]/30 bg-gradient-to-br from-[#0f2027] via-[#1a1b3a] to-[#0d0d14] p-5 md:p-7">
+                <div className="pointer-events-none absolute -top-16 -right-12 w-56 h-56 rounded-full bg-[#6366f1]/20 blur-3xl" />
+                <div className="pointer-events-none absolute -bottom-20 -left-10 w-56 h-56 rounded-full bg-[#10b981]/10 blur-3xl" />
+                <div className="relative">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-white/10 border border-white/20 text-[#c4b5fd] backdrop-blur-sm">
+                    <Handshake className="w-3.5 h-3.5 text-[#34d399]" />
+                    {isKo ? "크리에이터 협업" : "Creator Collab"}
+                  </span>
+                  <h2 className="mt-3 text-xl md:text-3xl font-black text-white leading-tight">
+                    {isKo ? "혼자 만들지 마세요. 함께 만들어요" : "Don't create alone — create together"}
+                  </h2>
+                  <p className="mt-1.5 text-sm text-gray-300/80 max-w-lg">
+                    {isKo
+                      ? "팀원을 모집하고, 재능을 나누고, 막히는 부분을 도와주는 크리에이터들의 협업 공간이에요."
+                      : "A space for creators to recruit teammates, offer skills, and help each other out."}
+                  </p>
+                  <Button
+                    onClick={() => {
+                      if (!isAuthenticated) { toast.error(t("community.writeRequiresLogin")); return; }
+                      toast.info(isKo ? "협업 모집 글 등록 기능을 준비 중이에요. 곧 열립니다! 🛠️" : "Posting a collab listing is coming soon! 🛠️", { duration: 3000 });
+                    }}
+                    className="mt-4 gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 font-bold"
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {isKo ? "협업 글 올리기" : "Post a listing"}
+                  </Button>
                 </div>
               </div>
 
-              <div className="bg-card rounded-lg border border-border p-4">
-                <h3 className="mb-4">{t("community.weeklyTopPosts")}</h3>
-                <div className="space-y-3">
-                  {posts.slice(0, 3).map((post, i) => (
-                    <div key={post.id} className="flex items-start gap-3 pb-3 border-b border-border last:border-0 last:pb-0">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-white font-medium text-sm">
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{post.title}</p>
-                        <p className="text-xs text-muted-foreground">{post.likes} likes • {post.comments} comments</p>
+              {/* 타입 필터 */}
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { id: "all" as const, label: isKo ? "전체" : "All" },
+                  ...(Object.keys(COLLAB_TYPE_META) as CollabType[]).map((k) => ({ id: k, label: isKo ? COLLAB_TYPE_META[k].ko : COLLAB_TYPE_META[k].en })),
+                ]).map((f) => {
+                  const active = collabFilter === f.id;
+                  return (
+                    <button
+                      key={f.id}
+                      onClick={() => setCollabFilter(f.id)}
+                      className={`px-3.5 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
+                        active
+                          ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white border-transparent"
+                          : "bg-card text-muted-foreground border-border hover:border-[#6366f1]/50"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* 협업 글 목록 */}
+              <div className="space-y-3">
+                {collabs.filter((c) => collabFilter === "all" || c.type === collabFilter).map((c) => {
+                  const meta = COLLAB_TYPE_META[c.type];
+                  const TypeIcon = meta.Icon;
+                  const closed = c.status === "closed";
+                  return (
+                    <div
+                      key={c.id}
+                      className={`bg-card rounded-xl border border-border p-4 transition-colors hover:border-[#6366f1]/40 ${closed ? "opacity-60" : ""}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <img src={c.avatar} alt={c.author} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          {/* 타입 배지 + 상태 */}
+                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border ${meta.cls}`}>
+                              <TypeIcon className="w-3 h-3" />
+                              {isKo ? meta.ko : meta.en}
+                            </span>
+                            {closed && (
+                              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-white/10 text-white/60">
+                                {isKo ? "마감" : "Closed"}
+                              </span>
+                            )}
+                            <span className="text-xs text-muted-foreground">· {c.timestamp}</span>
+                          </div>
+                          {/* 제목 */}
+                          <h3 className="font-bold text-foreground leading-snug">{c.title}</h3>
+                          <p className="text-xs text-muted-foreground mt-0.5">{c.author}</p>
+                          {/* 설명 */}
+                          <p className="text-sm text-foreground/80 mt-2 line-clamp-2">{c.description}</p>
+                          {/* 필요 역할 */}
+                          <div className="flex flex-wrap gap-1.5 mt-3">
+                            {c.roles.map((role) => (
+                              <span key={role} className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#6366f1]/10 text-[#a5b4fc] border border-[#6366f1]/20">
+                                {role}
+                              </span>
+                            ))}
+                          </div>
+                          {/* 하단: 보상 + 지원자 + CTA */}
+                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/60">
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground min-w-0">
+                              <span className="flex items-center gap-1 truncate">🎁 {c.reward}</span>
+                              <span className="flex items-center gap-1 flex-shrink-0"><Users className="w-3.5 h-3.5" />{isKo ? `${c.applicants}명 관심` : `${c.applicants} interested`}</span>
+                            </div>
+                            <Button
+                              size="sm"
+                              disabled={closed}
+                              onClick={() => {
+                                if (!isAuthenticated) { toast.error(t("community.writeRequiresLogin")); return; }
+                                toast.success(isKo ? `‘${c.author}’님에게 관심을 보냈어요! 연락 기능은 곧 열립니다. 🤝` : `Interest sent to ${c.author}! Direct contact is coming soon. 🤝`, { duration: 3000 });
+                              }}
+                              className="flex-shrink-0 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] disabled:opacity-50"
+                            >
+                              {closed ? (isKo ? "마감" : "Closed") : c.type === "help" ? (isKo ? "도와주기" : "Help out") : (isKo ? "연락하기" : "Contact")}
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-card rounded-lg border border-border p-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <Lightbulb className="w-5 h-5 text-[#fbbf24]" />
-                  <h3>{t("community.weeklyTips")}</h3>
-                </div>
-                <div className="space-y-3">
-                  <div className="p-3 bg-gradient-to-r from-[#6366f1]/5 to-[#8b5cf6]/5 rounded-lg border border-[#6366f1]/20">
-                    <p className="text-sm mb-2">{t("community.tip1")}</p>
-                    <p className="text-xs text-muted-foreground">{t("community.tip1Example")}</p>
-                  </div>
-                  <div className="p-3 bg-gradient-to-r from-[#6366f1]/5 to-[#8b5cf6]/5 rounded-lg border border-[#6366f1]/20">
-                    <p className="text-sm mb-2">{t("community.tip2")}</p>
-                    <p className="text-xs text-muted-foreground">{t("community.tip2Example")}</p>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
             </div>
           </TabsContent>
@@ -593,11 +881,21 @@ export function Community({ onNavigate }: CommunityProps = {}) {
       </AnimatePresence>
 
       {/* 챌린지 상세 페이지 */}
-      <AnimatePresence>
+      <AnimatePresence
+        onExitComplete={() => {
+          if (pendingParticipateRef.current) {
+            const c = pendingParticipateRef.current;
+            pendingParticipateRef.current = null;
+            onChallengeParticipate?.(c);
+          }
+        }}
+      >
         {selectedChallenge && (
           <CommunityChallengeDetail
             challenge={selectedChallenge}
             onClose={() => setSelectedChallenge(null)}
+            onParticipate={handleChallengeParticipate}
+            onEntryClick={onPlayVideo}
           />
         )}
       </AnimatePresence>

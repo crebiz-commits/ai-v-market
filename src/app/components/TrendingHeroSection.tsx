@@ -27,15 +27,6 @@ function fmtDuration(s?: number | null) {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
-// 네온 글로우 색상 — 순위별 (1위 gold / 2위 amber / 3위 cyan / 4위 pink / 그 이하 violet)
-function neonStyle(rank: number): { color: string; glow: string } {
-  if (rank === 1) return { color: "#fde047", glow: "0 0 8px #fde047, 0 0 18px #facc15, 0 0 34px #f59e0b" };
-  if (rank === 2) return { color: "#fbbf24", glow: "0 0 8px #fbbf24, 0 0 16px #fbbf24, 0 0 32px #fbbf24" };
-  if (rank === 3) return { color: "#22d3ee", glow: "0 0 8px #22d3ee, 0 0 16px #22d3ee, 0 0 32px #22d3ee" };
-  if (rank === 4) return { color: "#f472b6", glow: "0 0 8px #f472b6, 0 0 16px #f472b6, 0 0 32px #f472b6" };
-  return { color: "#a78bfa", glow: "0 0 6px #a78bfa, 0 0 14px #a78bfa, 0 0 24px #a78bfa" };
-}
-
 export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onAddToCart, emptyMessage }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -123,30 +114,29 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
           <div ref={restScrollRef} className="flex gap-3 overflow-x-auto pb-2 px-4 md:px-6 scrollbar-hide scroll-smooth">
             {ranked.map((v, i) => {
             const rank = i + 1;
-            const n = neonStyle(rank);
+            const twoDigit = rank >= 10;  // "10" 은 두 자리라 폭이 넓음 → 폰트 축소·자간 좁힘으로 한 자리와 비슷하게
             return (
               <button
                 key={v.id}
                 onClick={() => onVideoClick(v)}
-                className="flex-shrink-0 w-[42vw] md:w-[15vw] cursor-pointer group/card text-left"
+                className="flex-shrink-0 cursor-pointer group/card text-left pl-[14vw] md:pl-[5vw]"
               >
-                <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-card">
-                  {v.thumbnail && (
-                    <img
-                      src={v.thumbnail}
-                      alt={v.title}
-                      className="w-full h-full object-cover group-hover/card:scale-105 transition-transform"
-                    />
-                  )}
-                  {/* 좌하단 네온 글로우 숫자 */}
-                  <div className="absolute bottom-2 left-2 pointer-events-none">
-                    <span
-                      className="text-4xl md:text-5xl font-black leading-none italic"
-                      style={{ color: n.color, textShadow: n.glow }}
-                    >
-                      {rank}
-                    </span>
-                  </div>
+                <div className="w-[30vw] md:w-[11vw]">
+                  {/* 포스터+숫자 래퍼 — 숫자를 포스터 높이 안에만 두어 제목/세부내역을 가리지 않음 */}
+                  <div className="relative">
+                  {/* 거대 브랜드 그라데이션 순위 숫자 — 포스터 왼쪽 하단에 겹쳐 배치(포스터 뒤) */}
+                  <span className={`absolute right-full bottom-0 -mr-[6vw] md:-mr-[2.2vw] z-0 pointer-events-none select-none font-black italic leading-[0.7] text-transparent bg-clip-text bg-gradient-to-b from-[#a78bfa] via-[#ec4899] to-[#f59e0b] drop-shadow-[0_4px_12px_rgba(236,72,153,0.45)] text-[44vw] md:text-[16vw] ${twoDigit ? "scale-x-[0.65] origin-right tracking-[-0.06em]" : ""}`}>
+                    {rank}
+                  </span>
+                  {/* 포스터 */}
+                  <div className="relative z-10 aspect-[2/3] rounded-lg overflow-hidden bg-card">
+                    {v.thumbnail && (
+                      <img
+                        src={v.thumbnail}
+                        alt={v.title}
+                        className="w-full h-full object-cover group-hover/card:scale-105 transition-transform"
+                      />
+                    )}
                   {/* 길이 배지 (우하단) */}
                   {v.duration_seconds ? (
                     <span className="absolute bottom-1.5 right-1.5 px-1 py-0.5 bg-black/80 rounded text-[10px] font-semibold text-white">
@@ -181,6 +171,7 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
                     </span>
                   </div>
                 </div>
+                </div>
                 <p className="text-xs md:text-base font-bold text-white mt-2 line-clamp-1">{v.title}</p>
                 <p className="text-[11px] md:text-xs text-muted-foreground line-clamp-1">
                   {v.creator_display_name || v.creator || ""}
@@ -206,6 +197,7 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
                     )}
                   </div>
                 ) : null}
+                </div>
               </button>
             );
           })}

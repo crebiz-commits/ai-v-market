@@ -25,6 +25,7 @@ import { supabase, supabaseAnonKey, supabaseUrl } from "../utils/supabaseClient"
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { getCategoryLabel, getGenreLabel, getAiToolLabel, getLanguageLabel } from "../i18n/categoryLabels";
+import { GENRES } from "../data/genres";  // 장르 단일 출처 (업로드/시네마/OTT 공유)
 
 // 카테고리·장르·AI툴 — 사이트 전체 (Upload/Cinema/Ott/SearchPage) 통일 (2026-05-27)
 // 카테고리 = 콘텐츠 형식 (6종) / 장르 = 작품 분위기·테마 (11종)
@@ -34,7 +35,7 @@ const aiTools = [
   "Mochi 1", "LTX Studio", "Hedra", "Higgsfield", "Pixverse", "기타"
 ];
 const categories = ["영화", "드라마", "애니메이션", "다큐멘터리", "뮤직비디오", "기타"];
-const genres = ["SF", "액션", "로맨스", "공포", "판타지", "스릴러", "드라마", "코미디", "자연·풍경", "추상", "기타"];
+const genres = GENRES;  // 시네마/OTT 행과 동일 목록·순서
 const resolutions = ["720p", "1080p", "4K", "8K"];
 const languages = ["한국어", "영어", "일본어", "중국어", "스페인어", "프랑스어", "독일어", "무음/instrumental", "기타"];
 
@@ -42,9 +43,11 @@ interface UploadProps {
   onSignInClick?: () => void;
   onViewMyProducts?: () => void;
   onNavigate?: (tab: string) => void;
+  challengeContext?: { tag: string; title: string } | null;  // 챌린지 참가로 진입 시 — 출품작 태그 자동 부착
+  onChallengeContextConsumed?: () => void;
 }
 
-export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadProps) {
+export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeContext, onChallengeContextConsumed }: UploadProps) {
   const { t } = useTranslation();
   const { user, profile, accessToken } = useAuth();
   const settings = useSettings();
@@ -55,6 +58,8 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
   const [bunnyVideoId, setBunnyVideoId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [forceUpdate, setForceUpdate] = useState(0); // 강제 리렌더링용
+  // 챌린지 참가로 진입한 경우 — 출품작 태그를 제출 시 자동 부착 (가시 태그칩은 건드리지 않음)
+  const [activeChallenge, setActiveChallenge] = useState<{ tag: string; title: string } | null>(null);
   
   const [formData, setFormData] = useState({
     title: "",
@@ -96,6 +101,15 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [uploadComplete, setUploadComplete] = useState(false);
   const [showBunnyGuide, setShowBunnyGuide] = useState(false);
+
+  // 챌린지 참가로 진입 시 컨텍스트 1회 캡처 후 부모 신호 소거
+  useEffect(() => {
+    if (challengeContext) {
+      setActiveChallenge(challengeContext);
+      onChallengeContextConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [challengeContext]);
 
   // 업로드 진행률 상세 통계 (속도, 남은 시간 등)
   const [uploadStats, setUploadStats] = useState<{ loaded: number; total: number; speed: number; eta: number }>({
@@ -589,6 +603,15 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
       toast.error(t("upload.toast.ageRatingRequired", "시청 등급을 선택해주세요."));
       return;
     }
+    // 카테고리·장르 필수 검증 — 장르는 시네마/OTT 행 분류 기준이라 비면 어느 행에도 안 나옴
+    if (!formData.category) {
+      toast.error(t("upload.toast.categoryRequired", "카테고리를 선택해주세요."));
+      return;
+    }
+    if (!formData.genre) {
+      toast.error(t("upload.toast.genreRequired", "장르를 선택해주세요."));
+      return;
+    }
     setShowPreview(true);
   };
 
@@ -693,7 +716,10 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
         thumbnailUrl: `https://${bunnyHostname}/${videoId}/thumbnail.jpg`,
         hlsUrl: `https://${bunnyHostname}/${videoId}/playlist.m3u8`,
         duration: formData.duration || '0:00',
-        tags: formData.tags || "",
+        // 챌린지 참가작이면 'challenge:<tag>' 를 태그에 자동 추가 (가시 태그칩과 무관, 출품 식별용)
+        tags: activeChallenge
+          ? [formData.tags, `challenge:${activeChallenge.tag}`].filter(Boolean).join(",")
+          : (formData.tags || ""),
         // All-in-One 단일 라이선스
         standardPrice: stripCommas(formData.standardPrice) || "0",
         aiTool: formData.aiTool || '',
@@ -883,6 +909,27 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate }: UploadPr
   return (
     <div className="h-full overflow-y-auto bg-background">
       <div className="max-w-3xl mx-auto p-6 md:p-8 pb-28 md:pb-8">
+
+        {/* 챌린지 참가 배너 — '참가하기'로 진입한 경우 */}
+        {activeChallenge && (
+          <div className="mb-4 p-4 rounded-2xl bg-gradient-to-r from-[#6366f1]/15 via-[#8b5cf6]/15 to-[#ec4899]/15 border border-[#8b5cf6]/40 flex items-center gap-3">
+            <div className="shrink-0 text-2xl">🏆</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-black text-white truncate">
+                {t("upload.challengeJoinTitle", { title: activeChallenge.title, defaultValue: `‘${activeChallenge.title}’ 챌린지 참가 중` })}
+              </p>
+              <p className="text-xs text-purple-200/80">
+                {t("upload.challengeJoinDesc", "이 영상은 챌린지 출품작으로 자동 등록됩니다.")}
+              </p>
+            </div>
+            <button
+              onClick={() => setActiveChallenge(null)}
+              className="shrink-0 text-xs text-purple-200/70 hover:text-white px-2 py-1 rounded-md hover:bg-white/10 transition-colors"
+            >
+              {t("upload.challengeJoinCancel", "참가 취소")}
+            </button>
+          </div>
+        )}
 
         {/* Bunny Setup Guide Modal */}
         <BunnySetupGuide

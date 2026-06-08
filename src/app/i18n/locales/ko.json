@@ -114,6 +114,7 @@
     "tabPosts": "게시글",
     "tabChallenges": "챌린지",
     "tabTrending": "트렌딩",
+    "tabCollab": "협업",
     "participants": "{{count}}명 참여",
     "deadlineLabel": "마감: {{date}}",
     "viewDetail": "자세히 보기",
