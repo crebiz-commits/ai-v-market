@@ -11,7 +11,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useMemo, useState } from "react";
-import { GENRES } from "../data/genres";  // 장르 단일 출처 (업로드/시네마/OTT 공유)
+import { GENRES, genreEmoji } from "../data/genres";  // 장르 단일 출처 (업로드/시네마/OTT 공유)
 import { Loader2, Film } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -332,7 +332,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           {categoryRows.map((row) => (
             <VideoRowCarousel
               key={row.category}
-              title={t("cinema.categoryRowTitle", { category: getGenreLabel(row.category, t) })}
+              title={`${genreEmoji(row.category)} ${getGenreLabel(row.category, t)}`}
               videos={row.videos}
               onVideoClick={handleClick}
               onAddToCart={handleAddToCart}

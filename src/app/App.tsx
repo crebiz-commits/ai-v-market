@@ -387,9 +387,11 @@ function AppContent() {
       const video = url.searchParams.get("video");
       const tab = url.searchParams.get("tab");
       const section = url.searchParams.get("section");
+      const sub = url.searchParams.get("sub");
       if (video) { void loadAndOpenVideo(video, { openComments: url.searchParams.get("comment") === "1" }); return; }
       if (tab) {
         if (tab === "mypage" && section) setPendingMyPageTab(section);
+        if (tab === "community" && sub) setPendingCommunityTab(sub);
         setActiveTab(tab as Tab);
         return;
       }

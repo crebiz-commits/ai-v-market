@@ -245,6 +245,7 @@ type CollabType = "recruit" | "join" | "help" | "outsource";
 
 interface CollabPost {
   id: string;
+  ownerId?: string;       // 작성자 user_id (본인 글 판별)
   type: CollabType;
   title: string;
   author: string;
@@ -257,81 +258,38 @@ interface CollabPost {
   timestamp: string;
 }
 
-const COLLAB_KO: CollabPost[] = [
-  {
-    id: "c1", type: "recruit",
-    title: "AI 단편 SF 영화 팀원 모집 (음악·사운드 담당)",
-    author: "방구석카메론", avatar: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=100&h=100&fit=crop",
-    description: "5분 분량 SF 단편을 제작 중입니다. 영상은 거의 완성됐고, 분위기에 맞는 오리지널 BGM과 사운드 디자인을 함께해 주실 분을 찾습니다. 완성작은 시네마 콘테스트에 함께 출품해요!",
-    roles: ["음악/BGM", "사운드 디자인"], reward: "수익 배분 (협의)", status: "open", applicants: 4, timestamp: "3시간 전",
-  },
-  {
-    id: "c2", type: "join",
-    title: "시나리오/스토리 작가입니다. 영상 팀에 합류하고 싶어요",
-    author: "이야기공장", avatar: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=100&h=100&fit=crop",
-    description: "단편 시나리오·기획을 주로 합니다. AI 영상 제작은 서툴지만 탄탄한 스토리로 기여할 수 있어요. 함께 작업할 영상 크리에이터분들 연락 주세요. 포트폴리오 있습니다.",
-    roles: ["시나리오", "기획/스토리보드"], reward: "포트폴리오/수익 배분", status: "open", applicants: 2, timestamp: "어제",
-  },
-  {
-    id: "c3", type: "help",
-    title: "Runway Gen-3 립싱크가 자꾸 깨지는데 도와주실 분",
-    author: "초보크리에이터", avatar: "https://images.unsplash.com/photo-1612000656409-16fcf948b2d9?w=100&h=100&fit=crop",
-    description: "캐릭터 대사 장면에서 입 모양이 어색하게 나옵니다. 워크플로우나 후보정 팁 공유해 주시면 정말 감사하겠습니다. 짧게 화면 공유 통화도 가능해요!",
-    roles: ["립싱크", "후보정 노하우"], reward: "무급 (커피 기프티콘 💛)", status: "open", applicants: 7, timestamp: "2일 전",
-  },
-  {
-    id: "c4", type: "outsource",
-    title: "[유료] 썸네일·포스터 디자인 외주 구합니다",
-    author: "월간콘테스트팬", avatar: "https://images.unsplash.com/photo-1772371272174-392cf9cfabae?w=100&h=100&fit=crop",
-    description: "업로드할 영상 5편의 썸네일과 포스터 디자인을 맡아주실 분을 찾습니다. 톤앤매너 가이드 제공. 건당 단가는 작업물 보고 협의하고 싶어요.",
-    roles: ["썸네일 디자인", "포스터/키비주얼"], reward: "건당 유료 (협의)", status: "open", applicants: 11, timestamp: "4일 전",
-  },
-  {
-    id: "c5", type: "recruit",
-    title: "뮤직비디오 공동 제작 — 모션그래픽 가능하신 분",
-    author: "네온웨이브", avatar: "https://images.unsplash.com/photo-1551728715-88730314d185?w=100&h=100&fit=crop",
-    description: "인디 뮤지션의 곡으로 AI 뮤직비디오를 만듭니다. 비주얼 컨셉은 잡혀 있고, 모션그래픽/타이포 연출을 더해주실 분을 모셔요. 결과물은 양쪽 채널에 동시 공개 예정.",
-    roles: ["모션그래픽", "타이포그래피"], reward: "수익 배분 + 크레딧", status: "closed", applicants: 9, timestamp: "1주일 전",
-  },
-];
+// 상대 시간 ("3시간 전" / "3h ago")
+function timeAgo(iso: string | null | undefined, isKo: boolean): string {
+  if (!iso) return "";
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return isKo ? "방금" : "just now";
+  if (min < 60) return isKo ? `${min}분 전` : `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return isKo ? `${hr}시간 전` : `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return isKo ? `${day}일 전` : `${day}d ago`;
+  const wk = Math.floor(day / 7);
+  return isKo ? `${wk}주 전` : `${wk}w ago`;
+}
 
-const COLLAB_EN: CollabPost[] = [
-  {
-    id: "c1", type: "recruit",
-    title: "Looking for a music/sound partner for an AI sci-fi short",
-    author: "BedroomCameron", avatar: "https://images.unsplash.com/photo-1633743252577-ccb68cbdb6ed?w=100&h=100&fit=crop",
-    description: "Producing a 5-minute sci-fi short. The visuals are almost done — looking for someone to create an original score and sound design that fits the mood. We'll submit the finished piece to the cinema contest together!",
-    roles: ["Music/Score", "Sound Design"], reward: "Revenue share (TBD)", status: "open", applicants: 4, timestamp: "3h ago",
-  },
-  {
-    id: "c2", type: "join",
-    title: "Scriptwriter here — I'd love to join a video team",
-    author: "StoryFactory", avatar: "https://images.unsplash.com/photo-1580895456895-cfdf02e4c23f?w=100&h=100&fit=crop",
-    description: "I mostly write short scripts and concepts. I'm new to AI video, but I can contribute a solid story. Reach out if you're a video creator looking for a writer. Portfolio available.",
-    roles: ["Script", "Concept/Storyboard"], reward: "Portfolio / revenue share", status: "open", applicants: 2, timestamp: "yesterday",
-  },
-  {
-    id: "c3", type: "help",
-    title: "Runway Gen-3 lip-sync keeps breaking — any help?",
-    author: "NewbieCreator", avatar: "https://images.unsplash.com/photo-1612000656409-16fcf948b2d9?w=100&h=100&fit=crop",
-    description: "Mouth shapes look off in dialogue scenes. Would really appreciate any workflow or post-production tips. Happy to hop on a quick screen-share call too!",
-    roles: ["Lip-sync", "Post-production tips"], reward: "Unpaid (coffee on me 💛)", status: "open", applicants: 7, timestamp: "2d ago",
-  },
-  {
-    id: "c4", type: "outsource",
-    title: "[Paid] Looking for thumbnail & poster design",
-    author: "MonthlyContestFan", avatar: "https://images.unsplash.com/photo-1772371272174-392cf9cfabae?w=100&h=100&fit=crop",
-    description: "Need thumbnails and posters for 5 upcoming videos. Tone & manner guide provided. Per-piece rate to be discussed based on your work.",
-    roles: ["Thumbnail design", "Poster/Key visual"], reward: "Paid per piece (TBD)", status: "open", applicants: 11, timestamp: "4d ago",
-  },
-  {
-    id: "c5", type: "recruit",
-    title: "Co-producing a music video — motion graphics wanted",
-    author: "NeonWave", avatar: "https://images.unsplash.com/photo-1551728715-88730314d185?w=100&h=100&fit=crop",
-    description: "Making an AI music video for an indie musician's track. The visual concept is set — looking for someone to add motion graphics / typography. Result will be released on both channels.",
-    roles: ["Motion graphics", "Typography"], reward: "Revenue share + credit", status: "closed", applicants: 9, timestamp: "1w ago",
-  },
-];
+// collab_posts row → CollabPost
+function collabRowToPost(r: any, isKo: boolean): CollabPost {
+  return {
+    id: r.id,
+    ownerId: r.user_id,
+    type: r.type,
+    title: r.title,
+    author: r.author_name || (isKo ? "크리에이터" : "Creator"),
+    avatar: r.author_avatar || "",
+    description: r.description || "",
+    roles: Array.isArray(r.roles) ? r.roles : [],
+    reward: r.reward || "",
+    status: r.status === "closed" ? "closed" : "open",
+    applicants: r.applicants_count || 0,
+    timestamp: timeAgo(r.created_at, isKo),
+  };
+}
 
 const COLLAB_TYPE_META: Record<CollabType, { ko: string; en: string; cls: string; Icon: any }> = {
   recruit:   { ko: "팀원 모집", en: "Recruiting",   cls: "bg-[#8b5cf6]/20 text-[#a78bfa] border-[#8b5cf6]/40", Icon: UserPlus },
@@ -387,8 +345,20 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   const [posts, setPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const challenges = isKo ? CHALLENGES_KO : CHALLENGES_EN;
-  const collabs = isKo ? COLLAB_KO : COLLAB_EN;
+  const [collabs, setCollabs] = useState<CollabPost[]>([]);
+  const [loadingCollab, setLoadingCollab] = useState(true);
+  const [appliedCollabIds, setAppliedCollabIds] = useState<Set<string>>(new Set());
   const [collabFilter, setCollabFilter] = useState<"all" | CollabType>("all");
+  // 협업 글 작성 모달
+  const [showCollabModal, setShowCollabModal] = useState(false);
+  const [submittingCollab, setSubmittingCollab] = useState(false);
+  const [collabForm, setCollabForm] = useState<{ type: CollabType; title: string; description: string; roles: string; reward: string }>({
+    type: "recruit", title: "", description: "", roles: "", reward: "",
+  });
+  // 지원자 목록 보기 (작성자 전용)
+  const [viewApplicantsOf, setViewApplicantsOf] = useState<CollabPost | null>(null);
+  const [applicants, setApplicants] = useState<{ name: string; message: string | null; date: string }[]>([]);
+  const [loadingApplicants, setLoadingApplicants] = useState(false);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [bookmarkedPosts, setBookmarkedPosts] = useState<Set<string>>(new Set());
   const [commentPostId, setCommentPostId] = useState<string | null>(null);
@@ -416,6 +386,8 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   useBackButton(!!commentPostId, () => setCommentPostId(null));
   useBackButton(!!selectedPost, () => setSelectedPost(null));
   useBackButton(!!selectedChallenge, () => setSelectedChallenge(null));
+  useBackButton(showCollabModal, () => setShowCollabModal(false));
+  useBackButton(!!viewApplicantsOf, () => setViewApplicantsOf(null));
 
   // H10(2026-05-31): 커뮤니티 글 실제 DB 로드 (기존 mock 은 ?preview=community-mock 에 보존)
   useEffect(() => {
@@ -434,6 +406,126 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     })();
     return () => { cancelled = true; };
   }, [localeTag]);
+
+  // 협업 글 + 내가 지원한 글 로드
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoadingCollab(true);
+      const { data, error } = await supabase
+        .from("collab_posts")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (cancelled) return;
+      if (error) console.warn("[Collab] 협업 글 조회 실패:", error.message);
+      else setCollabs((data || []).map((r) => collabRowToPost(r, isKo)));
+      setLoadingCollab(false);
+      if (user?.id) {
+        const { data: apps } = await supabase
+          .from("collab_applications")
+          .select("post_id")
+          .eq("applicant_id", user.id);
+        if (!cancelled && apps) setAppliedCollabIds(new Set(apps.map((a: any) => a.post_id)));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isKo, user?.id]);
+
+  // 협업 글 등록
+  const handleCreateCollab = async () => {
+    if (!isAuthenticated) { toast.error(t("community.writeRequiresLogin")); return; }
+    const title = collabForm.title.trim();
+    const description = collabForm.description.trim();
+    if (title.length < 2 || description.length < 5) {
+      toast.error(isKo ? "제목(2자+)과 설명(5자+)을 입력해주세요." : "Enter a title (2+) and description (5+).");
+      return;
+    }
+    setSubmittingCollab(true);
+    try {
+      const roles = collabForm.roles.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 8);
+      const { data, error } = await supabase
+        .from("collab_posts")
+        .insert({
+          user_id: user!.id,
+          author_name: profile?.display_name || user?.name || (isKo ? "크리에이터" : "Creator"),
+          author_avatar: profile?.avatar_url || null,
+          type: collabForm.type,
+          title,
+          description,
+          roles,
+          reward: collabForm.reward.trim(),
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      setCollabs((prev) => [collabRowToPost(data, isKo), ...prev]);
+      setShowCollabModal(false);
+      setCollabForm({ type: "recruit", title: "", description: "", roles: "", reward: "" });
+      toast.success(isKo ? "협업 글이 등록되었어요! 🤝" : "Your collab listing is posted! 🤝");
+    } catch (e: any) {
+      console.warn("[Collab] 등록 실패:", e?.message);
+      toast.error(isKo ? "등록에 실패했어요. 다시 시도해주세요." : "Failed to post. Please try again.");
+    } finally {
+      setSubmittingCollab(false);
+    }
+  };
+
+  // 협업 지원(관심) — apply_to_collab RPC (지원 기록 + 지원자수 + 작성자 알림)
+  const handleApplyCollab = async (c: CollabPost) => {
+    if (!isAuthenticated) { toast.error(t("community.writeRequiresLogin")); return; }
+    if (c.ownerId === user?.id) { toast.info(isKo ? "내가 올린 글이에요." : "This is your own post."); return; }
+    if (appliedCollabIds.has(c.id)) { toast.info(isKo ? "이미 관심을 보낸 글이에요." : "You already showed interest."); return; }
+    try {
+      const { data, error } = await supabase.rpc("apply_to_collab", { p_post_id: c.id, p_message: null });
+      if (error) throw error;
+      setAppliedCollabIds((prev) => new Set(prev).add(c.id));
+      if (data === "already") {
+        toast.info(isKo ? "이미 관심을 보낸 글이에요." : "You already showed interest.");
+        return;
+      }
+      setCollabs((prev) => prev.map((p) => (p.id === c.id ? { ...p, applicants: p.applicants + 1 } : p)));
+      toast.success(isKo ? `‘${c.author}’님에게 관심을 전했어요! 🤝` : `Interest sent to ${c.author}! 🤝`);
+    } catch (e: any) {
+      console.warn("[Collab] 지원 실패:", e?.message);
+      toast.error(isKo ? "전송에 실패했어요. 다시 시도해주세요." : "Failed to send. Please try again.");
+    }
+  };
+
+  // 협업 글 마감/재오픈 (작성자 전용)
+  const handleToggleCollabStatus = async (c: CollabPost) => {
+    const next = c.status === "open" ? "closed" : "open";
+    const { error } = await supabase
+      .from("collab_posts")
+      .update({ status: next, updated_at: new Date().toISOString() })
+      .eq("id", c.id);
+    if (error) { toast.error(isKo ? "변경에 실패했어요." : "Failed to update."); return; }
+    setCollabs((prev) => prev.map((p) => (p.id === c.id ? { ...p, status: next } : p)));
+    toast.success(next === "closed" ? (isKo ? "모집을 마감했어요." : "Marked as closed.") : (isKo ? "다시 열었어요." : "Reopened."));
+  };
+
+  // 지원자 목록 로드 (작성자가 '지원자 보기' 클릭 시)
+  useEffect(() => {
+    if (!viewApplicantsOf) { setApplicants([]); return; }
+    let cancelled = false;
+    (async () => {
+      setLoadingApplicants(true);
+      const { data, error } = await supabase
+        .from("collab_applications")
+        .select("applicant_name, message, created_at")
+        .eq("post_id", viewApplicantsOf.id)
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      if (error) console.warn("[Collab] 지원자 조회 실패:", error.message);
+      setApplicants((data || []).map((a: any) => ({
+        name: a.applicant_name || (isKo ? "크리에이터" : "Creator"),
+        message: a.message || null,
+        date: timeAgo(a.created_at, isKo),
+      })));
+      setLoadingApplicants(false);
+    })();
+    return () => { cancelled = true; };
+  }, [viewApplicantsOf, isKo]);
 
   const toggleLike = (postId: string) => {
     setLikedPosts(prev => {
@@ -731,7 +823,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                   <Button
                     onClick={() => {
                       if (!isAuthenticated) { toast.error(t("community.writeRequiresLogin")); return; }
-                      toast.info(isKo ? "협업 모집 글 등록 기능을 준비 중이에요. 곧 열립니다! 🛠️" : "Posting a collab listing is coming soon! 🛠️", { duration: 3000 });
+                      setShowCollabModal(true);
                     }}
                     className="mt-4 gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 font-bold"
                     size="sm"
@@ -766,18 +858,46 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
               </div>
 
               {/* 협업 글 목록 */}
-              <div className="space-y-3">
-                {collabs.filter((c) => collabFilter === "all" || c.type === collabFilter).map((c) => {
-                  const meta = COLLAB_TYPE_META[c.type];
-                  const TypeIcon = meta.Icon;
-                  const closed = c.status === "closed";
+              {loadingCollab ? (
+                <div className="flex justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-[#6366f1]" /></div>
+              ) : (() => {
+                const filtered = collabs.filter((c) => collabFilter === "all" || c.type === collabFilter);
+                if (filtered.length === 0) {
                   return (
+                    <div className="bg-card border border-dashed border-border rounded-2xl p-10 text-center">
+                      <Handshake className="w-9 h-9 text-muted-foreground/40 mx-auto mb-3" />
+                      <p className="text-sm font-semibold text-foreground/80">
+                        {collabFilter === "all"
+                          ? (isKo ? "아직 협업 글이 없어요" : "No collab posts yet")
+                          : (isKo ? "이 유형의 글이 아직 없어요" : "No posts of this type yet")}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {isKo ? "첫 번째 협업 글을 올려보세요!" : "Be the first to post a listing!"}
+                      </p>
+                    </div>
+                  );
+                }
+                return (
+                <div className="space-y-3">
+                  {filtered.map((c) => {
+                    const meta = COLLAB_TYPE_META[c.type];
+                    const TypeIcon = meta.Icon;
+                    const closed = c.status === "closed";
+                    const isOwner = !!user?.id && c.ownerId === user.id;
+                    const applied = appliedCollabIds.has(c.id);
+                    return (
                     <div
                       key={c.id}
                       className={`bg-card rounded-xl border border-border p-4 transition-colors hover:border-[#6366f1]/40 ${closed ? "opacity-60" : ""}`}
                     >
                       <div className="flex items-start gap-3">
-                        <img src={c.avatar} alt={c.author} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                        {c.avatar ? (
+                          <img src={c.avatar} alt={c.author} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full flex-shrink-0 bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-white font-bold">
+                            {(c.author || "C").charAt(0).toUpperCase()}
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           {/* 타입 배지 + 상태 */}
                           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -790,45 +910,68 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                                 {isKo ? "마감" : "Closed"}
                               </span>
                             )}
+                            {isOwner && (
+                              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#6366f1]/15 text-[#a5b4fc]">
+                                {isKo ? "내 글" : "Mine"}
+                              </span>
+                            )}
                             <span className="text-xs text-muted-foreground">· {c.timestamp}</span>
                           </div>
                           {/* 제목 */}
                           <h3 className="font-bold text-foreground leading-snug">{c.title}</h3>
                           <p className="text-xs text-muted-foreground mt-0.5">{c.author}</p>
                           {/* 설명 */}
-                          <p className="text-sm text-foreground/80 mt-2 line-clamp-2">{c.description}</p>
+                          <p className="text-sm text-foreground/80 mt-2 whitespace-pre-line line-clamp-3">{c.description}</p>
                           {/* 필요 역할 */}
-                          <div className="flex flex-wrap gap-1.5 mt-3">
-                            {c.roles.map((role) => (
-                              <span key={role} className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#6366f1]/10 text-[#a5b4fc] border border-[#6366f1]/20">
-                                {role}
-                              </span>
-                            ))}
-                          </div>
+                          {c.roles.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-3">
+                              {c.roles.map((role) => (
+                                <span key={role} className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#6366f1]/10 text-[#a5b4fc] border border-[#6366f1]/20">
+                                  {role}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                           {/* 하단: 보상 + 지원자 + CTA */}
-                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/60">
+                          <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-border/60">
                             <div className="flex items-center gap-3 text-xs text-muted-foreground min-w-0">
-                              <span className="flex items-center gap-1 truncate">🎁 {c.reward}</span>
+                              {c.reward && <span className="flex items-center gap-1 truncate">🎁 {c.reward}</span>}
                               <span className="flex items-center gap-1 flex-shrink-0"><Users className="w-3.5 h-3.5" />{isKo ? `${c.applicants}명 관심` : `${c.applicants} interested`}</span>
                             </div>
-                            <Button
-                              size="sm"
-                              disabled={closed}
-                              onClick={() => {
-                                if (!isAuthenticated) { toast.error(t("community.writeRequiresLogin")); return; }
-                                toast.success(isKo ? `‘${c.author}’님에게 관심을 보냈어요! 연락 기능은 곧 열립니다. 🤝` : `Interest sent to ${c.author}! Direct contact is coming soon. 🤝`, { duration: 3000 });
-                              }}
-                              className="flex-shrink-0 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] disabled:opacity-50"
-                            >
-                              {closed ? (isKo ? "마감" : "Closed") : c.type === "help" ? (isKo ? "도와주기" : "Help out") : (isKo ? "연락하기" : "Contact")}
-                            </Button>
+                            {isOwner ? (
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <Button size="sm" variant="outline" onClick={() => setViewApplicantsOf(c)} className="border-[#6366f1]/40">
+                                  {isKo ? "지원자 보기" : "Applicants"}
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => handleToggleCollabStatus(c)} className="border-border">
+                                  {closed ? (isKo ? "다시 열기" : "Reopen") : (isKo ? "마감하기" : "Close")}
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                disabled={closed || applied}
+                                onClick={() => handleApplyCollab(c)}
+                                className="flex-shrink-0 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] disabled:opacity-50"
+                              >
+                                {closed
+                                  ? (isKo ? "마감" : "Closed")
+                                  : applied
+                                  ? (isKo ? "관심 보냄 ✓" : "Interested ✓")
+                                  : c.type === "help"
+                                  ? (isKo ? "도와주기" : "Help out")
+                                  : (isKo ? "연락하기" : "Contact")}
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+                );
+              })()}
             </div>
           </TabsContent>
         </Tabs>
@@ -978,6 +1121,163 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                   </Button>
                 </div>
               </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* 협업 글 작성 모달 */}
+      <AnimatePresence>
+        {showCollabModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowCollabModal(false)}
+              className="fixed inset-0 bg-black/70 z-50 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-[#1a1a1c] rounded-2xl border border-white/10 p-5 max-w-lg mx-auto shadow-2xl max-h-[88vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-white">{isKo ? "협업 글 올리기" : "Post a collab listing"}</h3>
+                <button onClick={() => setShowCollabModal(false)} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-gray-400">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* 유형 선택 */}
+              <p className="text-xs font-semibold text-gray-400 mb-2">{isKo ? "어떤 글인가요?" : "What kind of post?"}</p>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {(Object.keys(COLLAB_TYPE_META) as CollabType[]).map((k) => {
+                  const m = COLLAB_TYPE_META[k];
+                  const MIcon = m.Icon;
+                  const sel = collabForm.type === k;
+                  return (
+                    <button
+                      key={k}
+                      onClick={() => setCollabForm((f) => ({ ...f, type: k }))}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                        sel ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white border-transparent" : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10"
+                      }`}
+                    >
+                      <MIcon className="w-4 h-4" />
+                      {isKo ? m.ko : m.en}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <input
+                type="text"
+                placeholder={isKo ? "제목 (예: SF 단편 음악 담당 구해요)" : "Title (e.g. Looking for a music partner)"}
+                value={collabForm.title}
+                onChange={(e) => setCollabForm((f) => ({ ...f, title: e.target.value }))}
+                maxLength={200}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#6366f1] transition-colors mb-3"
+              />
+              <textarea
+                placeholder={isKo ? "어떤 협업을 원하는지, 무엇을 도와줄 수 있는지 자세히 적어주세요." : "Describe the collaboration you're looking for or offering."}
+                value={collabForm.description}
+                onChange={(e) => setCollabForm((f) => ({ ...f, description: e.target.value }))}
+                maxLength={5000}
+                rows={5}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#6366f1] transition-colors resize-none mb-3"
+              />
+              <input
+                type="text"
+                placeholder={isKo ? "필요/제공 역할 (쉼표로 구분: 음악, 편집, 시나리오)" : "Roles (comma-separated: music, editing, script)"}
+                value={collabForm.roles}
+                onChange={(e) => setCollabForm((f) => ({ ...f, roles: e.target.value }))}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#6366f1] transition-colors mb-3"
+              />
+              <input
+                type="text"
+                placeholder={isKo ? "보상 (예: 수익 배분, 무급/포트폴리오, 건당 협의)" : "Reward (e.g. revenue share, unpaid, paid per piece)"}
+                value={collabForm.reward}
+                onChange={(e) => setCollabForm((f) => ({ ...f, reward: e.target.value }))}
+                maxLength={120}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#6366f1] transition-colors mb-4"
+              />
+
+              <div className="flex items-center justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowCollabModal(false)} className="border-white/10">
+                  {t("community.cancel")}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleCreateCollab}
+                  disabled={submittingCollab || collabForm.title.trim().length < 2 || collabForm.description.trim().length < 5}
+                  className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] gap-2"
+                >
+                  {submittingCollab ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {isKo ? "등록" : "Post"}
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* 지원자 목록 모달 (작성자 전용) */}
+      <AnimatePresence>
+        {viewApplicantsOf && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setViewApplicantsOf(null)}
+              className="fixed inset-0 bg-black/70 z-50 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-[#1a1a1c] rounded-2xl border border-white/10 p-5 max-w-md mx-auto shadow-2xl max-h-[80vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-lg font-bold text-white">{isKo ? "관심 보낸 크리에이터" : "Interested creators"}</h3>
+                <button onClick={() => setViewApplicantsOf(null)} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-gray-400">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mb-4 line-clamp-1">「{viewApplicantsOf.title}」</p>
+
+              {loadingApplicants ? (
+                <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-[#6366f1]" /></div>
+              ) : applicants.length === 0 ? (
+                <div className="text-center py-10 text-sm text-muted-foreground">
+                  <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  {isKo ? "아직 관심을 보낸 분이 없어요." : "No one has shown interest yet."}
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {applicants.map((a, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+                      <div className="w-9 h-9 rounded-full flex-shrink-0 bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-white font-bold text-sm">
+                        {a.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-semibold text-white text-sm truncate">{a.name}</p>
+                          <span className="text-[11px] text-gray-500 flex-shrink-0">{a.date}</span>
+                        </div>
+                        {a.message && <p className="text-xs text-gray-300 mt-1">{a.message}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-[11px] text-gray-500 mt-4 leading-relaxed">
+                {isKo
+                  ? "💡 관심을 보낸 분과 연락하려면 해당 크리에이터의 채널/프로필에서 연락해 주세요. (DM 기능은 준비 중이에요)"
+                  : "💡 To get in touch, reach out via the creator's channel/profile for now. (DM is coming soon)"}
+              </p>
             </motion.div>
           </>
         )}
