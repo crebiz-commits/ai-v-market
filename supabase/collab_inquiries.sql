@@ -104,7 +104,7 @@ BEGIN
   VALUES (v_other, 'collab',
           COALESCE(v_name, '크리에이터') || '님의 협업 문의',
           '「' || COALESCE(v_title, '협업') || '」 ' || left(v_body, 60),
-          '/?tab=community&sub=collab');
+          '/?tab=community&sub=collab&post=' || v_post::text);
 
   RETURN QUERY SELECT v_id, v_at;
 END; $$;

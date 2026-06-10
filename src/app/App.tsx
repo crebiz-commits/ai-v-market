@@ -327,6 +327,8 @@ function AppContent() {
   const [pendingMyPageTab, setPendingMyPageTab] = useState<string | null>(null);
   // 시네마 콘테스트 배너 등으로 커뮤니티 특정 탭(챌린지 등)으로 진입할 때 신호
   const [pendingCommunityTab, setPendingCommunityTab] = useState<string | null>(null);
+  // 협업 문의 알림 딥링크 → 해당 협업 글 상세 모달 자동 열기
+  const [pendingCollabPostId, setPendingCollabPostId] = useState<string | null>(null);
   // 챌린지 '참가하기' → 업로드 진입 시 출품작 태그 컨텍스트 전달
   const [pendingChallenge, setPendingChallenge] = useState<{ tag: string; title: string } | null>(null);
   const handleViewCreator = (creatorId: string) => {
@@ -389,10 +391,14 @@ function AppContent() {
       const tab = url.searchParams.get("tab");
       const section = url.searchParams.get("section");
       const sub = url.searchParams.get("sub");
+      const post = url.searchParams.get("post");
       if (video) { void loadAndOpenVideo(video, { openComments: url.searchParams.get("comment") === "1" }); return; }
       if (tab) {
         if (tab === "mypage" && section) setPendingMyPageTab(section);
-        if (tab === "community" && sub) setPendingCommunityTab(sub);
+        if (tab === "community" && sub) {
+          setPendingCommunityTab(sub);
+          if (sub === "collab" && post) setPendingCollabPostId(post);
+        }
         setActiveTab(tab as Tab);
         return;
       }
@@ -408,6 +414,14 @@ function AppContent() {
     const videoId = params.get("video");
     if (videoId && videoId.trim()) {
       loadAndOpenVideo(videoId.trim());
+    }
+    // 웹푸시 클릭·새로고침 등 URL 직접 진입 시 커뮤니티 서브탭/협업 글 딥링크
+    // (activeTab 초기값은 ?tab= 만 읽으므로 sub/post 는 여기서 처리)
+    const sub = params.get("sub");
+    const post = params.get("post");
+    if (params.get("tab") === "community" && sub) {
+      setPendingCommunityTab(sub);
+      if (sub === "collab" && post) setPendingCollabPostId(post);
     }
     // 첫 마운트만 — loadAndOpenVideo 는 closure 로 안정적
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -698,6 +712,8 @@ function AppContent() {
               setActiveTab("upload");
             }}
             onPlayVideo={(videoId) => loadAndOpenVideo(videoId)}
+            initialCollabPostId={pendingCollabPostId}
+            onInitialCollabPostConsumed={() => setPendingCollabPostId(null)}
           />
         );
       case "channel":
