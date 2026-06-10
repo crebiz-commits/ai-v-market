@@ -402,6 +402,16 @@ function AppContent() {
     } catch { /* 잘못된 link 무시 */ }
   };
 
+  // 특정 크리에이터와 1:1 대화 시작/열기 (협업 연락하기 / 지원자 메시지 / 채널 메시지 공용)
+  const openDmWith = async (otherId: string) => {
+    if (!isAuthenticated) { setShowAuthModal(true); return; }
+    if (!otherId) return;
+    const { data, error } = await supabase.rpc("dm_start", { p_other: otherId });
+    if (error || !data) { toast.error(isKo ? "대화를 시작하지 못했어요." : "Couldn't start chat."); return; }
+    setPendingDmConversation(data as string);
+    setActivePanel("messages");
+  };
+
   // 첫 마운트 시 URL ?video=<id> 있으면 ProductDetail 자동 열기
   // (공유 링크, OG 봇 이후 일반 사용자 진입, 외부 사이트 링크 모두 대상)
   useEffect(() => {
@@ -729,13 +739,7 @@ function AppContent() {
               setActiveTab("upload");
             }}
             onPlayVideo={(videoId) => loadAndOpenVideo(videoId)}
-            onOpenDm={async (otherId) => {
-              if (!isAuthenticated) { setShowAuthModal(true); return; }
-              const { data, error } = await supabase.rpc("dm_start", { p_other: otherId });
-              if (error || !data) { toast.error(isKo ? "대화를 시작하지 못했어요." : "Couldn't start chat."); return; }
-              setPendingDmConversation(data as string);
-              setActivePanel("messages");
-            }}
+            onOpenDm={openDmWith}
           />
         );
       case "channel":
@@ -746,6 +750,7 @@ function AppContent() {
             initialCreatorId={pendingCreatorId}
             onCreatorOpened={() => setPendingCreatorId(null)}
             onNavigate={(tab) => setActiveTab(tab as Tab)}
+            onOpenDm={openDmWith}
           />
         );
       case "mypage":
