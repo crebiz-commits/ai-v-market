@@ -78,6 +78,14 @@ export function AdminInquiries() {
     }
   };
 
+  // Zoho 무료 플랜은 mailto 기본핸들러 설정이 막혀 있어, Zoho 작성창을 직접 열고
+  // 받는사람 이메일을 클립보드에 복사 → 작성창에 붙여넣기만 하면 되도록 함.
+  const replyViaZoho = async (toEmail: string) => {
+    try { await navigator.clipboard.writeText(toEmail); } catch {}
+    window.open("https://mail.zoho.com/zm/#compose", "_blank", "noopener");
+    toast.success(`받는사람 이메일(${toEmail})을 복사했어요. Zoho 작성창 '받는사람'에 붙여넣으세요.`, { duration: 5000 });
+  };
+
   const counts = STATUS.reduce((acc, s) => { acc[s.key] = items.filter((i) => i.status === s.key).length; return acc; }, {} as Record<string, number>);
   const filtered = filter === "all" ? items : items.filter((i) => i.status === filter);
 
@@ -147,10 +155,17 @@ export function AdminInquiries() {
                       {s.label}
                     </button>
                   ))}
-                  <a href={`mailto:${it.email}?subject=${encodeURIComponent("[CREAITE] " + (CATEGORY[it.category] || "") + " 문의 답변")}`}
-                    className="ml-auto px-3 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white">
-                    메일로 답변
-                  </a>
+                  <div className="ml-auto flex items-center gap-1.5">
+                    <a href={`mailto:${it.email}?subject=${encodeURIComponent("[CREAITE] " + (CATEGORY[it.category] || "") + " 문의 답변")}`}
+                      className="px-3 py-1 rounded-md text-xs font-semibold border border-border text-muted-foreground hover:bg-muted transition-colors"
+                      title="기본 메일 앱으로 답변">
+                      기본 메일
+                    </a>
+                    <button onClick={() => void replyViaZoho(it.email)}
+                      className="px-3 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white">
+                      Zoho로 답변
+                    </button>
+                  </div>
                 </div>
               </div>
             );
