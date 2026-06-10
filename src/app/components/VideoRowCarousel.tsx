@@ -232,6 +232,14 @@ function VideoCard({ video, idx, onVideoClick, onAddToCart, showProgress, showRa
           {video.views ? ` · ${t("videoRow.viewsPrefix")} ${fmtViews(video.views)}` : ""}
           {typeof video.likes === "number" && video.likes > 0 ? ` · ♥ ${fmtViews(video.likes)}` : ""}
         </p>
+        {/* 가격 — 판매 중이면 ₩가격, 아니면 라이선스 미판매 (홈피드와 동일) */}
+        <p className="text-[11px] md:text-sm font-black mt-0.5 md:mt-1">
+          {typeof video.price_standard === "number" && video.price_standard > 0 ? (
+            <span className="text-[#f87171]">₩{video.price_standard.toLocaleString()}</span>
+          ) : (
+            <span className="text-gray-500">{t("video.notForSaleShort")}</span>
+          )}
+        </p>
         {/* 등급 · 카테고리 · 장르 인라인 배지 */}
         {rating || video.category || video.genre ? (
           <div className="flex items-center gap-1.5 mt-1 md:mt-1.5 flex-wrap">

@@ -6,10 +6,11 @@
 //   ↳ 연령 게이트(블러/잠금) + 쇼케이스 합성 유지.
 // ════════════════════════════════════════════════════════════════════════════
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Play, Info, Plus, Lock, Loader2, Volume2, VolumeX, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Play, Info, Plus, Lock, Loader2, Volume2, VolumeX, Clock, ChevronLeft, ChevronRight, Heart, Eye } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { type CarouselVideo } from "./VideoRowCarousel";
+import { formatCompactNumber as fmtCompact } from "../i18n/numberFormat";
 import { Footer } from "./Footer";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
@@ -97,6 +98,13 @@ interface GenreRow {
 
 type AgeGuard = (v: CarouselVideo) => { rating?: string; isAgeLocked: boolean };
 
+// 형식 카테고리 행 — top(장르 위) / bottom(장르 뒤·기타 위)
+const OTT_FORMAT_DEFS: { category: string; position: "top" | "bottom" }[] = [
+  { category: "애니메이션", position: "top" },
+  { category: "다큐멘터리", position: "bottom" },
+  { category: "뮤직비디오", position: "bottom" },
+];
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 시간대 무드 편성: 접속 시각에 따라 카테고리(장르) 행 순서를 재배치.
 //  · 영상이 아니라 "장르 행"을 정렬 → 영상 수와 무관하게 자동 동작.
@@ -134,6 +142,8 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
   const [loading, setLoading] = useState(true);
   const [trending, setTrending] = useState<CarouselVideo[]>([]);
   const [genreRows, setGenreRows] = useState<GenreRow[]>([]);
+  // 형식 카테고리 행 (애니메이션·다큐멘터리·뮤직비디오 — category 기준, 2026-06-11)
+  const [formatRows, setFormatRows] = useState<{ category: string; position: "top" | "bottom"; videos: CarouselVideo[] }[]>([]);
   // 풀블리드 히어로: 자동재생 영상 소스 + 음소거 토글.
   // clipUrl(미리 잘린 30초 하이라이트 클립)이 있으면 seek 없이 처음부터 재생(안정적).
   const [heroSrc, setHeroSrc] = useState<{ url: string; start: number; end: number; clipUrl?: string } | null>(null);
@@ -143,9 +153,10 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
   const allVideoIds = useMemo(() => {
     const ids = new Set<string>();
     trending.forEach((v) => ids.add(v.id));
+    formatRows.forEach((r) => r.videos.forEach((v) => ids.add(v.id)));
     genreRows.forEach((r) => r.videos.forEach((v) => ids.add(v.id)));
     return Array.from(ids).filter((id) => !id.startsWith("demo-"));
-  }, [trending, genreRows]);
+  }, [trending, formatRows, genreRows]);
   const ageRatings = useAgeRatings(allVideoIds);
 
   const ageGuard: AgeGuard = (v) => {
@@ -202,6 +213,13 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
           p_limit: 10,
         });
 
+        // 형식 카테고리 행 (애니메이션·다큐멘터리·뮤직비디오)
+        const formatData = await Promise.all(
+          OTT_FORMAT_DEFS.map((f) =>
+            supabase.rpc("get_videos_by_category", { p_category: f.category, p_tier: "ott", p_limit: 50 }),
+          ),
+        );
+
         // 장르 기준(업로드 장르 목록과 동일 순서) — 장르별 병렬 호출. 영상 있는 장르만 표시(아래 filter).
         const rows: GenreRow[] = await Promise.all(
           GENRES.map(async (g) => {
@@ -218,6 +236,13 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
           showcase ? mergeShowcase(real, showcaseToCarousel, { tier: "ott", ...opts }) : real;
 
         setTrending(merge(trd || []));
+        setFormatRows(
+          OTT_FORMAT_DEFS.map((f, i) => ({
+            category: f.category,
+            position: f.position,
+            videos: merge(((formatData[i] as any)?.data || []) as CarouselVideo[], { category: f.category }),
+          })).filter((r) => r.videos.length > 0),
+        );
 
         const mergedRows = rows.map((r) => ({ ...r, videos: merge(r.videos, { category: r.category }) }));
 
@@ -302,18 +327,24 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
 
       {/* ━━━ 카테고리 마퀴 행 (좌우 교차) — 시간대 무드 순서 ━━━ */}
       <div className="max-w-[1800px] mx-auto mt-3 relative">
-        {orderedRows.map((row, i) => (
+        {/* 순서: 애니메이션(top) → 장르(기타 제외) → 다큐·뮤직비디오(bottom) → 기타 */}
+        {([
+          ...formatRows.filter((r) => r.position === "top").map((r) => ({ category: r.category, videos: r.videos, isFormat: true })),
+          ...orderedRows.filter((r) => r.category !== "기타").map((r) => ({ category: r.category, videos: r.videos, isFormat: false })),
+          ...formatRows.filter((r) => r.position === "bottom").map((r) => ({ category: r.category, videos: r.videos, isFormat: true })),
+          ...orderedRows.filter((r) => r.category === "기타").map((r) => ({ category: r.category, videos: r.videos, isFormat: false })),
+        ]).map((row, i) => (
           <CategoryRow
-            key={row.category}
+            key={`${row.isFormat ? "fmt" : "gen"}-${row.category}`}
             category={row.category}
             videos={row.videos}
             dir={i % 2 === 0 ? "right" : "left"}
-            highlighted={band.order.includes(getGenreStyle(row.category).key)}
+            highlighted={row.isFormat || band.order.includes(getGenreStyle(row.category).key)}
             onClick={(v) => onProductClick(toProduct(v))}
             ageGuard={ageGuard}
           />
         ))}
-        {orderedRows.length === 0 && (
+        {orderedRows.length === 0 && formatRows.length === 0 && (
           <div className="px-6 py-12 text-center text-gray-500 text-sm">{t("ott.noGenreContent")}</div>
         )}
       </div>
@@ -560,10 +591,34 @@ function CategoryRow({
                         {v.creator_display_name || v.creator || "CREAITE"}
                         {v.ai_tool ? ` · ${v.ai_tool}` : ""}
                       </p>
+                      {/* 시청연령 · 좋아요 · 조회수 · 가격 — 단조로움 보강 (2026-06-11) */}
+                      <div className="flex items-center gap-2.5 mt-1.5">
+                        {g.rating && (
+                          <span className={`text-[10px] md:text-[11px] px-1.5 py-0.5 rounded font-bold border ${g.rating === "19" ? "border-red-500/60 text-red-300" : "border-white/30 text-gray-200"}`}>
+                            {g.rating === "all" ? "전체" : g.rating === "19" ? "19+" : `${g.rating}+`}
+                          </span>
+                        )}
+                        {typeof v.likes === "number" && v.likes > 0 && (
+                          <span className="flex items-center gap-1 text-[11px] md:text-xs text-gray-200">
+                            <Heart className="w-3.5 h-3.5 fill-[#f87171] text-[#f87171]" />{fmtCompact(v.likes)}
+                          </span>
+                        )}
+                        {typeof v.views === "number" && v.views > 0 && (
+                          <span className="flex items-center gap-1 text-[11px] md:text-xs text-gray-400">
+                            <Eye className="w-3.5 h-3.5" />{fmtCompact(v.views)}
+                          </span>
+                        )}
+                        <span className="ml-auto text-[12px] md:text-sm font-black">
+                          {typeof v.price_standard === "number" && v.price_standard > 0
+                            ? <span className="text-[#f87171]">₩{v.price_standard.toLocaleString()}</span>
+                            : <span className="text-gray-400">{t("video.notForSaleShort")}</span>}
+                        </span>
+                      </div>
                     </div>
                   )}
 
-                  {g.rating && g.rating !== "all" && (
+                  {/* 잠금(블러) 시엔 정보 줄이 안 보이므로 모서리 배지로 연령 표시. 평상시는 정보 줄 칩으로 통일 */}
+                  {g.isAgeLocked && g.rating && g.rating !== "all" && (
                     <div className="absolute top-2 left-2">
                       <AgeBadge rating={g.rating} size="xs" />
                     </div>

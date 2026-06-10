@@ -323,7 +323,7 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
     const animate = () => {
       if (isAutoRotating) {
         setRotation((prev) => {
-          const newRotation = prev - 0.05; // 매 프레임마다 0.05도씩 회전
+          const newRotation = prev - 0.12; // 매 프레임마다 회전 속도 (2026-06-11: 0.05→0.12 빠르게)
           // currentIndex 업데이트
           const normalizedRotation = ((-newRotation % 360) + 360) % 360;
           const newIndex = Math.round(normalizedRotation / anglePerItem) % videos.length;

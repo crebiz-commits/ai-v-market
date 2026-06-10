@@ -49,6 +49,15 @@ function showcaseToCarousel(s: ShowcaseVideo): CarouselVideo {
   } as any;
 }
 
+// 형식 카테고리 행 — 장르(분위기)가 아닌 콘텐츠 형식. 장르 행에 안 잡히는 코너 노출용.
+// (영화·드라마·기타는 장르와 겹치거나 너무 광범위 → 제외)
+// position: "top" = 장르 행보다 위 / "bottom" = 장르 행 뒤·"기타" 바로 위
+const FORMAT_DEFS: { category: string; title: string; position: "top" | "bottom" }[] = [
+  { category: "애니메이션", title: "🎨 애니메이션", position: "top" },
+  { category: "다큐멘터리", title: "🎥 다큐멘터리", position: "bottom" },
+  { category: "뮤직비디오", title: "🎵 뮤직비디오", position: "bottom" },
+];
+
 // CarouselVideo (RPC 반환) → CoverFlow Video 매핑
 function toCoverFlowVideo(v: CarouselVideo & { video_url?: string }): any {
   return {
@@ -133,6 +142,8 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
   const [newReleases, setNewReleases] = useState<CarouselVideo[]>([]);
   const [top10, setTop10] = useState<CarouselVideo[]>([]);
   const [categoryRows, setCategoryRows] = useState<CategoryRow[]>([]);
+  // 형식 카테고리 행 (애니메이션·다큐멘터리·뮤직비디오 — 장르가 아닌 category 기준, 2026-06-11)
+  const [formatRows, setFormatRows] = useState<{ category: string; title: string; position: "top" | "bottom"; videos: CarouselVideo[] }[]>([]);
   // 이벤트 배너 — DB(event_banners) 로드, 실패/미적용 시 하드코딩 폴백 (2026-06-11)
   const [banners, setBanners] = useState<BoardBanner[]>([]);
   useEffect(() => {
@@ -148,9 +159,10 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
     trending.forEach(v => ids.add(v.id));
     newReleases.forEach(v => ids.add(v.id));
     top10.forEach(v => ids.add(v.id));
+    formatRows.forEach(r => r.videos.forEach(v => ids.add(v.id)));
     categoryRows.forEach(r => r.videos.forEach(v => ids.add(v.id)));
     return Array.from(ids).filter(id => !id.startsWith("demo-")); // showcase mock 제외
-  }, [recommended, trending, newReleases, top10, categoryRows]);
+  }, [recommended, trending, newReleases, top10, formatRows, categoryRows]);
   const ageRatings = useAgeRatings(allVideoIds);
 
   const isOtt = tier === "ott";
@@ -168,17 +180,23 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           { data: trd },
           { data: nrl },
           { data: top },
-          ...categoryResults
+          ...restResults
         ] = await Promise.all([
           supabase.rpc("get_recommended_videos", { p_tier: tier, p_limit: 15 }),
           supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 24, p_limit: 10 }),
           supabase.rpc("get_new_releases", { p_tier: tier, p_days: 14, p_limit: 10 }),
           supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 720, p_limit: 10 }),  // 30일 (이달의 BEST)
+          // 형식 카테고리 행 (애니메이션·다큐멘터리·뮤직비디오)
+          ...FORMAT_DEFS.map((f) =>
+            supabase.rpc("get_videos_by_category", { p_category: f.category, p_tier: tier, p_limit: 50 }),
+          ),
           // 장르별 병렬 호출 (넷플릭스식: 작은 제한 없이 장르 전부 노출)
           ...GENRES.map((g) =>
             supabase.rpc("get_videos_by_genre", { p_genre: g, p_tier: tier, p_limit: 50 }),
           ),
         ]);
+        const formatResults = restResults.slice(0, FORMAT_DEFS.length);
+        const categoryResults = restResults.slice(FORMAT_DEFS.length);
 
         // Showcase Mode: tier 기반 (cinema=3분+, ott=10분+) Mock 합성
         const merge = (real: CarouselVideo[], opts?: { category?: string }) =>
@@ -211,6 +229,16 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
         setNewReleases(merge(nrl || []));
         // 이달의 BEST(30일 트렌딩): 실제 조회 영상 앞 + 인기순 보충
         setTop10(merge(fillPopular((top || []) as CarouselVideo[], 10)));
+
+        // 형식 카테고리 행 (애니메이션·다큐멘터리·뮤직비디오) — 영상 있는 것만
+        setFormatRows(
+          FORMAT_DEFS.map((f, i) => ({
+            category: f.category,
+            title: f.title,
+            position: f.position,
+            videos: merge(((formatResults[i] as any)?.data || []) as CarouselVideo[], { category: f.category }),
+          })).filter((r) => r.videos.length > 0),
+        );
 
         // 장르별 영상 행 — 업로드 장르 순서(SF·액션·로맨스…). 영상 1개 이상 있는 장르만 표시.
         const rows: CategoryRow[] = GENRES.map((g, i) => ({
@@ -335,8 +363,44 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
             ageRatings={ageRatings}
           />
 
-          {/* 카테고리별 */}
-          {categoryRows.map((row) => (
+          {/* 형식 카테고리 (top) — 애니메이션: 장르 행보다 먼저 */}
+          {formatRows.filter((r) => r.position === "top").map((row) => (
+            <VideoRowCarousel
+              key={row.category}
+              title={row.title}
+              videos={row.videos}
+              onVideoClick={handleClick}
+              onAddToCart={handleAddToCart}
+              ageRatings={ageRatings}
+            />
+          ))}
+
+          {/* 장르별 (기타 제외) */}
+          {categoryRows.filter((row) => row.category !== "기타").map((row) => (
+            <VideoRowCarousel
+              key={row.category}
+              title={`${genreEmoji(row.category)} ${getGenreLabel(row.category, t)}`}
+              videos={row.videos}
+              onVideoClick={handleClick}
+              onAddToCart={handleAddToCart}
+              ageRatings={ageRatings}
+            />
+          ))}
+
+          {/* 형식 카테고리 (bottom) — 다큐·뮤직비디오: 기타 바로 위 */}
+          {formatRows.filter((r) => r.position === "bottom").map((row) => (
+            <VideoRowCarousel
+              key={row.category}
+              title={row.title}
+              videos={row.videos}
+              onVideoClick={handleClick}
+              onAddToCart={handleAddToCart}
+              ageRatings={ageRatings}
+            />
+          ))}
+
+          {/* 기타 장르 (맨 마지막) */}
+          {categoryRows.filter((row) => row.category === "기타").map((row) => (
             <VideoRowCarousel
               key={row.category}
               title={`${genreEmoji(row.category)} ${getGenreLabel(row.category, t)}`}

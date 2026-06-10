@@ -156,6 +156,7 @@ const KOREAN_GENRE_TO_KEY: Record<string, string> = {
   "애니메이션": "animation",
   "AI애니메이션": "animation",
   "음악": "music",
+  "뮤직비디오": "music",
   "AI뮤직비디오": "music",
   "판타지": "fantasy",
   "SF": "sci-fi",

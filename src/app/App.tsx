@@ -508,8 +508,12 @@ function AppContent() {
   const [pendingCartAdd, setPendingCartAdd] = useState<{ product: VideoProduct; licenseType: "standard" | "commercial" | "extended" } | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const { user, profile, signOut, isAuthenticated, loading, passwordRecovery } = useAuth();
-  // 비로그인 사용자가 〈둘러보기〉 클릭 시 LandingPage → DiscoveryFeed 로 전환
-  const [hasExplored, setHasExplored] = useState(false);
+  // 비로그인 사용자가 〈둘러보기〉 클릭 시 LandingPage → DiscoveryFeed 로 전환.
+  // 이번 세션에 이미 둘러봤으면 새로고침해도 랜딩 재노출 안 함 (2026-06-11)
+  const [hasExplored, setHasExplored] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try { return sessionStorage.getItem("aivm_explored") === "1"; } catch { return false; }
+  });
 
   // R4(2026-06-11): 구독 만료 임박(D-3) 안내 — 자동갱신이 없어 조용히 free 로 떨어지는 것 방지.
   // 같은 만료일에 대해 1회만 (localStorage 가드), 클릭 시 마이페이지로 이동해 연장.
@@ -779,13 +783,15 @@ function AppContent() {
   const renderContent = () => {
     switch (activeTab) {
       case "discovery":
-        // 〈둘러보기〉 미클릭 → Netflix 패턴 랜딩 페이지 (로그인/로그아웃 통일 — 모두 랜딩 먼저)
-        if (!hasExplored) {
+        // 랜딩 페이지 노출 조건 (2026-06-11 수정 — "너무 자주 뜸" 해결):
+        //  · 로그인 사용자: 랜딩 스킵 → 바로 DiscoveryFeed (LandingPage 본래 설계 의도)
+        //  · 비로그인: 이번 세션에 아직 안 둘러봤을 때만 1회. 둘러보면 sessionStorage 로 기억 → 새로고침마다 재노출 X
+        if (!hasExplored && !isAuthenticated) {
           return (
             <LandingPage
               isAuthenticated={isAuthenticated}
               onLogin={() => setShowAuthModal(true)}
-              onExplore={() => setHasExplored(true)}
+              onExplore={() => { try { sessionStorage.setItem("aivm_explored", "1"); } catch {} setHasExplored(true); }}
               onSubscribe={() => setShowAuthModal(true)}
               onNavigate={(tab) => setActiveTab(tab as Tab)}
             />
@@ -980,21 +986,24 @@ function AppContent() {
         style={headerPosStyle}
         className={`hidden md:block z-50 transition-colors duration-300 ${headerBgClass}`}
       >
-        <div className="max-w-[1800px] mx-auto px-5 md:px-10 h-16 flex items-center justify-between gap-4">
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex items-center gap-3 cursor-pointer select-none"
-            onClick={() => setActiveTab("discovery")}
-          >
-            <CreaiteLogo className="w-10 h-10" />
-            <span className="hidden lg:block">
-              <CreaiteText className="text-xl font-extrabold" />
-            </span>
-          </motion.div>
+        {/* 좌(로고)·우(액션)를 flex-1 동일 비율로 → 가운데 nav 가 페이지 정중앙에 고정 */}
+        <div className="max-w-[1800px] mx-auto px-5 md:px-10 h-16 flex items-center gap-4">
+          <div className="flex-1 flex justify-start min-w-0">
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex items-center gap-3 cursor-pointer select-none"
+              onClick={() => setActiveTab("discovery")}
+            >
+              <CreaiteLogo className="w-10 h-10" />
+              <span className="hidden lg:block">
+                <CreaiteText className="text-xl font-extrabold" />
+              </span>
+            </motion.div>
+          </div>
 
-          {/* Desktop Navigation */}
-          <nav className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+          {/* Desktop Navigation — 정중앙 */}
+          <nav className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5 shrink-0">
             {desktopTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -1022,8 +1031,8 @@ function AppContent() {
             })}
           </nav>
 
-          {/* Right Actions */}
-          <div className="flex items-center gap-2">
+          {/* Right Actions — flex-1 로 좌측 로고 영역과 동일 비율 (nav 중앙 고정) */}
+          <div className="flex-1 flex items-center justify-end gap-2 min-w-0">
             {/* PWA 앱 설치 버튼 (설치 가능 + 미설치일 때만 표시) */}
             <InstallButtonHeader />
 

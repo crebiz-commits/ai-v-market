@@ -160,8 +160,9 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
 
   return (
     <div className="h-full overflow-y-auto bg-[#0a0a0a]">
-      {/* ━━━ 1. 히어로 섹션 — 70vh 로 다음 섹션 상단 살짝 보이게 (모바일 nav bar + 주소창 고려) ━━━ */}
-      <section className="relative min-h-[70vh] flex items-center justify-center overflow-hidden">
+      {/* ━━━ 1. 히어로 섹션 — 다음 섹션("왜 CREAITE") 상단이 살짝 보이게.
+           모바일은 58vh 로 더 낮춰 데스크탑 좁은 화면처럼 peek 노출 (2026-06-11) ━━━ */}
+      <section className="relative min-h-[58vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden">
         {/* 배경 그라데이션 + 그리드 패턴 */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#1a0a2e] to-[#0a0a0a]" />
         <div
@@ -173,7 +174,7 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
           }}
         />
 
-        <div className="relative z-10 max-w-4xl mx-auto px-6 text-center py-20 -translate-y-8 md:-translate-y-10">
+        <div className="relative z-10 max-w-4xl mx-auto px-6 text-center py-10 md:py-20 -translate-y-6 md:-translate-y-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -188,7 +189,7 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1 }}
-            className="text-4xl md:text-6xl lg:text-7xl font-black mb-6 leading-tight"
+            className="text-4xl md:text-6xl lg:text-7xl font-black mb-4 md:mb-6 leading-tight"
           >
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#a78bfa] via-[#ec4899] to-[#f59e0b]">
               AI 가 만든 영화
@@ -201,7 +202,7 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
-            className="text-lg md:text-xl text-gray-300 mb-10 max-w-2xl mx-auto leading-relaxed"
+            className="text-lg md:text-xl text-gray-300 mb-6 md:mb-10 max-w-2xl mx-auto leading-relaxed"
           >
             월 ₩4,900 으로 무제한 시청. 비회원도 모든 영상 1분 미리보기 가능.
           </motion.p>
@@ -256,8 +257,8 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
         </motion.button>
       </section>
 
-      {/* ━━━ 2. 가치 제안 4개 카드 ━━━ */}
-      <section className="py-20 px-6">
+      {/* ━━━ 2. 가치 제안 4개 카드 — 모바일은 위 여백 줄여 "왜 CREAITE" 가 히어로 아래로 살짝 보이게 ━━━ */}
+      <section className="pt-8 md:pt-20 pb-20 px-6">
         <div className="max-w-6xl mx-auto">
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
