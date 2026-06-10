@@ -93,7 +93,12 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
               {b.image ? (
                 <>
                   <img src={b.image} alt="" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  <div className={`absolute inset-0 ${b.align === "center" ? "bg-black/55" : "bg-gradient-to-r from-black/85 via-black/55 to-black/20"}`} />
+                  {/* dark(밝은 이미지 + 어두운 글씨)일 땐 밝은 오버레이로 글씨 가독성 확보 */}
+                  <div className={`absolute inset-0 ${
+                    b.dark
+                      ? (b.align === "center" ? "bg-white/45" : "bg-gradient-to-r from-white/80 via-white/45 to-white/5")
+                      : (b.align === "center" ? "bg-black/55" : "bg-gradient-to-r from-black/85 via-black/55 to-black/20")
+                  }`} />
                 </>
               ) : (
                 <div className={`absolute inset-0 bg-gradient-to-br ${b.gradient || "from-[#1a1030] via-[#0d0d14] to-[#0d0d14]"}`} />

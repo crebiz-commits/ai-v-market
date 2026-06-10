@@ -3,7 +3,7 @@
 // event_banners CRUD (RLS: is_admin ALL). 컬럼은 BoardBanner 와 매핑.
 // ════════════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, ImageIcon, RefreshCw, Plus, Pencil, Trash2, X, Eye, EyeOff } from "lucide-react";
+import { Loader2, ImageIcon, RefreshCw, Plus, Pencil, Trash2, X, Eye, EyeOff, Upload } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
@@ -57,6 +57,29 @@ export function AdminBanners() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [uploadingImg, setUploadingImg] = useState(false);
+
+  // 배너 이미지 업로드 (ad-images 버킷의 banners/ 폴더 재사용 — 공개 읽기, 관리자 업로드)
+  const handleImageUpload = async (file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error("이미지 파일만 올릴 수 있어요."); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error("이미지는 10MB 이하여야 해요."); return; }
+    setUploadingImg(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `banners/${Date.now()}-${Math.floor(Math.random() * 1e6)}.${ext}`;
+      const { error } = await supabase.storage.from("ad-images").upload(path, file, { contentType: file.type, upsert: false });
+      if (error) throw error;
+      const { data } = supabase.storage.from("ad-images").getPublicUrl(path);
+      setForm((f) => ({ ...f, image: data.publicUrl }));
+      toast.success("이미지를 올렸어요.");
+    } catch (e: any) {
+      console.warn("[AdminBanners] 이미지 업로드 실패:", e?.message);
+      toast.error("업로드 실패: " + (e?.message || "알 수 없는 오류"));
+    } finally {
+      setUploadingImg(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -212,8 +235,24 @@ export function AdminBanners() {
               <input className={inputCls} value={form.link} onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))} placeholder="/?tab=bug-report 또는 https://..." />
             </div>
             <div className="md:col-span-2">
-              <label className="text-xs font-semibold text-muted-foreground block mb-1">배경 이미지 URL (없으면 그라데이션 사용)</label>
-              <input className={inputCls} value={form.image} onChange={(e) => setForm((f) => ({ ...f, image: e.target.value }))} placeholder="https://..." />
+              <label className="text-xs font-semibold text-muted-foreground block mb-1">배경 이미지 (없으면 그라데이션 사용)</label>
+              <div className="flex items-center gap-2">
+                <input className={inputCls} value={form.image} onChange={(e) => setForm((f) => ({ ...f, image: e.target.value }))} placeholder="이미지를 업로드하거나 URL 붙여넣기" />
+                <label className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold border border-border cursor-pointer hover:bg-muted transition-colors ${uploadingImg ? "opacity-50 pointer-events-none" : ""}`}>
+                  {uploadingImg ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  업로드
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { void handleImageUpload(e.target.files?.[0] || null); e.target.value = ""; }} />
+                </label>
+              </div>
+              {form.image && (
+                <div className="mt-2 relative w-40 h-24 rounded-lg overflow-hidden border border-border">
+                  <img src={form.image} alt="미리보기" className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => setForm((f) => ({ ...f, image: "" }))}
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 flex items-center justify-center text-white hover:bg-red-500/80">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
             </div>
             <div>
               <label className="text-xs font-semibold text-muted-foreground block mb-1">그라데이션 클래스 (이미지 없을 때)</label>
