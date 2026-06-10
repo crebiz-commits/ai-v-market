@@ -96,6 +96,8 @@ export function useFollows() {
                 // to 생략 — Edge Function이 user_id로 자동 조회
                 subject,
                 html,
+                // 딥링크 원칙: 클릭 시 팔로우한 사람의 채널로 직행
+                link: `/?tab=channel&creator=${encodeURIComponent(user.id)}`,
               });
             } catch (mailErr) {
               console.warn("[useFollows] 새 팔로워 알림 메일 실패:", mailErr);

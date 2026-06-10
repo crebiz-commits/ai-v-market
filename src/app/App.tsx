@@ -392,6 +392,7 @@ function AppContent() {
       const section = url.searchParams.get("section");
       const sub = url.searchParams.get("sub");
       const post = url.searchParams.get("post");
+      const creator = url.searchParams.get("creator");
       if (video) { void loadAndOpenVideo(video, { openComments: url.searchParams.get("comment") === "1" }); return; }
       if (tab) {
         if (tab === "mypage" && section) setPendingMyPageTab(section);
@@ -399,6 +400,7 @@ function AppContent() {
           setPendingCommunityTab(sub);
           if (sub === "collab" && post) setPendingCollabPostId(post);
         }
+        if (tab === "channel" && creator) setPendingCreatorId(creator);  // 새 팔로워 알림 → 그 사람 채널
         setActiveTab(tab as Tab);
         return;
       }
@@ -415,14 +417,20 @@ function AppContent() {
     if (videoId && videoId.trim()) {
       loadAndOpenVideo(videoId.trim());
     }
-    // 웹푸시 클릭·새로고침 등 URL 직접 진입 시 커뮤니티 서브탭/협업 글 딥링크
-    // (activeTab 초기값은 ?tab= 만 읽으므로 sub/post 는 여기서 처리)
+    // 웹푸시 클릭·새로고침 등 URL 직접 진입 시 딥링크 파라미터 처리
+    // (activeTab 초기값은 ?tab= 만 읽으므로 sub/post/section/creator 는 여기서 처리)
+    // 딥링크 원칙: 알림 클릭 = 사건 발생 지점까지 직행 — 벨 클릭(handleNotificationNavigate)과 동일하게
+    const tabParam = params.get("tab");
     const sub = params.get("sub");
     const post = params.get("post");
-    if (params.get("tab") === "community" && sub) {
+    const section = params.get("section");
+    const creator = params.get("creator");
+    if (tabParam === "community" && sub) {
       setPendingCommunityTab(sub);
       if (sub === "collab" && post) setPendingCollabPostId(post);
     }
+    if (tabParam === "mypage" && section) setPendingMyPageTab(section);      // 결제·정산 알림
+    if (tabParam === "channel" && creator) setPendingCreatorId(creator);     // 새 팔로워 알림
     // 첫 마운트만 — loadAndOpenVideo 는 closure 로 안정적
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
