@@ -136,6 +136,14 @@ export function Footer({ onNavigate }: FooterProps) {
                 </button>
               </li>
               <li>
+                <button
+                  onClick={() => onNavigate("bug-report")}
+                  className="text-sm text-gray-400 hover:text-white transition-colors"
+                >
+                  🐛 {t("footer.bugReport", "버그 제보 (커피 쿠폰)")}
+                </button>
+              </li>
+              <li>
                 <a
                   href="mailto:support@creaite.net"
                   className="text-sm text-gray-400 hover:text-white transition-colors"

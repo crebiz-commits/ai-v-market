@@ -20,8 +20,8 @@ import { TrendingHeroSection } from "./TrendingHeroSection";
 import { Footer } from "./Footer";
 import { useAgeRatings } from "../hooks/useAgeRatings";
 import { CoverFlow } from "./CoverFlow";
-import { EventBannerBoard } from "./EventBannerBoard";
-import { getActiveEventBanners } from "../data/eventBanners";
+import { EventBannerBoard, type BoardBanner } from "./EventBannerBoard";
+import { fetchEventBanners } from "../data/eventBanners";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { useTranslation } from "react-i18next";
@@ -133,6 +133,13 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
   const [newReleases, setNewReleases] = useState<CarouselVideo[]>([]);
   const [top10, setTop10] = useState<CarouselVideo[]>([]);
   const [categoryRows, setCategoryRows] = useState<CategoryRow[]>([]);
+  // 이벤트 배너 — DB(event_banners) 로드, 실패/미적용 시 하드코딩 폴백 (2026-06-11)
+  const [banners, setBanners] = useState<BoardBanner[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void fetchEventBanners().then((b) => { if (!cancelled) setBanners(b); });
+    return () => { cancelled = true; };
+  }, []);
 
   // Phase 26 보강: 카드용 age_rating 일괄 조회
   const allVideoIds = useMemo(() => {
@@ -250,7 +257,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
 
       {/* 이벤트/프로모 배너 보드 (활성 이벤트 있을 때만 노출. 넓은 화면 최대 5개 / 모바일 1개 5초 슬라이드) */}
       <div className="mt-3">
-        <EventBannerBoard banners={getActiveEventBanners()} onNavigate={onNavigate} />
+        <EventBannerBoard banners={banners} onNavigate={onNavigate} />
       </div>
 
       <div className="mt-4">

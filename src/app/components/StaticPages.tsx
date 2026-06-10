@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Sparkles, Film, Crown, Users, Zap, ChevronDown, HelpCircle, Megaphone, Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Film, Crown, Users, Zap, ChevronDown, HelpCircle, Megaphone, Loader2, Bug, Coffee, Send, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { Footer } from "./Footer";
 import { supabase } from "../utils/supabaseClient";
+import { useAuth } from "../contexts/AuthContext";
+import { toast } from "sonner";
 
 interface StaticPageProps {
   onBack: () => void;
@@ -460,6 +462,153 @@ export function NoticesPage({ onBack, onNavigate }: StaticPageProps) {
               </div>
             );
           })}
+        </div>
+      )}
+    </PageShell>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// 버그를 잡아라 — 버그 제보 폼 (2026-06-11)
+// 로그인 사용자만 제보(쿠폰 지급 대상 식별). bug_reports 테이블에 저장.
+// ──────────────────────────────────────────────────────────────────────
+interface BugReportPageProps extends StaticPageProps {
+  onSignInClick?: () => void;
+}
+
+export function BugReportPage({ onBack, onNavigate, onSignInClick }: BugReportPageProps) {
+  const isKo = useIsKorean();
+  const { user, profile, isAuthenticated } = useAuth();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [steps, setSteps] = useState("");
+  const [pageUrl, setPageUrl] = useState("");
+  const [contact, setContact] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  // 로그인 시 연락처 기본값 = 가입 이메일
+  useEffect(() => {
+    if (user?.email && !contact) setContact(user.email);
+  }, [user?.email]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  const submit = async () => {
+    if (!isAuthenticated || !user?.id) { onSignInClick?.(); return; }
+    if (title.trim().length < 2 || description.trim().length < 5) {
+      toast.error(isKo ? "제목(2자+)과 내용(5자+)을 입력해주세요." : "Enter a title (2+) and details (5+).");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from("bug_reports").insert({
+        user_id: user.id,
+        reporter_name: profile?.display_name || user.name || null,
+        reporter_contact: contact.trim() || user.email || null,
+        title: title.trim(),
+        description: description.trim(),
+        steps: steps.trim() || null,
+        page_url: pageUrl.trim() || null,
+      });
+      if (error) throw error;
+      setDone(true);
+    } catch (e: any) {
+      console.warn("[BugReport] 제보 실패:", e?.message);
+      toast.error(isKo ? "제보에 실패했어요. 잠시 후 다시 시도해주세요." : "Failed to submit. Try again later.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const inputCls = "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#6366f1] transition-colors";
+
+  return (
+    <PageShell
+      title={isKo ? "버그를 잡아라 🐛" : "Bug Hunt 🐛"}
+      subtitle={isKo ? "버그를 제보하고 커피 쿠폰을 받아가세요" : "Report a bug, get a coffee coupon"}
+      onBack={onBack}
+      onNavigate={onNavigate}
+    >
+      {/* 이벤트 안내 */}
+      <div className="bg-gradient-to-br from-[#6366f1]/10 to-[#8b5cf6]/10 border border-[#6366f1]/20 rounded-2xl p-5 md:p-6 mb-6">
+        <div className="flex items-center gap-2 mb-2">
+          <Coffee className="w-5 h-5 text-[#a78bfa]" />
+          <h2 className="text-lg font-black text-white">{isKo ? "베타 버그 헌트 이벤트" : "Beta Bug Hunt"}</h2>
+        </div>
+        <p className="text-sm text-gray-300 leading-relaxed">
+          {isKo
+            ? "크리에잇을 더 단단하게 만들어 주세요! 사용 중 발견한 오류·이상 동작·불편한 점을 제보해 주시면, 운영팀 검토 후 채택된 제보를 주신 모든 분께 커피 쿠폰을 보내드립니다. 같은 버그는 먼저 제보해 주신 분 기준이며, 사소해 보여도 환영합니다."
+            : "Help us make CREAITE more solid! Report any bug, glitch, or rough edge you find. After review, everyone whose report is accepted gets a coffee coupon. For duplicates, the first reporter counts — and small ones are welcome too."}
+        </p>
+      </div>
+
+      {done ? (
+        <div className="bg-[#121212] border border-[#10b981]/30 rounded-2xl p-8 text-center">
+          <CheckCircle2 className="w-12 h-12 text-[#34d399] mx-auto mb-3" />
+          <h3 className="text-lg font-bold text-white mb-1">{isKo ? "제보 완료! 감사합니다 🙌" : "Submitted! Thank you 🙌"}</h3>
+          <p className="text-sm text-gray-400">
+            {isKo
+              ? "운영팀이 검토 후 채택되면 입력하신 연락처로 커피 쿠폰을 보내드릴게요."
+              : "Once accepted after review, we'll send a coffee coupon to the contact you provided."}
+          </p>
+          <button
+            onClick={() => { setDone(false); setTitle(""); setDescription(""); setSteps(""); setPageUrl(""); }}
+            className="mt-5 px-4 py-2 rounded-lg text-sm font-bold bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 transition-colors"
+          >
+            {isKo ? "다른 버그도 제보하기" : "Report another bug"}
+          </button>
+        </div>
+      ) : !isAuthenticated ? (
+        <div className="bg-[#121212] border border-white/10 rounded-2xl p-8 text-center">
+          <Bug className="w-10 h-10 text-gray-500 mx-auto mb-3" />
+          <p className="text-sm text-gray-300 mb-4">
+            {isKo ? "버그 제보는 로그인 후 이용할 수 있어요 (쿠폰을 보내드리기 위해 필요해요)." : "Please sign in to report a bug (so we can send your coupon)."}
+          </p>
+          <button
+            onClick={() => onSignInClick?.()}
+            className="px-5 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white"
+          >
+            {isKo ? "로그인하기" : "Sign in"}
+          </button>
+        </div>
+      ) : (
+        <div className="bg-[#121212] border border-white/5 rounded-2xl p-5 md:p-6 space-y-4">
+          <div>
+            <label className="text-xs font-bold text-gray-400 block mb-1.5">{isKo ? "어떤 버그인가요? (제목)" : "Bug title"} <span className="text-red-400">*</span></label>
+            <input className={inputCls} value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)}
+              placeholder={isKo ? "예: 영상 재생 중 댓글창이 닫히지 않아요" : "e.g. Comment sheet won't close during playback"} />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-400 block mb-1.5">{isKo ? "자세한 내용" : "Details"} <span className="text-red-400">*</span></label>
+            <textarea className={`${inputCls} resize-none`} rows={4} value={description} maxLength={4000} onChange={(e) => setDescription(e.target.value)}
+              placeholder={isKo ? "어떤 상황에서 무엇이 잘못됐는지 적어주세요." : "Describe what went wrong and when."} />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-400 block mb-1.5">{isKo ? "재현 방법 (선택)" : "Steps to reproduce (optional)"}</label>
+            <textarea className={`${inputCls} resize-none`} rows={3} value={steps} maxLength={2000} onChange={(e) => setSteps(e.target.value)}
+              placeholder={isKo ? "1) ... 2) ... 3) ..." : "1) ... 2) ... 3) ..."} />
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-bold text-gray-400 block mb-1.5">{isKo ? "발생한 화면/주소 (선택)" : "Where it happened (optional)"}</label>
+              <input className={inputCls} value={pageUrl} maxLength={300} onChange={(e) => setPageUrl(e.target.value)}
+                placeholder={isKo ? "예: 시네마 / 영상 상세" : "e.g. Cinema / video detail"} />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-400 block mb-1.5">{isKo ? "쿠폰 받을 연락처" : "Contact for coupon"} <span className="text-red-400">*</span></label>
+              <input className={inputCls} value={contact} maxLength={120} onChange={(e) => setContact(e.target.value)}
+                placeholder={isKo ? "이메일 또는 카카오 ID" : "Email or Kakao ID"} />
+            </div>
+          </div>
+          <div className="flex justify-end pt-1">
+            <button
+              onClick={submit}
+              disabled={submitting || title.trim().length < 2 || description.trim().length < 5}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white disabled:opacity-40 transition-opacity"
+            >
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {isKo ? "버그 제보하기" : "Submit bug"}
+            </button>
+          </div>
         </div>
       )}
     </PageShell>

@@ -405,7 +405,8 @@
       "contact": "Contact",
       "hosting": "Hosting"
     },
-    "notices": "Notices"
+    "notices": "Notices",
+    "bugReport": "Report a bug (coffee coupon)"
   },
   "emailConfirm": {
     "title": "Please verify your email",

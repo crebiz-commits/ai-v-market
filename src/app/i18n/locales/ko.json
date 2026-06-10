@@ -405,7 +405,8 @@
       "contact": "고객문의",
       "hosting": "호스팅"
     },
-    "notices": "공지사항"
+    "notices": "공지사항",
+    "bugReport": "버그 제보 (커피 쿠폰)"
   },
   "emailConfirm": {
     "title": "이메일 인증이 필요합니다",

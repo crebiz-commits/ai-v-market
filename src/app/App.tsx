@@ -59,6 +59,7 @@ const TermsPage = lazy(() => import("./components/StaticPages").then(m => ({ def
 const PrivacyPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.PrivacyPage })));
 const FaqPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.FaqPage })));
 const NoticesPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.NoticesPage })));
+const BugReportPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.BugReportPage })));
 const PaymentResult = lazy(() => import("./components/PaymentResult").then(m => ({ default: m.PaymentResult })));
 const SearchPage = lazy(() => import("./components/SearchPage").then(m => ({ default: m.SearchPage })));
 
@@ -106,7 +107,7 @@ function PageLoading() {
   );
 }
 
-type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy" | "faq" | "notices" | "search";
+type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy" | "faq" | "notices" | "bug-report" | "search";
 type Panel = "cart" | "notifications" | null;
 
 interface VideoProduct {
@@ -854,6 +855,8 @@ function AppContent() {
         return <FaqPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "notices":
         return <NoticesPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+      case "bug-report":
+        return <BugReportPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} onSignInClick={() => setShowAuthModal(true)} />;
       case "search":
         return (
           <SearchPage
