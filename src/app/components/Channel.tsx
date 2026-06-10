@@ -18,7 +18,6 @@ interface ChannelProps {
   // 위 ID로 채널 페이지가 열린 직후 App.tsx state 클리어 신호
   onCreatorOpened?: () => void;
   onNavigate?: (tab: string) => void;
-  onOpenDm?: (creatorId: string) => void;
 }
 
 type ChannelTab = "subscribed" | "explore";
@@ -67,7 +66,7 @@ function mapVideoForDetail(v: FollowingVideo) {
 
 const formatNumber = formatCompactNumber;
 
-export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCreatorOpened, onNavigate, onOpenDm }: ChannelProps) {
+export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCreatorOpened, onNavigate }: ChannelProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<ChannelTab>("subscribed");
   const [selectedCreatorId, setSelectedCreatorId] = useState<string | null>(null);
@@ -183,7 +182,6 @@ export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCre
         }}
         onSignInClick={onSignInClick}
         onProductClick={onProductClick}
-        onOpenDm={onOpenDm}
       />
     );
   }

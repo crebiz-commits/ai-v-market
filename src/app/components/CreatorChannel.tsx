@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, Loader2, Play, Sparkles, Eye, Users, Film, Filter, Flag, UserX, MoreVertical, MessageSquare } from "lucide-react";
+import { ArrowLeft, Loader2, Play, Sparkles, Eye, Users, Film, Filter, Flag, UserX, MoreVertical } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../utils/supabaseClient";
@@ -15,7 +15,6 @@ interface CreatorChannelProps {
   onBack: () => void;
   onSignInClick?: () => void;
   onProductClick?: (video: any) => void;
-  onOpenDm?: (creatorId: string) => void;   // 이 크리에이터에게 1:1 메시지 보내기
 }
 
 interface CreatorProfile {
@@ -69,7 +68,7 @@ function mapVideoForDetail(v: CreatorVideo) {
   };
 }
 
-export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClick, onOpenDm }: CreatorChannelProps) {
+export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClick }: CreatorChannelProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [profile, setProfile] = useState<CreatorProfile | null>(null);
@@ -241,16 +240,6 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
                     onChange={handleFollowChange}
                     size="md"
                   />
-                  {onOpenDm && (
-                    <button
-                      onClick={() => (user?.id ? onOpenDm(creatorId) : onSignInClick?.())}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-semibold transition-colors"
-                      aria-label={t("creatorChannel.message", "메시지")}
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                      {t("creatorChannel.message", "메시지")}
-                    </button>
-                  )}
                   {/* 더보기: 신고 / 차단 */}
                   <div className="relative">
                     <button

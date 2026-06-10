@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Trophy, MessageCircle, Heart, Bookmark, Plus, X, Send, Loader2, Handshake, UserPlus, HelpCircle, Briefcase, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Footer } from "./Footer";
@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { CommentPanel } from "./CommentPanel";
 import { CommunityPostDetail, Post } from "./CommunityPostDetail";
 import { CommunityChallengeDetail, Challenge } from "./CommunityChallengeDetail";
+import { CollabInquiryModal } from "./CollabInquiryModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useBackButton } from "../hooks/useBackButton";
 import { supabase } from "../utils/supabaseClient";
@@ -326,10 +327,9 @@ interface CommunityProps {
   onInitialTabConsumed?: () => void;         // 초기 탭 적용 후 신호 소거
   onChallengeParticipate?: (challenge: Challenge) => void;  // 챌린지 참가 → 업로드 진입
   onPlayVideo?: (videoId: string) => void;   // 참여작 클릭 → 영상 재생
-  onOpenDm?: (otherUserId: string) => void;  // 협업 연락하기 → 1:1 메시지 열기
 }
 
-export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChallengeParticipate, onPlayVideo, onOpenDm }: CommunityProps = {}) {
+export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChallengeParticipate, onPlayVideo }: CommunityProps = {}) {
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
   const { user, isAuthenticated, profile } = useAuth();
@@ -348,7 +348,6 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   const challenges = isKo ? CHALLENGES_KO : CHALLENGES_EN;
   const [collabs, setCollabs] = useState<CollabPost[]>([]);
   const [loadingCollab, setLoadingCollab] = useState(true);
-  const [appliedCollabIds, setAppliedCollabIds] = useState<Set<string>>(new Set());
   const [collabFilter, setCollabFilter] = useState<"all" | CollabType>("all");
   // 협업 글 작성 모달
   const [showCollabModal, setShowCollabModal] = useState(false);
@@ -356,10 +355,8 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   const [collabForm, setCollabForm] = useState<{ type: CollabType; title: string; description: string; roles: string; reward: string }>({
     type: "recruit", title: "", description: "", roles: "", reward: "",
   });
-  // 지원자 목록 보기 (작성자 전용)
-  const [viewApplicantsOf, setViewApplicantsOf] = useState<CollabPost | null>(null);
-  const [applicants, setApplicants] = useState<{ id: string; name: string; message: string | null; date: string }[]>([]);
-  const [loadingApplicants, setLoadingApplicants] = useState(false);
+  // 협업 비공개 문의 스레드 모달 (작성자=받은 문의 목록 / 문의자=본인 스레드)
+  const [inquiryPost, setInquiryPost] = useState<CollabPost | null>(null);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [bookmarkedPosts, setBookmarkedPosts] = useState<Set<string>>(new Set());
   const [commentPostId, setCommentPostId] = useState<string | null>(null);
@@ -388,7 +385,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   useBackButton(!!selectedPost, () => setSelectedPost(null));
   useBackButton(!!selectedChallenge, () => setSelectedChallenge(null));
   useBackButton(showCollabModal, () => setShowCollabModal(false));
-  useBackButton(!!viewApplicantsOf, () => setViewApplicantsOf(null));
+  useBackButton(!!inquiryPost, () => setInquiryPost(null));
 
   // H10(2026-05-31): 커뮤니티 글 실제 DB 로드 (기존 mock 은 ?preview=community-mock 에 보존)
   useEffect(() => {
@@ -408,30 +405,19 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     return () => { cancelled = true; };
   }, [localeTag]);
 
-  // 협업 글 + 내가 지원한 글 로드
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoadingCollab(true);
-      const { data, error } = await supabase
-        .from("collab_posts")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (cancelled) return;
-      if (error) console.warn("[Collab] 협업 글 조회 실패:", error.message);
-      else setCollabs((data || []).map((r) => collabRowToPost(r, isKo)));
-      setLoadingCollab(false);
-      if (user?.id) {
-        const { data: apps } = await supabase
-          .from("collab_applications")
-          .select("post_id")
-          .eq("applicant_id", user.id);
-        if (!cancelled && apps) setAppliedCollabIds(new Set(apps.map((a: any) => a.post_id)));
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [isKo, user?.id]);
+  // 협업 글 로드
+  const loadCollabs = useCallback(async () => {
+    setLoadingCollab(true);
+    const { data, error } = await supabase
+      .from("collab_posts")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) console.warn("[Collab] 협업 글 조회 실패:", error.message);
+    else setCollabs((data || []).map((r) => collabRowToPost(r, isKo)));
+    setLoadingCollab(false);
+  }, [isKo]);
+  useEffect(() => { void loadCollabs(); }, [loadCollabs]);
 
   // 협업 글 등록
   const handleCreateCollab = async () => {
@@ -472,28 +458,10 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     }
   };
 
-  // 협업 지원(관심) — apply_to_collab RPC (지원 기록 + 지원자수 + 작성자 알림)
-  const handleApplyCollab = async (c: CollabPost) => {
+  // 협업 문의 열기 — 작성자=받은 문의 목록 / 문의자=작성자와의 비공개 스레드
+  const handleOpenInquiry = (c: CollabPost) => {
     if (!isAuthenticated) { toast.error(t("community.writeRequiresLogin")); return; }
-    if (c.ownerId === user?.id) { toast.info(isKo ? "내가 올린 글이에요." : "This is your own post."); return; }
-    if (appliedCollabIds.has(c.id)) { toast.info(isKo ? "이미 관심을 보낸 글이에요." : "You already showed interest."); return; }
-    try {
-      const { data, error } = await supabase.rpc("apply_to_collab", { p_post_id: c.id, p_message: null });
-      if (error) throw error;
-      setAppliedCollabIds((prev) => new Set(prev).add(c.id));
-      if (data !== "already") {
-        setCollabs((prev) => prev.map((p) => (p.id === c.id ? { ...p, applicants: p.applicants + 1 } : p)));
-      }
-      // 1:1 메시지로 바로 대화 시작
-      if (c.ownerId && onOpenDm) {
-        onOpenDm(c.ownerId);
-      } else {
-        toast.success(isKo ? `‘${c.author}’님에게 관심을 전했어요! 🤝` : `Interest sent to ${c.author}! 🤝`);
-      }
-    } catch (e: any) {
-      console.warn("[Collab] 지원 실패:", e?.message);
-      toast.error(isKo ? "전송에 실패했어요. 다시 시도해주세요." : "Failed to send. Please try again.");
-    }
+    setInquiryPost(c);
   };
 
   // 협업 글 마감/재오픈 (작성자 전용)
@@ -518,29 +486,6 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     toast.success(next === "closed" ? (isKo ? "모집을 마감했어요." : "Marked as closed.") : (isKo ? "다시 열었어요." : "Reopened."));
   };
 
-  // 지원자 목록 로드 (작성자가 '지원자 보기' 클릭 시)
-  useEffect(() => {
-    if (!viewApplicantsOf) { setApplicants([]); return; }
-    let cancelled = false;
-    (async () => {
-      setLoadingApplicants(true);
-      const { data, error } = await supabase
-        .from("collab_applications")
-        .select("applicant_id, applicant_name, message, created_at")
-        .eq("post_id", viewApplicantsOf.id)
-        .order("created_at", { ascending: false });
-      if (cancelled) return;
-      if (error) console.warn("[Collab] 지원자 조회 실패:", error.message);
-      setApplicants((data || []).map((a: any) => ({
-        id: a.applicant_id,
-        name: a.applicant_name || (isKo ? "크리에이터" : "Creator"),
-        message: a.message || null,
-        date: timeAgo(a.created_at, isKo),
-      })));
-      setLoadingApplicants(false);
-    })();
-    return () => { cancelled = true; };
-  }, [viewApplicantsOf, isKo]);
 
   const toggleLike = (postId: string) => {
     setLikedPosts(prev => {
@@ -899,7 +844,6 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                     const TypeIcon = meta.Icon;
                     const closed = c.status === "closed";
                     const isOwner = !!user?.id && c.ownerId === user.id;
-                    const applied = appliedCollabIds.has(c.id);
                     return (
                     <div
                       key={c.id}
@@ -947,16 +891,16 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                               ))}
                             </div>
                           )}
-                          {/* 하단: 보상 + 지원자 + CTA */}
+                          {/* 하단: 보상 + 문의 수 + CTA */}
                           <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-border/60">
                             <div className="flex items-center gap-3 text-xs text-muted-foreground min-w-0">
                               {c.reward && <span className="flex items-center gap-1 truncate">🎁 {c.reward}</span>}
-                              <span className="flex items-center gap-1 flex-shrink-0"><Users className="w-3.5 h-3.5" />{isKo ? `${c.applicants}명 관심` : `${c.applicants} interested`}</span>
+                              <span className="flex items-center gap-1 flex-shrink-0"><MessageCircle className="w-3.5 h-3.5" />{isKo ? `문의 ${c.applicants}` : `${c.applicants} inquiries`}</span>
                             </div>
                             {isOwner ? (
                               <div className="flex items-center gap-2 flex-shrink-0">
-                                <Button size="sm" variant="outline" onClick={() => setViewApplicantsOf(c)} className="border-[#6366f1]/40">
-                                  {isKo ? "지원자 보기" : "Applicants"}
+                                <Button size="sm" variant="outline" onClick={() => handleOpenInquiry(c)} className="border-[#6366f1]/40">
+                                  {isKo ? "받은 문의" : "Inquiries"}
                                 </Button>
                                 <Button size="sm" variant="outline" onClick={() => handleToggleCollabStatus(c)} className="border-border">
                                   {closed ? (isKo ? "다시 열기" : "Reopen") : (isKo ? "마감하기" : "Close")}
@@ -965,17 +909,15 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                             ) : (
                               <Button
                                 size="sm"
-                                disabled={closed || applied}
-                                onClick={() => handleApplyCollab(c)}
+                                disabled={closed}
+                                onClick={() => handleOpenInquiry(c)}
                                 className="flex-shrink-0 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] disabled:opacity-50"
                               >
                                 {closed
                                   ? (isKo ? "마감" : "Closed")
-                                  : applied
-                                  ? (isKo ? "관심 보냄 ✓" : "Interested ✓")
                                   : c.type === "help"
                                   ? (isKo ? "도와주기" : "Help out")
-                                  : (isKo ? "연락하기" : "Contact")}
+                                  : (isKo ? "문의하기" : "Inquire")}
                               </Button>
                             )}
                           </div>
@@ -1238,73 +1180,15 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
         )}
       </AnimatePresence>
 
-      {/* 지원자 목록 모달 (작성자 전용) */}
+      {/* 협업 비공개 문의 스레드 모달 */}
       <AnimatePresence>
-        {viewApplicantsOf && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setViewApplicantsOf(null)}
-              className="fixed inset-0 bg-black/70 z-50 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-[#1a1a1c] rounded-2xl border border-white/10 p-5 max-w-md mx-auto shadow-2xl max-h-[80vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <h3 className="text-lg font-bold text-white">{isKo ? "관심 보낸 크리에이터" : "Interested creators"}</h3>
-                <button onClick={() => setViewApplicantsOf(null)} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-gray-400">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <p className="text-xs text-gray-400 mb-4 line-clamp-1">「{viewApplicantsOf.title}」</p>
-
-              {loadingApplicants ? (
-                <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-[#6366f1]" /></div>
-              ) : applicants.length === 0 ? (
-                <div className="text-center py-10 text-sm text-muted-foreground">
-                  <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  {isKo ? "아직 관심을 보낸 분이 없어요." : "No one has shown interest yet."}
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {applicants.map((a, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
-                      <div className="w-9 h-9 rounded-full flex-shrink-0 bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-white font-bold text-sm">
-                        {a.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="font-semibold text-white text-sm truncate">{a.name}</p>
-                          <span className="text-[11px] text-gray-500 flex-shrink-0">{a.date}</span>
-                        </div>
-                        {a.message && <p className="text-xs text-gray-300 mt-1">{a.message}</p>}
-                      </div>
-                      {onOpenDm && a.id && (
-                        <Button
-                          size="sm"
-                          onClick={() => { setViewApplicantsOf(null); onOpenDm(a.id); }}
-                          className="flex-shrink-0 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] gap-1"
-                        >
-                          <Send className="w-3.5 h-3.5" />
-                          {isKo ? "메시지" : "Message"}
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <p className="text-[11px] text-gray-500 mt-4 leading-relaxed">
-                {isKo
-                  ? "💡 ‘메시지’를 눌러 관심을 보낸 분과 1:1로 대화할 수 있어요."
-                  : "💡 Tap ‘Message’ to chat 1:1 with an interested creator."}
-              </p>
-            </motion.div>
-          </>
+        {inquiryPost && (
+          <CollabInquiryModal
+            post={{ id: inquiryPost.id, title: inquiryPost.title, ownerId: inquiryPost.ownerId, author: inquiryPost.author, avatar: inquiryPost.avatar }}
+            meId={user?.id || ""}
+            isKo={isKo}
+            onClose={() => { setInquiryPost(null); void loadCollabs(); }}
+          />
         )}
       </AnimatePresence>
     </div>

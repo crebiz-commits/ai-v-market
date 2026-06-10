@@ -66,7 +66,6 @@ const AuthModal = lazy(() => import("./components/AuthModal").then(m => ({ defau
 const PasswordResetScreen = lazy(() => import("./components/PasswordResetScreen").then(m => ({ default: m.PasswordResetScreen })));
 const CartPanel = lazy(() => import("./components/CartPanel").then(m => ({ default: m.CartPanel })));
 const NotificationPanel = lazy(() => import("./components/NotificationPanel").then(m => ({ default: m.NotificationPanel })));
-const MessagesPanel = lazy(() => import("./components/MessagesPanel").then(m => ({ default: m.MessagesPanel })));
 
 // 개발자 전용 프리뷰 페이지 (URL ?preview=* 진입 시만 로드)
 const LogoPreview = lazy(() => import("./components/LogoPreview").then(m => ({ default: m.LogoPreview })));
@@ -106,7 +105,7 @@ function PageLoading() {
 }
 
 type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy" | "search";
-type Panel = "cart" | "notifications" | "messages" | null;
+type Panel = "cart" | "notifications" | null;
 
 interface VideoProduct {
   // 기본 정보
@@ -390,8 +389,6 @@ function AppContent() {
       const tab = url.searchParams.get("tab");
       const section = url.searchParams.get("section");
       const sub = url.searchParams.get("sub");
-      const dm = url.searchParams.get("dm");
-      if (dm) { setPendingDmConversation(dm); setActivePanel("messages"); return; }
       if (video) { void loadAndOpenVideo(video, { openComments: url.searchParams.get("comment") === "1" }); return; }
       if (tab) {
         if (tab === "mypage" && section) setPendingMyPageTab(section);
@@ -402,15 +399,6 @@ function AppContent() {
     } catch { /* 잘못된 link 무시 */ }
   };
 
-  // 특정 크리에이터와 1:1 대화 시작/열기 (협업 연락하기 / 지원자 메시지 / 채널 메시지 공용)
-  const openDmWith = async (otherId: string) => {
-    if (!isAuthenticated) { setShowAuthModal(true); return; }
-    if (!otherId) return;
-    const { data, error } = await supabase.rpc("dm_start", { p_other: otherId });
-    if (error || !data) { toast.error(isKo ? "대화를 시작하지 못했어요." : "Couldn't start chat."); return; }
-    setPendingDmConversation(data as string);
-    setActivePanel("messages");
-  };
 
   // 첫 마운트 시 URL ?video=<id> 있으면 ProductDetail 자동 열기
   // (공유 링크, OG 봇 이후 일반 사용자 진입, 외부 사이트 링크 모두 대상)
@@ -432,9 +420,6 @@ function AppContent() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [pendingCartAdd, setPendingCartAdd] = useState<{ product: VideoProduct; licenseType: "standard" | "commercial" | "extended" } | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const [unreadDms, setUnreadDms] = useState(0);
-  // 협업 '연락하기' / 알림 딥링크로 특정 대화 열기
-  const [pendingDmConversation, setPendingDmConversation] = useState<string | null>(null);
   const { user, profile, signOut, isAuthenticated, loading, passwordRecovery } = useAuth();
   // 비로그인 사용자가 〈둘러보기〉 클릭 시 LandingPage → DiscoveryFeed 로 전환
   const [hasExplored, setHasExplored] = useState(false);
@@ -481,32 +466,6 @@ function AppContent() {
     };
     // handleNotificationNavigate 는 매 렌더 재생성되나 재구독 불필요 → 의존성 제외
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user?.id]);
-
-  // DM: 안 읽은 메시지 수 초기 로드 + 실시간 수신 → 봉투 배지 갱신
-  useEffect(() => {
-    if (!isAuthenticated || !user?.id) { setUnreadDms(0); return; }
-    let cancelled = false;
-    (async () => {
-      const { count } = await supabase
-        .from("dm_messages")
-        .select("id", { count: "exact", head: true })
-        .eq("read", false)
-        .neq("sender_id", user.id);
-      if (!cancelled && typeof count === "number") setUnreadDms(count);
-    })();
-
-    const ch = supabase
-      .channel(`dm-inbox-${user.id}`)
-      .on("postgres_changes",
-        { event: "INSERT", schema: "public", table: "dm_messages" },
-        (payload: any) => {
-          const m = payload.new || {};
-          if (m.sender_id && m.sender_id !== user.id) setUnreadDms((c) => c + 1);
-        })
-      .subscribe();
-
-    return () => { cancelled = true; supabase.removeChannel(ch); };
   }, [isAuthenticated, user?.id]);
 
   // YouTube 패턴: 어떤 영상이든 재생되면 다른 모든 영상을 즉시 일시정지
@@ -739,7 +698,6 @@ function AppContent() {
               setActiveTab("upload");
             }}
             onPlayVideo={(videoId) => loadAndOpenVideo(videoId)}
-            onOpenDm={openDmWith}
           />
         );
       case "channel":
@@ -750,7 +708,6 @@ function AppContent() {
             initialCreatorId={pendingCreatorId}
             onCreatorOpened={() => setPendingCreatorId(null)}
             onNavigate={(tab) => setActiveTab(tab as Tab)}
-            onOpenDm={openDmWith}
           />
         );
       case "mypage":
@@ -840,20 +797,6 @@ function AppContent() {
               className={`p-2 transition-colors ${activeTab === "search" ? "text-[#8b5cf6]" : "text-muted-foreground hover:text-foreground"}`}
             >
               <Search className="w-[22px] h-[22px]" />
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => togglePanel("messages")}
-              className="p-2 relative text-muted-foreground hover:text-foreground transition-colors"
-              title={isKo ? "메시지" : "Messages"}
-              aria-label={isKo ? "메시지" : "Messages"}
-            >
-              <MessageSquare className={`w-[22px] h-[22px] ${activePanel === "messages" ? "text-[#8b5cf6]" : ""}`} />
-              {unreadDms > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white font-bold flex items-center justify-center">
-                  {unreadDms > 9 ? "9+" : unreadDms}
-                </span>
-              )}
             </motion.button>
             <motion.button
               whileTap={{ scale: 0.9 }}
@@ -963,24 +906,6 @@ function AppContent() {
             {/* Language Switcher (Phase 35) */}
             <LanguageSwitcher variant="compact" />
 
-            {/* Messages (DM) */}
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => togglePanel("messages")}
-              title={isKo ? "메시지" : "Messages"}
-              aria-label={isKo ? "메시지" : "Messages"}
-              className={`relative p-2 rounded-lg hover:bg-white/5 transition-colors ${
-                activePanel === "messages" ? "text-[#8b5cf6]" : "text-muted-foreground hover:text-white"
-              }`}
-            >
-              <MessageSquare className="w-5 h-5" />
-              {unreadDms > 0 && (
-                <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white font-bold flex items-center justify-center">
-                  {unreadDms > 9 ? "9+" : unreadDms}
-                </span>
-              )}
-            </motion.button>
-
             {/* Notifications */}
             <motion.button
               whileTap={{ scale: 0.9 }}
@@ -1077,14 +1002,6 @@ function AppContent() {
                     onNavigate={handleNotificationNavigate}
                   />
                 )}
-                {activePanel === "messages" && (
-                  <MessagesPanel
-                    onClose={() => setActivePanel(null)}
-                    onUnreadCountChange={setUnreadDms}
-                    initialConversationId={pendingDmConversation}
-                    onInitialConsumed={() => setPendingDmConversation(null)}
-                  />
-                )}
               </Suspense>
             </motion.div>
           )}
@@ -1124,14 +1041,6 @@ function AppContent() {
                       onClose={() => setActivePanel(null)}
                       onUnreadCountChange={setUnreadNotifications}
                       onNavigate={handleNotificationNavigate}
-                    />
-                  )}
-                  {activePanel === "messages" && (
-                    <MessagesPanel
-                      onClose={() => setActivePanel(null)}
-                      onUnreadCountChange={setUnreadDms}
-                      initialConversationId={pendingDmConversation}
-                      onInitialConsumed={() => setPendingDmConversation(null)}
                     />
                   )}
                 </Suspense>
