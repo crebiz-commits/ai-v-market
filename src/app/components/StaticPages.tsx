@@ -1,7 +1,9 @@
-import { ArrowLeft, Sparkles, Film, Crown, Users, Zap } from "lucide-react";
-import { motion } from "motion/react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, Sparkles, Film, Crown, Users, Zap, ChevronDown, HelpCircle, Megaphone, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { Footer } from "./Footer";
+import { supabase } from "../utils/supabaseClient";
 
 interface StaticPageProps {
   onBack: () => void;
@@ -275,3 +277,191 @@ const PRIVACY_EN = {
     { title: "8. Personal Information Officer", body: 'Name: Lee Hyunwoo (이현우, CEO of Crebiz)<br />Email: <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>' },
   ],
 };
+
+// ──────────────────────────────────────────────────────────────────────
+// FAQ (자주 묻는 질문) — 2026-06-11 신설
+// ──────────────────────────────────────────────────────────────────────
+const FAQ_KO: { q: string; a: string }[] = [
+  { q: "크리에잇(CREAITE)은 어떤 서비스인가요?", a: "세계 최초 AI 시네마 OTT입니다. AI 크리에이터가 만든 영화·드라마·애니메이션을 감상하고, 창작자는 광고·판매·구독 수익을 얻습니다." },
+  { q: "이용 요금은 얼마인가요?", a: "기본 감상은 무료입니다(광고 포함). 프리미엄 구독(월 ₩4,900)을 이용하면 모든 광고가 제거되고 장편 작품을 끝까지 감상할 수 있습니다." },
+  { q: "구독은 자동으로 갱신되나요?", a: "아니요, 현재 구독은 30일 단위 1회 결제입니다. 자동 결제가 없으므로 만료 전에 마이페이지에서 직접 연장하시면 됩니다 (연장 시 남은 기간에 30일이 더해집니다)." },
+  { q: "환불은 어떻게 받나요?", a: '결제 후 7일 이내에 마이페이지 → 설정 → 결제 내역에서 환불 요청을 하실 수 있습니다. 자세한 기준은 <a href="?info=terms" class="text-[#8b5cf6] hover:underline">이용약관 제7조</a>를 참고해 주세요.' },
+  { q: "영상 업로드는 누구나 할 수 있나요?", a: "네, 회원이라면 누구나 업로드 탭에서 작품을 올릴 수 있습니다. 단, AI로 생성·제작한 본인 창작 영상만 가능하며 타인의 영상을 재업로드하면 즉시 제재됩니다." },
+  { q: "크리에이터 수익은 어떻게 발생하나요?", a: '① 영상에 붙는 광고 수익(노출 기반) ② 영상 라이선스 판매 수익 ③ 구독료 분배(OTT 시청시간 비례), 세 가지입니다. 자세한 비율과 정책은 <a href="?info=creator-revenue" class="text-[#8b5cf6] hover:underline">크리에이터 수익 정책</a> 페이지에서 확인하세요.' },
+  { q: "수익 정산은 언제 받나요?", a: "월 단위로 정산되며 최소 정산액은 ₩10,000입니다. 미달 금액은 사라지지 않고 다음 달로 이월되어 합산됩니다. 마이페이지에서 정산 계좌를 등록해 주세요." },
+  { q: "영상 구매(라이선스)는 무엇인가요?", a: "마음에 드는 영상의 라이선스를 구매하면 원본을 다운로드해 약관 범위 내에서 활용할 수 있습니다 (비독점 라이선스)." },
+  { q: "광고는 왜 나오나요?", a: "광고는 무료 감상을 지원하고 크리에이터에게 수익을 돌려주기 위한 것입니다. 프리미엄 구독 시 모든 광고가 제거됩니다." },
+  { q: "비밀번호를 잊어버렸어요.", a: "로그인 화면에서 이메일 입력 후 '비밀번호를 잊으셨나요?'를 누르면 재설정 메일이 발송됩니다." },
+  { q: "가입 인증 메일이 안 와요.", a: '스팸함을 먼저 확인해 주세요. 가입 안내 화면의 "인증 메일 재발송" 버튼으로 다시 받을 수 있습니다. 계속 안 오면 <a href="mailto:support@creaite.net" class="text-[#8b5cf6] hover:underline">support@creaite.net</a> 으로 문의해 주세요.' },
+  { q: "부적절한 콘텐츠를 발견했어요.", a: "영상·댓글·커뮤니티 글의 신고 버튼(깃발 아이콘)으로 신고해 주세요. 운영팀이 검토 후 조치하며, 신고 누적 시 자동 숨김 처리됩니다." },
+  { q: "광고 집행·제휴·투자 문의는 어디로 하나요?", a: '푸터의 비즈니스 문의 폼을 이용하시거나 <a href="mailto:business@creaite.net" class="text-[#8b5cf6] hover:underline">business@creaite.net</a> 으로 연락 주세요.' },
+];
+
+const FAQ_EN: { q: string; a: string }[] = [
+  { q: "What is CREAITE?", a: "The world's first AI cinema OTT. Watch films, dramas, and animation made by AI creators — while creators earn ad, sales, and subscription revenue." },
+  { q: "How much does it cost?", a: "Watching is free (with ads). Premium (₩4,900/month) removes all ads and unlocks full-length features." },
+  { q: "Does the subscription auto-renew?", a: "No. Subscriptions are one-time 30-day payments. There is no auto-billing — extend anytime from My Page (extensions add 30 days to your remaining period)." },
+  { q: "How do refunds work?", a: 'You can request a refund within 7 days of payment via My Page → Settings → Payment History. See <a href="?info=terms" class="text-[#8b5cf6] hover:underline">Terms Article 7</a> for details.' },
+  { q: "Who can upload videos?", a: "Any member can upload from the Upload tab. Only your own AI-generated/AI-assisted creations are allowed — re-uploading others' work leads to immediate sanctions." },
+  { q: "How do creators earn?", a: 'Three ways: ① ad revenue (impression-based) ② license sales ③ subscription pool sharing (proportional to OTT watch time). See the <a href="?info=creator-revenue" class="text-[#8b5cf6] hover:underline">Creator Revenue Policy</a>.' },
+  { q: "When do I get paid?", a: "Settlements run monthly with a ₩10,000 minimum payout. Amounts below the minimum roll over to the next month. Register your payout account in My Page." },
+  { q: "What is a video license purchase?", a: "Purchasing a license lets you download the original file and use it within the terms (non-exclusive license)." },
+  { q: "Why are there ads?", a: "Ads keep watching free and fund creator revenue sharing. Premium removes all ads." },
+  { q: "I forgot my password.", a: "On the sign-in screen, enter your email and tap 'Forgot password?' to receive a reset email." },
+  { q: "I didn't receive the confirmation email.", a: 'Check your spam folder first, then use the "Resend email" button on the sign-up screen. Still nothing? Contact <a href="mailto:support@creaite.net" class="text-[#8b5cf6] hover:underline">support@creaite.net</a>.' },
+  { q: "I found inappropriate content.", a: "Use the report button (flag icon) on any video, comment, or post. Our team reviews every report; repeated reports trigger automatic hiding." },
+  { q: "Advertising / partnership / investment inquiries?", a: 'Use the business inquiry form in the footer, or email <a href="mailto:business@creaite.net" class="text-[#8b5cf6] hover:underline">business@creaite.net</a>.' },
+];
+
+export function FaqPage({ onBack, onNavigate }: StaticPageProps) {
+  const isKo = useIsKorean();
+  const faqs = isKo ? FAQ_KO : FAQ_EN;
+  const [open, setOpen] = useState<number | null>(0);
+  return (
+    <PageShell
+      title={isKo ? "자주 묻는 질문" : "FAQ"}
+      subtitle={isKo ? "크리에잇 이용 중 궁금한 점을 모았습니다" : "Answers to common questions about CREAITE"}
+      onBack={onBack}
+      onNavigate={onNavigate}
+    >
+      <div className="space-y-2.5">
+        {faqs.map((f, i) => {
+          const isOpen = open === i;
+          return (
+            <div key={i} className={`bg-[#121212] rounded-2xl border transition-colors ${isOpen ? "border-[#6366f1]/40" : "border-white/5"}`}>
+              <button
+                onClick={() => setOpen(isOpen ? null : i)}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left"
+              >
+                <HelpCircle className={`w-4 h-4 shrink-0 ${isOpen ? "text-[#8b5cf6]" : "text-gray-500"}`} />
+                <span className="flex-1 text-sm font-semibold text-white">{f.q}</span>
+                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+              </button>
+              <AnimatePresence initial={false}>
+                {isOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <p
+                      className="px-5 pb-4 pl-12 text-sm text-gray-300 leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: f.a }}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-8 bg-gradient-to-br from-[#6366f1]/10 to-[#8b5cf6]/10 border border-[#6366f1]/20 rounded-2xl p-5 text-center">
+        <p className="text-sm text-gray-300 mb-1">
+          {isKo ? "원하는 답을 찾지 못하셨나요?" : "Didn't find what you were looking for?"}
+        </p>
+        <a href="mailto:support@creaite.net" className="text-sm font-bold text-[#8b5cf6] hover:underline">
+          support@creaite.net
+        </a>
+      </div>
+    </PageShell>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// 공지사항 — 2026-06-11 신설
+// 어드민이 커뮤니티 글쓰기에서 "공지로 등록" 체크한 글(is_notice)을 모아서 표시
+// ──────────────────────────────────────────────────────────────────────
+interface NoticeRow {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
+}
+
+export function NoticesPage({ onBack, onNavigate }: StaticPageProps) {
+  const isKo = useIsKorean();
+  const [notices, setNotices] = useState<NoticeRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("community_posts")
+        .select("id,title,content,created_at")
+        .eq("is_notice", true)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (cancelled) return;
+      if (error) console.warn("[Notices] 조회 실패:", error.message);
+      setNotices((data || []) as NoticeRow[]);
+      if (data && data.length > 0) setOpen(data[0].id);  // 최신 공지 펼친 상태로
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const fmtDate = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  return (
+    <PageShell
+      title={isKo ? "공지사항" : "Notices"}
+      subtitle={isKo ? "크리에잇의 새로운 소식과 안내를 확인하세요" : "News and announcements from CREAITE"}
+      onBack={onBack}
+      onNavigate={onNavigate}
+    >
+      {loading ? (
+        <div className="flex justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-[#6366f1]" /></div>
+      ) : notices.length === 0 ? (
+        <div className="bg-[#121212] border border-dashed border-white/10 rounded-2xl p-12 text-center">
+          <Megaphone className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+          <p className="text-sm font-semibold text-gray-300">
+            {isKo ? "아직 등록된 공지사항이 없습니다" : "No notices yet"}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            {isKo ? "새로운 소식이 생기면 이곳에서 알려드릴게요." : "We'll post updates here."}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          {notices.map((n) => {
+            const isOpen = open === n.id;
+            return (
+              <div key={n.id} className={`bg-[#121212] rounded-2xl border transition-colors ${isOpen ? "border-[#f59e0b]/40" : "border-white/5"}`}>
+                <button
+                  onClick={() => setOpen(isOpen ? null : n.id)}
+                  className="w-full flex items-center gap-3 px-5 py-4 text-left"
+                >
+                  <Megaphone className={`w-4 h-4 shrink-0 ${isOpen ? "text-[#fbbf24]" : "text-gray-500"}`} />
+                  <span className="flex-1 text-sm font-semibold text-white">{n.title}</span>
+                  <span className="text-xs text-gray-500 shrink-0">{fmtDate(n.created_at)}</span>
+                  <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                </button>
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <p className="px-5 pb-4 pl-12 text-sm text-gray-300 leading-relaxed whitespace-pre-line">{n.content}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </PageShell>
+  );
+}

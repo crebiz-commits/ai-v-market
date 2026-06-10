@@ -27,15 +27,13 @@
     "forgotPassword": "비밀번호 찾기",
     "rememberMe": "로그인 유지",
     "or": "또는",
-    "continueWithGoogle": "Google로 계속",
-    "continueWithKakao": "카카오로 계속",
+    "continueWithGoogle": "Google로 계속 진행",
+    "continueWithKakao": "카카오톡으로 계속 진행",
     "noAccount": "계정이 없으세요?",
     "haveAccount": "이미 계정이 있으신가요?",
     "modalSignInTitle": "CREAITE 로그인",
     "modalSignUpTitle": "CREAITE 가입하기",
     "useEmailOrId": "전화 / 이메일 / 아이디 사용",
-    "continueWithKakao": "카카오톡으로 계속 진행",
-    "continueWithGoogle": "Google로 계속 진행",
     "continueWithFacebook": "Facebook으로 계속 진행",
     "continueWithApple": "Apple로 계속 진행",
     "continueWithX": "Twitter로 계속 진행",
@@ -406,7 +404,8 @@
       "address": "주소",
       "contact": "고객문의",
       "hosting": "호스팅"
-    }
+    },
+    "notices": "공지사항"
   },
   "emailConfirm": {
     "title": "이메일 인증이 필요합니다",

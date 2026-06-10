@@ -57,6 +57,8 @@ const BusinessPage = lazy(() => import("./components/BusinessPage").then(m => ({
 const AboutPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.AboutPage })));
 const TermsPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.TermsPage })));
 const PrivacyPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.PrivacyPage })));
+const FaqPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.FaqPage })));
+const NoticesPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.NoticesPage })));
 const PaymentResult = lazy(() => import("./components/PaymentResult").then(m => ({ default: m.PaymentResult })));
 const SearchPage = lazy(() => import("./components/SearchPage").then(m => ({ default: m.SearchPage })));
 
@@ -104,7 +106,7 @@ function PageLoading() {
   );
 }
 
-type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy" | "search";
+type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy" | "faq" | "notices" | "search";
 type Panel = "cart" | "notifications" | null;
 
 interface VideoProduct {
@@ -227,6 +229,20 @@ function AppContent() {
       return (
         <Suspense fallback={<PageLoading />}>
           <PrivacyPage onBack={goBack} />
+        </Suspense>
+      );
+    }
+    if (infoParam === "faq") {
+      return (
+        <Suspense fallback={<PageLoading />}>
+          <FaqPage onBack={goBack} />
+        </Suspense>
+      );
+    }
+    if (infoParam === "notices") {
+      return (
+        <Suspense fallback={<PageLoading />}>
+          <NoticesPage onBack={goBack} />
         </Suspense>
       );
     }
@@ -820,6 +836,10 @@ function AppContent() {
         return <TermsPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "privacy":
         return <PrivacyPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+      case "faq":
+        return <FaqPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+      case "notices":
+        return <NoticesPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "search":
         return (
           <SearchPage

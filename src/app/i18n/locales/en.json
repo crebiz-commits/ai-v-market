@@ -28,14 +28,12 @@
     "rememberMe": "Remember me",
     "or": "or",
     "continueWithGoogle": "Continue with Google",
-    "continueWithKakao": "Continue with Kakao",
+    "continueWithKakao": "Continue with KakaoTalk",
     "noAccount": "Don't have an account?",
     "haveAccount": "Already have an account?",
     "modalSignInTitle": "Sign in to CREAITE",
     "modalSignUpTitle": "Join CREAITE",
     "useEmailOrId": "Use phone / email / ID",
-    "continueWithKakao": "Continue with KakaoTalk",
-    "continueWithGoogle": "Continue with Google",
     "continueWithFacebook": "Continue with Facebook",
     "continueWithApple": "Continue with Apple",
     "continueWithX": "Continue with Twitter",
@@ -406,7 +404,8 @@
       "address": "Address",
       "contact": "Contact",
       "hosting": "Hosting"
-    }
+    },
+    "notices": "Notices"
   },
   "emailConfirm": {
     "title": "Please verify your email",

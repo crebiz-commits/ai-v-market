@@ -81,14 +81,6 @@ export function Footer({ onNavigate }: FooterProps) {
                   Vision
                 </button>
               </li>
-              <li>
-                <button
-                  onClick={() => onNavigate("about")}
-                  className="text-sm text-gray-400 hover:text-white transition-colors"
-                >
-                  Careers (coming soon)
-                </button>
-              </li>
             </ul>
           </div>
 
@@ -127,6 +119,22 @@ export function Footer({ onNavigate }: FooterProps) {
           <div>
             <h3 className="text-xs font-black text-white uppercase tracking-widest mb-3">{t("footer.support")}</h3>
             <ul className="space-y-2">
+              <li>
+                <button
+                  onClick={() => onNavigate("notices")}
+                  className="text-sm text-gray-400 hover:text-white transition-colors"
+                >
+                  {t("footer.notices", "공지사항")}
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate("faq")}
+                  className="text-sm text-gray-400 hover:text-white transition-colors"
+                >
+                  {t("footer.faq", "자주 묻는 질문")}
+                </button>
+              </li>
               <li>
                 <a
                   href="mailto:support@creaite.net"
