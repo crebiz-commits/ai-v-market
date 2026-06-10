@@ -44,19 +44,16 @@ DROP POLICY IF EXISTS collab_posts_insert ON public.collab_posts;
 CREATE POLICY collab_posts_insert ON public.collab_posts
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+-- 주의: authenticated 역할에는 profiles SELECT 권한이 없어서, RLS 정책 안에서
+--       profiles 를 참조하면 "permission denied for table profiles" 로 작업 전체가 실패한다.
+--       따라서 작성자 본인만 허용한다. (관리자 모더레이션은 service_role 이 RLS 우회)
 DROP POLICY IF EXISTS collab_posts_update ON public.collab_posts;
 CREATE POLICY collab_posts_update ON public.collab_posts
-  FOR UPDATE USING (
-    auth.uid() = user_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.is_admin = true)
-  );
+  FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS collab_posts_delete ON public.collab_posts;
 CREATE POLICY collab_posts_delete ON public.collab_posts
-  FOR DELETE USING (
-    auth.uid() = user_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.is_admin = true)
-  );
+  FOR DELETE USING (auth.uid() = user_id);
 
 -- ── 2. 협업 지원(관심) 테이블 ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.collab_applications (

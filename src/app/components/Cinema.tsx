@@ -237,7 +237,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-background pb-20">
+    <div className="h-full overflow-y-auto bg-background flex flex-col pb-20 md:pb-0">
       {/* 헤더 — 검색은 상단 헤더 🔍(통합 검색)로 일원화. 시네마 인페이지 검색 제거(2026-05-31) */}
       <div className="px-4 md:px-6 pt-4 pb-3 sticky top-0 bg-background/95 backdrop-blur-sm z-20">
         <div>

@@ -326,9 +326,10 @@ interface CommunityProps {
   onInitialTabConsumed?: () => void;         // 초기 탭 적용 후 신호 소거
   onChallengeParticipate?: (challenge: Challenge) => void;  // 챌린지 참가 → 업로드 진입
   onPlayVideo?: (videoId: string) => void;   // 참여작 클릭 → 영상 재생
+  onOpenDm?: (otherUserId: string) => void;  // 협업 연락하기 → 1:1 메시지 열기
 }
 
-export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChallengeParticipate, onPlayVideo }: CommunityProps = {}) {
+export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChallengeParticipate, onPlayVideo, onOpenDm }: CommunityProps = {}) {
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
   const { user, isAuthenticated, profile } = useAuth();
@@ -357,7 +358,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   });
   // 지원자 목록 보기 (작성자 전용)
   const [viewApplicantsOf, setViewApplicantsOf] = useState<CollabPost | null>(null);
-  const [applicants, setApplicants] = useState<{ name: string; message: string | null; date: string }[]>([]);
+  const [applicants, setApplicants] = useState<{ id: string; name: string; message: string | null; date: string }[]>([]);
   const [loadingApplicants, setLoadingApplicants] = useState(false);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [bookmarkedPosts, setBookmarkedPosts] = useState<Set<string>>(new Set());
@@ -480,12 +481,15 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
       const { data, error } = await supabase.rpc("apply_to_collab", { p_post_id: c.id, p_message: null });
       if (error) throw error;
       setAppliedCollabIds((prev) => new Set(prev).add(c.id));
-      if (data === "already") {
-        toast.info(isKo ? "이미 관심을 보낸 글이에요." : "You already showed interest.");
-        return;
+      if (data !== "already") {
+        setCollabs((prev) => prev.map((p) => (p.id === c.id ? { ...p, applicants: p.applicants + 1 } : p)));
       }
-      setCollabs((prev) => prev.map((p) => (p.id === c.id ? { ...p, applicants: p.applicants + 1 } : p)));
-      toast.success(isKo ? `‘${c.author}’님에게 관심을 전했어요! 🤝` : `Interest sent to ${c.author}! 🤝`);
+      // 1:1 메시지로 바로 대화 시작
+      if (c.ownerId && onOpenDm) {
+        onOpenDm(c.ownerId);
+      } else {
+        toast.success(isKo ? `‘${c.author}’님에게 관심을 전했어요! 🤝` : `Interest sent to ${c.author}! 🤝`);
+      }
     } catch (e: any) {
       console.warn("[Collab] 지원 실패:", e?.message);
       toast.error(isKo ? "전송에 실패했어요. 다시 시도해주세요." : "Failed to send. Please try again.");
@@ -495,11 +499,21 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   // 협업 글 마감/재오픈 (작성자 전용)
   const handleToggleCollabStatus = async (c: CollabPost) => {
     const next = c.status === "open" ? "closed" : "open";
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("collab_posts")
       .update({ status: next, updated_at: new Date().toISOString() })
-      .eq("id", c.id);
-    if (error) { toast.error(isKo ? "변경에 실패했어요." : "Failed to update."); return; }
+      .eq("id", c.id)
+      .select("id");
+    if (error) {
+      console.warn("[Collab] 상태 변경 실패:", error.message);
+      toast.error(isKo ? `변경에 실패했어요: ${error.message}` : `Failed: ${error.message}`);
+      return;
+    }
+    if (!data || data.length === 0) {
+      // RLS 로 0행 — 작성자 본인이 아니거나 세션 만료
+      toast.error(isKo ? "변경 권한이 없어요. 본인 글인지 / 로그인 상태를 확인해주세요." : "Not allowed. Check that it's your post and you're logged in.");
+      return;
+    }
     setCollabs((prev) => prev.map((p) => (p.id === c.id ? { ...p, status: next } : p)));
     toast.success(next === "closed" ? (isKo ? "모집을 마감했어요." : "Marked as closed.") : (isKo ? "다시 열었어요." : "Reopened."));
   };
@@ -512,12 +526,13 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
       setLoadingApplicants(true);
       const { data, error } = await supabase
         .from("collab_applications")
-        .select("applicant_name, message, created_at")
+        .select("applicant_id, applicant_name, message, created_at")
         .eq("post_id", viewApplicantsOf.id)
         .order("created_at", { ascending: false });
       if (cancelled) return;
       if (error) console.warn("[Collab] 지원자 조회 실패:", error.message);
       setApplicants((data || []).map((a: any) => ({
+        id: a.applicant_id,
         name: a.applicant_name || (isKo ? "크리에이터" : "Creator"),
         message: a.message || null,
         date: timeAgo(a.created_at, isKo),
@@ -1258,7 +1273,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
               ) : (
                 <div className="space-y-2.5">
                   {applicants.map((a, i) => (
-                    <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+                    <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
                       <div className="w-9 h-9 rounded-full flex-shrink-0 bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-white font-bold text-sm">
                         {a.name.charAt(0).toUpperCase()}
                       </div>
@@ -1269,14 +1284,24 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                         </div>
                         {a.message && <p className="text-xs text-gray-300 mt-1">{a.message}</p>}
                       </div>
+                      {onOpenDm && a.id && (
+                        <Button
+                          size="sm"
+                          onClick={() => { setViewApplicantsOf(null); onOpenDm(a.id); }}
+                          className="flex-shrink-0 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] gap-1"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          {isKo ? "메시지" : "Message"}
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
               <p className="text-[11px] text-gray-500 mt-4 leading-relaxed">
                 {isKo
-                  ? "💡 관심을 보낸 분과 연락하려면 해당 크리에이터의 채널/프로필에서 연락해 주세요. (DM 기능은 준비 중이에요)"
-                  : "💡 To get in touch, reach out via the creator's channel/profile for now. (DM is coming soon)"}
+                  ? "💡 ‘메시지’를 눌러 관심을 보낸 분과 1:1로 대화할 수 있어요."
+                  : "💡 Tap ‘Message’ to chat 1:1 with an interested creator."}
               </p>
             </motion.div>
           </>
