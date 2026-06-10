@@ -21,20 +21,27 @@ self.addEventListener("push", (event) => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// ── 알림 클릭 → 해당 페이지로 이동(이미 열려있으면 포커스) ────────────────
+// ── 알림 클릭 → 해당 페이지로 이동(이미 열려있으면 포커스 + SPA 네비게이션) ──
+// 주의(2026-06-11 수정): client.navigate() 는 SW 가 제어하지 않는 클라이언트에서
+// 조용히 reject 되어 "창만 포커스되고 이동은 안 되는" 버그가 있었음.
+// → postMessage 로 앱에 URL 을 전달해 SPA 내부 네비게이션으로 처리 (App.tsx 가 수신).
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = (event.notification.data && event.notification.data.url) || "/";
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+    (async () => {
+      const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of clientList) {
-        if ("focus" in client) {
-          if ("navigate" in client) { try { client.navigate(url); } catch {} }
-          return client.focus();
+        try {
+          if ("focus" in client) await client.focus();
+          client.postMessage({ type: "push-navigate", url });
+          return;
+        } catch (e) {
+          // 이 클라이언트 실패 → 다음 클라이언트 시도
         }
       }
-      if (self.clients.openWindow) return self.clients.openWindow(url);
-    })
+      if (self.clients.openWindow) await self.clients.openWindow(url);
+    })()
   );
 });
 

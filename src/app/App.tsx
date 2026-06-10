@@ -444,6 +444,20 @@ function AppContent() {
     } catch { /* 잘못된 link 무시 */ }
   };
 
+  // 웹푸시 클릭 → SW(sw.js notificationclick)가 postMessage 로 보낸 URL 을 SPA 네비게이션으로 처리
+  // (이전엔 client.navigate 가 조용히 실패해 창 포커스만 되고 이동이 안 되는 경우가 있었음 — 2026-06-11)
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    const handler = (e: MessageEvent) => {
+      if (e.data?.type === "push-navigate" && typeof e.data.url === "string") {
+        handleNotificationNavigate(e.data.url);
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", handler);
+    return () => navigator.serviceWorker.removeEventListener("message", handler);
+    // handleNotificationNavigate 는 안정적인 setState/클로저만 사용 — 첫 등록으로 충분
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 첫 마운트 시 URL ?video=<id> 있으면 ProductDetail 자동 열기
   // (공유 링크, OG 봇 이후 일반 사용자 진입, 외부 사이트 링크 모두 대상)
