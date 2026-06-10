@@ -73,10 +73,13 @@ export function AdminMegaUploader() {
     <div className="space-y-4">
       {/* 안내 */}
       <div className="bg-gradient-to-br from-[#FFD200]/15 to-[#FFB000]/10 border border-[#FFD200]/30 rounded-xl p-4">
-        <p className="text-sm text-foreground/90 flex items-center gap-2">
-          <Coffee className="w-4 h-4 text-[#d99a00]" />
-          영화 <b>30편</b> 업로드마다 자동으로 달성자가 등록됩니다(30·60·90편…). <b>대기</b> 상태가 쿠폰 미발송이며, 발송 후 <b>지급완료</b>로 바꿔주세요.
-        </p>
+        <div className="flex items-start gap-2.5">
+          <Coffee className="w-5 h-5 text-[#d99a00] flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-foreground/90 leading-relaxed">
+            영화 <b className="text-foreground">30편</b> 업로드마다 자동으로 달성자가 등록됩니다 (30·60·90편…).
+            {" "}<b className="text-foreground">대기</b>는 쿠폰 미발송, 발송 후 <b className="text-foreground">지급완료</b>로 바꿔주세요.
+          </p>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
