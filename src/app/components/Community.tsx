@@ -645,6 +645,26 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   // 협업 카드 클릭 → 상세 모달 (상세 → 비공개 문의). 상세는 누구나 열람.
   const handleOpenInquiry = (c: CollabPost) => setInquiryPost(c);
 
+  // 협업 글 삭제 (작성자 또는 관리자 — RLS: collab_posts_delete / collab_posts_admin_delete)
+  // 문의 스레드·메시지는 FK ON DELETE CASCADE 로 함께 삭제됨
+  const handleDeleteCollab = async (c: CollabPost) => {
+    if (!confirm(isKo ? "이 협업 글을 삭제할까요? 받은 문의 대화도 함께 삭제되며 되돌릴 수 없어요." : "Delete this listing? Its inquiry threads are deleted too. This cannot be undone.")) return;
+    const { data, error } = await supabase.from("collab_posts").delete().eq("id", c.id).select("id");
+    if (error) {
+      console.warn("[Collab] 삭제 실패:", error.message);
+      toast.error(isKo ? `삭제에 실패했어요: ${error.message}` : `Failed: ${error.message}`);
+      return;
+    }
+    if (!data || data.length === 0) {
+      // RLS 로 0행 — 본인 글 아님 + 관리자 아님 (또는 세션 만료)
+      toast.error(isKo ? "삭제 권한이 없어요. 본인 글인지 / 로그인 상태를 확인해주세요." : "Not allowed. Check that it's your post and you're logged in.");
+      return;
+    }
+    setCollabs((prev) => prev.filter((p) => p.id !== c.id));
+    setInquiryPost(null);
+    toast.success(isKo ? "협업 글을 삭제했어요." : "Listing deleted.");
+  };
+
   // 협업 글 마감/재오픈 (작성자 전용)
   const handleToggleCollabStatus = async (c: CollabPost) => {
     const next = c.status === "open" ? "closed" : "open";
@@ -1652,6 +1672,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
             onClose={() => { setInquiryPost(null); void loadCollabs(); }}
             onRequireLogin={() => toast.error(t("community.writeRequiresLogin"))}
             onToggleStatus={inquiryPost.ownerId === user?.id ? () => { void handleToggleCollabStatus(inquiryPost); } : undefined}
+            onDelete={inquiryPost.ownerId === user?.id || profile?.is_admin ? () => { void handleDeleteCollab(inquiryPost); } : undefined}
           />
         )}
       </AnimatePresence>

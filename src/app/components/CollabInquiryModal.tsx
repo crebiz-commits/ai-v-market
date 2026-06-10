@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { X, ArrowLeft, Send, Loader2, MessageSquare, Lock } from "lucide-react";
+import { X, ArrowLeft, Send, Loader2, MessageSquare, Lock, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 
@@ -69,9 +69,10 @@ interface Props {
   onClose: () => void;
   onRequireLogin: () => void;
   onToggleStatus?: () => void;   // 작성자: 마감/재오픈
+  onDelete?: () => void;         // 작성자/관리자: 글 삭제 (문의 스레드 CASCADE 삭제)
 }
 
-export function CollabInquiryModal({ post, typeLabel, typeCls, meId, isKo, isAuthenticated, onClose, onRequireLogin, onToggleStatus }: Props) {
+export function CollabInquiryModal({ post, typeLabel, typeCls, meId, isKo, isAuthenticated, onClose, onRequireLogin, onToggleStatus, onDelete }: Props) {
   const isAuthor = !!meId && post.ownerId === meId;
   const closed = post.status === "closed";
 
@@ -266,6 +267,12 @@ export function CollabInquiryModal({ post, typeLabel, typeCls, meId, isKo, isAut
                       {closed ? (isKo ? "다시 열기" : "Reopen") : (isKo ? "마감" : "Close")}
                     </button>
                   )}
+                  {onDelete && (
+                    <button onClick={onDelete} title={isKo ? "글 삭제" : "Delete"}
+                      className="px-3.5 py-3 rounded-xl font-bold text-red-300 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 flex-shrink-0">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               ) : closed ? (
                 <button disabled className="w-full py-3 rounded-xl font-bold text-white bg-white/10 opacity-60">{isKo ? "마감된 협업" : "Closed"}</button>
@@ -274,6 +281,14 @@ export function CollabInquiryModal({ post, typeLabel, typeCls, meId, isKo, isAut
                   className="w-full py-3 rounded-xl font-bold text-white bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] flex items-center justify-center gap-2 disabled:opacity-50">
                   {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
                   {post.type === "help" ? (isKo ? "비공개로 도와주기" : "Help privately") : (isKo ? "비공개로 문의하기" : "Inquire privately")}
+                </button>
+              )}
+              {/* 관리자(작성자 아님): 스팸·부적절 글 삭제 */}
+              {!isAuthor && onDelete && (
+                <button onClick={onDelete}
+                  className="w-full mt-2 py-2 rounded-xl text-xs font-bold text-red-300 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 flex items-center justify-center gap-1.5">
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {isKo ? "관리자: 글 삭제" : "Admin: delete post"}
                 </button>
               )}
               <p className="text-[11px] text-gray-500 text-center mt-2">{isKo ? "문의 내용은 작성자와 나만 볼 수 있어요." : "Only you and the author can see the inquiry."}</p>
