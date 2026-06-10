@@ -17,6 +17,7 @@ interface BugReport {
   description: string;
   steps: string | null;
   page_url: string | null;
+  image_urls: string[] | null;
   status: "new" | "reviewing" | "valid" | "invalid" | "coupon_sent";
   admin_note: string | null;
   created_at: string;
@@ -135,6 +136,18 @@ export function AdminBugReports() {
                 </div>
 
                 <p className="text-sm text-foreground/90 whitespace-pre-line bg-background/50 rounded-lg border border-border/60 p-3">{it.description}</p>
+
+                {/* 첨부 스크린샷 — 클릭 시 새 탭 원본 */}
+                {it.image_urls && it.image_urls.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {it.image_urls.map((url, i) => (
+                      <a key={url} href={url} target="_blank" rel="noopener noreferrer"
+                        className="block w-20 h-20 rounded-lg overflow-hidden border border-border hover:border-[#6366f1]/60 transition-colors">
+                        <img src={url} alt={`첨부 ${i + 1}`} className="w-full h-full object-cover" />
+                      </a>
+                    ))}
+                  </div>
+                )}
 
                 {it.steps && (
                   <div className="mt-2 text-xs text-muted-foreground">

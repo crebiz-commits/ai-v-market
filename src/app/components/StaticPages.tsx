@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Sparkles, Film, Crown, Users, Zap, ChevronDown, HelpCircle, Megaphone, Loader2, Bug, Coffee, Send, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Film, Crown, Users, Zap, ChevronDown, HelpCircle, Megaphone, Loader2, Bug, Coffee, Send, CheckCircle2, ImagePlus, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { Footer } from "./Footer";
@@ -484,13 +484,45 @@ export function BugReportPage({ onBack, onNavigate, onSignInClick }: BugReportPa
   const [steps, setSteps] = useState("");
   const [pageUrl, setPageUrl] = useState("");
   const [contact, setContact] = useState("");
+  const [images, setImages] = useState<string[]>([]);   // 업로드 완료된 스크린샷 URL
+  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const MAX_IMAGES = 3;
 
   // 로그인 시 연락처 기본값 = 가입 이메일
   useEffect(() => {
     if (user?.email && !contact) setContact(user.email);
   }, [user?.email]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 스크린샷 업로드 (bug-screenshots 버킷, 본인 폴더). 다중 선택 지원, 최대 3장.
+  const handleUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0 || !user?.id) return;
+    const remaining = MAX_IMAGES - images.length;
+    if (remaining <= 0) { toast.error(isKo ? `스크린샷은 최대 ${MAX_IMAGES}장까지예요.` : `Up to ${MAX_IMAGES} screenshots.`); return; }
+    const picked = Array.from(files).slice(0, remaining);
+    setUploading(true);
+    try {
+      const urls: string[] = [];
+      for (const file of picked) {
+        if (!file.type.startsWith("image/")) continue;
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error(isKo ? "이미지는 5MB 이하여야 해요." : "Images must be under 5MB.");
+          continue;
+        }
+        const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+        const path = `${user.id}/${Date.now()}-${Math.floor(Math.random() * 1e6)}.${ext}`;
+        const { error } = await supabase.storage.from("bug-screenshots").upload(path, file, { contentType: file.type, upsert: false });
+        if (error) { console.warn("[BugReport] 업로드 실패:", error.message); continue; }
+        const { data } = supabase.storage.from("bug-screenshots").getPublicUrl(path);
+        urls.push(data.publicUrl);
+      }
+      if (urls.length) setImages((prev) => [...prev, ...urls]);
+      else toast.error(isKo ? "업로드에 실패했어요." : "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const submit = async () => {
     if (!isAuthenticated || !user?.id) { onSignInClick?.(); return; }
@@ -508,6 +540,7 @@ export function BugReportPage({ onBack, onNavigate, onSignInClick }: BugReportPa
         description: description.trim(),
         steps: steps.trim() || null,
         page_url: pageUrl.trim() || null,
+        image_urls: images.length ? images : null,
       });
       if (error) throw error;
       setDone(true);
@@ -551,7 +584,7 @@ export function BugReportPage({ onBack, onNavigate, onSignInClick }: BugReportPa
               : "Once accepted after review, we'll send a coffee coupon to the contact you provided."}
           </p>
           <button
-            onClick={() => { setDone(false); setTitle(""); setDescription(""); setSteps(""); setPageUrl(""); }}
+            onClick={() => { setDone(false); setTitle(""); setDescription(""); setSteps(""); setPageUrl(""); setImages([]); }}
             className="mt-5 px-4 py-2 rounded-lg text-sm font-bold bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 transition-colors"
           >
             {isKo ? "다른 버그도 제보하기" : "Report another bug"}
@@ -599,10 +632,39 @@ export function BugReportPage({ onBack, onNavigate, onSignInClick }: BugReportPa
                 placeholder={isKo ? "이메일 또는 카카오 ID" : "Email or Kakao ID"} />
             </div>
           </div>
+          {/* 스크린샷 첨부 (최대 3장) */}
+          <div>
+            <label className="text-xs font-bold text-gray-400 block mb-1.5">
+              {isKo ? `스크린샷 첨부 (선택, 최대 ${MAX_IMAGES}장)` : `Screenshots (optional, up to ${MAX_IMAGES})`}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {images.map((url, i) => (
+                <div key={url} className="relative w-20 h-20 rounded-lg overflow-hidden border border-white/10">
+                  <img src={url} alt={`screenshot ${i + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setImages((prev) => prev.filter((u) => u !== url))}
+                    className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 flex items-center justify-center text-white hover:bg-red-500/80"
+                    aria-label="remove"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+              {images.length < MAX_IMAGES && (
+                <label className={`w-20 h-20 rounded-lg border border-dashed border-white/20 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-[#6366f1]/50 transition-colors ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
+                  {uploading ? <Loader2 className="w-5 h-5 animate-spin text-gray-400" /> : <ImagePlus className="w-5 h-5 text-gray-400" />}
+                  <span className="text-[10px] text-gray-500">{isKo ? "추가" : "Add"}</span>
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { void handleUpload(e.target.files); e.target.value = ""; }} />
+                </label>
+              )}
+            </div>
+          </div>
+
           <div className="flex justify-end pt-1">
             <button
               onClick={submit}
-              disabled={submitting || title.trim().length < 2 || description.trim().length < 5}
+              disabled={submitting || uploading || title.trim().length < 2 || description.trim().length < 5}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white disabled:opacity-40 transition-opacity"
             >
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
