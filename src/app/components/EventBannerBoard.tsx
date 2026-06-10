@@ -21,6 +21,7 @@ export interface BoardBanner {
   align?: "left" | "center";
   titleGradient?: boolean; // 제목을 브랜드 그라데이션으로
   gradient?: string;       // 카드 배경 그라데이션 (이미지 없을 때)
+  dark?: boolean;          // 밝은 배경(노란색 등)용 — 글씨/뱃지/버튼을 어둡게
 }
 
 const BRAND = "from-[#a78bfa] via-[#ec4899] to-[#f59e0b]";
@@ -98,9 +99,9 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
                 <div className={`absolute inset-0 bg-gradient-to-br ${b.gradient || "from-[#1a1030] via-[#0d0d14] to-[#0d0d14]"}`} />
               )}
 
-              {/* 좌상단 badge */}
+              {/* 좌상단 badge — dark(밝은 배경)일 땐 어두운 pill */}
               {b.badge && (
-                <div className={`absolute top-4 left-5 z-10 px-3 py-1 rounded-full text-[11px] font-bold bg-gradient-to-r ${BRAND} text-white shadow`}>
+                <div className={`absolute top-4 left-5 z-10 px-3 py-1 rounded-full text-[11px] font-bold shadow ${b.dark ? "bg-[#1a1a1a] text-[#FFD200]" : `bg-gradient-to-r ${BRAND} text-white`}`}>
                   {b.badge}
                 </div>
               )}
@@ -108,13 +109,13 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
               {/* 내용 */}
               <div className={`absolute inset-0 z-10 p-5 md:p-6 flex flex-col justify-center ${b.align === "center" ? "items-center text-center" : "items-start"}`}>
                 {b.eyebrow && (
-                  <span className="text-[11px] font-semibold text-[#c4b5fd] tracking-widest uppercase mb-1.5">{b.eyebrow}</span>
+                  <span className={`text-[11px] font-semibold tracking-widest uppercase mb-1.5 ${b.dark ? "text-[#5a4500]" : "text-[#c4b5fd]"}`}>{b.eyebrow}</span>
                 )}
-                <h3 className={`font-black leading-tight ${b.align === "center" ? "text-xl md:text-3xl" : "text-lg md:text-xl"} ${b.titleGradient ? `text-transparent bg-clip-text bg-gradient-to-r ${BRAND} italic` : "text-white"} ${b.badge ? "mt-6" : ""}`}>
+                <h3 className={`font-black leading-tight ${b.align === "center" ? "text-xl md:text-3xl" : "text-lg md:text-xl"} ${b.titleGradient ? `text-transparent bg-clip-text bg-gradient-to-r ${BRAND} italic` : b.dark ? "text-[#1a1a1a]" : "text-white"} ${b.badge ? "mt-6" : ""}`}>
                   {b.title}
                 </h3>
                 {b.subtitle && (
-                  <p className="text-xs md:text-sm text-gray-300 mt-1.5 line-clamp-1 md:line-clamp-2 max-w-md">{b.subtitle}</p>
+                  <p className={`text-xs md:text-sm mt-1.5 line-clamp-1 md:line-clamp-2 max-w-md ${b.dark ? "text-[#3a2e00] font-medium" : "text-gray-300"}`}>{b.subtitle}</p>
                 )}
 
                 {b.badges && b.badges.length > 0 && (
@@ -128,7 +129,7 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
                 )}
 
                 {b.ctaLabel && (
-                  <span className={`inline-flex items-center gap-1 mt-3 px-4 py-2 rounded-lg text-xs font-bold transition-colors ${b.align === "center" ? "border border-[#a78bfa]/60 text-[#c4b5fd] hover:bg-[#a78bfa]/15" : "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white hover:opacity-90"}`}>
+                  <span className={`inline-flex items-center gap-1 mt-3 px-4 py-2 rounded-lg text-xs font-bold transition-colors ${b.dark ? "bg-[#1a1a1a] text-white hover:bg-[#000]" : b.align === "center" ? "border border-[#a78bfa]/60 text-[#c4b5fd] hover:bg-[#a78bfa]/15" : "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white hover:opacity-90"}`}>
                     {b.ctaLabel}
                     <ChevronRight className="w-3.5 h-3.5" />
                   </span>

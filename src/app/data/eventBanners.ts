@@ -24,6 +24,17 @@ const BANNERS: (BoardBanner & { activeFrom?: string; activeTo?: string })[] = [
     align: "left",
   },
   {
+    id: "mega",
+    badge: "메가커피 EVENT",
+    title: "빅메가 업로더 가즈아! ☕",
+    subtitle: "메가커피와 함께! 영화 30편 업로드마다 메가커피 상품권 3만원권을 드려요.",
+    ctaLabel: "지금 업로드하기",
+    link: "/?tab=upload",
+    align: "left",
+    dark: true,
+    gradient: "from-[#FFD200] via-[#FFC400] to-[#FFB000]",
+  },
+  {
     id: "bug",
     badge: "버그 헌트",
     title: "버그를 잡아라! 🐛",
@@ -89,6 +100,7 @@ function rowToBanner(r: any): BoardBanner {
     align: r.align === "center" ? "center" : "left",
     titleGradient: !!r.title_gradient,
     gradient: r.gradient || undefined,
+    dark: !!r.dark,
   };
 }
 

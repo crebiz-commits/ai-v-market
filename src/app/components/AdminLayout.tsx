@@ -7,13 +7,14 @@
 // 진입 경로: 마이페이지 → "관리자 페이지" 버튼 (어드민만 표시)
 // 라우팅: App.tsx에서 activeTab === "admin" 시 이 컴포넌트 렌더링
 // ════════════════════════════════════════════════════════════════════════════
-import { useState, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import {
   ShieldCheck, Megaphone, Settings, Coins, Flag, EyeOff,
   ArrowLeft, Menu, X, ShieldAlert, Loader2, LayoutDashboard,
   Users, Film, DollarSign, Send, ClipboardList, MessageSquare,
-  Globe, Sparkles, Inbox, Trophy, Image as ImageIcon, Bug
+  Globe, Sparkles, Inbox, Trophy, Image as ImageIcon, Bug, Coffee
 } from "lucide-react";
+import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 
@@ -36,6 +37,7 @@ const AdminInquiries = lazy(() => import("./AdminInquiries").then(m => ({ defaul
 const AdminChallenges = lazy(() => import("./AdminChallenges").then(m => ({ default: m.AdminChallenges })));
 const AdminBanners = lazy(() => import("./AdminBanners").then(m => ({ default: m.AdminBanners })));
 const AdminBugReports = lazy(() => import("./AdminBugReports").then(m => ({ default: m.AdminBugReports })));
+const AdminMegaUploader = lazy(() => import("./AdminMegaUploader").then(m => ({ default: m.AdminMegaUploader })));
 
 type AdminPage =
   | "overview"      // 대시보드 (한눈에 보기)
@@ -55,6 +57,7 @@ type AdminPage =
   | "challenges"    // 챌린지(공모전) 관리
   | "banners"       // 이벤트 배너 관리
   | "bugs"          // 버그 제보 관리
+  | "mega"          // 메가커피 업로더 이벤트
   | "activity";     // 활동 로그
 
 interface MenuItem {
@@ -73,6 +76,7 @@ const MENU: MenuItem[] = [
   { key: "challenges",   label: "챌린지·공모전",    icon: Trophy,          group: "👥 운영" },
   { key: "banners",      label: "이벤트 배너",      icon: ImageIcon,       group: "👥 운영" },
   { key: "bugs",         label: "버그 제보",       icon: Bug,             group: "👥 운영" },
+  { key: "mega",         label: "메가 업로더",      icon: Coffee,          group: "👥 운영" },
   { key: "ads",          label: "자체 광고",       icon: Megaphone,       group: "📢 광고 관리" },
   { key: "external_ads", label: "외부 광고",       icon: Globe,           group: "📢 광고 관리" },
   { key: "sponsorships", label: "크리에이터 스폰서십", icon: Sparkles,        group: "📢 광고 관리" },
@@ -94,6 +98,7 @@ const PAGE_META: Record<AdminPage, { title: string; subtitle: string }> = {
   challenges: { title: "챌린지·공모전",   subtitle: "매월 공모전을 등록·관리합니다 — 커뮤니티 챌린지 탭에 바로 노출됩니다" },
   banners:    { title: "이벤트 배너",     subtitle: "시네마 상단 이벤트 배너를 등록·수정·정렬·노출 관리합니다" },
   bugs:       { title: "버그 제보",       subtitle: "\"버그를 잡아라\" 이벤트 제보를 검토하고 커피 쿠폰 지급을 관리합니다" },
+  mega:       { title: "메가 업로더 이벤트", subtitle: "영화 30편 업로드 달성자를 확인하고 메가커피 3만원권 지급을 관리합니다" },
   ads:          { title: "자체 광고",          subtitle: "CREAITE House Ads — 영상 pre-roll, 피드 카드 광고 등록·관리" },
   external_ads: { title: "외부 광고",          subtitle: "Google AdSense / 쿠팡 파트너스 등 외부 광고 통합 (준비 중)" },
   sponsorships: { title: "크리에이터 스폰서십", subtitle: "크리에이터가 영상에 등록한 협찬·스폰서 배지 검수 (준비 중)" },
@@ -114,6 +119,25 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
   const { user, profile } = useAuth();
   const [currentPage, setCurrentPage] = useState<AdminPage>("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);  // 모바일용
+  // 미처리 알림 배지 — 메가 업로더 달성(쿠폰 대기) / 신규 버그 제보
+  const [badges, setBadges] = useState<Partial<Record<AdminPage, number>>>({});
+
+  useEffect(() => {
+    if (!user || profile?.is_admin !== true) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [megaRes, bugRes] = await Promise.all([
+          supabase.rpc("admin_list_upload_milestones"),
+          supabase.from("bug_reports").select("id", { count: "exact", head: true }).eq("status", "new"),
+        ]);
+        if (cancelled) return;
+        const megaPending = ((megaRes.data as any[]) || []).filter((m) => m.status === "pending").length;
+        setBadges({ mega: megaPending, bugs: bugRes.count || 0 });
+      } catch { /* 배지는 부가기능 — 실패 무시 */ }
+    })();
+    return () => { cancelled = true; };
+  }, [user, profile?.is_admin, currentPage]);
 
   // 어드민 권한: DB profiles.is_admin 단일 source of truth
   // (AuthContext에서 fetchProfile 시 select 됨 — line 62)
@@ -164,6 +188,7 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
         {currentPage === "challenges" && <AdminChallenges />}
         {currentPage === "banners" && <AdminBanners />}
         {currentPage === "bugs" && <AdminBugReports />}
+        {currentPage === "mega" && <AdminMegaUploader />}
         {currentPage === "ads" && <AdminDashboard />}
         {currentPage === "external_ads" && <AdminExternalAds />}
         {currentPage === "sponsorships" && <AdminSponsorships />}
@@ -215,6 +240,7 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
               </p>
               {items.map(({ key, label, icon: Icon }) => {
                 const isActive = currentPage === key;
+                const badge = badges[key] || 0;
                 return (
                   <button
                     key={key}
@@ -227,6 +253,11 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
                   >
                     <Icon className="w-4 h-4 flex-shrink-0" />
                     {label}
+                    {badge > 0 && (
+                      <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                        {badge > 99 ? "99+" : badge}
+                      </span>
+                    )}
                   </button>
                 );
               })}

@@ -22,6 +22,7 @@ interface BannerRow {
   align: "left" | "center";
   title_gradient: boolean;
   gradient: string | null;
+  dark: boolean;
   is_active: boolean;
   active_from: string | null;
   active_to: string | null;
@@ -40,12 +41,13 @@ interface FormState {
   align: "left" | "center";
   title_gradient: boolean;
   gradient: string;
+  dark: boolean;
   is_active: boolean;
 }
 
 const EMPTY: FormState = {
   sort_order: 100, title: "", subtitle: "", eyebrow: "", badge: "", badges: "",
-  cta_label: "", link: "", image: "", align: "left", title_gradient: false, gradient: "", is_active: true,
+  cta_label: "", link: "", image: "", align: "left", title_gradient: false, gradient: "", dark: false, is_active: true,
 };
 
 export function AdminBanners() {
@@ -97,6 +99,7 @@ export function AdminBanners() {
       align: b.align === "center" ? "center" : "left",
       title_gradient: b.title_gradient,
       gradient: b.gradient || "",
+      dark: b.dark,
       is_active: b.is_active,
     });
     setShowForm(true);
@@ -120,6 +123,7 @@ export function AdminBanners() {
       align: form.align,
       title_gradient: form.title_gradient,
       gradient: form.gradient.trim() || null,
+      dark: form.dark,
       is_active: form.is_active,
     };
     if (editingId) {
@@ -228,6 +232,10 @@ export function AdminBanners() {
             <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
               <input type="checkbox" checked={form.title_gradient} onChange={(e) => setForm((f) => ({ ...f, title_gradient: e.target.checked }))} className="w-4 h-4 accent-[#8b5cf6]" />
               제목 그라데이션
+            </label>
+            <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
+              <input type="checkbox" checked={form.dark} onChange={(e) => setForm((f) => ({ ...f, dark: e.target.checked }))} className="w-4 h-4 accent-[#f59e0b]" />
+              어두운 글씨 (밝은 배경용)
             </label>
             <label className="flex items-center gap-2 text-sm text-foreground/80 cursor-pointer">
               <input type="checkbox" checked={form.is_active} onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))} className="w-4 h-4 accent-[#10b981]" />
