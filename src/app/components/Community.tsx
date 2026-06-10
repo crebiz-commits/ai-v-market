@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Trophy, MessageCircle, Heart, Bookmark, Plus, X, Send, Loader2, Handshake, UserPlus, HelpCircle, Briefcase, Users } from "lucide-react";
+import { Trophy, MessageCircle, Heart, Bookmark, Plus, X, Send, Loader2, Handshake, UserPlus, HelpCircle, Briefcase } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Footer } from "./Footer";
 import { Button } from "./ui/button";
@@ -458,11 +458,8 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     }
   };
 
-  // 협업 문의 열기 — 작성자=받은 문의 목록 / 문의자=작성자와의 비공개 스레드
-  const handleOpenInquiry = (c: CollabPost) => {
-    if (!isAuthenticated) { toast.error(t("community.writeRequiresLogin")); return; }
-    setInquiryPost(c);
-  };
+  // 협업 카드 클릭 → 상세 모달 (상세 → 비공개 문의). 상세는 누구나 열람.
+  const handleOpenInquiry = (c: CollabPost) => setInquiryPost(c);
 
   // 협업 글 마감/재오픈 (작성자 전용)
   const handleToggleCollabStatus = async (c: CollabPost) => {
@@ -847,7 +844,8 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                     return (
                     <div
                       key={c.id}
-                      className={`bg-card rounded-xl border border-border p-4 transition-colors hover:border-[#6366f1]/40 ${closed ? "opacity-60" : ""}`}
+                      onClick={() => handleOpenInquiry(c)}
+                      className={`bg-card rounded-xl border border-border p-4 transition-colors hover:border-[#6366f1]/50 cursor-pointer ${closed ? "opacity-60" : ""}`}
                     >
                       <div className="flex items-start gap-3">
                         {c.avatar ? (
@@ -879,8 +877,8 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                           {/* 제목 */}
                           <h3 className="font-bold text-foreground leading-snug">{c.title}</h3>
                           <p className="text-xs text-muted-foreground mt-0.5">{c.author}</p>
-                          {/* 설명 */}
-                          <p className="text-sm text-foreground/80 mt-2 whitespace-pre-line line-clamp-3">{c.description}</p>
+                          {/* 설명 (미리보기 — 자세한 내용은 카드 클릭 시 상세에서) */}
+                          <p className="text-sm text-foreground/80 mt-2 whitespace-pre-line line-clamp-2">{c.description}</p>
                           {/* 필요 역할 */}
                           {c.roles.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mt-3">
@@ -891,35 +889,19 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                               ))}
                             </div>
                           )}
-                          {/* 하단: 보상 + 문의 수 + CTA */}
+                          {/* 하단: 보상 + 문의 수 + 자세히 */}
                           <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-border/60">
                             <div className="flex items-center gap-3 text-xs text-muted-foreground min-w-0">
                               {c.reward && <span className="flex items-center gap-1 truncate">🎁 {c.reward}</span>}
-                              <span className="flex items-center gap-1 flex-shrink-0"><MessageCircle className="w-3.5 h-3.5" />{isKo ? `문의 ${c.applicants}` : `${c.applicants} inquiries`}</span>
+                              <span className="flex items-center gap-1 flex-shrink-0"><MessageCircle className="w-3.5 h-3.5" />{isKo ? `문의 ${c.applicants}` : `${c.applicants}`}</span>
                             </div>
-                            {isOwner ? (
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                <Button size="sm" variant="outline" onClick={() => handleOpenInquiry(c)} className="border-[#6366f1]/40">
-                                  {isKo ? "받은 문의" : "Inquiries"}
-                                </Button>
-                                <Button size="sm" variant="outline" onClick={() => handleToggleCollabStatus(c)} className="border-border">
-                                  {closed ? (isKo ? "다시 열기" : "Reopen") : (isKo ? "마감하기" : "Close")}
-                                </Button>
-                              </div>
-                            ) : (
-                              <Button
-                                size="sm"
-                                disabled={closed}
-                                onClick={() => handleOpenInquiry(c)}
-                                className="flex-shrink-0 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] disabled:opacity-50"
-                              >
-                                {closed
-                                  ? (isKo ? "마감" : "Closed")
-                                  : c.type === "help"
-                                  ? (isKo ? "도와주기" : "Help out")
-                                  : (isKo ? "문의하기" : "Inquire")}
-                              </Button>
-                            )}
+                            <span className="text-xs font-bold text-[#a5b4fc] flex-shrink-0">
+                              {isOwner
+                                ? (isKo ? "받은 문의 보기 ›" : "View inquiries ›")
+                                : c.type === "help"
+                                ? (isKo ? "자세히·도와주기 ›" : "Details ›")
+                                : (isKo ? "자세히·문의하기 ›" : "Details ›")}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -1180,14 +1162,32 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
         )}
       </AnimatePresence>
 
-      {/* 협업 비공개 문의 스레드 모달 */}
+      {/* 협업 상세 + 비공개 문의 모달 */}
       <AnimatePresence>
         {inquiryPost && (
           <CollabInquiryModal
-            post={{ id: inquiryPost.id, title: inquiryPost.title, ownerId: inquiryPost.ownerId, author: inquiryPost.author, avatar: inquiryPost.avatar }}
+            post={{
+              id: inquiryPost.id,
+              ownerId: inquiryPost.ownerId,
+              type: inquiryPost.type,
+              title: inquiryPost.title,
+              author: inquiryPost.author,
+              avatar: inquiryPost.avatar,
+              description: inquiryPost.description,
+              roles: inquiryPost.roles,
+              reward: inquiryPost.reward,
+              status: inquiryPost.status,
+              applicants: inquiryPost.applicants,
+              timestamp: inquiryPost.timestamp,
+            }}
+            typeLabel={isKo ? COLLAB_TYPE_META[inquiryPost.type].ko : COLLAB_TYPE_META[inquiryPost.type].en}
+            typeCls={COLLAB_TYPE_META[inquiryPost.type].cls}
             meId={user?.id || ""}
             isKo={isKo}
+            isAuthenticated={isAuthenticated}
             onClose={() => { setInquiryPost(null); void loadCollabs(); }}
+            onRequireLogin={() => toast.error(t("community.writeRequiresLogin"))}
+            onToggleStatus={inquiryPost.ownerId === user?.id ? () => { void handleToggleCollabStatus(inquiryPost); } : undefined}
           />
         )}
       </AnimatePresence>
