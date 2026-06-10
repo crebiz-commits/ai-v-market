@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Trophy, MessageCircle, Heart, Bookmark, Plus, X, Send, Loader2, Handshake, UserPlus, HelpCircle, Briefcase } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Trophy, MessageCircle, Heart, Bookmark, Plus, X, Send, Loader2, Handshake, UserPlus, HelpCircle, Briefcase, Megaphone, Terminal, Play, Film } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Footer } from "./Footer";
 import { Button } from "./ui/button";
@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";
 function rowToPost(r: any, localeTag: string): Post {
   return {
     id: r.id,
+    ownerId: r.user_id,
     author: r.author_name || "AI Creator",
     avatar: r.author_avatar || "",
     title: r.title,
@@ -27,6 +28,25 @@ function rowToPost(r: any, localeTag: string): Post {
     comments: r.comments_count || 0,
     timestamp: r.created_at ? new Date(r.created_at).toLocaleDateString(localeTag) : "",
     image: r.image_url || undefined,
+    isNotice: !!r.is_notice,
+    videoId: r.video_id || undefined,
+    promptText: r.prompt_text || undefined,
+  };
+}
+
+// challenges row → Challenge (en 컬럼이 비어 있으면 ko 로 폴백)
+const dateToDots = (d: string | null | undefined) => (d ? String(d).slice(0, 10).replace(/-/g, ".") : "");
+function challengeRowToChallenge(r: any, isKo: boolean, participants: number): Challenge {
+  return {
+    id: r.id,
+    title: (isKo ? r.title : r.title_en) || r.title,
+    tag: r.tag,
+    prize: (isKo ? r.prize : r.prize_en) || r.prize,
+    participants,
+    deadline: dateToDots(r.deadline),
+    image: r.image || "",
+    description: (isKo ? r.description : r.description_en) || r.description,
+    startsAt: dateToDots(r.starts_at),
   };
 }
 
@@ -168,10 +188,12 @@ const getDaysLeft = (deadline: string): number => {
   return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 };
 
-// 챌린지 진행 상태 — 'ended'(마감) / 'upcoming'(예고, 참가자 0) / 'ongoing'(진행중)
-const getChallengeStatus = (c: { deadline: string; participants: number }): "ended" | "upcoming" | "ongoing" => {
+// 챌린지 진행 상태 — 'ended'(마감) / 'upcoming'(예고) / 'ongoing'(진행중)
+// 시작일(startsAt)이 있으면 날짜 기준, 없으면(레거시 하드코딩) 참가자 0 = 예고
+const getChallengeStatus = (c: { deadline: string; participants: number; startsAt?: string }): "ended" | "upcoming" | "ongoing" => {
   if (getDaysLeft(c.deadline) < 0) return "ended";
-  if (c.participants === 0) return "upcoming";
+  const notStarted = c.startsAt ? getDaysLeft(c.startsAt) > 0 : c.participants === 0;
+  if (notStarted) return "upcoming";
   return "ongoing";
 };
 
@@ -327,9 +349,11 @@ interface CommunityProps {
   onInitialTabConsumed?: () => void;         // 초기 탭 적용 후 신호 소거
   onChallengeParticipate?: (challenge: Challenge) => void;  // 챌린지 참가 → 업로드 진입
   onPlayVideo?: (videoId: string) => void;   // 참여작 클릭 → 영상 재생
+  initialCollabPostId?: string | null;       // 협업 문의 알림 딥링크 → 해당 글 상세 자동 열기
+  onInitialCollabPostConsumed?: () => void;
 }
 
-export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChallengeParticipate, onPlayVideo }: CommunityProps = {}) {
+export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChallengeParticipate, onPlayVideo, initialCollabPostId, onInitialCollabPostConsumed }: CommunityProps = {}) {
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
   const { user, isAuthenticated, profile } = useAuth();
@@ -345,7 +369,12 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   }, [initialTab, onInitialTabConsumed]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
-  const challenges = isKo ? CHALLENGES_KO : CHALLENGES_EN;
+  // 게시글 카테고리 필터 + 정렬 (공지는 항상 상단)
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [sortKey, setSortKey] = useState<"latest" | "popular" | "comments">("latest");
+  // 챌린지 — DB(challenges) 로드, 테이블 미적용 환경에선 기존 하드코딩 폴백
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [loadingChallenges, setLoadingChallenges] = useState(true);
   const [collabs, setCollabs] = useState<CollabPost[]>([]);
   const [loadingCollab, setLoadingCollab] = useState(true);
   const [collabFilter, setCollabFilter] = useState<"all" | CollabType>("all");
@@ -373,14 +402,53 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     setSelectedChallenge(null);
   };
 
-  // Write modal state
+  // Write modal state (작성 + 수정 겸용 — editingPostId 있으면 수정 모드)
   const [writeTitle, setWriteTitle] = useState("");
   const [writeContent, setWriteContent] = useState("");
   const [writeCategory, setWriteCategory] = useState("일반");
+  const [writePrompt, setWritePrompt] = useState("");        // 프롬프트 카테고리 전용
+  const [writeVideoId, setWriteVideoId] = useState("");      // 내 영상 임베드
+  const [writeNotice, setWriteNotice] = useState(false);     // 공지 (어드민 전용)
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [myVideos, setMyVideos] = useState<{ id: string; title: string; thumbnail: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
+  const resetWriteForm = () => {
+    setWriteTitle("");
+    setWriteContent("");
+    setWriteCategory("일반");
+    setWritePrompt("");
+    setWriteVideoId("");
+    setWriteNotice(false);
+    setEditingPostId(null);
+  };
+
+  // 글쓰기 모달 열릴 때 내 영상 목록 로드 (임베드 선택용)
+  useEffect(() => {
+    if (!showWriteModal || !user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("videos")
+        .select("id,title,thumbnail")
+        .eq("creator_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (cancelled) return;
+      if (error) console.warn("[Community] 내 영상 조회 실패:", error.message);
+      setMyVideos((data || []).map((v: any) => ({ id: v.id, title: v.title || "Untitled", thumbnail: v.thumbnail || "" })));
+    })();
+    return () => { cancelled = true; };
+  }, [showWriteModal, user?.id]);
+
+  // 글쓰기 모달 닫기 — 수정 모드였다면 폼 초기화 (새 글쓰기에 잔존 방지), 새 글 초안은 유지
+  const closeWriteModal = () => {
+    setShowWriteModal(false);
+    if (editingPostId) resetWriteForm();
+  };
+
   // 뒤로가기로 모든 모달/패널 닫기 (LIFO)
-  useBackButton(showWriteModal, () => setShowWriteModal(false));
+  useBackButton(showWriteModal, closeWriteModal);
   useBackButton(!!commentPostId, () => setCommentPostId(null));
   useBackButton(!!selectedPost, () => setSelectedPost(null));
   useBackButton(!!selectedChallenge, () => setSelectedChallenge(null));
@@ -398,12 +466,83 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
         .order("created_at", { ascending: false })
         .limit(100);
       if (cancelled) return;
-      if (error) console.warn("[Community] 게시글 조회 실패:", error.message);
-      else setPosts((data || []).map((r) => rowToPost(r, localeTag)));
+      if (error) {
+        console.warn("[Community] 게시글 조회 실패:", error.message);
+      } else {
+        const mapped = (data || []).map((r) => rowToPost(r, localeTag));
+        // 임베드 영상 메타(제목·썸네일) 일괄 로드
+        const videoIds = [...new Set(mapped.map((p) => p.videoId).filter(Boolean))] as string[];
+        if (videoIds.length > 0) {
+          const { data: vids } = await supabase.from("videos").select("id,title,thumbnail").in("id", videoIds);
+          if (cancelled) return;
+          const vmap = new Map((vids || []).map((v: any) => [v.id, v]));
+          mapped.forEach((p) => {
+            const v = p.videoId ? vmap.get(p.videoId) : null;
+            if (v) { p.videoTitle = v.title || "Untitled"; p.videoThumbnail = v.thumbnail || ""; }
+          });
+        }
+        setPosts(mapped);
+      }
       setLoadingPosts(false);
     })();
     return () => { cancelled = true; };
   }, [localeTag]);
+
+  // 챌린지 DB 로드 + 참여작 수 (영상 태그 challenge:<tag> 카운트)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoadingChallenges(true);
+      const { data, error } = await supabase
+        .from("challenges")
+        .select("*")
+        .order("starts_at", { ascending: false })
+        .limit(24);
+      if (cancelled) return;
+      if (error) {
+        // 테이블 미적용(마이그레이션 전) 환경 — 기존 하드코딩 폴백
+        console.warn("[Community] 챌린지 조회 실패:", error.message);
+        setChallenges(isKo ? CHALLENGES_KO : CHALLENGES_EN);
+        setLoadingChallenges(false);
+        return;
+      }
+      const rows = data || [];
+      const counts = await Promise.all(
+        rows.map(async (r: any) => {
+          const { count } = await supabase
+            .from("videos")
+            .select("id", { count: "exact", head: true })
+            .contains("tags", [`challenge:${r.tag}`])
+            .or("visibility.eq.public,visibility.is.null");
+          return count || 0;
+        })
+      );
+      if (cancelled) return;
+      setChallenges(rows.map((r: any, i: number) => challengeRowToChallenge(r, isKo, counts[i])));
+      setLoadingChallenges(false);
+    })();
+    return () => { cancelled = true; };
+  }, [isKo]);
+
+  // 좋아요·북마크 영속화 — 로그인 시 내 상태 로드
+  useEffect(() => {
+    if (!user?.id) {
+      setLikedPosts(new Set());
+      setBookmarkedPosts(new Set());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const [{ data: likes }, { data: bookmarks }] = await Promise.all([
+        supabase.from("post_likes").select("post_id").eq("user_id", user.id),
+        supabase.from("post_bookmarks").select("post_id").eq("user_id", user.id),
+      ]);
+      if (cancelled) return;
+      setLikedPosts(new Set((likes || []).map((r: any) => r.post_id)));
+      setBookmarkedPosts(new Set((bookmarks || []).map((r: any) => r.post_id)));
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   // 협업 글 로드
   const loadCollabs = useCallback(async () => {
@@ -418,6 +557,14 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     setLoadingCollab(false);
   }, [isKo]);
   useEffect(() => { void loadCollabs(); }, [loadCollabs]);
+
+  // 협업 문의 알림 딥링크 — 협업 글 로드 완료 후 해당 글 상세 모달 자동 열기
+  useEffect(() => {
+    if (!initialCollabPostId || loadingCollab) return;
+    const found = collabs.find((c) => c.id === initialCollabPostId);
+    if (found) setInquiryPost(found);
+    onInitialCollabPostConsumed?.();   // 못 찾아도(삭제된 글 등) 신호 소거해 재시도 루프 방지
+  }, [initialCollabPostId, loadingCollab, collabs, onInitialCollabPostConsumed]);
 
   // 협업 글 등록
   const handleCreateCollab = async () => {
@@ -484,20 +631,66 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   };
 
 
-  const toggleLike = (postId: string) => {
+  // 좋아요 — post_likes 영속화 (카운트는 DB 트리거가 동기화, UI는 낙관적 갱신)
+  const toggleLike = async (postId: string) => {
+    if (!isAuthenticated || !user?.id) {
+      toast.error(t("auth.loginRequired"));
+      return;
+    }
+    const wasLiked = likedPosts.has(postId);
     setLikedPosts(prev => {
-      const newSet = new Set(prev);
-      newSet.has(postId) ? newSet.delete(postId) : newSet.add(postId);
-      return newSet;
+      const next = new Set(prev);
+      wasLiked ? next.delete(postId) : next.add(postId);
+      return next;
     });
+    setPosts(prev => prev.map(p => (p.id === postId ? { ...p, likes: Math.max(0, p.likes + (wasLiked ? -1 : 1)) } : p)));
+    const { error } = wasLiked
+      ? await supabase.from("post_likes").delete().eq("post_id", postId).eq("user_id", user.id)
+      : await supabase.from("post_likes").upsert({ post_id: postId, user_id: user.id }, { onConflict: "post_id,user_id", ignoreDuplicates: true });
+    if (error) {
+      // 롤백
+      console.warn("[Community] 좋아요 실패:", error.message);
+      setLikedPosts(prev => {
+        const next = new Set(prev);
+        wasLiked ? next.add(postId) : next.delete(postId);
+        return next;
+      });
+      setPosts(prev => prev.map(p => (p.id === postId ? { ...p, likes: Math.max(0, p.likes + (wasLiked ? 1 : -1)) } : p)));
+      toast.error(t("productDetail.toast.likeFailed"));
+    }
   };
 
-  const toggleBookmark = (postId: string) => {
+  // 북마크 — post_bookmarks 영속화
+  const toggleBookmark = async (postId: string) => {
+    if (!isAuthenticated || !user?.id) {
+      toast.error(t("auth.loginRequired"));
+      return;
+    }
+    const wasBookmarked = bookmarkedPosts.has(postId);
     setBookmarkedPosts(prev => {
-      const newSet = new Set(prev);
-      newSet.has(postId) ? newSet.delete(postId) : newSet.add(postId);
-      return newSet;
+      const next = new Set(prev);
+      wasBookmarked ? next.delete(postId) : next.add(postId);
+      return next;
     });
+    const { error } = wasBookmarked
+      ? await supabase.from("post_bookmarks").delete().eq("post_id", postId).eq("user_id", user.id)
+      : await supabase.from("post_bookmarks").upsert({ post_id: postId, user_id: user.id }, { onConflict: "post_id,user_id", ignoreDuplicates: true });
+    if (error) {
+      console.warn("[Community] 북마크 실패:", error.message);
+      setBookmarkedPosts(prev => {
+        const next = new Set(prev);
+        wasBookmarked ? next.add(postId) : next.delete(postId);
+        return next;
+      });
+      toast.error(isKo ? "북마크에 실패했어요." : "Bookmark failed.");
+    }
+  };
+
+  // 임베드 영상 메타를 myVideos 목록에서 보강
+  const enrichVideoMeta = (post: Post): Post => {
+    if (!post.videoId) return post;
+    const v = myVideos.find((mv) => mv.id === post.videoId);
+    return v ? { ...post, videoTitle: v.title, videoThumbnail: v.thumbnail } : post;
   };
 
   const handleWritePost = async () => {
@@ -507,32 +700,95 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     }
     setSubmitting(true);
     try {
-      // H10(2026-05-31): 실제 community_posts 에 저장 (RLS: auth.uid()=user_id)
-      const { data, error } = await supabase
-        .from("community_posts")
-        .insert({
-          user_id: user!.id,
-          author_name: profile?.display_name || user?.name || t("community.anonymous"),
-          author_avatar: profile?.avatar_url || null,
-          title: writeTitle.trim(),
-          content: writeContent.trim(),
-          category: writeCategory,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-      setPosts(prev => [rowToPost(data, localeTag), ...prev]);
-      setWriteTitle("");
-      setWriteContent("");
-      setWriteCategory("일반");
+      const payload: any = {
+        title: writeTitle.trim(),
+        content: writeContent.trim(),
+        category: writeCategory,
+        video_id: writeVideoId || null,
+        prompt_text: writeCategory === "프롬프트" && writePrompt.trim() ? writePrompt.trim() : null,
+        is_notice: !!profile?.is_admin && writeNotice,
+      };
+      if (editingPostId) {
+        // 본인 글 수정 (RLS: auth.uid()=user_id)
+        const { data, error } = await supabase
+          .from("community_posts")
+          .update({ ...payload, updated_at: new Date().toISOString() })
+          .eq("id", editingPostId)
+          .select()
+          .single();
+        if (error) throw error;
+        const updated = enrichVideoMeta(rowToPost(data, localeTag));
+        setPosts(prev => prev.map(p => (p.id === editingPostId ? updated : p)));
+        setSelectedPost(prev => (prev && prev.id === editingPostId ? updated : prev));
+        toast.success(isKo ? "글을 수정했어요." : "Post updated.");
+      } else {
+        // H10(2026-05-31): 실제 community_posts 에 저장 (RLS: auth.uid()=user_id)
+        const { data, error } = await supabase
+          .from("community_posts")
+          .insert({
+            user_id: user!.id,
+            author_name: profile?.display_name || user?.name || t("community.anonymous"),
+            author_avatar: profile?.avatar_url || null,
+            ...payload,
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        setPosts(prev => [enrichVideoMeta(rowToPost(data, localeTag)), ...prev]);
+        toast.success(t("community.submitSuccess"));
+      }
+      resetWriteForm();
       setShowWriteModal(false);
-      toast.success(t("community.submitSuccess"));
-    } catch {
+    } catch (e: any) {
+      console.warn("[Community] 글 저장 실패:", e?.message);
       toast.error(t("community.submitFailed"));
     } finally {
       setSubmitting(false);
     }
   };
+
+  // 본인 글 수정 — 상세에서 진입, 글쓰기 모달 재사용
+  const openEditModal = (post: Post) => {
+    setEditingPostId(post.id);
+    setWriteTitle(post.title);
+    setWriteContent(post.content);
+    setWriteCategory(post.category);
+    setWritePrompt(post.promptText || "");
+    setWriteVideoId(post.videoId || "");
+    setWriteNotice(!!post.isNotice);
+    setShowWriteModal(true);
+  };
+
+  // 본인 글 삭제 (RLS: auth.uid()=user_id)
+  const handleDeletePost = async (post: Post) => {
+    if (!confirm(isKo ? "이 글을 삭제할까요? 되돌릴 수 없어요." : "Delete this post? This cannot be undone.")) return;
+    const { error } = await supabase.from("community_posts").delete().eq("id", post.id);
+    if (error) {
+      console.warn("[Community] 글 삭제 실패:", error.message);
+      toast.error(isKo ? "삭제에 실패했어요." : "Failed to delete.");
+      return;
+    }
+    setPosts(prev => prev.filter(p => p.id !== post.id));
+    setSelectedPost(null);
+    toast.success(isKo ? "글을 삭제했어요." : "Post deleted.");
+  };
+
+  // 댓글 등록 → 목록 카운트 즉시 반영 (DB는 트리거가 동기화)
+  const bumpCommentCount = (postId: string | null) => {
+    if (!postId) return;
+    setPosts(prev => prev.map(p => (p.id === postId ? { ...p, comments: p.comments + 1 } : p)));
+  };
+
+  // 카테고리 필터 + 정렬 (공지는 항상 최상단, 기본 정렬은 최신순 fetch 순서 유지)
+  const visiblePosts = useMemo(() => {
+    const filtered = categoryFilter === "all" ? posts : posts.filter(p => p.category === categoryFilter);
+    return [...filtered].sort((a, b) => {
+      if (!!a.isNotice !== !!b.isNotice) return a.isNotice ? -1 : 1;
+      if (sortKey === "popular") return b.likes - a.likes;
+      if (sortKey === "comments") return b.comments - a.comments;
+      return 0;
+    });
+  }, [posts, categoryFilter, sortKey]);
 
   const commentPost = commentPostId ? posts.find(p => p.id === commentPostId) : null;
 
@@ -590,6 +846,50 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
 
           <TabsContent value="posts" className="mt-0">
             <div className="space-y-4 pb-6 md:pb-8">
+              {/* 카테고리 필터 + 정렬 */}
+              {!loadingPosts && posts.length > 0 && (
+                <div className="space-y-2.5">
+                  <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
+                    {["all", ...CATEGORIES].map((cat) => {
+                      const active = categoryFilter === cat;
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => setCategoryFilter(cat)}
+                          className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                            active
+                              ? "bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white border-transparent"
+                              : "bg-card text-muted-foreground border-border hover:border-[#6366f1]/50"
+                          }`}
+                        >
+                          {cat === "all"
+                            ? (isKo ? "전체" : "All")
+                            : cat === "프롬프트"
+                            ? `⚡ ${COMMUNITY_CATEGORY_KEY[cat] ? t(COMMUNITY_CATEGORY_KEY[cat]) : cat}`
+                            : COMMUNITY_CATEGORY_KEY[cat] ? t(COMMUNITY_CATEGORY_KEY[cat]) : cat}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {([
+                      { id: "latest" as const, label: isKo ? "최신순" : "Latest" },
+                      { id: "popular" as const, label: isKo ? "인기순" : "Popular" },
+                      { id: "comments" as const, label: isKo ? "댓글순" : "Comments" },
+                    ]).map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => setSortKey(s.id)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                          sortKey === s.id ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {loadingPosts && (
                 <div className="flex justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-[#6366f1]" /></div>
               )}
@@ -599,15 +899,23 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                   <p>{t("community.emptyPosts", "아직 게시글이 없습니다. 첫 글을 작성해보세요!")}</p>
                 </div>
               )}
+              {!loadingPosts && posts.length > 0 && visiblePosts.length === 0 && (
+                <div className="text-center py-16 text-muted-foreground">
+                  <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p>{isKo ? "이 카테고리의 글이 아직 없어요." : "No posts in this category yet."}</p>
+                </div>
+              )}
               <AnimatePresence initial={false}>
-                {posts.map((post) => (
+                {visiblePosts.map((post) => (
                   <motion.div
                     key={post.id}
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, height: 0 }}
                     onClick={() => setSelectedPost(post)}
-                    className="bg-card rounded-lg border border-border overflow-hidden cursor-pointer hover:border-[#6366f1]/50 transition-colors"
+                    className={`bg-card rounded-lg border overflow-hidden cursor-pointer transition-colors ${
+                      post.isNotice ? "border-[#f59e0b]/40 hover:border-[#f59e0b]/70" : "border-border hover:border-[#6366f1]/50"
+                    }`}
                   >
                     <div className="p-4">
                       <div className="flex items-center gap-3 mb-3">
@@ -622,6 +930,12 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                           <p className="font-medium">{post.author}</p>
                           <p className="text-xs text-muted-foreground">{post.timestamp}</p>
                         </div>
+                        {post.isNotice && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-[#f59e0b]/20 text-[#fbbf24] border border-[#f59e0b]/30">
+                            <Megaphone className="w-3 h-3" />
+                            {isKo ? "공지" : "Notice"}
+                          </span>
+                        )}
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${CATEGORY_COLOR[post.category] || "bg-[#6366f1]/20 text-[#6366f1]"}`}>
                           {COMMUNITY_CATEGORY_KEY[post.category] ? t(COMMUNITY_CATEGORY_KEY[post.category]) : post.category}
                         </span>
@@ -631,6 +945,38 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                       <p className="text-sm text-muted-foreground mb-3 line-clamp-3 whitespace-pre-line">
                         {post.content}
                       </p>
+
+                      {/* 프롬프트 미리보기 (상세에서 복사 가능) */}
+                      {post.promptText && (
+                        <div className="mb-3 px-3 py-2 rounded-lg bg-[#10b981]/10 border border-[#10b981]/20">
+                          <p className="flex items-center gap-1.5 text-[11px] font-bold text-[#34d399] mb-1">
+                            <Terminal className="w-3 h-3" />
+                            {isKo ? "프롬프트" : "Prompt"}
+                          </p>
+                          <p className="text-xs font-mono text-[#a7f3d0]/90 line-clamp-2 break-words">{post.promptText}</p>
+                        </div>
+                      )}
+
+                      {/* 임베드 영상 썸네일 */}
+                      {post.videoId && (
+                        <div className="relative rounded-lg overflow-hidden mb-3 aspect-video bg-black/40">
+                          {post.videoThumbnail ? (
+                            <img src={post.videoThumbnail} alt={post.videoTitle || post.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center"><Film className="w-8 h-8 text-muted-foreground/40" /></div>
+                          )}
+                          <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
+                            <span className="w-11 h-11 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center">
+                              <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+                            </span>
+                          </div>
+                          {post.videoTitle && (
+                            <p className="absolute bottom-0 inset-x-0 px-3 py-1.5 text-xs font-medium text-white bg-gradient-to-t from-black/80 to-transparent truncate">
+                              🎬 {post.videoTitle}
+                            </p>
+                          )}
+                        </div>
+                      )}
 
                       {post.image && (
                         <img
@@ -647,7 +993,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                           >
                             <Heart className={`w-5 h-5 ${likedPosts.has(post.id) ? 'fill-[#ef4444] text-[#ef4444]' : ''}`} />
-                            <span>{post.likes + (likedPosts.has(post.id) ? 1 : 0)}</span>
+                            <span>{post.likes}</span>
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); setCommentPostId(post.id); }}
@@ -709,7 +1055,21 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
               </div>
 
               {/* 챌린지 목록 */}
-              {challenges.map((challenge) => {
+              {loadingChallenges && (
+                <div className="flex justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-[#6366f1]" /></div>
+              )}
+              {!loadingChallenges && challenges.length === 0 && (
+                <div className="bg-card border border-dashed border-border rounded-2xl p-10 text-center">
+                  <Trophy className="w-9 h-9 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-sm font-semibold text-foreground/80">
+                    {isKo ? "진행 중인 챌린지가 없어요" : "No challenges right now"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {isKo ? "새로운 챌린지가 곧 열릴 예정이에요!" : "A new challenge is coming soon!"}
+                  </p>
+                </div>
+              )}
+              {!loadingChallenges && challenges.map((challenge) => {
                 const status = getChallengeStatus(challenge);
                 const daysLeft = getDaysLeft(challenge.deadline);
                 const statusMeta = {
@@ -941,6 +1301,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                 postId={commentPostId}
                 title={commentPost?.title}
                 onClose={() => setCommentPostId(null)}
+                onCommentPosted={() => bumpCommentCount(commentPostId)}
                 mode="sheet"
               />
             </motion.div>
@@ -950,16 +1311,24 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
 
       {/* 게시글 상세 페이지 */}
       <AnimatePresence>
-        {selectedPost && (
-          <CommunityPostDetail
-            post={selectedPost}
-            isLiked={likedPosts.has(selectedPost.id)}
-            isBookmarked={bookmarkedPosts.has(selectedPost.id)}
-            onLike={() => toggleLike(selectedPost.id)}
-            onBookmark={() => toggleBookmark(selectedPost.id)}
-            onClose={() => setSelectedPost(null)}
-          />
-        )}
+        {selectedPost && (() => {
+          // 목록 state 의 최신 글(좋아요·수정 반영)로 렌더 — 스냅샷 고정 방지
+          const livePost = posts.find(p => p.id === selectedPost.id) ?? selectedPost;
+          return (
+            <CommunityPostDetail
+              post={livePost}
+              isLiked={likedPosts.has(livePost.id)}
+              isBookmarked={bookmarkedPosts.has(livePost.id)}
+              onLike={() => toggleLike(livePost.id)}
+              onBookmark={() => toggleBookmark(livePost.id)}
+              onClose={() => setSelectedPost(null)}
+              onEdit={() => openEditModal(livePost)}
+              onDelete={() => { void handleDeletePost(livePost); }}
+              onPlayVideo={onPlayVideo}
+              onCommentCountChange={() => bumpCommentCount(livePost.id)}
+            />
+          );
+        })()}
       </AnimatePresence>
 
       {/* 챌린지 상세 페이지 */}
@@ -990,7 +1359,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowWriteModal(false)}
+              onClick={closeWriteModal}
               className="fixed inset-0 bg-black/70 z-50 backdrop-blur-sm"
             />
             <motion.div
@@ -998,12 +1367,14 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-[#1a1a1c] rounded-2xl border border-white/10 p-5 max-w-lg mx-auto shadow-2xl"
+              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-[#1a1a1c] rounded-2xl border border-white/10 p-5 max-w-lg mx-auto shadow-2xl max-h-[88vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-white">{t("community.writeModalTitle")}</h3>
-                <button onClick={() => setShowWriteModal(false)} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-gray-400">
+                <h3 className="text-lg font-bold text-white">
+                  {editingPostId ? (isKo ? "글 수정" : "Edit post") : t("community.writeModalTitle")}
+                </h3>
+                <button onClick={closeWriteModal} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-gray-400">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -1040,13 +1411,65 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                 onChange={e => setWriteContent(e.target.value)}
                 maxLength={2000}
                 rows={5}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#6366f1] transition-colors resize-none mb-4"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-[#6366f1] transition-colors resize-none mb-3"
               />
+
+              {/* 프롬프트 카테고리 전용 — 복사 가능한 프롬프트 입력 */}
+              {writeCategory === "프롬프트" && (
+                <div className="mb-3">
+                  <p className="flex items-center gap-1.5 text-xs font-semibold text-[#34d399] mb-1.5">
+                    <Terminal className="w-3.5 h-3.5" />
+                    {isKo ? "공유할 프롬프트 (복사 버튼이 붙어요)" : "Prompt to share (with a copy button)"}
+                  </p>
+                  <textarea
+                    placeholder={isKo ? "예: Neon-lit cyberpunk city at night, cinematic wide shot..." : "e.g. Neon-lit cyberpunk city at night, cinematic wide shot..."}
+                    value={writePrompt}
+                    onChange={e => setWritePrompt(e.target.value)}
+                    maxLength={3000}
+                    rows={3}
+                    className="w-full bg-[#10b981]/5 border border-[#10b981]/30 rounded-xl px-4 py-3 text-[#a7f3d0] placeholder-gray-500 text-sm font-mono focus:outline-none focus:border-[#10b981] transition-colors resize-none"
+                  />
+                </div>
+              )}
+
+              {/* 내 영상 임베드 (선택) */}
+              {myVideos.length > 0 && (
+                <div className="mb-3">
+                  <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 mb-1.5">
+                    <Film className="w-3.5 h-3.5" />
+                    {isKo ? "내 영상 첨부 (선택)" : "Attach my video (optional)"}
+                  </p>
+                  <select
+                    value={writeVideoId}
+                    onChange={e => setWriteVideoId(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors appearance-none"
+                  >
+                    <option value="" className="bg-[#1a1a1c]">{isKo ? "첨부 안 함" : "None"}</option>
+                    {myVideos.map(v => (
+                      <option key={v.id} value={v.id} className="bg-[#1a1a1c]">🎬 {v.title}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* 공지 등록 (어드민 전용) */}
+              {profile?.is_admin && (
+                <label className="flex items-center gap-2 mb-4 text-sm text-gray-300 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={writeNotice}
+                    onChange={e => setWriteNotice(e.target.checked)}
+                    className="w-4 h-4 accent-[#f59e0b]"
+                  />
+                  <Megaphone className="w-4 h-4 text-[#fbbf24]" />
+                  {isKo ? "공지로 등록 (목록 상단 고정)" : "Post as notice (pinned to top)"}
+                </label>
+              )}
 
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-600">{writeContent.length}/2000</span>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setShowWriteModal(false)} className="border-white/10">
+                  <Button variant="outline" size="sm" onClick={closeWriteModal} className="border-white/10">
                     {t("community.cancel")}
                   </Button>
                   <Button
@@ -1056,7 +1479,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                     className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] gap-2"
                   >
                     {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    {t("community.submit")}
+                    {editingPostId ? (isKo ? "수정 완료" : "Save") : t("community.submit")}
                   </Button>
                 </div>
               </div>

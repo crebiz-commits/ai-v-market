@@ -14,7 +14,8 @@ export interface Challenge {
   deadline: string;
   image: string;
   description?: string;
-  tag?: string;   // 출품작 식별 슬러그 (영상 태그 'challenge:<tag>' 로 연결)
+  tag?: string;       // 출품작 식별 슬러그 (영상 태그 'challenge:<tag>' 로 연결)
+  startsAt?: string;  // 시작일 "YYYY.MM.DD" — 미래면 '오픈 예정' (DB challenges.starts_at)
 }
 
 interface ChallengeEntry {
@@ -125,7 +126,9 @@ export function CommunityChallengeDetail({ challenge, onClose, onParticipate, on
     }
   };
 
-  const status = daysLeft < 0 ? "ended" : challenge.participants === 0 ? "upcoming" : "ongoing";
+  // 시작일이 있으면 날짜 기준, 없으면(레거시) 참가자 0 = 오픈 예정
+  const notStarted = challenge.startsAt ? getDaysLeft(challenge.startsAt) > 0 : challenge.participants === 0;
+  const status = daysLeft < 0 ? "ended" : notStarted ? "upcoming" : "ongoing";
 
   const handleParticipate = () => {
     if (status === "upcoming") {

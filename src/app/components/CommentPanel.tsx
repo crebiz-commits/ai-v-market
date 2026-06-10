@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { X, Send, Heart, ChevronDown, ChevronUp, Loader2, MessageCircle, Trash2, Pin, MoreVertical, Ban, Flag, UserX } from "lucide-react";
+import { X, Send, Heart, ChevronDown, ChevronUp, Loader2, MessageCircle, Trash2, Pin, MoreVertical, Ban, Flag, UserX, Pencil } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -445,6 +445,63 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
     const showMenu = !isMine && isAuthenticated; // 본인 댓글 아니고 로그인 시 메뉴 노출
     const menuOpen = openMenu === comment.id;
 
+    // 본인 댓글 수정 — 상태를 CommentItem 로컬로 둬서 타이핑 중 패널 리렌더 방지
+    const [editing, setEditing] = useState(false);
+    const [draft, setDraft] = useState(comment.content);
+    const [savingEdit, setSavingEdit] = useState(false);
+
+    const saveEdit = async () => {
+      const newContent = draft.trim();
+      if (!newContent || newContent === comment.content) {
+        setEditing(false);
+        setDraft(comment.content);
+        return;
+      }
+      setSavingEdit(true);
+      const { data, error } = await supabase
+        .from("comments")
+        .update({ content: newContent, updated_at: new Date().toISOString() })
+        .eq("id", comment.id)
+        .select("id, is_hidden")
+        .single();
+      setSavingEdit(false);
+      if (error || !data) {
+        toast.error(t("commentPanel.postFailed"));
+        return;
+      }
+      // 자동 필터에 걸려 숨김된 경우 — 목록에서 제거 + 안내
+      if ((data as any).is_hidden) {
+        toast.error(t("comment.filtered"));
+        if (parentId) {
+          setComments((prev) =>
+            prev.map((c) =>
+              c.id === parentId
+                ? { ...c, replies: (c.replies || []).filter((r) => r.id !== comment.id) }
+                : c
+            )
+          );
+        } else {
+          setComments((prev) => prev.filter((c) => c.id !== comment.id));
+        }
+        return;
+      }
+      setComments((prev) =>
+        prev.map((c) => {
+          if (!parentId && c.id === comment.id) return { ...c, content: newContent };
+          if (parentId && c.id === parentId) {
+            return {
+              ...c,
+              replies: (c.replies || []).map((r) =>
+                r.id === comment.id ? { ...r, content: newContent } : r
+              ),
+            };
+          }
+          return c;
+        })
+      );
+      setEditing(false);
+    };
+
     return (
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -495,7 +552,36 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
             )}
             <span className="text-xs text-gray-500">{timeAgo(comment.created_at)}</span>
           </div>
-          <p className="text-sm text-gray-300 mt-0.5 leading-relaxed break-words">{comment.content}</p>
+          {editing ? (
+            <div className="mt-1.5">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                maxLength={500}
+                rows={2}
+                autoFocus
+                className="w-full bg-white/5 border border-[#6366f1]/50 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-[#6366f1] transition-colors"
+              />
+              <div className="flex items-center gap-2 mt-1.5">
+                <button
+                  onClick={saveEdit}
+                  disabled={savingEdit || !draft.trim()}
+                  className="px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white disabled:opacity-40 flex items-center gap-1"
+                >
+                  {savingEdit && <Loader2 className="w-3 h-3 animate-spin" />}
+                  {t("common.save")}
+                </button>
+                <button
+                  onClick={() => { setEditing(false); setDraft(comment.content); }}
+                  className="px-3 py-1 rounded-full text-xs font-semibold bg-white/5 text-gray-400 hover:bg-white/10 transition-colors"
+                >
+                  {t("common.cancel")}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-300 mt-0.5 leading-relaxed break-words">{comment.content}</p>
+          )}
           <div className="flex items-center gap-4 mt-1.5">
             <button
               onClick={() => handleLike(comment.id)}
@@ -549,6 +635,15 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
               </button>
             )}
 
+            {isMine && !editing && (
+              <button
+                onClick={() => { setDraft(comment.content); setEditing(true); }}
+                className="text-xs text-gray-600 hover:text-[#8b5cf6] transition-colors flex items-center gap-0.5"
+              >
+                <Pencil className="w-3 h-3" />
+                {t("common.edit")}
+              </button>
+            )}
             {isMine && (
               <button
                 onClick={() => handleDelete(comment.id, parentId)}

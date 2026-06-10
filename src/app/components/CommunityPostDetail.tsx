@@ -1,14 +1,16 @@
 import { motion } from "motion/react";
-import { ArrowLeft, Heart, MessageCircle, Bookmark, Send, Share2, Flag } from "lucide-react";
+import { ArrowLeft, Heart, MessageCircle, Bookmark, Send, Share2, Flag, Pencil, Trash2, Play, Copy, Megaphone, Terminal } from "lucide-react";
 import { toast } from "sonner";
 import { CommentPanel } from "./CommentPanel";
 import { ReportModal } from "./ReportModal";
 import { useBackButton } from "../hooks/useBackButton";
+import { useAuth } from "../contexts/AuthContext";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 export interface Post {
   id: string;
+  ownerId?: string;        // 작성자 user_id (본인 글 수정·삭제 판별)
   author: string;
   avatar: string;
   title: string;
@@ -18,6 +20,11 @@ export interface Post {
   comments: number;
   timestamp: string;
   image?: string;
+  isNotice?: boolean;      // 공지 (어드민 등록, 목록 상단 고정)
+  videoId?: string;        // 임베드한 내 영상
+  videoTitle?: string;
+  videoThumbnail?: string;
+  promptText?: string;     // 프롬프트 공유 (복사 가능 블록)
 }
 
 const CATEGORY_COLOR: Record<string, string> = {
@@ -47,6 +54,10 @@ interface CommunityPostDetailProps {
   onLike: () => void;
   onBookmark: () => void;
   onClose: () => void;
+  onEdit?: () => void;                       // 본인 글 수정 (글쓰기 모달 재사용)
+  onDelete?: () => void;                     // 본인 글 삭제
+  onPlayVideo?: (videoId: string) => void;   // 임베드 영상 재생
+  onCommentCountChange?: () => void;         // 댓글 등록 → 목록 카운트 갱신
 }
 
 export function CommunityPostDetail({
@@ -56,10 +67,27 @@ export function CommunityPostDetail({
   onLike,
   onBookmark,
   onClose,
+  onEdit,
+  onDelete,
+  onPlayVideo,
+  onCommentCountChange,
 }: CommunityPostDetailProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isKo = (i18n.language || "en").startsWith("ko");
+  const { user } = useAuth();
+  const isMine = !!post.ownerId && user?.id === post.ownerId;
   const [showComments, setShowComments] = useState(false);
   const [showReport, setShowReport] = useState(false);  // M7: 커뮤니티 글 신고
+
+  const handleCopyPrompt = async () => {
+    if (!post.promptText) return;
+    try {
+      await navigator.clipboard.writeText(post.promptText);
+      toast.success(isKo ? "프롬프트를 복사했어요! 📋" : "Prompt copied! 📋");
+    } catch {
+      toast.error(t("shareModal.copyFailed"));
+    }
+  };
 
   // 뒤로가기로 댓글 패널 → 상세 페이지 → 목록 순서로 닫힘
   useBackButton(showComments, () => setShowComments(false));
@@ -106,6 +134,24 @@ export function CommunityPostDetail({
           </button>
           <span className="font-semibold">{t("community.tabPosts")}</span>
           <div className="flex-1" />
+          {isMine && onEdit && (
+            <button
+              onClick={onEdit}
+              className="p-2 rounded-full hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+              aria-label={t("common.edit", "수정")}
+            >
+              <Pencil className="w-5 h-5" />
+            </button>
+          )}
+          {isMine && onDelete && (
+            <button
+              onClick={onDelete}
+              className="p-2 rounded-full hover:bg-white/10 transition-colors text-muted-foreground hover:text-red-400"
+              aria-label={t("common.delete")}
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          )}
           <button
             onClick={() => setShowReport(true)}
             className="p-2 rounded-full hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
@@ -138,6 +184,12 @@ export function CommunityPostDetail({
             <p className="font-semibold text-foreground">{post.author}</p>
             <p className="text-xs text-muted-foreground">{post.timestamp}</p>
           </div>
+          {post.isNotice && (
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-[#f59e0b]/20 text-[#fbbf24] border border-[#f59e0b]/30">
+              <Megaphone className="w-3 h-3" />
+              {isKo ? "공지" : "Notice"}
+            </span>
+          )}
           <span className={`px-3 py-1 rounded-full text-xs font-medium ${CATEGORY_COLOR[post.category] || "bg-[#6366f1]/20 text-[#6366f1]"}`}>
             {COMMUNITY_CATEGORY_KEY[post.category] ? t(COMMUNITY_CATEGORY_KEY[post.category]) : post.category}
           </span>
@@ -153,6 +205,52 @@ export function CommunityPostDetail({
           {post.content}
         </div>
 
+        {/* 프롬프트 블록 (복사 가능) */}
+        {post.promptText && (
+          <div className="mb-6 rounded-2xl border border-[#10b981]/30 bg-[#10b981]/5 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-[#10b981]/10 border-b border-[#10b981]/20">
+              <span className="flex items-center gap-1.5 text-xs font-bold text-[#34d399]">
+                <Terminal className="w-3.5 h-3.5" />
+                {isKo ? "프롬프트" : "Prompt"}
+              </span>
+              <button
+                onClick={handleCopyPrompt}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-[#34d399] hover:bg-[#10b981]/20 transition-colors"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                {isKo ? "복사" : "Copy"}
+              </button>
+            </div>
+            <pre className="px-4 py-3 text-sm text-[#a7f3d0] font-mono whitespace-pre-wrap break-words leading-relaxed">{post.promptText}</pre>
+          </div>
+        )}
+
+        {/* 임베드 영상 */}
+        {post.videoId && (
+          <button
+            onClick={() => onPlayVideo?.(post.videoId!)}
+            className="group relative w-full rounded-2xl mb-6 border border-white/10 overflow-hidden bg-black/40 text-left"
+          >
+            <div className="relative aspect-video">
+              {post.videoThumbnail ? (
+                <img src={post.videoThumbnail} alt={post.videoTitle || post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Play className="w-10 h-10 text-muted-foreground/40" />
+                </div>
+              )}
+              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                <span className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Play className="w-6 h-6 text-white fill-white ml-0.5" />
+                </span>
+              </div>
+            </div>
+            {post.videoTitle && (
+              <p className="px-4 py-2.5 text-sm font-medium text-foreground truncate">🎬 {post.videoTitle}</p>
+            )}
+          </button>
+        )}
+
         {/* 이미지 */}
         {post.image && (
           <img
@@ -166,7 +264,7 @@ export function CommunityPostDetail({
         <div className="flex items-center gap-5 py-4 border-y border-white/10 text-sm text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <Heart className="w-4 h-4" />
-            <span>{post.likes + (isLiked ? 1 : 0)} {t("common.like")}</span>
+            <span>{post.likes} {t("common.like")}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <MessageCircle className="w-4 h-4" />
@@ -197,7 +295,7 @@ export function CommunityPostDetail({
             aria-label={t("common.like")}
           >
             <Heart className={`w-5 h-5 ${isLiked ? "fill-red-400" : ""}`} />
-            <span className="text-sm font-medium">{post.likes + (isLiked ? 1 : 0)}</span>
+            <span className="text-sm font-medium">{post.likes}</span>
           </button>
           <button
             onClick={() => setShowComments(true)}
@@ -248,6 +346,7 @@ export function CommunityPostDetail({
               postId={post.id}
               title={post.title}
               onClose={() => setShowComments(false)}
+              onCommentPosted={onCommentCountChange}
               mode="sheet"
             />
           </motion.div>
