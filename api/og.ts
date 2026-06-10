@@ -23,16 +23,6 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function escapeJsonString(str: string): string {
-  return String(str || "")
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, "\\n")
-    .replace(/\r/g, "\\r")
-    .replace(/\t/g, "\\t")
-    .replace(/</g, "\\u003c");
-}
-
 interface Video {
   id: string;
   title: string;
@@ -63,7 +53,30 @@ function buildOgHtml(html: string, video: Video, pageUrl: string): string {
   const creator = video.creator || "AI Creator";
   const description = (video.description || `${creator}의 AI 시네마틱 영상 — CREAITE에서 만나보세요.`).slice(0, 200);
   const thumbnail = video.thumbnail || "https://www.creaite.net/api/og-image";
-  const uploadDate = (video.created_at || "").split("T")[0];
+
+  // GSC(2026-06-11): uploadDate 는 시간대 포함 완전한 ISO 8601 이어야 함.
+  // 날짜만("2026-05-30") → '시간대 누락' 경고, 빈 문자열 → '값 잘못됨' 경고.
+  // created_at 이 없거나 파싱 불가면 필드 자체를 생략 (uploadDate 는 권장 속성).
+  let uploadDate: string | null = null;
+  if (video.created_at) {
+    const d = new Date(video.created_at);
+    if (!isNaN(d.getTime())) uploadDate = d.toISOString();
+  }
+  const secs = video.duration_seconds || 0;
+
+  const ld: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    name: title,
+    description,
+    thumbnailUrl: thumbnail,
+    contentUrl: pageUrl,
+    embedUrl: pageUrl,
+    author: { "@type": "Person", name: creator },
+  };
+  if (uploadDate) ld.uploadDate = uploadDate;
+  if (secs > 0) ld.duration = `PT${Math.floor(secs / 60)}M${secs % 60}S`;
+  const ldJson = JSON.stringify(ld).replace(/</g, "\\u003c");
 
   const meta = `
     <title>${escapeHtml(title)}</title>
@@ -81,7 +94,7 @@ function buildOgHtml(html: string, video: Video, pageUrl: string): string {
     <meta name="twitter:title" content="${escapeHtml(title)}" />
     <meta name="twitter:description" content="${escapeHtml(description)}" />
     <meta name="twitter:image" content="${escapeHtml(thumbnail)}" />
-    <script type="application/ld+json">{"@context":"https://schema.org","@type":"VideoObject","name":"${escapeJsonString(title)}","description":"${escapeJsonString(description)}","thumbnailUrl":"${escapeJsonString(thumbnail)}","uploadDate":"${escapeJsonString(uploadDate)}","contentUrl":"${escapeJsonString(pageUrl)}","author":{"@type":"Person","name":"${escapeJsonString(creator)}"}}</script>
+    <script type="application/ld+json">${ldJson}</script>
   `;
 
   // Phase 36 보강: SEO용 콘텐츠 (noscript — JS 활성 브라우저는 무시, 봇은 평가)

@@ -116,6 +116,7 @@ interface VideoProduct {
   price: number;              // 하위 호환 — priceStandard와 동일
   duration: string;
   durationSeconds?: number;   // 페이월 게이트 결정용 (Phase 4)
+  createdAt?: string;         // 업로드 일시 (JSON-LD uploadDate 용 — GSC 2026-06-11)
   resolution?: string;
   tool: string;
   category?: string;
@@ -360,6 +361,7 @@ function AppContent() {
         price: data.price_standard || 0,
         duration: data.duration || "",
         durationSeconds: data.duration_seconds,
+        createdAt: data.created_at || undefined,
         resolution: data.resolution || "",
         tool: data.ai_tool || "",
         category: data.category || "",

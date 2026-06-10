@@ -244,13 +244,18 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     const isoDuration = `PT${m}M${s}S`;
+    // GSC(2026-06-11): uploadDate 는 실제 업로드 일시(시간대 포함 ISO 8601).
+    // 이전엔 new Date()(현재 시각)를 넣어 크롤마다 값이 바뀌었음. 모르면 필드 생략.
+    const uploadDate = product.createdAt && !isNaN(new Date(product.createdAt).getTime())
+      ? new Date(product.createdAt).toISOString()
+      : undefined;
     const ld = {
       "@context": "https://schema.org",
       "@type": "VideoObject",
       name: product.title,
       description: t("productDetail.jsonLdDescription", { creator: creatorName }),
       thumbnailUrl: product.thumbnail,
-      uploadDate: new Date().toISOString(),
+      ...(uploadDate ? { uploadDate } : {}),
       duration: isoDuration,
       contentUrl: `https://www.creaite.net/?video=${product.id}`,
       embedUrl: `https://www.creaite.net/?video=${product.id}`,
@@ -271,7 +276,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       const el = document.getElementById("video-jsonld");
       if (el) el.remove();
     };
-  }, [product.id, product.title, product.thumbnail, product.durationSeconds, creatorName]);
+  }, [product.id, product.title, product.thumbnail, product.durationSeconds, product.createdAt, creatorName]);
 
   // Phase 22: 영상 메타데이터 (chapters, subtitle_url) 마운트 시 fetch
   useEffect(() => {
