@@ -22,6 +22,7 @@ import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { useAuth } from "../contexts/AuthContext";
 import { useSettings } from "../contexts/SettingsContext";
 import { supabase, supabaseAnonKey, supabaseUrl } from "../utils/supabaseClient";
+import { tusUploadToBunny, type BunnyTusAuth } from "../utils/bunnyUpload";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { getCategoryLabel, getGenreLabel, getAiToolLabel, getLanguageLabel } from "../i18n/categoryLabels";
@@ -504,18 +505,17 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
   // Bunny Stream에 커스텀 썸네일 업로드 (POST /thumbnail)
   // - 자동 추출 프레임 또는 사용자 업로드 이미지를 Bunny에 직접 전송
   // - Supabase Storage 사용 안 함 (영상과 같은 Bunny CDN에서 서빙)
+  // R1(2026-06-11): Bunny 썸네일 API 는 라이브러리 키가 필요해 Edge Function 경유로 전환
   const setBunnyThumbnail = async (
     videoId: string,
-    libraryId: string,
-    apiKey: string,
+    token: string,
     thumbnailDataUrl: string
   ): Promise<void> => {
     const blob = await downscaleToJpegBlob(thumbnailDataUrl, 1280, 720, 0.85);
-    const url = `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}/thumbnail`;
-    const response = await fetch(url, {
+    const response = await fetch(`${supabaseUrl}/functions/v1/server/videos/${videoId}/thumbnail`, {
       method: "POST",
       headers: {
-        AccessKey: apiKey,
+        Authorization: `Bearer ${token}`,
         "Content-Type": blob.type || "image/jpeg",
       },
       body: blob,
@@ -526,65 +526,33 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
     }
   };
 
-  // Bunny.net에 직접 업로드
-  const uploadToBunny = async (file: File, videoId: string, libraryId: string, apiKey: string) => {
-    if (!apiKey) {
-      throw new Error('Bunny.net API Key가 제공되지 않았습니다.');
-    }
-    
-    const uploadUrl = `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}`;
+  // Bunny.net에 직접 업로드 — R1(2026-06-11): 라이브러리 키 대신 TUS presigned 서명 사용
+  const uploadToBunny = async (file: File, auth: BunnyTusAuth) => {
+    const startTime = Date.now();
+    let lastLoaded = 0;
+    let lastTime = startTime;
+    let smoothedSpeed = 0; // 지수 이동 평균으로 속도 안정화
 
-    return new Promise<void>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
+    await tusUploadToBunny(file, auth, (loaded, total) => {
+      const now = Date.now();
+      const dt = (now - lastTime) / 1000;
+      const dl = loaded - lastLoaded;
 
-      const startTime = Date.now();
-      let lastLoaded = 0;
-      let lastTime = startTime;
-      let smoothedSpeed = 0; // 지수 이동 평균으로 속도 안정화
+      if (dt > 0.2) {
+        const instSpeed = dl / dt; // bytes/s
+        // 새 측정치에 70% 가중, 기존 평균에 30% — 안정적인 ETA를 위해
+        smoothedSpeed = smoothedSpeed === 0 ? instSpeed : smoothedSpeed * 0.3 + instSpeed * 0.7;
+        lastLoaded = loaded;
+        lastTime = now;
+      }
 
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          const now = Date.now();
-          const dt = (now - lastTime) / 1000;
-          const dl = e.loaded - lastLoaded;
+      const remaining = total - loaded;
+      const eta = smoothedSpeed > 0 ? remaining / smoothedSpeed : 0;
 
-          if (dt > 0.2) {
-            const instSpeed = dl / dt; // bytes/s
-            // 새 측정치에 70% 가중, 기존 평균에 30% — 안정적인 ETA를 위해
-            smoothedSpeed = smoothedSpeed === 0 ? instSpeed : smoothedSpeed * 0.3 + instSpeed * 0.7;
-            lastLoaded = e.loaded;
-            lastTime = now;
-          }
-
-          const remaining = e.total - e.loaded;
-          const eta = smoothedSpeed > 0 ? remaining / smoothedSpeed : 0;
-
-          const percentComplete = Math.round((e.loaded / e.total) * 100);
-          setUploadProgress(percentComplete);
-          setUploadStats({ loaded: e.loaded, total: e.total, speed: smoothedSpeed, eta });
-        }
-      });
-
-      xhr.addEventListener('load', () => {
-        if (xhr.status === 200) {
-          console.log('Upload complete to Bunny.net');
-          resolve();
-        } else {
-          console.error('Upload failed:', xhr.status, xhr.responseText);
-          reject(new Error(`Upload failed with status ${xhr.status}`));
-        }
-      });
-
-      xhr.addEventListener('error', () => {
-        console.error('Upload error');
-        reject(new Error('Network error during upload'));
-      });
-
-      xhr.open('PUT', uploadUrl);
-      xhr.setRequestHeader('AccessKey', apiKey);
-      xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-      xhr.send(file);
+      setUploadProgress(Math.round((loaded / total) * 100));
+      setUploadStats({ loaded, total, speed: smoothedSpeed, eta });
     });
+    console.log('Upload complete to Bunny.net');
   };
 
   // form onSubmit (또는 "업로드 완료" 클릭) → 미리보기 모달 오픈
@@ -678,23 +646,23 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
       }
 
       const createData = await createResponse.json();
-      const { videoId, libraryId, apiKey: serverApiKey } = createData;
+      const { videoId, libraryId, tusSignature, tusExpire } = createData;
       console.log('Video created:', videoId);
       setBunnyVideoId(videoId);
 
-      // 2. Bunny.net에 직접 업로드
+      // 2. Bunny.net에 직접 업로드 (TUS presigned — 라이브러리 키는 클라이언트로 오지 않음)
       console.log('Uploading file to Bunny.net...');
-      await uploadToBunny(selectedFile, videoId, libraryId, serverApiKey);
+      await uploadToBunny(selectedFile, { videoId, libraryId, tusSignature, tusExpire });
       console.log('File uploaded successfully');
 
-      // 2.5. 커스텀 썸네일 Bunny에 업로드 (선택된 경우)
-      // 자동 추출 프레임 또는 사용자 업로드 이미지를 Bunny Stream에 직접 전송
+      // 2.5. 커스텀 썸네일 업로드 (선택된 경우) — Edge Function 경유
+      // 자동 추출 프레임 또는 사용자 업로드 이미지를 Bunny Stream에 전송
       // 실패해도 Bunny 자동 썸네일이 폴백되므로 치명적이지 않음
       if (selectedThumbnail) {
         console.log('Setting custom thumbnail on Bunny...');
         toast.info(t("upload.toast.thumbnailProcessing"));
         try {
-          await setBunnyThumbnail(videoId, libraryId, serverApiKey, selectedThumbnail);
+          await setBunnyThumbnail(videoId, currentToken, selectedThumbnail);
           console.log('Custom thumbnail set successfully');
         } catch (thumbErr) {
           console.warn('Thumbnail upload failed, falling back to Bunny default:', thumbErr);

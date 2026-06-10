@@ -93,7 +93,8 @@ export function CommunityPostDetail({
   useBackButton(showComments, () => setShowComments(false));
 
   const handleShare = async () => {
-    const url = `${window.location.origin}?post=${post.id}`;
+    // R3(2026-06-11): App.tsx 딥링크 핸들러와 일치하는 표준 형식 (단축형 ?post= 도 지원됨)
+    const url = `${window.location.origin}/?tab=community&sub=posts&post=${post.id}`;
     const shareData = { title: post.title, text: `CREAITE Community: ${post.title}`, url };
     try {
       if (navigator.share && navigator.canShare?.(shareData)) {

@@ -351,9 +351,13 @@ interface CommunityProps {
   onPlayVideo?: (videoId: string) => void;   // 참여작 클릭 → 영상 재생
   initialCollabPostId?: string | null;       // 협업 문의 알림 딥링크 → 해당 글 상세 자동 열기
   onInitialCollabPostConsumed?: () => void;
+  initialPostId?: string | null;             // R3: 글 공유/알림 딥링크 → 글 상세 자동 열기
+  onInitialPostConsumed?: () => void;
+  initialChallengeId?: string | null;        // R3: 챌린지 공유 딥링크 → 챌린지 상세 자동 열기
+  onInitialChallengeConsumed?: () => void;
 }
 
-export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChallengeParticipate, onPlayVideo, initialCollabPostId, onInitialCollabPostConsumed }: CommunityProps = {}) {
+export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChallengeParticipate, onPlayVideo, initialCollabPostId, onInitialCollabPostConsumed, initialPostId, onInitialPostConsumed, initialChallengeId, onInitialChallengeConsumed }: CommunityProps = {}) {
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
   const { user, isAuthenticated, profile } = useAuth();
@@ -566,6 +570,39 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     onInitialCollabPostConsumed?.();   // 못 찾아도(삭제된 글 등) 신호 소거해 재시도 루프 방지
   }, [initialCollabPostId, loadingCollab, collabs, onInitialCollabPostConsumed]);
 
+  // R3: 글 공유/알림 딥링크 — 목록에 없으면(100건 밖) 단건 조회로 보강
+  useEffect(() => {
+    if (!initialPostId || loadingPosts) return;
+    let cancelled = false;
+    (async () => {
+      let target = posts.find((p) => p.id === initialPostId) ?? null;
+      if (!target) {
+        const { data } = await supabase.from("community_posts").select("*").eq("id", initialPostId).maybeSingle();
+        if (data) {
+          target = rowToPost(data, localeTag);
+          if (target.videoId) {
+            const { data: v } = await supabase.from("videos").select("id,title,thumbnail").eq("id", target.videoId).maybeSingle();
+            if (v) { target.videoTitle = v.title || "Untitled"; target.videoThumbnail = v.thumbnail || ""; }
+          }
+        }
+      }
+      if (cancelled) return;
+      if (target) setSelectedPost(target);
+      else toast.error(isKo ? "삭제되었거나 찾을 수 없는 글이에요." : "This post is gone or not found.");
+      onInitialPostConsumed?.();
+    })();
+    return () => { cancelled = true; };
+  }, [initialPostId, loadingPosts]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // R3: 챌린지 공유 딥링크 — 챌린지 로드 완료 후 상세 자동 열기
+  useEffect(() => {
+    if (!initialChallengeId || loadingChallenges) return;
+    const found = challenges.find((c) => c.id === initialChallengeId);
+    if (found) setSelectedChallenge(found);
+    else toast.error(isKo ? "종료되었거나 찾을 수 없는 챌린지예요." : "This challenge is gone or not found.");
+    onInitialChallengeConsumed?.();
+  }, [initialChallengeId, loadingChallenges]);  // eslint-disable-line react-hooks/exhaustive-deps
+
   // 협업 글 등록
   const handleCreateCollab = async () => {
     if (!isAuthenticated) { toast.error(t("community.writeRequiresLogin")); return; }
@@ -759,10 +796,14 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     setShowWriteModal(true);
   };
 
-  // 본인 글 삭제 (RLS: auth.uid()=user_id)
+  // 본인 글 삭제 — R8(2026-06-11): RPC 로 댓글까지 함께 삭제 (고아 댓글 방지)
   const handleDeletePost = async (post: Post) => {
-    if (!confirm(isKo ? "이 글을 삭제할까요? 되돌릴 수 없어요." : "Delete this post? This cannot be undone.")) return;
-    const { error } = await supabase.from("community_posts").delete().eq("id", post.id);
+    if (!confirm(isKo ? "이 글을 삭제할까요? 글의 댓글도 함께 삭제되며 되돌릴 수 없어요." : "Delete this post? Its comments are deleted too. This cannot be undone.")) return;
+    let { error } = await supabase.rpc("delete_community_post", { p_post_id: post.id });
+    if (error && /delete_community_post/i.test(error.message || "")) {
+      // 마이그레이션(fixes_audit_20260611.sql) 미적용 환경 폴백 — 글만 삭제 (RLS: 본인만)
+      ({ error } = await supabase.from("community_posts").delete().eq("id", post.id));
+    }
     if (error) {
       console.warn("[Community] 글 삭제 실패:", error.message);
       toast.error(isKo ? "삭제에 실패했어요." : "Failed to delete.");

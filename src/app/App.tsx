@@ -329,6 +329,9 @@ function AppContent() {
   const [pendingCommunityTab, setPendingCommunityTab] = useState<string | null>(null);
   // 협업 문의 알림 딥링크 → 해당 협업 글 상세 모달 자동 열기
   const [pendingCollabPostId, setPendingCollabPostId] = useState<string | null>(null);
+  // R3(2026-06-11): 커뮤니티 글/챌린지 공유·알림 딥링크 → 해당 상세 자동 열기
+  const [pendingCommunityPostId, setPendingCommunityPostId] = useState<string | null>(null);
+  const [pendingChallengeId, setPendingChallengeId] = useState<string | null>(null);
   // 챌린지 '참가하기' → 업로드 진입 시 출품작 태그 컨텍스트 전달
   const [pendingChallenge, setPendingChallenge] = useState<{ tag: string; title: string } | null>(null);
   const handleViewCreator = (creatorId: string) => {
@@ -392,6 +395,7 @@ function AppContent() {
       const section = url.searchParams.get("section");
       const sub = url.searchParams.get("sub");
       const post = url.searchParams.get("post");
+      const challenge = url.searchParams.get("challenge");
       const creator = url.searchParams.get("creator");
       if (video) { void loadAndOpenVideo(video, { openComments: url.searchParams.get("comment") === "1" }); return; }
       if (tab) {
@@ -399,9 +403,24 @@ function AppContent() {
         if (tab === "community" && sub) {
           setPendingCommunityTab(sub);
           if (sub === "collab" && post) setPendingCollabPostId(post);
+          if (sub === "posts" && post) setPendingCommunityPostId(post);          // R3: 글 상세 딥링크
+          if (sub === "challenges" && challenge) setPendingChallengeId(challenge); // R3: 챌린지 딥링크
         }
         if (tab === "channel" && creator) setPendingCreatorId(creator);  // 새 팔로워 알림 → 그 사람 채널
         setActiveTab(tab as Tab);
+        return;
+      }
+      // R3: tab 없는 단축 공유 링크 (?post=, ?challenge=)
+      if (challenge) {
+        setPendingCommunityTab("challenges");
+        setPendingChallengeId(challenge);
+        setActiveTab("community");
+        return;
+      }
+      if (post) {
+        setPendingCommunityTab("posts");
+        setPendingCommunityPostId(post);
+        setActiveTab("community");
         return;
       }
     } catch { /* 잘못된 link 무시 */ }
@@ -423,11 +442,24 @@ function AppContent() {
     const tabParam = params.get("tab");
     const sub = params.get("sub");
     const post = params.get("post");
+    const challengeParam = params.get("challenge");
     const section = params.get("section");
     const creator = params.get("creator");
     if (tabParam === "community" && sub) {
       setPendingCommunityTab(sub);
       if (sub === "collab" && post) setPendingCollabPostId(post);
+      if (sub === "posts" && post) setPendingCommunityPostId(post);            // R3: 글 상세 딥링크
+      if (sub === "challenges" && challengeParam) setPendingChallengeId(challengeParam);
+    }
+    // R3: tab 없는 단축 공유 링크 (?post=, ?challenge=) — 커뮤니티로 진입해 해당 상세 오픈
+    if (!tabParam && challengeParam) {
+      setPendingCommunityTab("challenges");
+      setPendingChallengeId(challengeParam);
+      setActiveTab("community");
+    } else if (!tabParam && post && !videoId) {
+      setPendingCommunityTab("posts");
+      setPendingCommunityPostId(post);
+      setActiveTab("community");
     }
     if (tabParam === "mypage" && section) setPendingMyPageTab(section);      // 결제·정산 알림
     if (tabParam === "channel" && creator) setPendingCreatorId(creator);     // 새 팔로워 알림
@@ -445,6 +477,31 @@ function AppContent() {
   const { user, profile, signOut, isAuthenticated, loading, passwordRecovery } = useAuth();
   // 비로그인 사용자가 〈둘러보기〉 클릭 시 LandingPage → DiscoveryFeed 로 전환
   const [hasExplored, setHasExplored] = useState(false);
+
+  // R4(2026-06-11): 구독 만료 임박(D-3) 안내 — 자동갱신이 없어 조용히 free 로 떨어지는 것 방지.
+  // 같은 만료일에 대해 1회만 (localStorage 가드), 클릭 시 마이페이지로 이동해 연장.
+  useEffect(() => {
+    if (!profile?.subscription_expires_at || profile.subscription_tier === "free") return;
+    const expiresMs = new Date(profile.subscription_expires_at).getTime();
+    const daysLeft = Math.ceil((expiresMs - Date.now()) / 86400000);
+    if (daysLeft < 0 || daysLeft > 3) return;
+    const key = `creaite_sub_expiry_notice_${profile.id}_${profile.subscription_expires_at}`;
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, "1");
+    const isKo = (i18n.language || "en").startsWith("ko");
+    toast.info(
+      daysLeft === 0
+        ? (isKo ? "프리미엄 구독이 오늘 만료돼요. 마이페이지에서 연장할 수 있어요." : "Your Premium expires today. Extend it in My Page.")
+        : (isKo ? `프리미엄 구독이 ${daysLeft}일 후 만료돼요. 마이페이지에서 연장할 수 있어요.` : `Your Premium expires in ${daysLeft} day(s). Extend it in My Page.`),
+      {
+        duration: 10000,
+        action: {
+          label: isKo ? "연장하기" : "Extend",
+          onClick: () => setActiveTab("mypage"),
+        },
+      }
+    );
+  }, [profile?.subscription_expires_at, profile?.subscription_tier]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // 앱을 켜둔 동안(포그라운드) 새 알림 실시간 수신 → 벨 배지 즉시 갱신 + 화면 내 토스트
   // (다른 앱처럼 앱 열어둔 상태에서도 공지/알림이 바로 뜨도록. 잠금화면 푸시는 서비스워커가 별도 담당)
@@ -722,6 +779,10 @@ function AppContent() {
             onPlayVideo={(videoId) => loadAndOpenVideo(videoId)}
             initialCollabPostId={pendingCollabPostId}
             onInitialCollabPostConsumed={() => setPendingCollabPostId(null)}
+            initialPostId={pendingCommunityPostId}
+            onInitialPostConsumed={() => setPendingCommunityPostId(null)}
+            initialChallengeId={pendingChallengeId}
+            onInitialChallengeConsumed={() => setPendingChallengeId(null)}
           />
         );
       case "channel":

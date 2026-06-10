@@ -37,7 +37,9 @@ interface AuthContextType {
   isPremium: boolean;
   refreshProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name?: string) => Promise<void>;
+  // R2(2026-06-11): 이메일 인증 필수 — 확인 메일 발송 시 needsEmailConfirm=true 반환
+  signUp: (email: string, password: string, name?: string) => Promise<{ needsEmailConfirm: boolean }>;
+  resendConfirmEmail: (email: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithKakao: () => Promise<void>;
   signOut: () => void;
@@ -154,15 +156,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (mounted) setProfile(p);
     };
 
-    // M2(2026-05-31): OAuth(구글 등) 신규 가입자 welcome 메일.
-    // 이메일 가입은 signUp 에서 발송하므로 provider !== 'email' 만 대상.
-    // 신규 판정: created_at 2분 내 + localStorage 가드로 중복/재로그인 발송 방지.
-    const maybeSendOAuthWelcome = (u: any) => {
+    // M2(2026-05-31) + R2(2026-06-11): 신규 가입자 welcome 메일.
+    // OAuth = 가입 직후(created_at 2분 내), 이메일 가입 = 인증 메일 링크 클릭 직후
+    // (email_confirmed_at 10분 내 — 가입 시점엔 미인증 주소라 인증 완료 후 발송).
+    // localStorage 가드로 중복/재로그인 발송 방지.
+    const maybeSendWelcome = (u: any) => {
       try {
         const provider = u?.app_metadata?.provider;
-        if (!provider || provider === 'email') return;
-        const createdAt = u?.created_at ? new Date(u.created_at).getTime() : 0;
-        if (!createdAt || Date.now() - createdAt > 120000) return; // 가입 직후만
+        if (!provider) return;
+        const fresh = (iso: string | null | undefined, windowMs: number) =>
+          !!iso && Date.now() - new Date(iso).getTime() <= windowMs;
+        const isNew = provider === 'email'
+          ? fresh(u?.email_confirmed_at ?? u?.confirmed_at ?? u?.created_at, 600000)
+          : fresh(u?.created_at, 120000);
+        if (!isNew) return;
         const key = `creaite_welcome_${u.id}`;
         if (localStorage.getItem(key)) return;
         localStorage.setItem(key, '1');
@@ -170,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { subject, html } = buildWelcomeEmail(name);
         void sendNotification({ user_id: u.id, type: 'welcome', to: u.email, subject, html });
       } catch (e) {
-        console.warn('[AuthContext] OAuth welcome 발송 실패:', e);
+        console.warn('[AuthContext] welcome 발송 실패:', e);
       }
     };
 
@@ -186,8 +193,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (session) {
         updateUserState(session.user, session.access_token);
-        // M2: OAuth 신규 가입자 환영 메일 (실제 로그인 이벤트만)
-        if (event === 'SIGNED_IN' && session.user) maybeSendOAuthWelcome(session.user);
+        // 신규 가입자 환영 메일 (실제 로그인 이벤트만 — 이메일 가입은 인증 완료 직후)
+        if (event === 'SIGNED_IN' && session.user) maybeSendWelcome(session.user);
       } else {
         updateUserState(null, null);
       }
@@ -219,6 +226,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json();
 
       if (!response.ok) {
+        // R2: 이메일 인증 전 로그인 시도 — Supabase 원문 대신 친절한 안내
+        if (/email[_ ]not[_ ]confirmed|not confirmed/i.test(data.error || '')) {
+          throw new Error('이메일 인증이 아직 완료되지 않았어요. 받은 편지함의 인증 메일 링크를 눌러주세요.');
+        }
         throw new Error(data.error || 'Sign in failed.');
       }
 
@@ -243,46 +254,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // R2(2026-06-11): Edge admin.createUser(email_confirm:true) 테스트 모드 제거.
+  // supabase.auth.signUp 직접 호출 → Supabase 가 확인 메일 발송, 링크 클릭 후 로그인 가능.
+  // (대시보드 "Confirm email" 이 꺼져 있으면 세션이 바로 생겨 기존처럼 즉시 로그인 — 하위호환)
   const signUp = async (email: string, password: string, name?: string) => {
     try {
-      const response = await fetch(`${serverUrl}/auth/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`,
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { name: name || email.split('@')[0] },
+          emailRedirectTo: window.location.origin,
         },
-        body: JSON.stringify({ email, password, name }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Sign up failed.');
+      if (error) {
+        if (/already registered|already exists/i.test(error.message)) {
+          throw new Error('이미 가입된 이메일입니다. 로그인해 주세요.');
+        }
+        throw new Error(error.message || 'Sign up failed.');
       }
 
-      // 테스트 모드: 이메일 자동 확인되므로 바로 로그인
-      // M3(2026-05-31): 계정은 생성됐으나 자동 로그인만 실패한 경우 — '가입 실패'로 오인 방지
-      try {
-        await signIn(email, password);
-      } catch {
-        throw new Error('가입은 완료됐습니다. 로그인 화면에서 이메일/비밀번호로 다시 로그인해 주세요.');
+      // Supabase 는 기존 가입 이메일로 재가입 시 보안상 에러 대신 identities 빈 배열을 반환
+      if (data.user && (data.user.identities?.length ?? 0) === 0) {
+        throw new Error('이미 가입된 이메일입니다. 로그인해 주세요.');
       }
 
-      // Phase 34 — 환영 메일 발송 (fire-and-forget, 실패해도 가입 흐름 무관)
-      if (data?.user?.id) {
-        const { subject, html } = buildWelcomeEmail(name || email.split('@')[0]);
-        void sendNotification({
-          user_id: data.user.id,
-          type: 'welcome',
-          to: email,
-          subject,
-          html,
-        });
-      }
+      // 세션 없음 = 확인 메일 발송됨 (인증 후 로그인). 환영 메일은 인증 완료 SIGNED_IN 때 발송.
+      return { needsEmailConfirm: !data.session };
     } catch (error) {
       console.error('회원가입 에러:', error);
       throw error;
     }
+  };
+
+  // R2: 인증 메일 재발송
+  const resendConfirmEmail = async (email: string) => {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    if (error) throw new Error(error.message || 'Failed to resend.');
   };
 
   const signInWithGoogle = async () => {
@@ -383,6 +396,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshProfile,
     signIn,
     signUp,
+    resendConfirmEmail,
     signInWithGoogle,
     signInWithKakao,
     signOut,

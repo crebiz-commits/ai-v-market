@@ -424,7 +424,8 @@ const itemVariants = {
 };
 
 export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigate, initialTab, onInitialTabConsumed }: MyPageProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isKo = (i18n.language || "en").startsWith("ko");
   const [activeTab, setActiveTab] = useState("profile");
   // 알림 클릭 등 외부에서 특정 탭으로 진입 (예: 결제 알림 → settings 의 결제내역)
   useEffect(() => {
@@ -1264,13 +1265,22 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                         {tierMeta.label}
                       </p>
                       <p className="text-xs font-medium text-white/80 mt-1">{tierMeta.desc}</p>
-                      {isSubscriber && profile?.subscription_expires_at && (
-                        <p className="text-[11px] text-white/60 mt-2">
-                          {t("mypage.subscription.expiresAt", { date: new Date(profile.subscription_expires_at).toLocaleDateString() })}
-                        </p>
-                      )}
+                      {isSubscriber && profile?.subscription_expires_at && (() => {
+                        // R4(2026-06-11): 만료 임박(D-7) 표시 — 자동갱신이 없으므로 수동 연장 유도
+                        const daysLeft = Math.ceil((new Date(profile.subscription_expires_at).getTime() - Date.now()) / 86400000);
+                        return (
+                          <p className={`text-[11px] mt-2 ${daysLeft <= 7 ? "text-amber-200 font-bold" : "text-white/60"}`}>
+                            {t("mypage.subscription.expiresAt", { date: new Date(profile.subscription_expires_at).toLocaleDateString() })}
+                            {daysLeft >= 0 && daysLeft <= 7 && (
+                              <span className="ml-1.5">
+                                {daysLeft === 0 ? (isKo ? "· 오늘 만료!" : "· Expires today!") : (isKo ? `· D-${daysLeft}` : `· D-${daysLeft}`)}
+                              </span>
+                            )}
+                          </p>
+                        );
+                      })()}
                     </div>
-                    {!isSubscriber && (
+                    {!isSubscriber ? (
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -1278,6 +1288,16 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                         className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-lg text-sm font-bold border border-white/20 transition-colors shadow-sm"
                       >
                         {t("mypage.subscription.upgrade")}
+                      </motion.button>
+                    ) : (
+                      // R4: 구독 중에도 연장 가능 (결제 시 만료일에 +30일 누적 — confirm_payment GREATEST)
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setShowSubscribe(true)}
+                        className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-lg text-sm font-bold border border-white/20 transition-colors shadow-sm"
+                      >
+                        {isKo ? "구독 연장" : "Extend"}
                       </motion.button>
                     )}
                   </div>

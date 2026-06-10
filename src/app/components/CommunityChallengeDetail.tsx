@@ -110,7 +110,8 @@ export function CommunityChallengeDetail({ challenge, onClose, onParticipate, on
       ];
 
   const handleShare = async () => {
-    const url = `${window.location.origin}?challenge=${challenge.id}`;
+    // R3(2026-06-11): App.tsx 딥링크 핸들러와 일치하는 표준 형식 (단축형 ?challenge= 도 지원됨)
+    const url = `${window.location.origin}/?tab=community&sub=challenges&challenge=${challenge.id}`;
     const shareData = { title: challenge.title, text: `CREAITE Challenge: ${challenge.title} - Prize ${challenge.prize}`, url };
     try {
       if (navigator.share && navigator.canShare?.(shareData)) {

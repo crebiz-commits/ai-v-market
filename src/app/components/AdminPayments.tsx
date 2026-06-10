@@ -139,6 +139,11 @@ export function AdminPayments() {
 
       toast.success("환불 완료 (토스 + DB + 권한 회수)");
 
+      // R6(2026-06-11): 이미 확정된 월 정산과 겹치는 환불 — 재정산 필요 경고
+      if (body?.settlement_warning) {
+        toast.warning(`⚠️ ${body.settlement_warning}`, { duration: 12000 });
+      }
+
       // 3) 환불 완료 메일 발송 (fire-and-forget)
       const recipient = body?.payment?.user_id;
       if (recipient) {

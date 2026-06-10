@@ -264,8 +264,12 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
               // to 생략 — Edge Function이 user_id로 자동 조회
               subject,
               html,
-              // 벨/푸시 클릭 시 해당 영상 + 댓글창 자동 열기
-              link: videoId ? `/?video=${encodeURIComponent(videoId)}&comment=1` : undefined,
+              // 벨/푸시 클릭 시 해당 영상(+댓글창) 또는 커뮤니티 글로 직행 (R9, 2026-06-11)
+              link: videoId
+                ? `/?video=${encodeURIComponent(videoId)}&comment=1`
+                : postId
+                ? `/?tab=community&sub=posts&post=${encodeURIComponent(postId)}`
+                : undefined,
             });
           }
         } catch (mailErr) {

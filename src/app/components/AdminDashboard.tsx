@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { supabase, supabaseAnonKey } from "../utils/supabaseClient";
+import { tusUploadToBunny } from "../utils/bunnyUpload";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -257,26 +258,11 @@ export function AdminDashboard() {
         throw new Error(err.error || `Bunny 비디오 생성 실패 (${createResponse.status})`);
       }
 
-      const { videoId, libraryId, apiKey } = await createResponse.json();
+      const { videoId, libraryId, tusSignature, tusExpire } = await createResponse.json();
 
-      // 2. Bunny에 직접 PUT 업로드
-      const uploadUrl = `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}`;
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.upload.addEventListener('progress', (ev) => {
-          if (ev.lengthComputable) {
-            setAdUploadProgress(Math.round((ev.loaded / ev.total) * 100));
-          }
-        });
-        xhr.addEventListener('load', () => {
-          if (xhr.status === 200) resolve();
-          else reject(new Error(`업로드 실패 (status ${xhr.status})`));
-        });
-        xhr.addEventListener('error', () => reject(new Error('네트워크 에러')));
-        xhr.open('PUT', uploadUrl);
-        xhr.setRequestHeader('AccessKey', apiKey);
-        xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-        xhr.send(file);
+      // 2. Bunny에 TUS presigned 업로드 — R1(2026-06-11): 라이브러리 키 클라이언트 전달 제거
+      await tusUploadToBunny(file, { videoId, libraryId, tusSignature, tusExpire }, (loaded, total) => {
+        setAdUploadProgress(Math.round((loaded / total) * 100));
       });
 
       // 3. HLS URL 구성 후 폼에 자동 입력

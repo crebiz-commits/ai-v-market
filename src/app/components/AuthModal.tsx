@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, User as UserIcon, Loader2, ChevronLeft } from "lucide-react";
+import { X, User as UserIcon, Loader2, ChevronLeft, MailCheck } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
@@ -14,14 +14,32 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isKo = (i18n.language || "en").startsWith("ko");
   const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp, signInWithGoogle, signInWithKakao, requestPasswordReset } = useAuth();
+  // R2(2026-06-11): 이메일 인증 필수 — 가입 후 확인 메일 발송 안내 화면
+  const [verifySentTo, setVerifySentTo] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const { signIn, signUp, resendConfirmEmail, signInWithGoogle, signInWithKakao, requestPasswordReset } = useAuth();
+
+  // R2: 인증 메일 재발송
+  const handleResendConfirm = async () => {
+    if (!verifySentTo) return;
+    setResending(true);
+    try {
+      await resendConfirmEmail(verifySentTo);
+      toast.success(isKo ? "인증 메일을 다시 보냈어요. 메일함을 확인해주세요." : "Confirmation email resent. Check your inbox.");
+    } catch (err: any) {
+      toast.error(err?.message || (isKo ? "재발송에 실패했어요. 잠시 후 다시 시도해주세요." : "Failed to resend. Try again later."));
+    } finally {
+      setResending(false);
+    }
+  };
 
   // H8: 비밀번호 재설정 메일 발송
   const handleForgotPassword = async () => {
@@ -44,9 +62,15 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
         toast.success(t("auth.loginSuccess"));
         onClose();
       } else {
-        await signUp(email, password, name);
-        toast.success(t("auth.loginSuccess"));
-        onClose();
+        const result = await signUp(email, password, name);
+        if (result?.needsEmailConfirm) {
+          // R2: 확인 메일 발송됨 — 인증 안내 화면으로 전환 (로그인은 인증 후 가능)
+          setVerifySentTo(email);
+        } else {
+          // 대시보드에서 이메일 인증이 꺼져 있는 환경 — 즉시 로그인됨
+          toast.success(t("auth.loginSuccess"));
+          onClose();
+        }
       }
     } catch (error: any) {
       toast.error(error.message || t("auth.loginFail"));
@@ -120,7 +144,58 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-10 py-8">
           <AnimatePresence mode="wait">
-            {!showEmailForm ? (
+            {verifySentTo ? (
+              <motion.div
+                key="verify-sent"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="text-center py-6"
+              >
+                <div className="w-16 h-16 mx-auto rounded-full bg-[#fe2c55]/10 flex items-center justify-center mb-4">
+                  <MailCheck className="w-8 h-8 text-[#fe2c55]" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                  {isKo ? "인증 메일을 보냈어요" : "Check your inbox"}
+                </h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  {isKo ? (
+                    <>
+                      <span className="font-semibold text-gray-900 break-all">{verifySentTo}</span> 으로<br />
+                      인증 메일을 보냈습니다.<br />
+                      메일 속 링크를 누르면 가입이 완료되고 바로 로그인됩니다.
+                    </>
+                  ) : (
+                    <>
+                      We sent a confirmation email to<br />
+                      <span className="font-semibold text-gray-900 break-all">{verifySentTo}</span>.<br />
+                      Click the link inside to finish signing up.
+                    </>
+                  )}
+                </p>
+                <p className="text-xs text-gray-400 mt-3">
+                  {isKo ? "메일이 안 보이면 스팸함도 확인해주세요." : "Don't see it? Check your spam folder."}
+                </p>
+                <div className="mt-6 space-y-2">
+                  <Button
+                    type="button"
+                    onClick={handleResendConfirm}
+                    disabled={resending}
+                    variant="outline"
+                    className="w-full h-11 border-gray-200 text-gray-700 font-bold rounded-sm"
+                  >
+                    {resending ? <Loader2 className="w-4 h-4 animate-spin" /> : (isKo ? "인증 메일 재발송" : "Resend email")}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => { setVerifySentTo(null); setMode("signin"); setShowEmailForm(true); setPassword(""); }}
+                    className="w-full h-11 bg-[#fe2c55] hover:bg-[#ef2950] text-white font-bold rounded-sm"
+                  >
+                    {isKo ? "인증을 마쳤어요 — 로그인" : "I've verified — Sign in"}
+                  </Button>
+                </div>
+              </motion.div>
+            ) : !showEmailForm ? (
               <motion.div
                 key="social-list"
                 initial={{ opacity: 0, x: -20 }}
@@ -291,6 +366,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
           </div>
         </div>
 
+        {!verifySentTo && (
         <div className="p-6 bg-gray-50 border-t border-gray-100 text-center text-sm">
           {mode === "signin" ? (
             <div className="text-gray-900">
@@ -314,6 +390,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
             </div>
           )}
         </div>
+        )}
       </motion.div>
     </motion.div>
   );

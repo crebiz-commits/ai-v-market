@@ -103,45 +103,15 @@ app.get("/health", (c) => {
 // 인증 관련 엔드포인트
 // ============================================
 
-// 회원가입
-app.post("/auth/signup", async (c) => {
-  try {
-    const { email, password, name } = await c.req.json();
-
-    if (!email || !password) {
-      return c.json({ error: "이메일과 비밀번호는 필수입니다." }, 400);
-    }
-
-    const supabase = getSupabaseClient(true); // Service role key 사용
-
-    // 사용자 생성
-    const { data, error } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      user_metadata: { name: name || email.split('@')[0] },
-      // 테스트를 위해 이메일 확인 자동 완료 (실제 서비스에서는 제거 필요)
-      email_confirm: true
-    });
-
-    if (error) {
-      console.error('회원가입 에러:', error);
-      return c.json({ error: error.message }, 400);
-    }
-
-    return c.json({ 
-      success: true, 
-      message: "회원가입이 완료되었습니다.",
-      user: {
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.user_metadata.name,
-        email_confirmed: true // 자동 확인 모드
-      }
-    });
-  } catch (error) {
-    console.error('회원가입 처리 중 에러:', error);
-    return c.json({ error: "회원가입 처리 중 오류가 발생했습니다." }, 500);
-  }
+// 회원가입 — R2(2026-06-11): 폐기.
+// admin.createUser(email_confirm:true) 가 이메일 인증을 우회하던 테스트 모드 루트.
+// 이제 클라이언트가 supabase.auth.signUp() 을 직접 호출 (확인 메일 발송 → 링크 클릭 후 로그인).
+// 구버전 클라이언트/외부 호출이 인증 우회 계정을 만들지 못하도록 410 으로 차단.
+app.post("/auth/signup", (c) => {
+  return c.json({
+    error: "이 가입 방식은 더 이상 지원되지 않습니다. 앱을 새로고침한 뒤 다시 가입해 주세요.",
+    deprecated: true,
+  }, 410);
 });
 
 // 로그인
@@ -215,6 +185,14 @@ app.get("/auth/user", async (c) => {
 // Bunny.net 비디오 업로드 관련 엔드포인트
 // ============================================
 
+// R1(2026-06-11): Bunny TUS presigned 서명 — 라이브러리 API Key 를 클라이언트에 주지 않기 위함
+// signature = SHA256(libraryId + apiKey + expire + videoId), 클라이언트는 tusupload 엔드포인트로 업로드
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 // Bunny.net에 비디오 생성 및 업로드 URL 생성
 app.post("/videos/create-upload", async (c) => {
   try {
@@ -274,18 +252,112 @@ app.post("/videos/create-upload", async (c) => {
     }
 
     const videoData = await response.json();
-    
+
     console.log('Bunny.net video created successfully:', videoData.guid);
+
+    // R1: 업로드 직후 썸네일 라우트의 소유권 검증용 (save-metadata 가 나중에 전체 데이터로 덮어씀)
+    await kv.set(`video:${videoData.guid}`, {
+      userId: user.id,
+      userEmail: user.email,
+      title: videoData.title,
+      createdAt: new Date().toISOString(),
+      status: 'creating',
+    });
+
+    // R1: 라이브러리 API Key 대신 TUS presigned 서명만 반환 (6시간 유효)
+    const tusExpire = Math.floor(Date.now() / 1000) + 6 * 3600;
+    const tusSignature = await sha256Hex(`${libraryId}${apiKey}${tusExpire}${videoData.guid}`);
 
     return c.json({
       videoId: videoData.guid,
       libraryId: libraryId,
       title: videoData.title,
-      apiKey: apiKey, // Client side upload needs this
+      tusSignature,
+      tusExpire,
     });
   } catch (error) {
     console.error('비디오 생성 중 에러:', error);
     return c.json({ error: `비디오 생성 중 오류가 발생했습니다: ${error.message}` }, 500);
+  }
+});
+
+// R1(2026-06-11): 커스텀 썸네일 업로드 프록시
+// Bunny 썸네일 API 는 라이브러리 AccessKey 가 필요해 클라이언트 직접 호출 불가 → 서버 경유.
+// 소유권: create-upload 시 KV 에 기록한 userId (또는 어드민)만 허용.
+app.post("/videos/:videoId/thumbnail", async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const accessToken = authHeader?.split(' ')[1];
+    if (!accessToken) {
+      return c.json({ error: "인증 토큰이 필요합니다." }, 401);
+    }
+
+    const supabase = getSupabaseClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: "유효하지 않은 토큰입니다." }, 401);
+    }
+
+    const videoId = c.req.param('videoId');
+    if (!videoId || !/^[0-9a-f-]{36}$/i.test(videoId)) {
+      return c.json({ error: "올바른 videoId가 필요합니다." }, 400);
+    }
+
+    // 소유권 검증: KV(업로드 중) → videos 테이블(업로드 완료 후) → 어드민
+    const supabaseAdmin = getSupabaseClient(true);
+    let isOwner = false;
+    const kvRecord = await kv.get(`video:${videoId}`);
+    if (kvRecord?.userId === user.id) {
+      isOwner = true;
+    } else {
+      const { data: videoRow } = await supabaseAdmin
+        .from('videos').select('creator_id').eq('id', videoId).maybeSingle();
+      if (videoRow?.creator_id === user.id) isOwner = true;
+    }
+    if (!isOwner) {
+      const { data: profile } = await supabaseAdmin
+        .from('profiles').select('is_admin').eq('id', user.id).single();
+      if (!profile?.is_admin) {
+        return c.json({ error: "본인 영상에만 썸네일을 설정할 수 있습니다." }, 403);
+      }
+    }
+
+    const libraryId = Deno.env.get('BUNNY_LIBRARY_ID');
+    const apiKey = Deno.env.get('BUNNY_API_KEY');
+    if (!libraryId || !apiKey) {
+      return c.json({ error: "Bunny.net 설정이 완료되지 않았습니다." }, 500);
+    }
+
+    const body = await c.req.arrayBuffer();
+    if (!body || body.byteLength === 0) {
+      return c.json({ error: "이미지 데이터가 비어 있습니다." }, 400);
+    }
+    if (body.byteLength > 5 * 1024 * 1024) {
+      return c.json({ error: "썸네일은 5MB 이하여야 합니다." }, 413);
+    }
+
+    const bunnyRes = await fetch(
+      `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}/thumbnail`,
+      {
+        method: 'POST',
+        headers: {
+          'AccessKey': apiKey,
+          'Content-Type': c.req.header('content-type') || 'image/jpeg',
+        },
+        body,
+      }
+    );
+
+    if (!bunnyRes.ok) {
+      const text = await bunnyRes.text().catch(() => '');
+      console.error('Bunny thumbnail upload failed:', bunnyRes.status, text);
+      return c.json({ error: `썸네일 업로드 실패 (${bunnyRes.status})` }, 502);
+    }
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('썸네일 업로드 중 에러:', error);
+    return c.json({ error: `썸네일 업로드 중 오류: ${error.message}` }, 500);
   }
 });
 
@@ -1300,7 +1372,8 @@ app.post('/refund-payment', async (c) => {
       { global: { headers: { Authorization: `Bearer ${token}` } } }
     );
 
-    const { error: rpcErr } = await supabaseAsAdmin.rpc('admin_refund_payment', {
+    // R6(2026-06-11): RPC 가 확정 정산과 겹치는 환불이면 경고 TEXT 반환 (없으면 null)
+    const { data: settlementWarning, error: rpcErr } = await supabaseAsAdmin.rpc('admin_refund_payment', {
       p_payment_id: payment_id,
       p_admin_note: admin_note,
     });
@@ -1320,6 +1393,7 @@ app.post('/refund-payment', async (c) => {
     return c.json({
       success: true,
       message: '환불 처리 완료 (토스 + DB)',
+      settlement_warning: settlementWarning || null,  // R6: 확정 정산과 겹침 경고
       toss_transaction_key: tossBody?.transactionKey,
       payment: {
         id: payment.id,
