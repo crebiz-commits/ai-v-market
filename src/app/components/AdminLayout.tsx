@@ -12,7 +12,7 @@ import {
   ShieldCheck, Megaphone, Settings, Coins, Flag, EyeOff,
   ArrowLeft, Menu, X, ShieldAlert, Loader2, LayoutDashboard,
   Users, Film, DollarSign, Send, ClipboardList, MessageSquare,
-  Globe, Sparkles
+  Globe, Sparkles, Inbox
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
@@ -32,6 +32,7 @@ const AdminBroadcast = lazy(() => import("./AdminBroadcast").then(m => ({ defaul
 const AdminActivityLog = lazy(() => import("./AdminActivityLog").then(m => ({ default: m.AdminActivityLog })));
 const AdminExternalAds = lazy(() => import("./AdminExternalAds").then(m => ({ default: m.AdminExternalAds })));
 const AdminSponsorships = lazy(() => import("./AdminSponsorships").then(m => ({ default: m.AdminSponsorships })));
+const AdminInquiries = lazy(() => import("./AdminInquiries").then(m => ({ default: m.AdminInquiries })));
 
 type AdminPage =
   | "overview"      // 대시보드 (한눈에 보기)
@@ -47,6 +48,7 @@ type AdminPage =
   | "moderation"    // 숨김 콘텐츠
   | "comments"      // 댓글 관리
   | "broadcast"     // 공지 발송
+  | "inquiries"     // 비즈니스 문의
   | "activity";     // 활동 로그
 
 interface MenuItem {
@@ -61,6 +63,7 @@ const MENU: MenuItem[] = [
   { key: "users",        label: "사용자 관리",      icon: Users,           group: "👥 운영" },
   { key: "content",      label: "콘텐츠 관리",      icon: Film,            group: "👥 운영" },
   { key: "broadcast",    label: "공지 발송",       icon: Send,            group: "👥 운영" },
+  { key: "inquiries",    label: "비즈니스 문의",    icon: Inbox,           group: "👥 운영" },
   { key: "ads",          label: "자체 광고",       icon: Megaphone,       group: "📢 광고 관리" },
   { key: "external_ads", label: "외부 광고",       icon: Globe,           group: "📢 광고 관리" },
   { key: "sponsorships", label: "크리에이터 스폰서십", icon: Sparkles,        group: "📢 광고 관리" },
@@ -78,6 +81,7 @@ const PAGE_META: Record<AdminPage, { title: string; subtitle: string }> = {
   users:      { title: "사용자 관리",    subtitle: "사용자 검색, 정지, 어드민 권한 부여를 관리합니다" },
   content:    { title: "콘텐츠 관리",    subtitle: "전체 영상 검색, 강제 숨김, 영구 삭제를 처리합니다" },
   broadcast:  { title: "공지 발송",      subtitle: "전체/세그먼트 사용자에게 인앱 공지를 발송합니다" },
+  inquiries:  { title: "비즈니스 문의",   subtitle: "광고·투자·제휴·B2B 라이선스 등 외부 문의를 확인하고 상태를 관리합니다" },
   ads:          { title: "자체 광고",          subtitle: "CREAITE House Ads — 영상 pre-roll, 피드 카드 광고 등록·관리" },
   external_ads: { title: "외부 광고",          subtitle: "Google AdSense / 쿠팡 파트너스 등 외부 광고 통합 (준비 중)" },
   sponsorships: { title: "크리에이터 스폰서십", subtitle: "크리에이터가 영상에 등록한 협찬·스폰서 배지 검수 (준비 중)" },
@@ -144,6 +148,7 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
         {currentPage === "users" && <AdminUsers />}
         {currentPage === "content" && <AdminContent />}
         {currentPage === "broadcast" && <AdminBroadcast />}
+        {currentPage === "inquiries" && <AdminInquiries />}
         {currentPage === "ads" && <AdminDashboard />}
         {currentPage === "external_ads" && <AdminExternalAds />}
         {currentPage === "sponsorships" && <AdminSponsorships />}
