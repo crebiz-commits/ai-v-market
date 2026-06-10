@@ -99,10 +99,12 @@ AS $$
 BEGIN
   PERFORM public.assert_admin();
   RETURN QUERY
-  SELECT m.id, m.user_id, m.milestone, m.video_count, m.status,
+  -- auth.users.email 은 varchar 이므로 text 로 캐스팅해야 RETURNS TABLE 시그니처와 일치
+  -- (안 하면 "structure of query does not match function result type" 오류)
+  SELECT m.id, m.user_id, m.milestone, m.video_count, m.status::text,
          m.note, m.created_at, m.rewarded_at,
-         COALESCE(NULLIF(p.display_name, ''), split_part(u.email, '@', 1), '크리에이터'),
-         u.email
+         COALESCE(NULLIF(p.display_name, ''), split_part(u.email::text, '@', 1), '크리에이터')::text,
+         u.email::text
   FROM public.upload_milestones m
   LEFT JOIN auth.users u ON u.id = m.user_id
   LEFT JOIN public.profiles p ON p.id = m.user_id
