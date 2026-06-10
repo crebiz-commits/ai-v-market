@@ -271,7 +271,7 @@ export function MessagesPanel({ onClose, onUnreadCountChange, initialConversatio
             )}
           </div>
           {/* 입력창 */}
-          <div className="flex items-end gap-2 p-3 border-t border-white/10 flex-shrink-0">
+          <div className="flex items-end gap-2 p-3 pb-[calc(5rem+env(safe-area-inset-bottom)+0.5rem)] md:pb-3 border-t border-white/10 flex-shrink-0 bg-[#111]">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
