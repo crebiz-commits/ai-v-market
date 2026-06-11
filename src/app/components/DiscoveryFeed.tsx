@@ -1027,7 +1027,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
       <div className="desktop-feed-container h-full min-h-0 overflow-y-auto bg-[#0a0a0a]">
         <div className="desktop-grid-wrapper max-w-[1800px] mx-auto px-8 lg:px-12">
           {/* 상단 고정: DISCOVERY FILMS + 칩 바 + 검색 + 전체 수 — 스크롤해도 항상 노출 (2026-06-11) */}
-          <div className="sticky top-0 z-20 -mx-8 lg:-mx-12 px-8 lg:px-12 py-5 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/5 flex items-center gap-4">
+          <div className="sticky top-0 z-20 -mx-8 lg:-mx-12 px-8 lg:px-12 py-5 bg-[#0a0a0a]/90 backdrop-blur-md relative flex items-center gap-4">
             <h2 className="text-3xl font-black text-white tracking-tighter uppercase shrink-0">DISCOVERY <span className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">FILMS</span></h2>
             {/* 칩 바 — 가운데, 넘치면 가로 스크롤 */}
             <div className="flex-1 flex items-center gap-2 overflow-x-auto min-w-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -1064,6 +1064,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
               )}
               <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold text-white/40 uppercase whitespace-nowrap shrink-0">{(totalCount ?? videos.length).toLocaleString()} VIDEOS</span>
             </div>
+            {/* 네온 구분선 (모바일 피드 구분선과 동일) */}
+            <div className="neon-divider absolute left-0 right-0 bottom-0" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8 pt-8 pb-12">
             {videos.map(v => (

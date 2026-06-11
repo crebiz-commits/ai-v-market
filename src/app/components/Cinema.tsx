@@ -277,13 +277,15 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
   return (
     <div className="h-full overflow-y-auto bg-background flex flex-col pb-20 md:pb-0">
       {/* 헤더 — 검색은 상단 헤더 🔍(통합 검색)로 일원화. 시네마 인페이지 검색 제거(2026-05-31) */}
-      <div className="px-4 md:px-6 pt-4 pb-3 sticky top-0 bg-background/95 backdrop-blur-sm z-20">
+      <div className="px-4 md:px-6 pt-4 pb-3 sticky top-0 bg-background/95 backdrop-blur-sm z-20 relative">
         <div>
           <h1 className="text-2xl md:text-3xl font-black flex items-center gap-2">
             {isOtt ? "👑" : "🎬"} {heroTitle}
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">{heroSubtitle}</p>
         </div>
+        {/* 네온 구분선 (모바일 피드 구분선과 동일) */}
+        <div className="neon-divider absolute left-0 right-0 bottom-0" />
       </div>
 
       {/* 이벤트/프로모 배너 보드 (활성 이벤트 있을 때만 노출. 넓은 화면 최대 5개 / 모바일 1개 5초 슬라이드) */}

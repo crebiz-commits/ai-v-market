@@ -3,6 +3,31 @@
 @import './theme.css';
 
 /* ───────────────────────────────────────
+   네온 구분선 (모바일 피드 구분선과 동일) — 재사용 클래스
+   사용: <div className="neon-divider" /> (얇은 3px 스윕 라인)
+   ─────────────────────────────────────── */
+.neon-divider {
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #4f46e5 15%,
+    #8b5cf6 40%,
+    #06b6d4 65%,
+    #8b5cf6 85%,
+    transparent 100%
+  );
+  background-size: 250% 100%;
+  animation: neon-divider-sweep 6s linear infinite;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.7), 0 0 20px rgba(6, 182, 212, 0.3);
+}
+@keyframes neon-divider-sweep {
+  0%   { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
+}
+
+/* ───────────────────────────────────────
    글로벌 viewport 고정 (PWA pull-to-refresh 차단)
    - 모바일에서 위→아래 스와이프 새로고침 시 발생하는
      viewport 계산 오류로 하단 nav 잘림 현상 방지
