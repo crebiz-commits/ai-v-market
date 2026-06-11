@@ -348,6 +348,8 @@ function AppContent() {
   const [pendingCommunityTab, setPendingCommunityTab] = useState<string | null>(null);
   // 협업 문의 알림 딥링크 → 해당 협업 글 상세 모달 자동 열기
   const [pendingCollabPostId, setPendingCollabPostId] = useState<string | null>(null);
+  // 데스크탑 홈 검색바 → SearchPage 초기 검색어 전달 (2026-06-11)
+  const [pendingSearchQuery, setPendingSearchQuery] = useState("");
   // R3(2026-06-11): 커뮤니티 글/챌린지 공유·알림 딥링크 → 해당 상세 자동 열기
   const [pendingCommunityPostId, setPendingCommunityPostId] = useState<string | null>(null);
   const [pendingChallengeId, setPendingChallengeId] = useState<string | null>(null);
@@ -798,7 +800,7 @@ function AppContent() {
             />
           );
         }
-        return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} onViewCreator={handleViewCreator} />;
+        return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} onViewCreator={handleViewCreator} onOpenSearch={(q) => { setPendingSearchQuery(q || ""); setActiveTab("search"); }} />;
       case "market":
         return <Cinema onProductClick={setSelectedProduct} onAddToCart={(p) => addToCart(p)} tier="cinema" onNavigate={(tab, sub) => { setActiveTab(tab as Tab); if (tab === "community" && sub) setPendingCommunityTab(sub); }} onViewCreator={handleViewCreator} onSignInClick={() => setShowAuthModal(true)} />;
       case "ott":
@@ -871,7 +873,8 @@ function AppContent() {
           <SearchPage
             onProductClick={setSelectedProduct}
             onViewCreator={handleViewCreator}
-            onClose={() => setActiveTab("discovery")}
+            initialQuery={pendingSearchQuery}
+            onClose={() => { setPendingSearchQuery(""); setActiveTab("discovery"); }}
             onNavigate={(tab) => setActiveTab(tab as Tab)}
           />
         );
@@ -1020,7 +1023,7 @@ function AppContent() {
                   `}
                 >
                   <Icon className="w-[18px] h-[18px] shrink-0" />
-                  <span className="hidden xl:inline">{tab.label}</span>
+                  <span className="hidden 2xl:inline">{tab.label}</span>
                   {isActive && (
                     <motion.div
                       layoutId="desktop-active-tab"
@@ -1036,8 +1039,10 @@ function AppContent() {
 
           {/* Right Actions — flex-1 로 좌측 로고 영역과 동일 비율 (nav 중앙 고정) */}
           <div className="flex-1 flex items-center justify-end gap-2 min-w-0">
-            {/* PWA 앱 설치 버튼 (설치 가능 + 미설치일 때만 표시) */}
-            <InstallButtonHeader />
+            {/* PWA 앱 설치 버튼 — xl(1280px) 이상에서만. 좁은 데스크탑 폭에서 중앙 메뉴와 겹쳐서 숨김 (2026-06-11) */}
+            <div className="hidden xl:flex items-center">
+              <InstallButtonHeader />
+            </div>
 
             {/* Language Switcher (Phase 35) */}
             <LanguageSwitcher variant="compact" />

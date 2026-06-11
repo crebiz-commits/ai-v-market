@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, memo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageCircle, MessageSquare, Send, ChevronRight, ExternalLink, Maximize2 } from "lucide-react";
+import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageCircle, MessageSquare, Send, ChevronRight, ExternalLink, Maximize2, Search } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
@@ -85,7 +85,18 @@ interface DiscoveryFeedProps {
   onVideoClick: (video: Video) => void;
   onSignInClick?: () => void;
   onViewCreator?: (creatorId: string) => void;
+  onOpenSearch?: (query?: string) => void;   // 데스크탑 홈 검색 진입 → SearchPage (검색어 전달)
 }
+
+// 홈 칩 필터 — get_home_feed 의 p_filter 와 1:1. (전체 외엔 CREAITE 고유 분류)
+const HOME_CHIPS: { key: string; ko: string; en: string }[] = [
+  { key: "all", ko: "전체", en: "All" },
+  { key: "popular", ko: "🔥 인기", en: "🔥 Popular" },
+  { key: "new", ko: "✨ 최신", en: "✨ New" },
+  { key: "free", ko: "🆓 무료시청", en: "🆓 Free" },
+  { key: "paid", ko: "💎 소장가능", en: "💎 For sale" },
+  { key: "cinema", ko: "🎬 시네마급", en: "🎬 Long-form" },
+];
 
 // 📢 Ad Card Component
 const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) => void }) => {
@@ -647,7 +658,12 @@ function mapVideoRow(item: any): Video {
 // 홈 피드 한 페이지 크기 (무한 스크롤)
 const FEED_PAGE_SIZE = 12;
 
-export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: DiscoveryFeedProps) {
+export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOpenSearch }: DiscoveryFeedProps) {
+  const { i18n } = useTranslation();
+  const isKo = (i18n.language || "en").startsWith("ko");
+  const [searchInput, setSearchInput] = useState("");   // 데스크탑 홈 검색바
+  const [chip, setChip] = useState("all");              // 홈 칩 필터 (전체/인기/최신/무료/소장가능/시네마급)
+  const [totalCount, setTotalCount] = useState<number | null>(null);  // 현재 칩 기준 전체 영상 수 (배지)
   const [videos, setVideos] = useState<Video[]>([]);
   const [ads, setAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
@@ -664,6 +680,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
   const offsetRef = useRef(0);          // 다음 페이지 시작 위치 (DB row 기준)
   const hasMoreRef = useRef(true);      // 클로저 stale 방지용
   const fetchingRef = useRef(false);    // 중복 호출 방지
+  const chipRef = useRef("all");        // 현재 칩 필터 (loadMore stale 방지용)
   const { user, profile } = useAuth();
   const { isBlocked } = useBlockedUsers();
   const showcase = shouldShowShowcase(profile?.is_admin);
@@ -733,6 +750,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
       const { data, error } = await supabase.rpc("get_home_feed", {
         p_limit: FEED_PAGE_SIZE,
         p_offset: from,
+        p_filter: chipRef.current,
       });
       if (error) throw error;
       const rows = data || [];
@@ -767,12 +785,13 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
     }
   }, [showcase]);
 
-  // 초기 로드: 광고 + 좋아요 상태 + 첫 페이지 영상 (user 변경 시 처음부터 재시작)
+  // 초기 로드: 광고 + 좋아요 상태 + 첫 페이지 영상 (user/칩 변경 시 처음부터 재시작)
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      // 페이지네이션 상태 리셋
+      // 페이지네이션 상태 리셋 (칩 필터 반영)
+      chipRef.current = chip;
       offsetRef.current = 0;
       hasMoreRef.current = true;
       fetchingRef.current = false;
@@ -803,7 +822,18 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.id, loadMore]);
+  }, [user?.id, chip, loadMore]);
+
+  // 홈피드 전체 영상 수 (배지용) — 현재 칩 기준 전체 (로드된 수 아님)
+  useEffect(() => {
+    let cancelled = false;
+    setTotalCount(null);
+    supabase.rpc("get_home_feed_count", { p_filter: chip }).then(
+      ({ data }) => { if (!cancelled && typeof data === "number") setTotalCount(data); },
+      () => {},
+    );
+    return () => { cancelled = true; };
+  }, [chip]);
 
   // 무한 스크롤 트리거: 피드 끝 근처 sentinel이 보이면 다음 페이지 로드
   useEffect(() => {
@@ -994,13 +1024,48 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
         )}
       </div>
 
-      <div className="desktop-feed-container min-h-screen p-8 lg:p-12 overflow-y-auto bg-[#0a0a0a]">
-        <div className="desktop-grid-wrapper max-w-[1600px] mx-auto">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-3xl font-black text-white tracking-tighter uppercase">DISCOVERY <span className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">FILMS</span></h2>
-            <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold text-white/40 uppercase">{videos.length} VIDEOS</span>
+      <div className="desktop-feed-container h-full min-h-0 overflow-y-auto bg-[#0a0a0a]">
+        <div className="desktop-grid-wrapper max-w-[1800px] mx-auto px-8 lg:px-12">
+          {/* 상단 고정: DISCOVERY FILMS + 칩 바 + 검색 + 전체 수 — 스크롤해도 항상 노출 (2026-06-11) */}
+          <div className="sticky top-0 z-20 -mx-8 lg:-mx-12 px-8 lg:px-12 py-5 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/5 flex items-center gap-4">
+            <h2 className="text-3xl font-black text-white tracking-tighter uppercase shrink-0">DISCOVERY <span className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">FILMS</span></h2>
+            {/* 칩 바 — 가운데, 넘치면 가로 스크롤 */}
+            <div className="flex-1 flex items-center gap-2 overflow-x-auto min-w-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {HOME_CHIPS.map((c) => (
+                <button
+                  key={c.key}
+                  onClick={() => setChip(c.key)}
+                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors border ${
+                    chip === c.key
+                      ? "bg-white text-black border-white"
+                      : "bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  {isKo ? c.ko : c.en}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              {/* 데스크탑 홈 검색 — 입력 후 엔터 → 검색 결과 페이지 (2026-06-11) */}
+              {onOpenSearch && (
+                <form
+                  onSubmit={(e) => { e.preventDefault(); if (searchInput.trim()) onOpenSearch(searchInput.trim()); }}
+                  className="flex items-center gap-2 px-4 h-10 rounded-full bg-white/5 border border-white/10 focus-within:border-[#6366f1] transition-colors w-72 max-w-[40vw]"
+                >
+                  <Search className="w-4 h-4 shrink-0 text-white/40" />
+                  <input
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    placeholder={isKo ? "영상·크리에이터 검색" : "Search videos & creators"}
+                    aria-label={isKo ? "검색" : "Search"}
+                    className="bg-transparent outline-none text-sm text-white placeholder-white/40 w-full"
+                  />
+                </form>
+              )}
+              <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold text-white/40 uppercase whitespace-nowrap shrink-0">{(totalCount ?? videos.length).toLocaleString()} VIDEOS</span>
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8 pt-8 pb-12">
             {videos.map(v => (
               <DesktopMovieCard
                 key={v.id}
@@ -1211,6 +1276,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator }: Di
 }
 
 function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onComment, onShare, commentCount = 0, creatorAvatar = null, creatorName = null, onViewCreator, onSignInClick }: { video: Video; onVideoClick: (video: Video) => void; isLiked: boolean; onToggleLike: (id: string, currentlyLiked: boolean) => void; onComment: (video: Video) => void; onShare: (video: Video) => void; commentCount?: number; creatorAvatar?: string | null; creatorName?: string | null; onViewCreator?: (creatorId: string) => void; onSignInClick?: () => void }) {
+  const { t } = useTranslation();
   const [isHovered, setIsHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -1280,7 +1346,8 @@ function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onCommen
         <div className="flex justify-between items-start mb-2">
           <h3 className="font-extrabold text-lg text-white line-clamp-1 group-hover:bg-gradient-to-r group-hover:from-[#6366f1] group-hover:to-[#8b5cf6] group-hover:bg-clip-text group-hover:text-transparent transition-all uppercase tracking-tight">{video.title}</h3>
         </div>
-        <div className="flex items-center gap-2 mb-4">
+        {/* min-h-9: 팔로우 버튼(h-9) 유무와 무관하게 행 높이 고정 → 카드 설명란 높이 통일 */}
+        <div className="flex items-center gap-2 mb-4 min-h-9">
           {video.creatorId && onViewCreator ? (
             <button
               onClick={(e) => { e.stopPropagation(); onViewCreator(video.creatorId!); }}
@@ -1299,18 +1366,32 @@ function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onCommen
             <FollowButton creatorId={video.creatorId} onSignInClick={onSignInClick} size="sm" />
           )}
         </div>
-        <div className="flex items-center justify-between pt-4 border-t border-white/10">
-          <span className="text-lg font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>
+        <div className="flex items-end justify-between pt-4 border-t border-white/10">
+          {/* 가격 — 모바일 피드와 동일: ₩0 영상은 "무료 시청 / 라이선스 미판매" */}
+          <div className="flex flex-col">
+            {video.price > 0 ? (
+              <>
+                <span className="text-[10px] text-white/50 font-medium leading-none mb-1">{t("video.downloadCommercial")}</span>
+                <span className="text-lg font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>
+              </>
+            ) : (
+              <>
+                <span className="text-[10px] text-white/50 font-medium leading-none mb-1">{t("video.freeWatch")}</span>
+                <span className="text-lg font-black text-gray-400">{t("video.notForSaleShort")}</span>
+              </>
+            )}
+          </div>
           <div className="flex items-center gap-4">
             <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }} className="p-2 hover:bg-red-500/10 rounded-full transition-colors">
               <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white/30'}`} />
             </button>
+            {/* 모바일 카드와 동일한 아이콘으로 통일: 댓글 MessageCircle, 공유 Send (2026-06-11) */}
             <button onClick={(e) => { e.stopPropagation(); onComment(video); }} className="flex items-center gap-1 p-2 hover:bg-white/10 rounded-full transition-colors">
-              <MessageSquare className="w-5 h-5 text-white/30 hover:text-white transition-colors" />
+              <MessageCircle className="w-5 h-5 text-white/30 hover:text-white transition-colors" />
               {commentCount > 0 && <span className="text-xs text-white/40">{commentCount}</span>}
             </button>
             <button onClick={(e) => { e.stopPropagation(); onShare(video); }} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-              <Share2 className="w-5 h-5 text-white/30 hover:text-white transition-colors" />
+              <Send className="w-5 h-5 text-white/30 hover:text-white transition-colors" />
             </button>
             <button onClick={(e) => { e.stopPropagation(); onVideoClick(video); }} className="p-2 hover:bg-white/10 rounded-full transition-colors">
               <ShoppingCart className="w-5 h-5 text-white/30 hover:text-white transition-colors" />

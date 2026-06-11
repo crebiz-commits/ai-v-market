@@ -85,6 +85,7 @@ interface PopularQuery {
 interface SearchPageProps {
   onProductClick: (video: any) => void;
   onViewCreator?: (creatorId: string) => void;
+  initialQuery?: string;   // 외부(홈 검색바 등)에서 넘긴 초기 검색어 → 마운트 시 자동 검색
   onClose?: () => void;
   onNavigate?: (tab: string) => void;
 }
@@ -135,9 +136,9 @@ function saveHistory(query: string) {
   }
 }
 
-export function SearchPage({ onProductClick, onViewCreator, onClose, onNavigate }: SearchPageProps) {
+export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClose, onNavigate }: SearchPageProps) {
   const { t } = useTranslation();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery || "");
   const [submittedQuery, setSubmittedQuery] = useState(""); // 실제 검색이 실행된 쿼리
   const [tab, setTab] = useState<Tab>("videos");
 
@@ -272,6 +273,12 @@ export function SearchPage({ onProductClick, onViewCreator, onClose, onNavigate 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, aiTool, durationIdx, sort]);
+
+  // 외부에서 초기 검색어를 받으면 마운트 시 1회 자동 검색 (홈 검색바 → 결과 페이지)
+  useEffect(() => {
+    if (initialQuery && initialQuery.trim()) runSearch(initialQuery.trim());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const hasActiveFilter = useMemo(
     () => category !== "전체" || aiTool !== "전체" || durationIdx !== 0,
