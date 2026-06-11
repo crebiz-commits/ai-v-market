@@ -1,7 +1,8 @@
 -- ════════════════════════════════════════════════════════════════════════════
 -- 팔로우한 크리에이터 새 영상 → 팔로워 인앱 벨 알림 (2026-06-12)
 --   이메일이 아니라 벨 알림으로 (Resend 비용 없음). 클릭 시 해당 영상 오픈.
---   on/off 게이트: notification_preferences.email_new_video_from_followed (기본 true).
+--   on/off 게이트: notification_preferences.email_new_video_from_followed.
+--   기본 OFF (opt-in) — 새 영상은 양이 많을 수 있어 원하는 사람만 켜기.
 --   + 댓글 답글 이메일 기본 OFF (벨로 충분 — 메일 도배 방지).
 -- 적용: Supabase SQL Editor → 새 쿼리 → Run
 -- ════════════════════════════════════════════════════════════════════════════
@@ -9,6 +10,11 @@
 -- 1) 댓글 답글 이메일 기본 OFF (벨은 그대로 항상 옴)
 ALTER TABLE public.notification_preferences ALTER COLUMN email_comment_reply SET DEFAULT false;
 UPDATE public.notification_preferences SET email_comment_reply = false WHERE email_comment_reply = true;
+
+-- 1-2) 새 영상 알림 기본 OFF (opt-in) — 양이 많을 수 있어 원하는 사람만
+ALTER TABLE public.notification_preferences ALTER COLUMN email_new_video_from_followed SET DEFAULT false;
+ALTER TABLE public.notification_preferences ALTER COLUMN push_new_video_from_followed  SET DEFAULT false;
+UPDATE public.notification_preferences SET email_new_video_from_followed = false, push_new_video_from_followed = false;
 
 -- 2) 새 영상 → 팔로워 벨 알림 트리거
 CREATE OR REPLACE FUNCTION public.tg_notify_followers_new_video()
