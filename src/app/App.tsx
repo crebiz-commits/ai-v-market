@@ -61,6 +61,7 @@ const FaqPage = lazy(() => import("./components/StaticPages").then(m => ({ defau
 const NoticesPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.NoticesPage })));
 const BugReportPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.BugReportPage })));
 const TopCreatorsPage = lazy(() => import("./components/TopCreators").then(m => ({ default: m.TopCreatorsPage })));
+const SupportPage = lazy(() => import("./components/SupportPage").then(m => ({ default: m.SupportPage })));
 const PaymentResult = lazy(() => import("./components/PaymentResult").then(m => ({ default: m.PaymentResult })));
 const SearchPage = lazy(() => import("./components/SearchPage").then(m => ({ default: m.SearchPage })));
 
@@ -108,7 +109,7 @@ function PageLoading() {
   );
 }
 
-type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy" | "faq" | "notices" | "bug-report" | "top-creators" | "search";
+type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy" | "faq" | "notices" | "bug-report" | "top-creators" | "support" | "search";
 type Panel = "cart" | "notifications" | null;
 
 interface VideoProduct {
@@ -350,6 +351,8 @@ function AppContent() {
   const [pendingCollabPostId, setPendingCollabPostId] = useState<string | null>(null);
   // 데스크탑 홈 검색바 → SearchPage 초기 검색어 전달 (2026-06-11)
   const [pendingSearchQuery, setPendingSearchQuery] = useState("");
+  // 고객센터 답변 알림(?support=) → 해당 문의로 스크롤 (2026-06-11)
+  const [pendingSupportId, setPendingSupportId] = useState<string | null>(null);
   // R3(2026-06-11): 커뮤니티 글/챌린지 공유·알림 딥링크 → 해당 상세 자동 열기
   const [pendingCommunityPostId, setPendingCommunityPostId] = useState<string | null>(null);
   const [pendingChallengeId, setPendingChallengeId] = useState<string | null>(null);
@@ -420,6 +423,8 @@ function AppContent() {
       const challenge = url.searchParams.get("challenge");
       const creator = url.searchParams.get("creator");
       if (video) { void loadAndOpenVideo(video, { openComments: url.searchParams.get("comment") === "1" }); return; }
+      const support = url.searchParams.get("support");
+      if (support) { setPendingSupportId(support); setActiveTab("support"); return; }
       if (tab) {
         if (tab === "mypage" && section) setPendingMyPageTab(section);
         if (tab === "community" && sub) {
@@ -499,6 +504,7 @@ function AppContent() {
     }
     if (tabParam === "mypage" && section) setPendingMyPageTab(section);      // 결제·정산 알림
     if (tabParam === "channel" && creator) setPendingCreatorId(creator);     // 새 팔로워 알림
+    if (params.get("support")) { setPendingSupportId(params.get("support")); setActiveTab("support"); }  // 고객센터 답변 알림
     // 첫 마운트만 — loadAndOpenVideo 는 closure 로 안정적
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -868,6 +874,8 @@ function AppContent() {
         return <BugReportPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} onSignInClick={() => setShowAuthModal(true)} />;
       case "top-creators":
         return <TopCreatorsPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} onViewCreator={handleViewCreator} onSignInClick={() => setShowAuthModal(true)} />;
+      case "support":
+        return <SupportPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} onSignInClick={() => setShowAuthModal(true)} initialInquiryId={pendingSupportId} />;
       case "search":
         return (
           <SearchPage

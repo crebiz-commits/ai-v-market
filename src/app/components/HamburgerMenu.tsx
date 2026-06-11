@@ -1,7 +1,7 @@
 import { useState } from "react";
 // @ts-ignore — react-dom 타입 미설치, 런타임은 정상
 import { createPortal } from "react-dom";
-import { Menu, X, Briefcase, Building2, FileText, Shield, Mail, Coins } from "lucide-react";
+import { Menu, X, Briefcase, Building2, FileText, Shield, Mail, Coins, LifeBuoy } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useBackButton } from "../hooks/useBackButton";
 import { useTranslation } from "react-i18next";
@@ -94,6 +94,7 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
                 <div className="my-2 border-t border-white/5" />
 
                 <div className="px-3 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">{t("footer.support")}</div>
+                <MenuItem icon={LifeBuoy} label={t("footer.support1on1", "고객센터 · 1:1 문의")} onClick={() => handleNav("support")} />
                 <a
                   href="mailto:support@creaite.net"
                   className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors"

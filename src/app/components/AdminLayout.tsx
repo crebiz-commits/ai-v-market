@@ -12,7 +12,7 @@ import {
   ShieldCheck, Megaphone, Settings, Coins, Flag, EyeOff,
   ArrowLeft, Menu, X, ShieldAlert, Loader2, LayoutDashboard,
   Users, Film, DollarSign, Send, ClipboardList, MessageSquare,
-  Globe, Sparkles, Inbox, Trophy, Image as ImageIcon, Bug, Coffee
+  Globe, Sparkles, Inbox, Trophy, Image as ImageIcon, Bug, Coffee, LifeBuoy
 } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -34,6 +34,7 @@ const AdminActivityLog = lazy(() => import("./AdminActivityLog").then(m => ({ de
 const AdminExternalAds = lazy(() => import("./AdminExternalAds").then(m => ({ default: m.AdminExternalAds })));
 const AdminSponsorships = lazy(() => import("./AdminSponsorships").then(m => ({ default: m.AdminSponsorships })));
 const AdminInquiries = lazy(() => import("./AdminInquiries").then(m => ({ default: m.AdminInquiries })));
+const AdminSupportInquiries = lazy(() => import("./AdminSupportInquiries").then(m => ({ default: m.AdminSupportInquiries })));
 const AdminChallenges = lazy(() => import("./AdminChallenges").then(m => ({ default: m.AdminChallenges })));
 const AdminBanners = lazy(() => import("./AdminBanners").then(m => ({ default: m.AdminBanners })));
 const AdminBugReports = lazy(() => import("./AdminBugReports").then(m => ({ default: m.AdminBugReports })));
@@ -54,6 +55,7 @@ type AdminPage =
   | "comments"      // 댓글 관리
   | "broadcast"     // 공지 발송
   | "inquiries"     // 비즈니스 문의
+  | "support"       // 고객 1:1 문의
   | "challenges"    // 챌린지(공모전) 관리
   | "banners"       // 이벤트 배너 관리
   | "bugs"          // 버그 제보 관리
@@ -72,6 +74,7 @@ const MENU: MenuItem[] = [
   { key: "users",        label: "사용자 관리",      icon: Users,           group: "👥 운영" },
   { key: "content",      label: "콘텐츠 관리",      icon: Film,            group: "👥 운영" },
   { key: "broadcast",    label: "공지 발송",       icon: Send,            group: "👥 운영" },
+  { key: "support",      label: "고객 문의",       icon: LifeBuoy,        group: "👥 운영" },
   { key: "inquiries",    label: "비즈니스 문의",    icon: Inbox,           group: "👥 운영" },
   { key: "challenges",   label: "챌린지·공모전",    icon: Trophy,          group: "👥 운영" },
   { key: "banners",      label: "이벤트 배너",      icon: ImageIcon,       group: "👥 운영" },
@@ -94,6 +97,7 @@ const PAGE_META: Record<AdminPage, { title: string; subtitle: string }> = {
   users:      { title: "사용자 관리",    subtitle: "사용자 검색, 정지, 어드민 권한 부여를 관리합니다" },
   content:    { title: "콘텐츠 관리",    subtitle: "전체 영상 검색, 강제 숨김, 영구 삭제를 처리합니다" },
   broadcast:  { title: "공지 발송",      subtitle: "전체/세그먼트 사용자에게 인앱 공지를 발송합니다" },
+  support:    { title: "고객 문의",       subtitle: "일반 고객의 1:1 문의를 확인하고 사이트 내에서 답변합니다 (답변 시 고객에게 알림)" },
   inquiries:  { title: "비즈니스 문의",   subtitle: "광고·투자·제휴·B2B 라이선스 등 외부 문의를 확인하고 상태를 관리합니다" },
   challenges: { title: "챌린지·공모전",   subtitle: "매월 공모전을 등록·관리합니다 — 커뮤니티 챌린지 탭에 바로 노출됩니다" },
   banners:    { title: "이벤트 배너",     subtitle: "시네마 상단 이벤트 배너를 등록·수정·정렬·노출 관리합니다" },
@@ -127,13 +131,14 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
     let cancelled = false;
     (async () => {
       try {
-        const [megaRes, bugRes] = await Promise.all([
+        const [megaRes, bugRes, supRes] = await Promise.all([
           supabase.rpc("admin_list_upload_milestones"),
           supabase.from("bug_reports").select("id", { count: "exact", head: true }).eq("status", "new"),
+          supabase.from("support_inquiries").select("id", { count: "exact", head: true }).eq("status", "open"),
         ]);
         if (cancelled) return;
         const megaPending = ((megaRes.data as any[]) || []).filter((m) => m.status === "pending").length;
-        setBadges({ mega: megaPending, bugs: bugRes.count || 0 });
+        setBadges({ mega: megaPending, bugs: bugRes.count || 0, support: supRes.count || 0 });
       } catch { /* 배지는 부가기능 — 실패 무시 */ }
     })();
     return () => { cancelled = true; };
@@ -184,6 +189,7 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
         {currentPage === "users" && <AdminUsers />}
         {currentPage === "content" && <AdminContent />}
         {currentPage === "broadcast" && <AdminBroadcast />}
+        {currentPage === "support" && <AdminSupportInquiries />}
         {currentPage === "inquiries" && <AdminInquiries />}
         {currentPage === "challenges" && <AdminChallenges />}
         {currentPage === "banners" && <AdminBanners />}

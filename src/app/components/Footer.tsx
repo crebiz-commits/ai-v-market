@@ -121,6 +121,14 @@ export function Footer({ onNavigate }: FooterProps) {
             <ul className="space-y-2">
               <li>
                 <button
+                  onClick={() => onNavigate("support")}
+                  className="text-sm font-semibold text-[#a78bfa] hover:text-white transition-colors"
+                >
+                  💬 {t("footer.support1on1", "고객센터 · 1:1 문의")}
+                </button>
+              </li>
+              <li>
+                <button
                   onClick={() => onNavigate("notices")}
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
@@ -148,15 +156,7 @@ export function Footer({ onNavigate }: FooterProps) {
                   href="mailto:support@creaite.net"
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  {t("footer.contact")}
-                </a>
-              </li>
-              <li>
-                <a
-                  href="mailto:support@creaite.net"
-                  className="text-sm text-gray-400 hover:text-white transition-colors"
-                >
-                  support@creaite.net
+                  📧 support@creaite.net
                 </a>
               </li>
             </ul>
