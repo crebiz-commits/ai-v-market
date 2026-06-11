@@ -22,6 +22,7 @@ import { useAgeRatings } from "../hooks/useAgeRatings";
 import { CoverFlow } from "./CoverFlow";
 import { EventBannerBoard, type BoardBanner } from "./EventBannerBoard";
 import { fetchEventBanners } from "../data/eventBanners";
+import { TopCreatorsRow } from "./TopCreators";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { useTranslation } from "react-i18next";
@@ -102,6 +103,8 @@ interface CinemaProps {
   onAddToCart?: (product: Product) => void;  // 카드 hover '+' 버튼 — App.tsx의 addToCart 호출
   tier?: "cinema" | "ott";   // 시네마(3분+) 또는 OTT(10분+)
   onNavigate?: (tab: string, sub?: string) => void;
+  onViewCreator?: (creatorId: string) => void;  // 탑 크리에이터 카드 → 채널 이동
+  onSignInClick?: () => void;                    // 팔로우 등 로그인 필요 액션
 }
 
 interface CategoryRow {
@@ -132,7 +135,7 @@ function toProduct(v: CarouselVideo): Product {
   };
 }
 
-export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigate }: CinemaProps) {
+export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigate, onViewCreator, onSignInClick }: CinemaProps) {
   const { t } = useTranslation();
   const { profile } = useAuth();
   const showcase = shouldShowShowcase(profile?.is_admin);
@@ -410,6 +413,13 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
               ageRatings={ageRatings}
             />
           ))}
+
+          {/* 이번 주 TOP 크리에이터 — 모든 행 맨 아래 */}
+          <TopCreatorsRow
+            onViewCreator={onViewCreator}
+            onSignInClick={onSignInClick}
+            onSeeAll={() => onNavigate?.("top-creators")}
+          />
 
           {/* 빈 상태 */}
           {recommended.length === 0 && trending.length === 0 && newReleases.length === 0 && (

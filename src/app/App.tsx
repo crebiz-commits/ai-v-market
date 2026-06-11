@@ -60,6 +60,7 @@ const PrivacyPage = lazy(() => import("./components/StaticPages").then(m => ({ d
 const FaqPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.FaqPage })));
 const NoticesPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.NoticesPage })));
 const BugReportPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.BugReportPage })));
+const TopCreatorsPage = lazy(() => import("./components/TopCreators").then(m => ({ default: m.TopCreatorsPage })));
 const PaymentResult = lazy(() => import("./components/PaymentResult").then(m => ({ default: m.PaymentResult })));
 const SearchPage = lazy(() => import("./components/SearchPage").then(m => ({ default: m.SearchPage })));
 
@@ -107,7 +108,7 @@ function PageLoading() {
   );
 }
 
-type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy" | "faq" | "notices" | "bug-report" | "search";
+type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy" | "faq" | "notices" | "bug-report" | "top-creators" | "search";
 type Panel = "cart" | "notifications" | null;
 
 interface VideoProduct {
@@ -799,7 +800,7 @@ function AppContent() {
         }
         return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} onViewCreator={handleViewCreator} />;
       case "market":
-        return <Cinema onProductClick={setSelectedProduct} onAddToCart={(p) => addToCart(p)} tier="cinema" onNavigate={(tab, sub) => { setActiveTab(tab as Tab); if (tab === "community" && sub) setPendingCommunityTab(sub); }} />;
+        return <Cinema onProductClick={setSelectedProduct} onAddToCart={(p) => addToCart(p)} tier="cinema" onNavigate={(tab, sub) => { setActiveTab(tab as Tab); if (tab === "community" && sub) setPendingCommunityTab(sub); }} onViewCreator={handleViewCreator} onSignInClick={() => setShowAuthModal(true)} />;
       case "ott":
         return <Ott onProductClick={setSelectedProduct} onPlayProduct={playProduct} onNavigate={(tab) => setActiveTab(tab as Tab)} onHeroScroll={setHeroScrolled} />;
       case "upload":
@@ -863,6 +864,8 @@ function AppContent() {
         return <NoticesPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "bug-report":
         return <BugReportPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} onSignInClick={() => setShowAuthModal(true)} />;
+      case "top-creators":
+        return <TopCreatorsPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} onViewCreator={handleViewCreator} onSignInClick={() => setShowAuthModal(true)} />;
       case "search":
         return (
           <SearchPage

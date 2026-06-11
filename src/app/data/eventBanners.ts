@@ -69,7 +69,7 @@ const BANNERS: (BoardBanner & { activeFrom?: string; activeTo?: string })[] = [
     title: "이번 주 TOP 크리에이터",
     subtitle: "가장 사랑받은 AI 영상과 크리에이터를 만나보세요.",
     ctaLabel: "랭킹 보기",
-    link: "/?tab=ott",
+    link: "/?tab=top-creators",
     align: "left",
     gradient: "from-[#1e1b4b] via-[#3b0764] to-[#0d0d14]",
   },
