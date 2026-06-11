@@ -27,6 +27,10 @@
   100% { background-position: -120% 0; }
 }
 
+/* 스크롤바 숨김 (가로 칩 바 등) — 스크롤은 되지만 막대는 안 보임 */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
 /* ───────────────────────────────────────
    글로벌 viewport 고정 (PWA pull-to-refresh 차단)
    - 모바일에서 위→아래 스와이프 새로고침 시 발생하는

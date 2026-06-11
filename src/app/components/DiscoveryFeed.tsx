@@ -1030,7 +1030,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
           <div className="sticky top-0 z-20 -mx-8 lg:-mx-12 px-8 lg:px-12 py-5 bg-[#0a0a0a]/90 backdrop-blur-md relative flex items-center gap-4">
             <h2 className="text-3xl font-black text-white tracking-tighter uppercase shrink-0">DISCOVERY <span className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">FILMS</span></h2>
             {/* 칩 바 — 가운데, 넘치면 가로 스크롤 */}
-            <div className="flex-1 flex items-center gap-2 overflow-x-auto min-w-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex-1 flex items-center gap-2 overflow-x-auto min-w-0 no-scrollbar">
               {HOME_CHIPS.map((c) => (
                 <button
                   key={c.key}
