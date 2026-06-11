@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, memo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageCircle, MessageSquare, Send, ChevronRight, ExternalLink, Maximize2, Search } from "lucide-react";
+import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageCircle, MessageSquare, Send, ChevronRight, ChevronLeft, ExternalLink, Maximize2, Search } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
@@ -663,6 +663,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   const isKo = (i18n.language || "en").startsWith("ko");
   const [searchInput, setSearchInput] = useState("");   // 데스크탑 홈 검색바
   const [chip, setChip] = useState("all");              // 홈 칩 필터 (전체/인기/최신/무료/소장가능/시네마급)
+  const chipScrollRef = useRef<HTMLDivElement>(null);   // 칩 바 가로 스크롤 (유튜브식 화살표)
+  const [chipArrows, setChipArrows] = useState({ left: false, right: false });
   const [totalCount, setTotalCount] = useState<number | null>(null);  // 현재 칩 기준 전체 영상 수 (배지)
   const [videos, setVideos] = useState<Video[]>([]);
   const [ads, setAds] = useState<Ad[]>([]);
@@ -823,6 +825,25 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     })();
     return () => { cancelled = true; };
   }, [user?.id, chip, loadMore]);
+
+  // 칩 바 좌우 화살표 표시 여부 (유튜브식: 넘칠 때만, 스크롤 위치 따라)
+  const updateChipArrows = useCallback(() => {
+    const el = chipScrollRef.current;
+    if (!el) return;
+    const left = el.scrollLeft > 4;
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 4;
+    setChipArrows((prev) => (prev.left === left && prev.right === right ? prev : { left, right }));
+  }, []);
+  useEffect(() => {
+    updateChipArrows();
+    const id = window.setTimeout(updateChipArrows, 100); // 레이아웃 안정 후 한 번 더
+    window.addEventListener("resize", updateChipArrows);
+    return () => { window.clearTimeout(id); window.removeEventListener("resize", updateChipArrows); };
+  }, [updateChipArrows]);
+  const scrollChips = (dir: "left" | "right") => {
+    const el = chipScrollRef.current;
+    if (el) el.scrollBy({ left: dir === "right" ? 180 : -180, behavior: "smooth" });
+  };
 
   // 홈피드 전체 영상 수 (배지용) — 현재 칩 기준 전체 (로드된 수 아님)
   useEffect(() => {
@@ -1029,21 +1050,53 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
           {/* 상단 고정: DISCOVERY FILMS + 칩 바 + 검색 + 전체 수 — 스크롤해도 항상 노출 (2026-06-11) */}
           <div className="sticky top-0 z-20 -mx-8 lg:-mx-12 px-8 lg:px-12 py-5 bg-[#0a0a0a]/90 backdrop-blur-md relative flex items-center gap-4">
             <h2 className="text-3xl font-black text-white tracking-tighter uppercase shrink-0">DISCOVERY <span className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">FILMS</span></h2>
-            {/* 칩 바 — 가운데, 넘치면 가로 스크롤 */}
-            <div className="flex-1 flex items-center gap-2 overflow-x-auto min-w-0 no-scrollbar">
-              {HOME_CHIPS.map((c) => (
+            {/* 칩 바 — 가운데, 넘치면 유튜브식 좌우 화살표로 스크롤 */}
+            <div className="flex-1 min-w-0 relative">
+              <div
+                ref={chipScrollRef}
+                onScroll={updateChipArrows}
+                className="flex items-center gap-2 overflow-x-auto no-scrollbar"
+              >
+                {HOME_CHIPS.map((c) => (
+                  <button
+                    key={c.key}
+                    onClick={() => setChip(c.key)}
+                    className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors border ${
+                      chip === c.key
+                        ? "bg-white text-black border-white"
+                        : "bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    {isKo ? c.ko : c.en}
+                  </button>
+                ))}
+              </div>
+              {/* 왼쪽 화살표 (스크롤 시작 이후 표시) */}
+              {chipArrows.left && (
                 <button
-                  key={c.key}
-                  onClick={() => setChip(c.key)}
-                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors border ${
-                    chip === c.key
-                      ? "bg-white text-black border-white"
-                      : "bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white"
-                  }`}
+                  type="button"
+                  onClick={() => scrollChips("left")}
+                  aria-label={isKo ? "이전 칩" : "Previous"}
+                  className="absolute left-0 top-0 bottom-0 z-10 flex items-center pr-7 pl-0.5 bg-gradient-to-r from-[#0a0a0a] via-[#0a0a0a] to-transparent"
                 >
-                  {isKo ? c.ko : c.en}
+                  <span className="w-7 h-7 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition-colors">
+                    <ChevronLeft className="w-4 h-4 text-white" />
+                  </span>
                 </button>
-              ))}
+              )}
+              {/* 오른쪽 화살표 (더 볼 칩이 남았을 때 표시) */}
+              {chipArrows.right && (
+                <button
+                  type="button"
+                  onClick={() => scrollChips("right")}
+                  aria-label={isKo ? "다음 칩" : "Next"}
+                  className="absolute right-0 top-0 bottom-0 z-10 flex items-center pl-7 pr-0.5 bg-gradient-to-l from-[#0a0a0a] via-[#0a0a0a] to-transparent"
+                >
+                  <span className="w-7 h-7 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition-colors">
+                    <ChevronRight className="w-4 h-4 text-white" />
+                  </span>
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-3 shrink-0">
               {/* 데스크탑 홈 검색 — 입력 후 엔터 → 검색 결과 페이지 (2026-06-11) */}
