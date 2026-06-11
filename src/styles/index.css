@@ -31,6 +31,11 @@
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
+/* 이벤트 배너 끊김 없는 마퀴 (2벌 복제 → -50% 이동 = 한 벌, 무한 루프) */
+@keyframes banner-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.banner-marquee { animation: banner-marquee linear infinite; will-change: transform; }
+.banner-marquee:hover { animation-play-state: paused; }
+
 /* ───────────────────────────────────────
    글로벌 viewport 고정 (PWA pull-to-refresh 차단)
    - 모바일에서 위→아래 스와이프 새로고침 시 발생하는

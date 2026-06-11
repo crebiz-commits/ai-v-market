@@ -66,7 +66,7 @@ const ITEMS: NotificationItem[] = [
     pushKey: "push_new_video_from_followed",
     labelKey: "notificationSettings.items.newVideoFromFollowedLabel",
     descKey: "notificationSettings.items.newVideoFromFollowedDesc",
-    comingSoon: true,
+    // 인앱 벨 알림으로 동작 (이메일 X). 토글로 새 영상 알림 on/off.
   },
   {
     emailKey: "email_comment_reply",

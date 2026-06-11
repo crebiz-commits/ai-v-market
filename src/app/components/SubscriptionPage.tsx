@@ -33,6 +33,7 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
   const { isAuthenticated, user, profile } = useAuth();
   const { startAutoBilling } = usePayment();
   const [paying, setPaying] = useState(false);
+  const [agreed, setAgreed] = useState(false);   // 자동결제 동의 (전자상거래법)
   const [billing, setBilling] = useState<{ card_company: string | null; card_last4: string | null; auto_renew: boolean; status: string; next_charge_at: string | null } | null>(null);
 
   const isPremium = profile?.subscription_tier === "premium";
@@ -166,7 +167,15 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
                 </li>
               ))}
             </ul>
-            <button onClick={subscribe} disabled={paying || isPremium}
+            {!isPremium && (
+              <label className="flex items-start gap-2 mb-3 cursor-pointer text-left">
+                <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 w-4 h-4 accent-amber-500 shrink-0" />
+                <span className="text-[11px] text-gray-400 leading-snug">
+                  {isKo ? "매월 ₩4,900 자동결제(정기결제) 및 환불 정책에 동의합니다. 언제든 해지할 수 있습니다." : "I agree to ₩4,900/mo recurring billing & refund policy. Cancel anytime."}
+                </span>
+              </label>
+            )}
+            <button onClick={subscribe} disabled={paying || isPremium || (!isPremium && !agreed)}
               className="w-full py-3 rounded-xl font-black text-base bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 disabled:opacity-60">
               {paying ? <><Loader2 className="w-5 h-5 animate-spin" />{isKo ? "카드 등록 중…" : "Opening…"}</>
                 : isPremium ? <>{isKo ? "이용 중" : "Active"}</>
