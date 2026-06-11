@@ -1284,7 +1284,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => setShowSubscribe(true)}
+                        onClick={() => onNavigate?.("subscription")}
                         className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-lg text-sm font-bold border border-white/20 transition-colors shadow-sm"
                       >
                         {t("mypage.subscription.upgrade")}
@@ -1294,7 +1294,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => setShowSubscribe(true)}
+                        onClick={() => onNavigate?.("subscription")}
                         className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-lg text-sm font-bold border border-white/20 transition-colors shadow-sm"
                       >
                         {isKo ? "구독 연장" : "Extend"}
@@ -1335,6 +1335,25 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       </div>
                       <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 hidden md:block" />
                     </div>
+                  </div>
+                </div>
+
+                {/* 빠른 링크 (넷플릭스식 — 흩어진 메뉴 한곳에서) */}
+                <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
+                  <h3 className="text-lg font-bold text-white mb-4">{isKo ? "빠른 링크" : "Quick links"}</h3>
+                  <div className="space-y-2">
+                    {[
+                      { icon: "👑", label: isKo ? "멤버십 관리" : "Membership", onClick: () => onNavigate?.("subscription") },
+                      { icon: "💬", label: isKo ? "고객센터 · 1:1 문의" : "Support · Contact", onClick: () => onNavigate?.("support") },
+                      { icon: "⚙️", label: isKo ? "설정 (알림 · 결제내역 · 보안)" : "Settings", onClick: () => setActiveTab("settings") },
+                    ].map((it) => (
+                      <button key={it.label} onClick={it.onClick}
+                        className="w-full flex items-center gap-3 bg-[#1c1c1e] hover:bg-[#242427] p-4 rounded-xl border border-white/5 hover:border-white/10 transition-colors text-left">
+                        <span className="text-xl shrink-0">{it.icon}</span>
+                        <span className="flex-1 text-gray-200 font-medium text-sm">{it.label}</span>
+                        <ChevronRight className="w-4 h-4 text-gray-600 shrink-0" />
+                      </button>
+                    ))}
                   </div>
                 </div>
 

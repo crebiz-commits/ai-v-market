@@ -1,13 +1,13 @@
 import { useState } from "react";
 // @ts-ignore — react-dom 타입 미설치, 런타임은 정상
 import { createPortal } from "react-dom";
-import { Menu, X, Briefcase, Building2, FileText, Shield, Mail, Coins, LifeBuoy } from "lucide-react";
+import { Menu, X, Briefcase, Building2, FileText, Shield, Mail, Coins, LifeBuoy, Crown } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useBackButton } from "../hooks/useBackButton";
 import { useTranslation } from "react-i18next";
 
 interface HamburgerMenuProps {
-  onNavigate: (tab: "business" | "about" | "terms" | "privacy") => void;
+  onNavigate: (tab: string) => void;
 }
 
 /**
@@ -20,7 +20,7 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
   const [open, setOpen] = useState(false);
   useBackButton(open, () => setOpen(false));
 
-  const handleNav = (tab: "business" | "about" | "terms" | "privacy") => {
+  const handleNav = (tab: string) => {
     setOpen(false);
     // setOpen(false) → useBackButton cleanup → history.back() 발동.
     // 동시에 onNavigate(tab) 호출하면 setActiveTab useEffect 의 pushState 와 race condition 가능.
@@ -70,6 +70,20 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
               </div>
 
               <div className="p-3">
+                {/* 멤버십(구독) — 상단 강조 진입 */}
+                <button
+                  onClick={() => handleNav("subscription")}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/10 border border-amber-500/30 hover:from-amber-500/30 transition-colors mb-3"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0">
+                    <Crown className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-[15px] font-bold text-white">{t("nav.membership", "멤버십")}</p>
+                    <p className="text-xs text-amber-200/70 mt-0.5">월 ₩4,900 · 광고 없는 무제한</p>
+                  </div>
+                </button>
+
                 <div className="px-3 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">{t("hamburger.business")}</div>
                 <MenuItem icon={Briefcase} label={t("business.title")} sub={t("business.subtitle")} onClick={() => handleNav("business")} />
                 <MenuItem icon={Building2} label={t("footer.about")} onClick={() => handleNav("about")} />

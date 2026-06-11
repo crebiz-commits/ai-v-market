@@ -62,6 +62,7 @@ const NoticesPage = lazy(() => import("./components/StaticPages").then(m => ({ d
 const BugReportPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.BugReportPage })));
 const TopCreatorsPage = lazy(() => import("./components/TopCreators").then(m => ({ default: m.TopCreatorsPage })));
 const SupportPage = lazy(() => import("./components/SupportPage").then(m => ({ default: m.SupportPage })));
+const SubscriptionPage = lazy(() => import("./components/SubscriptionPage").then(m => ({ default: m.SubscriptionPage })));
 const PaymentResult = lazy(() => import("./components/PaymentResult").then(m => ({ default: m.PaymentResult })));
 const SearchPage = lazy(() => import("./components/SearchPage").then(m => ({ default: m.SearchPage })));
 
@@ -109,7 +110,7 @@ function PageLoading() {
   );
 }
 
-type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy" | "faq" | "notices" | "bug-report" | "top-creators" | "support" | "search";
+type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy" | "faq" | "notices" | "bug-report" | "top-creators" | "support" | "subscription" | "search";
 type Panel = "cart" | "notifications" | null;
 
 interface VideoProduct {
@@ -876,6 +877,8 @@ function AppContent() {
         return <TopCreatorsPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} onViewCreator={handleViewCreator} onSignInClick={() => setShowAuthModal(true)} />;
       case "support":
         return <SupportPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} onSignInClick={() => setShowAuthModal(true)} initialInquiryId={pendingSupportId} />;
+      case "subscription":
+        return <SubscriptionPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} onSignInClick={() => setShowAuthModal(true)} />;
       case "search":
         return (
           <SearchPage
@@ -1087,6 +1090,18 @@ function AppContent() {
                   {cartItems.length}
                 </span>
               )}
+            </motion.button>
+
+            {/* 멤버십(구독) — 상시 노출 진입 버튼 */}
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setActiveTab("subscription")}
+              title={t("nav.membership", "멤버십")}
+              className="hidden md:flex items-center gap-1.5 px-3 h-9 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-bold shadow-md shadow-amber-500/20 hover:opacity-90"
+            >
+              <Crown className="w-4 h-4" />
+              <span className="hidden lg:inline">{t("nav.membership", "멤버십")}</span>
             </motion.button>
 
             {/* Auth */}
