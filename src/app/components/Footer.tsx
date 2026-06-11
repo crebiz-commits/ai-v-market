@@ -7,9 +7,11 @@ interface FooterProps {
 }
 
 /**
- * 페이지 하단 푸터 (모바일·데스크탑 공통). 데스크탑은 전체 폭(max-w-[1800px])으로 균형있게.
+ * 페이지 하단 푸터 — 데스크탑 전용 (2026-06-11: 모바일/앱에선 숨김).
  *
- * 외부 광고주·투자자가 메인 페이지 어디에서나 도달할 수 있도록 모든 페이지 하단에 노출.
+ * 앱(유튜브·틱톡·넷플릭스 등)은 하단 푸터가 없고 모든 안내가 메뉴 안에 있음.
+ * 우리도 모바일에선 햄버거 메뉴에 동일 내용(비즈니스·회사소개·약관·고객센터·사업자정보)이
+ * 모두 있으므로 푸터는 숨기고(md:block), 데스크탑(브라우저)에서만 노출.
  */
 export function Footer({ onNavigate }: FooterProps) {
   const { t } = useTranslation();
@@ -18,7 +20,7 @@ export function Footer({ onNavigate }: FooterProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6, delay: 0.4 }}
-      className="block border-t border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl mt-auto"
+      className="hidden md:block border-t border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl mt-auto"
     >
       <div className="max-w-[1800px] mx-auto px-5 md:px-10 py-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-6">
