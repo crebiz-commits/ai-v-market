@@ -148,6 +148,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
   // clipUrl(미리 잘린 30초 하이라이트 클립)이 있으면 seek 없이 처음부터 재생(안정적).
   const [heroSrc, setHeroSrc] = useState<{ url: string; start: number; end: number; clipUrl?: string } | null>(null);
   const [heroMuted, setHeroMuted] = useState(true);
+  const [heroIdx, setHeroIdx] = useState(0);   // 히어로 순환 인덱스 (8초마다)
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const allVideoIds = useMemo(() => {
@@ -174,9 +175,17 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
     [genreRows, band],
   );
 
-  // 히어로(트렌딩 1위)의 재생 URL(+하이라이트 구간) 로딩 — RPC엔 video_url 이 없어 별도 조회
-  // 히어로 영상: 트렌딩 1위, 없으면 카테고리 행 첫 영화로 폴백 (render 의 heroes[0] 과 일치)
-  const heroId = (trending[0] ?? genreRows.flatMap((r) => r.videos)[0])?.id;
+  // 히어로 후보: 트렌딩(비면 카테고리 행 영화) 상위 5편을 8초마다 순환 (2026-06-12)
+  const heroFallback = genreRows.flatMap((r) => r.videos);
+  const heroes = (trending.length > 0 ? trending : heroFallback).slice(0, 5);
+  const heroId = heroes[heroIdx]?.id;
+  useEffect(() => { setHeroIdx(0); }, [heroes.length]);   // 목록 바뀌면 처음부터
+  useEffect(() => {
+    if (heroes.length <= 1) return;
+    const id = setInterval(() => setHeroIdx((i) => (i + 1) % heroes.length), 8000);
+    return () => clearInterval(id);
+  }, [heroes.length]);
+  // 현재 히어로의 재생 URL(+클립) 로딩 — RPC엔 video_url 이 없어 별도 조회
   useEffect(() => {
     setHeroSrc(null);
     if (!heroId || heroId.startsWith("demo-") || heroId.startsWith("showcase")) return;
@@ -280,10 +289,6 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
     );
   }
 
-  // 히어로: 트렌딩 상위 (조회수 기반). 트렌딩이 비면(신규 등록 등) 카테고리 행의 실제 영화로 폴백.
-  const heroFallback = genreRows.flatMap((r) => r.videos);
-  const heroes = (trending.length > 0 ? trending : heroFallback).slice(0, 4);
-
   if (heroes.length === 0 && genreRows.length === 0) {
     return (
       <div className="h-full overflow-y-auto bg-black flex flex-col">
@@ -302,7 +307,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
       {/* ━━━ 풀블리드 단일 히어로 (영상 자동재생) ━━━ */}
       {heroes.length > 0 && (
         <HeroBillboard
-          video={heroes[0]}
+          video={heroes[heroIdx] ?? heroes[0]}
           src={heroSrc}
           ageGuard={ageGuard}
           muted={heroMuted}
@@ -388,13 +393,10 @@ function HeroBillboard({
 
   // 재생 소스 우선순위: 미리 잘린 30초 하이라이트 클립(seek 불필요·100% 안정) →
   //   풀영상 MP4 폴백 → 샘플 폴백. 클립이 있으면 deep seek 자체를 안 하므로 멈춤·검은화면이 없다.
-  const playUrl = src?.clipUrl
-    ? src.clipUrl
-    : src?.url
-      ? (src.url.includes("/playlist.m3u8") ? src.url.replace("/playlist.m3u8", "/play_240p.mp4") : src.url)
-      : FALLBACK_HERO_VIDEO;
-  // 연령 잠금만 자동재생 제외 (블러 썸네일). 그 외엔 실제 영상 또는 폴백 영상 재생
-  const useVideo = !g.isAgeLocked;
+  // 히어로 클립(미리 잘린 30초)이 있을 때만 자동재생. 없으면 포스터(썸네일)만 표시.
+  // (클립 없는 영화로 deep seek/풀영상 재생하면 멈춤·검은화면 위험 → 포스터가 안전·깔끔)
+  const playUrl = src?.clipUrl || "";
+  const useVideo = !g.isAgeLocked && !!src?.clipUrl;
 
   // 네이티브 <video> 사용(배경 영상 표준). playUrl 변경 시 노출 초기화 → 포스터부터 다시.
   useEffect(() => { setVideoReady(false); }, [playUrl]);
