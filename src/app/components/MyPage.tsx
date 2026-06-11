@@ -1307,21 +1307,19 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                 <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
                   <h3 className="text-lg font-bold text-white mb-5 flex items-center"><User className="w-5 h-5 mr-2 text-[#6366f1]" />{t("mypage.account.title")}</h3>
                   <div className="space-y-4">
-                    <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5 flex flex-col md:flex-row md:items-center justify-between group hover:border-white/10 transition-colors">
+                    <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5">
                       <div>
                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t("mypage.account.email")}</p>
                         <p className="text-gray-200 font-medium">{user?.email}</p>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 hidden md:block" />
                     </div>
-                    <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5 flex flex-col md:flex-row md:items-center justify-between group hover:border-white/10 transition-colors">
+                    <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5">
                       <div>
                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t("mypage.account.name")}</p>
                         <p className="text-gray-200 font-medium">{profile?.display_name || user?.name}</p>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 hidden md:block" />
                     </div>
-                    <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5 flex flex-col md:flex-row md:items-center justify-between group hover:border-white/10 transition-colors">
+                    <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5">
                       <div>
                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t("mypage.account.accountType")}</p>
                         <p className="inline-flex items-center gap-2 text-gray-200 font-medium">
@@ -1333,7 +1331,6 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                           )}
                         </p>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 hidden md:block" />
                     </div>
                   </div>
                 </div>
@@ -1972,24 +1969,19 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                 )}
               </TabsContent>
 
-              <TabsContent value="settings" className="space-y-4 m-0">
-                {/* Phase 34: 알림 설정 (이메일/푸시 ON·OFF) */}
+              <TabsContent value="settings" className="space-y-3 m-0">
+                {/* ── 알림 ── */}
+                <p className="px-1 pt-1 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{isKo ? "알림" : "Notifications"}</p>
                 <NotificationSettings />
 
-                {/* C1: 결제 내역 + 환불 요청 (Terms 7조 ③항 이행) */}
+                {/* ── 결제 · 세금 ── */}
+                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{isKo ? "결제 · 세금" : "Billing · Tax"}</p>
                 <MyPaymentsSection />
-
-                {/* Phase 32: 세금 정보 등록 (3.3% 원천징수 / 사업자 세금계산서) */}
                 <TaxInfoSection />
 
-                {/* Phase 24: 차단한 사용자 관리 */}
-                <BlockedUsersSection />
-
-                {/* Phase 27: 내 데이터 다운로드 (개인정보보호법 데이터 이동권) */}
-                <DataDownloadSection />
-
+                {/* ── 보안 ── */}
+                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{isKo ? "보안" : "Security"}</p>
                 <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
-                  <h3 className="font-bold text-white mb-5">{t("mypage.settings.accountSecurity")}</h3>
                   <div className="space-y-3">
                     <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
                       <Button
@@ -2014,11 +2006,18 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                   </div>
                 </div>
 
-                <div className="pt-4">
+                {/* ── 개인정보 · 안전 ── */}
+                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{isKo ? "개인정보 · 안전" : "Privacy · Safety"}</p>
+                <BlockedUsersSection />
+                <DataDownloadSection />
+
+                {/* ── 계정 ── */}
+                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{isKo ? "계정" : "Account"}</p>
+                <div>
                   <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                    <Button 
-                      variant="destructive" 
-                      className="w-full gap-2 h-14 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 rounded-xl font-bold transition-all shadow-sm" 
+                    <Button
+                      variant="destructive"
+                      className="w-full gap-2 h-14 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 rounded-xl font-bold transition-all shadow-sm"
                       onClick={() => {
                         signOut();
                         toast.success(t("mypage.settings.signOutSuccess"));
@@ -2028,12 +2027,11 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       {t("mypage.settings.signOut")}
                     </Button>
                   </motion.div>
-
                   {/* PWA 앱 설치 안내 카드 */}
                   <InstallGuideCard />
                 </div>
 
-                {/* Phase 27: 위험 영역 — 계정 삭제 (가장 아래) */}
+                {/* 위험 영역 — 계정 삭제 (가장 아래) */}
                 <DangerZoneSection onSignOut={signOut} />
               </TabsContent>
             </motion.div>
