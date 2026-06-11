@@ -60,6 +60,23 @@ async function startTossPayment(options: StartPaymentOptions) {
   // 위 함수가 호출되면 토스 결제 페이지로 이동 (또는 결제창 띄움) — 여기 이후 코드는 실행 안 됨
 }
 
+/** 자동결제(빌링) 카드 등록 시작 — 성공 시 ?billing=success&authKey=&customerKey= 로 리다이렉트 */
+async function startBillingAuth(customerKey: string, customerEmail?: string) {
+  if (!TOSS_CLIENT_KEY) {
+    toast.error("결제 키가 설정되지 않았습니다. 관리자에게 문의하세요.");
+    throw new Error("VITE_TOSS_CLIENT_KEY 미설정");
+  }
+  const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY);
+  const origin = window.location.origin;
+  await (tossPayments as any).requestBillingAuth("카드", {
+    customerKey,
+    customerEmail,
+    successUrl: `${origin}/?billing=success`,
+    failUrl: `${origin}/?billing=fail`,
+  });
+  // 토스 카드 등록 페이지로 이동 — 이후 코드 실행 안 됨
+}
+
 export function usePayment() {
   /** 프리미엄 구독 결제 시작 (월 ₩4,900) */
   const startSubscription = async (params?: { email?: string; name?: string }) => {
@@ -119,5 +136,10 @@ export function usePayment() {
     });
   };
 
-  return { startSubscription, startLicensePurchase, startAdBudgetTopUp };
+  /** 자동결제(정기구독) 카드 등록 시작 */
+  const startAutoBilling = async (params: { customerKey: string; email?: string }) => {
+    await startBillingAuth(params.customerKey, params.email);
+  };
+
+  return { startSubscription, startLicensePurchase, startAdBudgetTopUp, startAutoBilling };
 }

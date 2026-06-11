@@ -31,8 +31,8 @@ export function SubscriptionModal({
   onSignInClick,
 }: SubscriptionModalProps) {
   const { t } = useTranslation();
-  const { isAuthenticated, user, profile } = useAuth();
-  const { startSubscription } = usePayment();
+  const { isAuthenticated, user } = useAuth();
+  const { startAutoBilling } = usePayment();
   const [paying, setPaying] = useState(false);
 
   const messages = {
@@ -59,13 +59,11 @@ export function SubscriptionModal({
       return;
     }
 
+    if (!user?.id) return;
     setPaying(true);
     try {
-      await startSubscription({
-        email: user?.email,
-        name: profile?.display_name || user?.name || user?.email,
-      });
-      // 성공 시 토스 결제창으로 이동 — 여기 이후 코드는 실행 안 됨
+      await startAutoBilling({ customerKey: user.id, email: user?.email });
+      // 성공 시 토스 카드 등록 페이지로 이동 — 여기 이후 코드는 실행 안 됨
     } catch (err: any) {
       // 사용자가 결제창에서 취소하거나 SDK 오류
       if (err?.code === "USER_CANCEL") {

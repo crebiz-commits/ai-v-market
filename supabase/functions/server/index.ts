@@ -899,6 +899,140 @@ app.post('/toss-confirm', async (c) => {
 });
 
 // ============================================
+// 자동결제(빌링) — 카드 등록 후 빌링키 발급 + 첫 결제 (2026-06-12)
+// 호출: POST /server/billing-auth-confirm  { authKey, customerKey }
+// ============================================
+app.post('/billing-auth-confirm', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const accessToken = authHeader?.replace('Bearer ', '');
+    if (!accessToken) return c.json({ error: '로그인이 필요합니다' }, 401);
+    const authClient = getSupabaseClient();
+    const { data: { user }, error: authErr } = await authClient.auth.getUser(accessToken);
+    if (authErr || !user) return c.json({ error: '인증 실패' }, 401);
+
+    const { authKey, customerKey } = await c.req.json();
+    if (!authKey || !customerKey) return c.json({ error: 'authKey, customerKey 필요' }, 400);
+    if (customerKey !== user.id) return c.json({ error: 'customerKey 불일치' }, 400);
+
+    const tossSecretKey = Deno.env.get('TOSS_SECRET_KEY');
+    if (!tossSecretKey) return c.json({ error: '결제 서버 설정 오류 (관리자 문의)' }, 500);
+    const authBasic = `Basic ${btoa(tossSecretKey + ':')}`;
+
+    // 1) authKey → billingKey 발급
+    const issueRes = await fetch('https://api.tosspayments.com/v1/billing/authorizations/issue', {
+      method: 'POST',
+      headers: { 'Authorization': authBasic, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authKey, customerKey }),
+    });
+    const issueBody = await issueRes.json();
+    if (!issueRes.ok || !issueBody?.billingKey) {
+      console.error('[billing] 빌링키 발급 실패:', issueBody);
+      return c.json({ error: issueBody?.message || '카드 등록 실패', code: issueBody?.code }, 400);
+    }
+    const billingKey = issueBody.billingKey;
+
+    // 2) 금액 (정책)
+    let amount = 4900;
+    try {
+      const { data } = await getSupabaseClient(true).rpc('get_platform_setting', { p_key: 'subscription_price_krw' });
+      if (data && Number(data) > 0) amount = Number(data);
+    } catch { /* 기본값 */ }
+
+    // 3) 첫 결제 (빌링키로 즉시 청구)
+    const orderId = `sub_${user.id.slice(0, 8)}_${Date.now()}`;
+    const chargeRes = await fetch(`https://api.tosspayments.com/v1/billing/${billingKey}`, {
+      method: 'POST',
+      headers: { 'Authorization': authBasic, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerKey, amount, orderId, orderName: 'CREAITE 프리미엄 구독 (자동결제)', customerEmail: user.email }),
+    });
+    const chargeBody = await chargeRes.json();
+    if (!chargeRes.ok) {
+      console.error('[billing] 첫 결제 실패:', chargeBody);
+      return c.json({ error: chargeBody?.message || '결제 실패', code: chargeBody?.code }, 400);
+    }
+    const card = chargeBody?.card || issueBody?.card || {};
+    const cardLast4 = (card?.number || '').replace(/[^0-9]/g, '').slice(-4) || null;
+
+    // 4) DB 반영 (구독 +30일 + billing 저장)
+    const { error: applyErr } = await getSupabaseClient(true).rpc('billing_apply_charge', {
+      p_user_id: user.id, p_billing_key: billingKey, p_customer_key: customerKey,
+      p_card_company: card?.company || null, p_card_last4: cardLast4, p_amount: amount,
+      p_order_id: orderId, p_payment_key: chargeBody?.paymentKey || null,
+      p_approved_at: chargeBody?.approvedAt || new Date().toISOString(), p_raw: chargeBody,
+    });
+    if (applyErr) {
+      console.error('[billing] billing_apply_charge 실패:', applyErr);
+      return c.json({ error: '결제는 완료됐지만 DB 처리 실패. 고객센터 문의 필요' }, 500);
+    }
+
+    return c.json({ success: true, message: '자동결제가 설정되고 첫 결제가 완료되었습니다.', cardLast4 });
+  } catch (err: any) {
+    console.error('[billing-auth-confirm] 예외:', err);
+    return c.json({ error: '자동결제 설정 중 오류: ' + (err?.message || err) }, 500);
+  }
+});
+
+// ============================================
+// 자동결제 정기 청구 (스케줄러 전용) — 2026-06-12
+// 호출: POST /server/billing-run  헤더 x-cron-secret: <BILLING_CRON_SECRET>
+// ============================================
+app.post('/billing-run', async (c) => {
+  try {
+    const secret = c.req.header('x-cron-secret');
+    const expected = Deno.env.get('BILLING_CRON_SECRET');
+    if (!expected || secret !== expected) return c.json({ error: 'unauthorized' }, 401);
+
+    const tossSecretKey = Deno.env.get('TOSS_SECRET_KEY');
+    if (!tossSecretKey) return c.json({ error: 'TOSS_SECRET_KEY 미설정' }, 500);
+    const authBasic = `Basic ${btoa(tossSecretKey + ':')}`;
+    const admin = getSupabaseClient(true);
+
+    // 만료 1일 전부터 청구 (구독 공백 방지)
+    const dueBefore = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const { data: due, error } = await admin
+      .from('billing_subscriptions')
+      .select('user_id, billing_key, customer_key, amount')
+      .eq('auto_renew', true).eq('status', 'active')
+      .lte('next_charge_at', dueBefore)
+      .limit(200);
+    if (error) return c.json({ error: error.message }, 500);
+
+    let ok = 0, fail = 0;
+    for (const sub of (due || [])) {
+      const orderId = `sub_${sub.user_id.slice(0, 8)}_${Date.now()}`;
+      try {
+        const res = await fetch(`https://api.tosspayments.com/v1/billing/${sub.billing_key}`, {
+          method: 'POST',
+          headers: { 'Authorization': authBasic, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customerKey: sub.customer_key, amount: sub.amount, orderId, orderName: 'CREAITE 프리미엄 구독 (자동결제)' }),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          await admin.rpc('billing_mark_failed', { p_user_id: sub.user_id, p_reason: body?.message || body?.code || 'charge failed' });
+          fail++; continue;
+        }
+        const card = body?.card || {};
+        await admin.rpc('billing_apply_charge', {
+          p_user_id: sub.user_id, p_billing_key: sub.billing_key, p_customer_key: sub.customer_key,
+          p_card_company: card?.company || null, p_card_last4: (card?.number || '').replace(/[^0-9]/g, '').slice(-4) || null,
+          p_amount: sub.amount, p_order_id: orderId, p_payment_key: body?.paymentKey || null,
+          p_approved_at: body?.approvedAt || new Date().toISOString(), p_raw: body,
+        });
+        ok++;
+      } catch (e: any) {
+        await admin.rpc('billing_mark_failed', { p_user_id: sub.user_id, p_reason: e?.message || 'exception' });
+        fail++;
+      }
+    }
+    return c.json({ success: true, charged: ok, failed: fail, total: (due || []).length });
+  } catch (err: any) {
+    console.error('[billing-run] 예외:', err);
+    return c.json({ error: String(err?.message || err) }, 500);
+  }
+});
+
+// ============================================
 // Phase 34 — Resend 이메일 발송
 // ============================================
 //

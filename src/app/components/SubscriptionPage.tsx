@@ -4,11 +4,12 @@
 //   현재 요금제는 단일(프리미엄 ₩4,900) — Free vs Premium 비교로 제시.
 //   결제는 usePayment().startSubscription (토스) 재사용.
 // ════════════════════════════════════════════════════════════════════════════
-import { useState } from "react";
-import { ArrowLeft, Crown, Check, Loader2, Sparkles, ShieldCheck } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, Crown, Check, Loader2, Sparkles, ShieldCheck, CreditCard } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
 import { usePayment } from "../hooks/usePayment";
+import { supabase } from "../utils/supabaseClient";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Footer } from "./Footer";
@@ -30,31 +31,50 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
   const { i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
   const { isAuthenticated, user, profile } = useAuth();
-  const { startSubscription } = usePayment();
+  const { startAutoBilling } = usePayment();
   const [paying, setPaying] = useState(false);
+  const [billing, setBilling] = useState<{ card_company: string | null; card_last4: string | null; auto_renew: boolean; status: string; next_charge_at: string | null } | null>(null);
 
   const isPremium = profile?.subscription_tier === "premium";
   const expires = (profile as any)?.subscription_expires_at as string | undefined;
+  const hasAutoBilling = !!billing && billing.status === "active" && billing.auto_renew;
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    supabase.rpc("get_my_billing").then(
+      ({ data }) => { if (Array.isArray(data) && data[0]) setBilling(data[0] as any); },
+      () => {},
+    );
+  }, [isAuthenticated]);
 
   const subscribe = async () => {
     if (!isAuthenticated) { onSignInClick?.(); return; }
+    if (!user?.id) return;
     setPaying(true);
     try {
-      await startSubscription({ email: user?.email, name: profile?.display_name || user?.name || user?.email });
-      // 성공 시 토스 결제창으로 이동 — 이후 코드 실행 안 됨
+      await startAutoBilling({ customerKey: user.id, email: user?.email });
+      // 토스 카드 등록 페이지로 이동 — 이후 코드 실행 안 됨
     } catch (err: any) {
-      if (err?.code === "USER_CANCEL") toast.info(isKo ? "결제를 취소했어요." : "Payment canceled.");
-      else toast.error((isKo ? "결제 실패: " : "Payment failed: ") + (err?.message || ""));
+      if (err?.code === "USER_CANCEL") toast.info(isKo ? "취소했어요." : "Canceled.");
+      else toast.error((isKo ? "오류: " : "Error: ") + (err?.message || ""));
       setPaying(false);
     }
+  };
+
+  const setAutoRenew = async (on: boolean) => {
+    if (on === false && !confirm(isKo ? "자동결제를 해지할까요? 현재 구독은 만료일까지 유지됩니다." : "Cancel auto-pay? Subscription stays until expiry.")) return;
+    const { error } = await supabase.rpc("set_my_auto_renew", { p_on: on });
+    if (error) { toast.error(error.message); return; }
+    toast.success(on ? (isKo ? "자동결제를 재개했어요." : "Resumed.") : (isKo ? "자동결제를 해지했어요. 만료일까지 이용 가능합니다." : "Canceled."));
+    setBilling((b) => (b ? { ...b, auto_renew: on } : b));
   };
 
   const freeFeatures = isKo
     ? ["무료 공개 영상 무제한 시청", "모든 영상 1분 미리보기", "라이선스 개별 구매 가능", "광고 포함"]
     : ["Unlimited free videos", "1-min preview of everything", "Buy licenses individually", "Includes ads"];
   const premiumFeatures = isKo
-    ? ["시네마·OTT 모든 영상 무제한 시청", "광고 완전 제거", "고화질(HD) 스트리밍", "1개월 이용권 (자동결제 없음)"]
-    : ["Unlimited cinema & OTT", "Ad-free experience", "HD streaming", "1-month pass (no auto-renew)"];
+    ? ["시네마·OTT 모든 영상 무제한 시청", "광고 완전 제거", "고화질(HD) 스트리밍", "매월 자동 갱신 · 언제든 해지"]
+    : ["Unlimited cinema & OTT", "Ad-free experience", "HD streaming", "Auto-renews monthly · cancel anytime"];
 
   return (
     <div className="h-full overflow-y-auto bg-[#0a0a0a]">
@@ -72,18 +92,33 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
             {isKo ? "원하는 멤버십을 선택하세요" : "Choose your membership"}
           </h1>
           <p className="text-gray-400 text-sm md:text-base">
-            {isKo ? "프리미엄은 1개월 이용권입니다 · 자동 결제(갱신) 없음" : "Premium is a 1-month pass · no auto-renewal."}
+            {isKo ? "매월 자동 갱신 · 언제든 해지 가능" : "Auto-renews monthly · cancel anytime."}
           </p>
         </motion.div>
 
-        {/* 현재 상태 (구독중) */}
+        {/* 현재 상태 + 자동결제 관리 */}
         {isAuthenticated && isPremium && (
-          <div className="mb-6 bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex items-center gap-3">
-            <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
-            <div className="text-sm">
-              <span className="font-bold text-emerald-300">{isKo ? "프리미엄 이용 중" : "Premium active"}</span>
-              {expires && <span className="text-gray-400 ml-2">{isKo ? `만료일 ${fmtDate(expires)}` : `Expires ${fmtDate(expires)}`}</span>}
+          <div className="mb-6 bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 space-y-2">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+              <div className="text-sm">
+                <span className="font-bold text-emerald-300">{isKo ? "프리미엄 이용 중" : "Premium active"}</span>
+                {expires && <span className="text-gray-400 ml-2">{(isKo ? (hasAutoBilling ? "다음 결제일 " : "만료일 ") : (hasAutoBilling ? "Next charge " : "Expires ")) + fmtDate(expires)}</span>}
+              </div>
             </div>
+            {billing && billing.card_last4 && (
+              <div className="flex items-center justify-between pl-8 flex-wrap gap-2">
+                <span className="text-xs text-gray-400 flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5" /> {billing.card_company || (isKo ? "카드" : "Card")} ···· {billing.card_last4}
+                  <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${billing.auto_renew ? "bg-emerald-500/20 text-emerald-300" : "bg-white/10 text-gray-400"}`}>
+                    {billing.auto_renew ? (isKo ? "자동결제 ON" : "Auto ON") : (isKo ? "자동결제 OFF" : "Auto OFF")}
+                  </span>
+                </span>
+                {billing.auto_renew
+                  ? <button onClick={() => setAutoRenew(false)} className="text-xs font-semibold text-red-400 hover:underline">{isKo ? "자동결제 해지" : "Cancel auto-pay"}</button>
+                  : <button onClick={() => setAutoRenew(true)} className="text-xs font-semibold text-emerald-400 hover:underline">{isKo ? "자동결제 재개" : "Resume"}</button>}
+              </div>
+            )}
           </div>
         )}
 
@@ -133,21 +168,22 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
             </ul>
             <button onClick={subscribe} disabled={paying || isPremium}
               className="w-full py-3 rounded-xl font-black text-base bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 disabled:opacity-60">
-              {paying ? <><Loader2 className="w-5 h-5 animate-spin" />{isKo ? "결제창 여는 중…" : "Opening…"}</>
+              {paying ? <><Loader2 className="w-5 h-5 animate-spin" />{isKo ? "카드 등록 중…" : "Opening…"}</>
                 : isPremium ? <>{isKo ? "이용 중" : "Active"}</>
                 : !isAuthenticated ? <><Crown className="w-5 h-5" />{isKo ? "로그인 후 구독하기" : "Sign in to subscribe"}</>
                 : <><Crown className="w-5 h-5" />{isKo ? "프리미엄 구독하기" : "Subscribe to Premium"}</>}
             </button>
             <p className="text-[11px] text-gray-500 text-center mt-3">
-              {isKo ? "1개월 이용권 · 만료 시 자동 종료 (자동 결제 없음)" : "1-month pass · ends automatically (no auto-renew)"}
+              {isKo ? "매월 ₩4,900 자동 결제 · 언제든 해지 가능" : "₩4,900/mo auto-billed · cancel anytime"}
             </p>
           </div>
         </div>
 
-        {/* 안내 */}
+        {/* 안내 (자동결제 법적 고지 — 전자상거래법) */}
         <div className="mt-8 text-xs text-gray-500 leading-relaxed space-y-1.5">
+          <p>· {isKo ? "프리미엄은 매월 ₩4,900이 등록한 카드로 자동 결제(정기결제)됩니다. 「구독하기」를 누르면 자동결제에 동의하는 것으로 간주됩니다." : "Premium auto-bills ₩4,900/mo to your card. Subscribing means you agree to recurring billing."}</p>
+          <p>· {isKo ? "자동결제는 이 페이지 또는 마이페이지에서 언제든 해지할 수 있으며, 해지 시 다음 결제일부터 청구되지 않습니다 (이미 결제한 기간은 만료일까지 이용 가능)." : "Cancel anytime here or in My Page; no further charges after cancellation (current period stays active)."}</p>
           <p>· {isKo ? "프리미엄 구독 시 시네마·OTT 전체 영상을 광고 없이 무제한 시청할 수 있습니다." : "Premium unlocks all cinema & OTT, ad-free."}</p>
-          <p>· {isKo ? "구독은 마이페이지에서 언제든 확인·관리할 수 있습니다." : "Manage your subscription anytime in My Page."}</p>
           <p>· {isKo ? "결제·환불 관련 문의는 고객센터(1:1 문의) 또는 support@creaite.net 으로 연락 주세요." : "For billing questions, contact support@creaite.net."}</p>
         </div>
       </div>

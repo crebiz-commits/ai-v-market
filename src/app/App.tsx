@@ -64,6 +64,7 @@ const TopCreatorsPage = lazy(() => import("./components/TopCreators").then(m => 
 const SupportPage = lazy(() => import("./components/SupportPage").then(m => ({ default: m.SupportPage })));
 const SubscriptionPage = lazy(() => import("./components/SubscriptionPage").then(m => ({ default: m.SubscriptionPage })));
 const PaymentResult = lazy(() => import("./components/PaymentResult").then(m => ({ default: m.PaymentResult })));
+const BillingResult = lazy(() => import("./components/BillingResult").then(m => ({ default: m.BillingResult })));
 const SearchPage = lazy(() => import("./components/SearchPage").then(m => ({ default: m.SearchPage })));
 
 // 모달·패널 (열릴 때만 로드)
@@ -196,6 +197,17 @@ function AppContent() {
     return (
       <Suspense fallback={<PageLoading />}>
         <PaymentResult onClose={handleClose} />
+      </Suspense>
+    );
+  }
+
+  // 자동결제 카드 등록 결과 라우팅 (?billing=success|fail)
+  const billingParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("billing") : null;
+  if (billingParam === "success" || billingParam === "fail") {
+    const handleClose = () => { window.location.href = window.location.pathname + "?tab=subscription"; };
+    return (
+      <Suspense fallback={<PageLoading />}>
+        <BillingResult onClose={handleClose} />
       </Suspense>
     );
   }
