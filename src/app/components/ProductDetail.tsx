@@ -1104,6 +1104,18 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
               allowFullScreen
               title={product.title}
             />
+          ) : !tokenReady ? (
+            // 재생 토큰 발급 중 — 에러 대신 로딩 표시 (썸네일 위 스피너)
+            <div className="relative w-full h-full">
+              <img
+                src={product.thumbnail}
+                alt={product.title}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                <Loader2 className="w-8 h-8 animate-spin text-white/80" />
+              </div>
+            </div>
           ) : (
             <div className="relative w-full h-full">
               <img
