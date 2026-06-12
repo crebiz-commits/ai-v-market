@@ -77,7 +77,9 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
   sale: <TrendingUp className="w-4 h-4 text-yellow-400" />,
   system: <Zap className="w-4 h-4 text-[#8b5cf6]" />,
   challenge: <Bell className="w-4 h-4 text-orange-400" />,
+  collab: <MessageCircle className="w-4 h-4 text-purple-400" />,
 };
+const DEFAULT_ICON = <Zap className="w-4 h-4 text-[#8b5cf6]" />;
 
 const TYPE_BG: Record<string, string> = {
   like: "bg-red-500/10",
@@ -86,7 +88,9 @@ const TYPE_BG: Record<string, string> = {
   sale: "bg-yellow-500/10",
   system: "bg-[#6366f1]/10",
   challenge: "bg-orange-500/10",
+  collab: "bg-purple-500/10",
 };
+const DEFAULT_BG = "bg-[#6366f1]/10";
 
 function timeAgo(dateStr: string, isKo: boolean): string {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -235,8 +239,8 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
                   !notif.read ? "bg-white/[0.03]" : ""
                 }`}
               >
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${TYPE_BG[notif.type]}`}>
-                  {TYPE_ICON[notif.type]}
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${TYPE_BG[notif.type] || DEFAULT_BG}`}>
+                  {TYPE_ICON[notif.type] || DEFAULT_ICON}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm leading-snug line-clamp-2 ${notif.read ? "text-gray-400" : "text-white font-medium"}`}>

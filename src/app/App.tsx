@@ -906,8 +906,8 @@ function AppContent() {
     }
   };
 
-  const ADMIN_EMAILS = ["crebizlogistics@gmail.com"];
-  const isAdmin = user && ADMIN_EMAILS.includes(user.email);
+  // 어드민 권한: DB profiles.is_admin 단일 source of truth (이메일 화이트리스트 폐기)
+  const isAdmin = !!profile?.is_admin;
 
   const desktopTabs: { id: Tab; label: string; icon: any }[] = [
     { id: "discovery", label: t("nav.home"), icon: Home },

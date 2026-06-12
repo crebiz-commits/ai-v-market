@@ -11,11 +11,6 @@ import { tusUploadToBunny } from "../utils/bunnyUpload";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 
-// ─── 관리자 이메일 목록 (여기에 추가) ────────────────────────────
-const ADMIN_EMAILS = [
-  "crebizlogistics@gmail.com",
-];
-
 const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer";
 // ─────────────────────────────────────────────────────────────────
 
@@ -143,7 +138,7 @@ function fmt(n: number) {
 }
 
 export function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [ads, setAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -161,7 +156,7 @@ export function AdminDashboard() {
   const adImageFileRef = useRef<HTMLInputElement>(null);
   const [imgUploading, setImgUploading] = useState(false);
 
-  const isAdmin = user && ADMIN_EMAILS.includes(user.email);
+  const isAdmin = !!profile?.is_admin;
 
   // 광고 이미지 직접 업로드 핸들러
   // Supabase Storage 'ad-images' 버킷에 업로드 후 public URL을 폼에 자동 입력
