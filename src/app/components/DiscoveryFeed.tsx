@@ -35,7 +35,7 @@ interface Ad {
 
 type FeedItem =
   | ({ kind: "video" } & Video)
-  | ({ kind: "ad" } & Ad);
+  | ({ kind: "ad"; adIndex?: number } & Ad);
 
 interface Video {
   // 기본 정보
@@ -745,6 +745,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     if (fetchingRef.current || !hasMoreRef.current) return;
     fetchingRef.current = true;
     setLoadingMore(true);
+    const reqChip = chipRef.current;   // 요청 시점 칩 스냅샷 (변경 시 결과 폐기 — 경쟁 방지)
     try {
       const from = offsetRef.current;
       // 개인화 추천: 시청이력·좋아요·팔로우 기반 순위 (비로그인/이력없음은 인기+최신).
@@ -752,9 +753,11 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
       const { data, error } = await supabase.rpc("get_home_feed", {
         p_limit: FEED_PAGE_SIZE,
         p_offset: from,
-        p_filter: chipRef.current,
+        p_filter: reqChip,
       });
       if (error) throw error;
+      // 도중에 칩이 바뀌었으면 이전 칩 결과를 버린다 (초기화 로직이 새로 로드함)
+      if (reqChip !== chipRef.current) return;
       const rows = data || [];
       offsetRef.current = from + rows.length;
       if (rows.length < FEED_PAGE_SIZE) { hasMoreRef.current = false; setHasMore(false); }
@@ -883,7 +886,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     visibleVideos.forEach((v, i) => {
       result.push({ kind: "video", ...v });
       if ((i + 1) % interval === 0 && ads.length > 0) {
-        result.push({ kind: "ad", ...ads[adIdx % ads.length] });
+        result.push({ kind: "ad", ...ads[adIdx % ads.length], adIndex: adIdx });
         adIdx++;
       }
     });
@@ -966,6 +969,15 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
       }
     } catch (error) {
       console.error("Error toggling like:", error);
+      // 실패 → 낙관적 업데이트 롤백 (UI/DB 불일치 방지)
+      setLikedVideos(prev => {
+        const n = new Set(prev);
+        currentlyLiked ? n.add(videoId) : n.delete(videoId);
+        return n;
+      });
+      setVideos(prev => prev.map(v =>
+        v.id === videoId ? { ...v, likes: v.likes + (currentlyLiked ? 1 : -1) } : v
+      ));
     }
   };
 
@@ -1008,7 +1020,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
       >
         {feedItems.map((item) => (
           <div
-            key={item.kind === "video" ? item.id : `ad-${item.id}`}
+            key={item.kind === "video" ? item.id : `ad-${item.id}-${item.adIndex}`}
             className={`discovery-section-wrapper ${isCommentOpen && item.kind === "video" && item.id === commentVideo?.id ? 'is-comment-active' : ''}`}
           >
             {item.kind === "ad" ? (
