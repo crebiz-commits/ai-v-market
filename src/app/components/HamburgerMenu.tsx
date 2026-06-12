@@ -16,7 +16,8 @@ interface HamburgerMenuProps {
  * 데스크톱은 푸터가 같은 역할을 한다.
  */
 export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isKo = i18n.language?.startsWith("ko");
   const [open, setOpen] = useState(false);
   useBackButton(open, () => setOpen(false));
 
@@ -93,6 +94,7 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
                 <div className="px-3 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">{t("footer.terms")}</div>
                 <MenuItem icon={FileText} label={t("footer.terms")} onClick={() => handleNav("terms")} />
                 <MenuItem icon={Shield} label={t("footer.privacy")} onClick={() => handleNav("privacy")} />
+                <MenuItem icon={Shield} label={isKo ? "청소년보호정책" : "Youth Protection"} onClick={() => handleNav("youth")} />
                 <a
                   href="?info=creator-revenue"
                   className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors"

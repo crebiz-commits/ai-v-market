@@ -14,7 +14,8 @@ interface FooterProps {
  * 모두 있으므로 푸터는 숨기고(md:block), 데스크탑(브라우저)에서만 노출.
  */
 export function Footer({ onNavigate }: FooterProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isKo = i18n.language?.startsWith("ko");
   return (
     <motion.footer
       initial={{ opacity: 0 }}
@@ -104,6 +105,14 @@ export function Footer({ onNavigate }: FooterProps) {
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
                   {t("footer.privacy")}
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate("youth")}
+                  className="text-sm text-gray-400 hover:text-white transition-colors"
+                >
+                  {isKo ? "청소년보호정책" : "Youth Protection"}
                 </button>
               </li>
               <li>

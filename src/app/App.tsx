@@ -57,6 +57,7 @@ const BusinessPage = lazy(() => import("./components/BusinessPage").then(m => ({
 const AboutPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.AboutPage })));
 const TermsPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.TermsPage })));
 const PrivacyPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.PrivacyPage })));
+const YouthProtectionPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.YouthProtectionPage })));
 const FaqPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.FaqPage })));
 const NoticesPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.NoticesPage })));
 const BugReportPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.BugReportPage })));
@@ -111,7 +112,7 @@ function PageLoading() {
   );
 }
 
-type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy" | "faq" | "notices" | "bug-report" | "top-creators" | "support" | "subscription" | "search";
+type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy" | "youth" | "faq" | "notices" | "bug-report" | "top-creators" | "support" | "subscription" | "search";
 type Panel = "cart" | "notifications" | null;
 
 interface VideoProduct {
@@ -245,6 +246,13 @@ function AppContent() {
       return (
         <Suspense fallback={<PageLoading />}>
           <PrivacyPage onBack={goBack} />
+        </Suspense>
+      );
+    }
+    if (infoParam === "youth") {
+      return (
+        <Suspense fallback={<PageLoading />}>
+          <YouthProtectionPage onBack={goBack} />
         </Suspense>
       );
     }
@@ -879,6 +887,8 @@ function AppContent() {
         return <TermsPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "privacy":
         return <PrivacyPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+      case "youth":
+        return <YouthProtectionPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "faq":
         return <FaqPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "notices":

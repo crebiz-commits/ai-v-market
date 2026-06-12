@@ -100,15 +100,13 @@ function Card({ icon: Icon, title, desc }: { icon: any; title: string; desc: str
 // ──────────────────────────────────────────────────────────────────────
 // Terms of Service
 // ──────────────────────────────────────────────────────────────────────
+const LEGAL_LAST_MODIFIED = "2026-06-12";
+
 export function TermsPage({ onBack, onNavigate }: StaticPageProps) {
   const isKo = useIsKorean();
   const text = isKo ? TERMS_KO : TERMS_EN;
   return (
-    <PageShell title={text.title} subtitle={`${text.lastModifiedLabel}: ${new Date().toISOString().slice(0, 10)} (${text.draftLabel})`} onBack={onBack} onNavigate={onNavigate}>
-      <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 mb-6">
-        <p className="text-xs text-amber-300">⚠️ {text.draftNotice}</p>
-      </div>
-
+    <PageShell title={text.title} subtitle={`${text.lastModifiedLabel}: ${LEGAL_LAST_MODIFIED}`} onBack={onBack} onNavigate={onNavigate}>
       <div className="bg-[#121212] p-6 rounded-2xl border border-white/5 text-sm text-gray-300 leading-relaxed space-y-5">
         {text.sections.map((s, i) => (
           <Section key={i} title={s.title}>
@@ -127,11 +125,26 @@ export function PrivacyPage({ onBack, onNavigate }: StaticPageProps) {
   const isKo = useIsKorean();
   const text = isKo ? PRIVACY_KO : PRIVACY_EN;
   return (
-    <PageShell title={text.title} subtitle={`${text.lastModifiedLabel}: ${new Date().toISOString().slice(0, 10)} (${text.draftLabel})`} onBack={onBack} onNavigate={onNavigate}>
-      <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 mb-6">
-        <p className="text-xs text-amber-300">⚠️ {text.draftNotice}</p>
+    <PageShell title={text.title} subtitle={`${text.lastModifiedLabel}: ${LEGAL_LAST_MODIFIED}`} onBack={onBack} onNavigate={onNavigate}>
+      <div className="bg-[#121212] p-6 rounded-2xl border border-white/5 text-sm text-gray-300 leading-relaxed space-y-5">
+        {text.sections.map((s, i) => (
+          <Section key={i} title={s.title}>
+            <span dangerouslySetInnerHTML={{ __html: s.body }} />
+          </Section>
+        ))}
       </div>
+    </PageShell>
+  );
+}
 
+// ──────────────────────────────────────────────────────────────────────
+// Youth Protection Policy (청소년보호정책)
+// ──────────────────────────────────────────────────────────────────────
+export function YouthProtectionPage({ onBack, onNavigate }: StaticPageProps) {
+  const isKo = useIsKorean();
+  const text = isKo ? YOUTH_KO : YOUTH_EN;
+  return (
+    <PageShell title={text.title} subtitle={`${text.lastModifiedLabel}: ${LEGAL_LAST_MODIFIED}`} onBack={onBack} onNavigate={onNavigate}>
       <div className="bg-[#121212] p-6 rounded-2xl border border-white/5 text-sm text-gray-300 leading-relaxed space-y-5">
         {text.sections.map((s, i) => (
           <Section key={i} title={s.title}>
@@ -205,14 +218,26 @@ const PRIVACY_KO = {
   draftLabel: "초안",
   draftNotice: "본 문서는 초안입니다. 정식 서비스 출시 전 법무 검토를 거쳐 최종본으로 대체됩니다.",
   sections: [
-    { title: "1. 수집하는 개인정보 항목", body: "회원가입 시: 이메일, 이름, OAuth 프로필 이미지 (구글/카카오 로그인 시).<br />서비스 이용 중: IP 주소, 기기 정보, 시청 이력, 결제 정보(PG사 위탁)." },
+    { title: "1. 수집하는 개인정보 항목", body: '회원가입 시: 이메일, 이름, OAuth 프로필 이미지(구글/카카오 로그인 시).<br />서비스 이용 중: IP 주소, 기기 정보, 시청 이력, 결제 정보(PG사 위탁).<br />추가 수집(해당 시): 생년월일(연령 확인), 정산 계좌 정보(은행명·계좌번호·예금주 — 크리에이터 수익 정산), 세금 정보(사업자 구분·사업자등록번호 — 원천징수·세무 신고), 푸시 알림 구독 정보(기기 토큰).' },
     { title: "2. 수집·이용 목적", body: "서비스 제공, 본인 확인, 결제·정산, 부정 이용 방지, 통계 분석, 마케팅(별도 동의 시)." },
-    { title: "3. 보유·이용 기간", body: "회원 탈퇴 시 즉시 파기. 단, 관계 법령에 따라 보존이 필요한 경우 해당 법령에 따른 기간 동안 보관 (예: 전자상거래법 결제 기록 5년)." },
+    { title: "3. 보유·이용 기간", body: "회원 탈퇴(계정 삭제 요청) 시 30일의 유예 기간 후 파기합니다. 단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관합니다 (전자상거래법: 계약·청약철회·대금결제 기록 5년, 소비자 불만·분쟁 처리 기록 3년 / 통신비밀보호법: 접속 로그 3개월)." },
     { title: "4. 제3자 제공", body: "이용자의 동의 없이 제3자에게 제공하지 않습니다. 단, 법령에 따른 요청이 있는 경우 예외." },
-    { title: "5. 위탁 업체", body: "Supabase Inc. (DB·인증·스토리지), Bunny.net (영상 CDN), Vercel Inc. (호스팅), 토스페이먼츠 또는 카카오페이 (결제) 등." },
-    { title: "6. 이용자 권리 (열람·수정·삭제·다운로드)", body: '이용자는 개인정보보호법에 따라 다음 권리를 행사할 수 있습니다:<br /><strong class="text-white">· 열람·수정:</strong> 마이페이지 → 프로필 편집에서 직접 수정<br /><strong class="text-white">· 데이터 다운로드:</strong> 마이페이지 → 설정 → "내 데이터 다운로드"에서 본인 데이터 전체 JSON 다운로드<br /><strong class="text-white">· 계정 삭제:</strong> 마이페이지 → 설정 → 위험 영역에서 요청. 30일 유예 후 영구 삭제. 그 전까지 언제든 취소 가능<br />기타 문의는 <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>으로 연락주세요.' },
-    { title: "7. 쿠키 사용", body: "서비스는 로그인 유지 및 사용성 개선을 위해 쿠키를 사용합니다. 브라우저 설정에서 거부할 수 있으나 일부 기능이 제한될 수 있습니다." },
-    { title: "8. 개인정보 보호 책임자", body: '성명: 이현우 (크레비즈 대표)<br />이메일: <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>' },
+    { title: "5. 처리 위탁", body: "Supabase Inc.(DB·인증·스토리지), Bunny.net(영상 CDN), Vercel Inc.(호스팅), 토스페이먼츠 또는 카카오페이(결제), Resend(이메일 발송) 등." },
+    { title: "6. 개인정보 국외 이전", body: '회사는 서비스 제공을 위해 아래와 같이 개인정보를 국외로 이전(보관)합니다.<br />· <strong class="text-white">Supabase Inc.</strong>(미국) — 계정·콘텐츠·DB 보관, 회원 탈퇴 시까지<br />· <strong class="text-white">Bunny.net</strong>(Bunnyway d.o.o., 슬로베니아·EU) — 영상 스트리밍, 회원 탈퇴 시까지<br />· <strong class="text-white">Vercel Inc.</strong>(미국) — 웹 호스팅·접속 정보<br />· <strong class="text-white">Resend</strong>(미국) — 이메일 발송(이메일 주소)<br />이전 시점·방법: 위 서비스 이용 시점에 정보통신망을 통해 전송됩니다. 이용자는 개인정보 국외 이전을 거부할 수 있으나, 거부 시 서비스 이용이 제한될 수 있습니다.' },
+    { title: "7. 이용자 권리 (열람·수정·삭제·다운로드)", body: '이용자는 개인정보보호법에 따라 다음 권리를 행사할 수 있습니다:<br /><strong class="text-white">· 열람·수정:</strong> 마이페이지 → 프로필 편집에서 직접 수정<br /><strong class="text-white">· 데이터 다운로드:</strong> 마이페이지 → 설정 → "내 데이터 다운로드"에서 본인 데이터 전체 JSON 다운로드<br /><strong class="text-white">· 계정 삭제:</strong> 마이페이지 → 설정 → 위험 영역에서 요청. 30일 유예 후 영구 삭제. 그 전까지 언제든 취소 가능<br />기타 문의는 <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>으로 연락주세요.' },
+    { title: "8. 쿠키 사용", body: "서비스는 로그인 유지 및 사용성 개선을 위해 쿠키를 사용합니다. 브라우저 설정에서 거부할 수 있으나 일부 기능이 제한될 수 있습니다." },
+    { title: "9. 개인정보 보호 책임자", body: '성명: 이현우 (크레비즈 대표)<br />이메일: <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>' },
+  ],
+};
+
+const YOUTH_KO = {
+  title: "청소년보호정책",
+  lastModifiedLabel: "시행일",
+  sections: [
+    { title: "제1조 (목적)", body: "회사는 청소년이 음란·폭력 등 각종 유해 정보로부터 보호받고 건전한 인격체로 성장할 수 있도록 「정보통신망 이용촉진 및 정보보호 등에 관한 법률」 및 「청소년 보호법」에 따라 본 정책을 수립·시행합니다." },
+    { title: "제2조 (유해정보에 대한 청소년 접근 제한 및 관리)", body: '① 19세 이용가(청소년 유해) 콘텐츠는 연령 확인(본인인증)을 거친 성인 이용자에게만 제공하며, 미인증 이용자에게는 블러 처리 및 재생을 차단합니다.<br />② 업로드되는 모든 콘텐츠는 자동 필터링(이미지·영상 분석) 및 신고 기반 모니터링을 통해 유해성을 검토하며, 위반 콘텐츠는 즉시 차단·삭제합니다.<br />③ 모든 영상에 연령 등급(전체 / 13세 / 15세 / 19세)을 표시하여 청소년이 유해 정보에 노출되지 않도록 합니다.' },
+    { title: "제3조 (유해정보 피해 신고 및 상담)", body: '청소년에게 유해한 콘텐츠를 발견한 경우 각 콘텐츠의 "신고" 기능 또는 청소년보호책임자 이메일로 신고할 수 있으며, 회사는 신고 접수 즉시 확인하여 차단·삭제 등 필요한 조치를 취합니다.' },
+    { title: "제4조 (청소년보호책임자 지정)", body: '회사는 청소년 보호 업무를 총괄하는 청소년보호책임자를 다음과 같이 지정합니다.<br />· 청소년보호책임자: 이현우 (크레비즈 대표)<br />· 이메일: <a href="mailto:support@creaite.net" class="text-[#8b5cf6] hover:underline">support@creaite.net</a>' },
   ],
 };
 
@@ -269,14 +294,26 @@ const PRIVACY_EN = {
   draftLabel: "Draft",
   draftNotice: "This document is a draft. It will be replaced with a finalized version after legal review before the official service launch. The Korean version is the binding policy until then.",
   sections: [
-    { title: "1. Personal Information Collected", body: "At sign-up: email, name, OAuth profile image (when signing in with Google / Kakao).<br />During service use: IP address, device information, viewing history, payment information (entrusted to payment gateway)." },
+    { title: "1. Personal Information Collected", body: "At sign-up: email, name, OAuth profile image (when signing in with Google / Kakao).<br />During service use: IP address, device information, viewing history, payment information (entrusted to payment gateway).<br />Additional (when applicable): date of birth (age verification), settlement bank account (bank, account number, holder — creator payouts), tax information (business type, business registration number — withholding & tax filing), push notification subscription (device token)." },
     { title: "2. Purposes of Collection and Use", body: "Service provision, identity verification, payment / settlement, prevention of fraudulent use, statistical analysis, marketing (with separate consent)." },
-    { title: "3. Retention and Use Period", body: "Personal data is destroyed immediately upon membership withdrawal. However, when retention is required by applicable laws, data is retained for the period specified by such laws (e.g., 5 years for payment records under e-commerce law)." },
+    { title: "3. Retention and Use Period", body: "Personal data is destroyed after a 30-day grace period following account deletion request. However, where retention is required by applicable laws, data is retained for the specified period (e-commerce law: 5 years for contract / withdrawal / payment records, 3 years for consumer complaint / dispute records; communications law: 3 months for access logs)." },
     { title: "4. Disclosure to Third Parties", body: "We do not provide personal information to third parties without user consent, except when required by law." },
-    { title: "5. Processors", body: "Supabase Inc. (database, authentication, storage), Bunny.net (video CDN), Vercel Inc. (hosting), Toss Payments or Kakao Pay (payment), etc." },
-    { title: "6. User Rights (Access, Edit, Delete, Download)", body: 'Users may exercise the following rights under personal information protection law:<br /><strong class="text-white">· Access / Edit:</strong> Edit directly via My Page → Edit Profile<br /><strong class="text-white">· Download:</strong> Download all your data as JSON via My Page → Settings → "Download my data"<br /><strong class="text-white">· Account deletion:</strong> Request via My Page → Settings → Danger Zone. Permanent deletion after a 30-day grace period; cancelable at any time before<br />For other inquiries, please contact <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>.' },
-    { title: "7. Cookies", body: "The Service uses cookies to maintain login sessions and improve usability. You may decline cookies in your browser settings, but some functions may be limited." },
-    { title: "8. Personal Information Officer", body: 'Name: Lee Hyunwoo (이현우, CEO of Crebiz)<br />Email: <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>' },
+    { title: "5. Processors", body: "Supabase Inc. (database, authentication, storage), Bunny.net (video CDN), Vercel Inc. (hosting), Toss Payments or Kakao Pay (payment), Resend (email delivery), etc." },
+    { title: "6. Cross-border Transfer of Personal Information", body: 'For service provision, personal information is transferred (stored) overseas as follows:<br />· <strong class="text-white">Supabase Inc.</strong> (USA) — account / content / database, until withdrawal<br />· <strong class="text-white">Bunny.net</strong> (Bunnyway d.o.o., Slovenia / EU) — video streaming, until withdrawal<br />· <strong class="text-white">Vercel Inc.</strong> (USA) — web hosting / access info<br />· <strong class="text-white">Resend</strong> (USA) — email delivery (email address)<br />Time / method of transfer: transmitted over the network at the time the above services are used. You may refuse the cross-border transfer, but service use may be restricted as a result.' },
+    { title: "7. User Rights (Access, Edit, Delete, Download)", body: 'Users may exercise the following rights under personal information protection law:<br /><strong class="text-white">· Access / Edit:</strong> Edit directly via My Page → Edit Profile<br /><strong class="text-white">· Download:</strong> Download all your data as JSON via My Page → Settings → "Download my data"<br /><strong class="text-white">· Account deletion:</strong> Request via My Page → Settings → Danger Zone. Permanent deletion after a 30-day grace period; cancelable at any time before<br />For other inquiries, please contact <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>.' },
+    { title: "8. Cookies", body: "The Service uses cookies to maintain login sessions and improve usability. You may decline cookies in your browser settings, but some functions may be limited." },
+    { title: "9. Personal Information Officer", body: 'Name: Lee Hyunwoo (이현우, CEO of Crebiz)<br />Email: <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>' },
+  ],
+};
+
+const YOUTH_EN = {
+  title: "Youth Protection Policy",
+  lastModifiedLabel: "Effective date",
+  sections: [
+    { title: "Article 1 (Purpose)", body: "The Company establishes and implements this policy under the Act on Promotion of Information and Communications Network Utilization and the Youth Protection Act, to protect youth from harmful information such as obscenity and violence and to support their healthy development." },
+    { title: "Article 2 (Restricting and Managing Youth Access to Harmful Information)", body: '① Content rated 19+ (harmful to youth) is provided only to age-verified adult users; for unverified users it is blurred and playback is blocked.<br />② All uploaded content is reviewed for harmfulness through automated filtering (image / video analysis) and report-based monitoring, and violating content is immediately blocked / removed.<br />③ Every video displays an age rating (All / 13 / 15 / 19) to prevent youth from being exposed to harmful information.' },
+    { title: "Article 3 (Reporting and Counseling)", body: 'Content harmful to youth can be reported via each item\'s "Report" function or to the Youth Protection Officer\'s email. The Company verifies reports immediately upon receipt and takes necessary measures such as blocking / removal.' },
+    { title: "Article 4 (Youth Protection Officer)", body: 'The Company designates a Youth Protection Officer who oversees youth protection:<br />· Officer: Lee Hyunwoo (이현우, CEO of Crebiz)<br />· Email: <a href="mailto:support@creaite.net" class="text-[#8b5cf6] hover:underline">support@creaite.net</a>' },
   ],
 };
 
@@ -286,7 +323,7 @@ const PRIVACY_EN = {
 const FAQ_KO: { q: string; a: string }[] = [
   { q: "크리에잇(CREAITE)은 어떤 서비스인가요?", a: "세계 최초 AI 시네마 OTT입니다. AI 크리에이터가 만든 영화·드라마·애니메이션을 감상하고, 창작자는 광고·판매·구독 수익을 얻습니다." },
   { q: "이용 요금은 얼마인가요?", a: "기본 감상은 무료입니다(광고 포함). 프리미엄 구독(월 ₩4,900)을 이용하면 모든 광고가 제거되고 장편 작품을 끝까지 감상할 수 있습니다." },
-  { q: "구독은 자동으로 갱신되나요?", a: "아니요, 현재 구독은 30일 단위 1회 결제입니다. 자동 결제가 없으므로 만료 전에 마이페이지에서 직접 연장하시면 됩니다 (연장 시 남은 기간에 30일이 더해집니다)." },
+  { q: "구독은 자동으로 갱신되나요?", a: "네, 프리미엄 구독은 매월 ₩4,900이 등록한 카드로 자동 결제(정기결제)됩니다. 마이페이지 또는 구독 페이지에서 언제든 자동결제를 해지할 수 있으며, 해지 시 다음 결제일부터 청구되지 않고 이미 결제한 기간은 만료일까지 이용할 수 있습니다." },
   { q: "환불은 어떻게 받나요?", a: '결제 후 7일 이내에 마이페이지 → 설정 → 결제 내역에서 환불 요청을 하실 수 있습니다. 자세한 기준은 <a href="?info=terms" class="text-[#8b5cf6] hover:underline">이용약관 제7조</a>를 참고해 주세요.' },
   { q: "영상 업로드는 누구나 할 수 있나요?", a: "네, 회원이라면 누구나 업로드 탭에서 작품을 올릴 수 있습니다. 단, AI로 생성·제작한 본인 창작 영상만 가능하며 타인의 영상을 재업로드하면 즉시 제재됩니다." },
   { q: "크리에이터 수익은 어떻게 발생하나요?", a: '① 영상에 붙는 광고 수익(노출 기반) ② 영상 라이선스 판매 수익 ③ 구독료 분배(OTT 시청시간 비례), 세 가지입니다. 자세한 비율과 정책은 <a href="?info=creator-revenue" class="text-[#8b5cf6] hover:underline">크리에이터 수익 정책</a> 페이지에서 확인하세요.' },
@@ -302,7 +339,7 @@ const FAQ_KO: { q: string; a: string }[] = [
 const FAQ_EN: { q: string; a: string }[] = [
   { q: "What is CREAITE?", a: "The world's first AI cinema OTT. Watch films, dramas, and animation made by AI creators — while creators earn ad, sales, and subscription revenue." },
   { q: "How much does it cost?", a: "Watching is free (with ads). Premium (₩4,900/month) removes all ads and unlocks full-length features." },
-  { q: "Does the subscription auto-renew?", a: "No. Subscriptions are one-time 30-day payments. There is no auto-billing — extend anytime from My Page (extensions add 30 days to your remaining period)." },
+  { q: "Does the subscription auto-renew?", a: "Yes. Premium auto-bills ₩4,900/month to your registered card. You can cancel auto-pay anytime from My Page or the Subscription page; after cancellation no further charges are made and your current period stays active until expiry." },
   { q: "How do refunds work?", a: 'You can request a refund within 7 days of payment via My Page → Settings → Payment History. See <a href="?info=terms" class="text-[#8b5cf6] hover:underline">Terms Article 7</a> for details.' },
   { q: "Who can upload videos?", a: "Any member can upload from the Upload tab. Only your own AI-generated/AI-assisted creations are allowed — re-uploading others' work leads to immediate sanctions." },
   { q: "How do creators earn?", a: 'Three ways: ① ad revenue (impression-based) ② license sales ③ subscription pool sharing (proportional to OTT watch time). See the <a href="?info=creator-revenue" class="text-[#8b5cf6] hover:underline">Creator Revenue Policy</a>.' },
