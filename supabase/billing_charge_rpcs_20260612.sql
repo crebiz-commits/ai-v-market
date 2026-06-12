@@ -22,6 +22,11 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE v_new_expiry TIMESTAMPTZ;
 BEGIN
+  -- 0) 멱등성: 이미 완료된 주문이면 중복 부여(구독 이중 +30일) 방지 (2026-06-12 보강)
+  IF EXISTS (SELECT 1 FROM public.payments WHERE order_id = p_order_id AND status = 'completed') THEN
+    RETURN;
+  END IF;
+
   -- 1) 결제 기록 (멱등 — 같은 order_id 중복 무시)
   INSERT INTO public.payments (order_id, payment_key, user_id, payment_type, amount, method, status, approved_at, raw_response)
   VALUES (p_order_id, p_payment_key, p_user_id, 'subscription', p_amount, '카드(자동결제)', 'completed', p_approved_at, p_raw)
