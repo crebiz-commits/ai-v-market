@@ -281,6 +281,54 @@ app.post("/videos/create-upload", async (c) => {
   }
 });
 
+// ── 영상 재생 토큰 발급 (Bunny Embed Token Auth — 서버 페이월) ─────────────────
+// 비구독자: 짧은 수명(150초, 1분 미리보기 커버) → URL 추출해도 장편 프리미엄 끝까지 못 봄.
+// 구독자/소유자/관리자/라이선스 구매자: 긴 수명(4시간) → 전체 시청.
+// BUNNY_TOKEN_AUTH_KEY 미설정 시 token=null → 클라가 토큰 없이 재생(현행 유지, 무중단 전환).
+app.post("/video-play-token", async (c) => {
+  try {
+    const { videoId } = await c.req.json().catch(() => ({}));
+    if (!videoId) return c.json({ error: "videoId 필요" }, 400);
+
+    const securityKey = Deno.env.get('BUNNY_TOKEN_AUTH_KEY');
+    if (!securityKey) return c.json({ token: null, expires: null, fullAccess: false });
+
+    let fullAccess = false;
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (accessToken) {
+      const { data: { user } } = await getSupabaseClient().auth.getUser(accessToken);
+      if (user) {
+        const admin = getSupabaseClient(true);
+        const { data: prof } = await admin.from('profiles')
+          .select('subscription_tier, subscription_expires_at, is_admin')
+          .eq('id', user.id).maybeSingle();
+        const isPremium = prof?.subscription_tier === 'premium' &&
+          !!prof?.subscription_expires_at && new Date(prof.subscription_expires_at) > new Date();
+        if (isPremium || prof?.is_admin) {
+          fullAccess = true;
+        } else {
+          const { data: vid } = await admin.from('videos').select('creator_id').eq('id', videoId).maybeSingle();
+          if (vid?.creator_id === user.id) {
+            fullAccess = true;
+          } else {
+            const { data: ord } = await admin.from('orders')
+              .select('id').eq('buyer_id', user.id).eq('video_id', videoId).eq('status', 'completed').limit(1);
+            fullAccess = !!ord && ord.length > 0;
+          }
+        }
+      }
+    }
+
+    const ttl = fullAccess ? 4 * 3600 : 150;  // 전체 4시간 / 미리보기 150초
+    const expires = Math.floor(Date.now() / 1000) + ttl;
+    const token = await sha256Hex(`${securityKey}${videoId}${expires}`);
+    return c.json({ token, expires, fullAccess });
+  } catch (error) {
+    console.error('[video-play-token] 오류:', error);
+    return c.json({ error: `토큰 발급 실패: ${error.message}` }, 500);
+  }
+});
+
 // R1(2026-06-11): 커스텀 썸네일 업로드 프록시
 // Bunny 썸네일 API 는 라이브러리 AccessKey 가 필요해 클라이언트 직접 호출 불가 → 서버 경유.
 // 소유권: create-upload 시 KV 에 기록한 userId (또는 어드민)만 허용.

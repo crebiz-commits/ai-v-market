@@ -24,7 +24,7 @@ import { AgeGateModal } from "./AgeGateModal";
 import { ShareModal } from "./ShareModal";
 import { NextVideoOverlay } from "./NextVideoOverlay";
 import { AddToPlaylistModal } from "./AddToPlaylistModal";
-import { supabase } from "../utils/supabaseClient";
+import { supabase, supabaseAnonKey } from "../utils/supabaseClient";
 import { useTranslation } from "react-i18next";
 import { getCategoryLabel } from "../i18n/categoryLabels";
 import { AdOverlayBanner } from "./AdOverlayBanner";
@@ -42,6 +42,7 @@ function postBunnyCommand(iframe: HTMLIFrameElement | null, method: "play" | "pa
 
 // Bunny Stream 라이브러리 ID (env 변수). 클라이언트에 노출되어도 안전.
 const BUNNY_LIBRARY_ID = (import.meta as any).env?.VITE_BUNNY_LIBRARY_ID || "";
+const PLAY_TOKEN_ENDPOINT = "https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/video-play-token";
 
 // 페이월 정책 v2 (2026-05-26): 단순화 — 비구독자는 모든 영상 1분 미리보기 통일
 // 실제 값은 SettingsContext 에서 동적으로 조회 (어드민이 platform_settings 로 조절 가능)
@@ -556,8 +557,42 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   // 1분 미만 차단 정책 적용이 사실상 불가. 자체 광고 컴포넌트(AdMidrollPlayer
   // format='preroll')로 본편 iframe 앞에 직접 광고 영상 띄우는 방식으로 전환.
   // 영상 길이 검사·skip 정책 분기·트래킹 모두 클라이언트가 직접 컨트롤.
-  const bunnyEmbedUrl = BUNNY_LIBRARY_ID && product.id
-    ? `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${product.id}?autoplay=true&loop=false&muted=true&preload=true&responsive=true`
+  // ── Bunny 재생 토큰 (서버 페이월) ──
+  // Edge가 구독/소유/라이선스 권한을 확인해 토큰 수명을 차등 발급(비구독자 150초 / 권한자 4시간).
+  // Bunny 라이브러리에 Embed Token Auth 활성 시 토큰 없으면 재생 불가 → URL 추출 우회 차단.
+  // 토큰 인증 미활성(키 미설정) 단계에서는 token=null → 현행대로 재생(무중단).
+  const [playToken, setPlayToken] = useState<{ token: string | null; expires: number | null }>({ token: null, expires: null });
+  const [tokenReady, setTokenReady] = useState(false);
+  useEffect(() => {
+    setTokenReady(false);
+    setPlayToken({ token: null, expires: null });
+    if (!product.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(PLAY_TOKEN_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${session?.access_token || supabaseAnonKey}`,
+          },
+          body: JSON.stringify({ videoId: product.id }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!cancelled) setPlayToken({ token: body?.token ?? null, expires: body?.expires ?? null });
+      } catch {
+        if (!cancelled) setPlayToken({ token: null, expires: null });
+      } finally {
+        if (!cancelled) setTokenReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [product.id]);
+
+  const bunnyEmbedUrl = BUNNY_LIBRARY_ID && product.id && tokenReady
+    ? `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${product.id}?autoplay=true&loop=false&muted=true&preload=true&responsive=true${playToken.token ? `&token=${playToken.token}&expires=${playToken.expires}` : ""}`
     : null;
 
   // ── 자체 VAST Pre-roll 광고 (정책 v4 — Bunny vastTagUrl 폐기, 자체 컴포넌트) ──

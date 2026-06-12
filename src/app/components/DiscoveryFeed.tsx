@@ -675,6 +675,11 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   const [commentVideo, setCommentVideo] = useState<Video | null>(null);
   const [shareTarget, setShareTarget] = useState<Video | null>(null);
   const [fullscreenVideo, setFullscreenVideo] = useState<Video | null>(null);
+  // 비구독자가 장편(미리보기 초과) 풀스크린 진입 시 전체 무료재생되는 우회 차단 → 페이월(ProductDetail)로
+  const openFullscreenGated = (v: Video) => {
+    if (!isSubscriber && (v.durationSeconds || 0) > 60) { onVideoClick(v); return; }
+    setFullscreenVideo(v);
+  };
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   // 무한 스크롤 — 전 영상을 페이지 단위로 끊김 없이 로드
   const [hasMore, setHasMore] = useState(true);
@@ -683,7 +688,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   const hasMoreRef = useRef(true);      // 클로저 stale 방지용
   const fetchingRef = useRef(false);    // 중복 호출 방지
   const chipRef = useRef("all");        // 현재 칩 필터 (loadMore stale 방지용)
-  const { user, profile } = useAuth();
+  const { user, profile, isSubscriber } = useAuth();
   const { isBlocked } = useBlockedUsers();
   const showcase = shouldShowShowcase(profile?.is_admin);
 
@@ -1037,7 +1042,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
                 onSetActive={(id) => setActiveId(id)}
                 onComment={(v) => { if (handleShowcaseClick(v.id)) return; setCommentVideo(v); }}
                 onShare={handleShare}
-                onFullscreen={(v) => { if (handleShowcaseClick(v.id)) return; setFullscreenVideo(v); }}
+                onFullscreen={(v) => { if (handleShowcaseClick(v.id)) return; openFullscreenGated(v); }}
                 commentCount={commentCounts[item.id] || 0}
                 creatorAvatar={item.creatorId ? creatorInfo[item.creatorId]?.avatar ?? null : null}
                 creatorName={item.creatorId ? creatorInfo[item.creatorId]?.name ?? null : null}
