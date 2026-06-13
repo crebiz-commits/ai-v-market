@@ -53,7 +53,7 @@
 - [x] R1 Bunny 키 노출 / R2 이메일 검증 우회 (완료)
 - [x] R3·R9 공유 딥링크 / R6·R7·R8·R10 정산·환불·댓글 (완료, `fixes_audit_20260611.sql`)
 - [x] R4 구독 만료 임박 알림 (완료, 2026-06-13)
-- [ ] **R5** 구독풀 분배 정책 결정 — 시네마 전용 크리에이터 분배 0원 (의도 확인 필요)
+- [x] **R5** 구독풀 분배 정책 결정 (2026-06-14 확정) — **OTT 전용 분배 의도, 유지**. 시네마 전용 크리에이터 구독풀 0원은 의도된 설계(시네마는 라이선스·광고로 별도 수익화). 근거 주석 추가 [phase8_revenue_distributions.sql:158](../supabase/phase8_revenue_distributions.sql#L158)
 - [x] **R11~** 자잘한 항목 (2026-06-14 처리) — timeAgo 유틸 통합(4→1), 광고 overlay/midroll setTimeout cleanup, 저대비 고지문구 gray-400, collab 알림 메시지 원문 비노출(`collab_notify_privacy_20260614.sql` **SQL 적용 필요**), MyPage 조회실패 toast, 통화 ₩ 프리픽스 통일. 가입 레이트리밋/캡차는 코드 아님 → Supabase Auth 설정 영역(deprecated 엔드포인트 확인)
 
 ## 🧪 6. 베타 운영 준비
@@ -89,7 +89,7 @@
 - [x] ✅ **계정 삭제 30일 후 자동 삭제 cron** — (2026-06-14 해결·배포 완료) 기존엔 cron 미등록 + 함수 어드민 가드 + auth.users 미삭제로 **전혀 작동 안 함**(컴플라이언스 갭)이었음. → Edge Function `/server/purge-deletions`(auth.admin.deleteUser→CASCADE 파기) 신설·재배포(`--no-verify-jwt`), `purge-deletions-daily` cron 등록(매일 04:00 UTC). 엔드포인트 호출 검증 완료(`success:true, total:0`). 적용 SQL: [purge_deletions_cron_20260614.sql](../supabase/purge_deletions_cron_20260614.sql). [phase27_user_data_rights.sql:24](../supabase/phase27_user_data_rights.sql#L24)
 
 ### 코드 감사 잔여 (5번 항목과 연동)
-- [ ] **R5** 구독풀 분배 정책 결정 (시네마 전용 크리에이터 0원)
+- [x] **R5** 구독풀 분배 정책 결정 (2026-06-14) — OTT 전용 분배 의도, 유지 (시네마 전용 0원은 설계)
 - [x] **R11~** 자잘한 항목 (2026-06-14 완료) — timeAgo 4곳→공용 util, 광고 setTimeout cleanup, 저대비 고지문구, collab 알림 원문 비노출, MyPage toast, ₩ 통일. 가입 캡차는 Supabase 설정 영역
 - [ ] **M9** VAST 트래킹 픽셀 무인증 — impression 위조 가능 (현재 베타 House Ads 한정 수용 중)
 

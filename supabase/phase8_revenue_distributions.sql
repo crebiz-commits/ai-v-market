@@ -156,6 +156,10 @@ BEGIN
   v_creator_pool := v_subscription_total * v_share_sub_pool;
 
   -- 전체 OTT 유효 시청시간 (구독료 pro-rata 분모)
+  -- [정책 R5, 2026-06-14 확정] 구독풀은 OTT(show_on_ott=true) 시청시간에만 비례 분배.
+  --   → 시네마 전용(OTT 미노출) 크리에이터의 구독풀 분배는 0원 (의도된 설계).
+  --   근거: 구독풀 = 구독형 OTT 스트리밍 수익 배분. 시네마 콘텐츠는 라이선스 판매·광고로
+  --        별도 수익화하므로 OTT 구독풀 대상이 아님. 분모·분자 모두 show_on_ott=true 로 일치.
   SELECT COALESCE(SUM(vv.watch_seconds), 0) INTO v_total_ott_watch
   FROM public.video_views vv
   JOIN public.videos v ON v.id = vv.video_id
