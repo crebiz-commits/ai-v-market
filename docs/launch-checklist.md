@@ -31,7 +31,7 @@
 
 - [x] Vercel 배포 (creaite.net 연결 정황 — index.html canonical)
 - [ ] **Supabase 마이그레이션 누락분 적용 확인** — `supabase/*.sql` 중 SQL Editor 수동 적용 파일 다수. 빠진 것 없는지 점검
-  - [ ] `subscription_expiry_notify_20260613.sql` 적용 ✅ (2026-06-13 적용 완료)
+  - [x] `subscription_expiry_notify_20260613.sql` 적용 (2026-06-13 적용 완료)
 - [ ] 프로덕션 환경변수 전체 점검 (Supabase URL/anon, Bunny, VAPID, Toss)
 - [ ] Bunny Stream 페이월·라이브러리 설정 ([BUNNY_SETUP_GUIDE.md](../BUNNY_SETUP_GUIDE.md))
 - [ ] 이메일 발신 도메인 인증 — Resend `mail.creaite.net` DKIM/SPF ([SMTP_SETUP_GUIDE.md](../SMTP_SETUP_GUIDE.md))

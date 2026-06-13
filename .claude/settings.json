@@ -4,5 +4,19 @@
       "Bash(npm run:*)",
       "Bash(node -e ':*)"
     ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/launch-checklist-reminder.mjs",
+            "timeout": 15,
+            "statusMessage": "출시 체크리스트 확인 중..."
+          }
+        ]
+      }
+    ]
   }
 }
