@@ -1,4 +1,5 @@
 import React, { Component, ReactNode } from 'react';
+import { captureError } from '../utils/sentry';
 
 interface Props {
   children: ReactNode;
@@ -39,6 +40,11 @@ export class ErrorBoundary extends Component<Props, State> {
       sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
       // 즉시 새로고침 (사용자가 ErrorBoundary 화면 거의 못 봄)
       setTimeout(() => window.location.reload(), 100);
+    }
+
+    // 청크 에러(자동 복구)는 제외하고 실제 런타임 에러만 Sentry 보고 (DSN 미설정 시 no-op)
+    if (!isChunkError) {
+      captureError(error, { componentStack: errorInfo.componentStack });
     }
   }
 

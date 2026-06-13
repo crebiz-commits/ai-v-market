@@ -60,7 +60,7 @@
 
 - [x] 고객센터 1:1 문의 (커밋 `c5fabd9`)
 - [ ] 시드 콘텐츠/영상 준비
-- [ ] 에러 모니터링·로그 추적 체계
+- [x] 에러 모니터링·로그 추적 체계 (2026-06-14) — Sentry(@sentry/react) env 게이트 연동 완료. `initSentry()`([main.tsx](../src/main.tsx)) + ErrorBoundary 자동 캡처([ErrorBoundary.tsx](../src/app/components/ErrorBoundary.tsx)). **활성화: Vercel 환경변수 `VITE_SENTRY_DSN` 추가 후 재배포** (미설정 시 비활성·무해). 청크에러는 자동 새로고침 복구라 보고 제외.
 - [ ] 베타 테스터 모집 + 피드백 채널 운영
 
 ## 🧱 7. 기능 백로그 (미구현·보류 기획)
