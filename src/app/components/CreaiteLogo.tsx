@@ -45,6 +45,7 @@ export function CreaiteLogo({ className = "w-9 h-9", still = false }: CreaiteLog
             width="8"
             rx="4"
             fill={`url(#${gradId})`}
+            initial={{ y: 50 - h / 2, height: h }}
             animate={{
               y: [50 - h / 2, 50 - (h + 15) / 2, 50 - h / 2],
               height: [h, h + 15, h],
