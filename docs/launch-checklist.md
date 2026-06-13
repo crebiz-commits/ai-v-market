@@ -63,8 +63,45 @@
 - [ ] 에러 모니터링·로그 추적 체계
 - [ ] 베타 테스터 모집 + 피드백 채널 운영
 
+## 🧱 7. 기능 백로그 (미구현·보류 기획)
+
+> 코드 주석·SQL·문서 전수 검색으로 수집(2026-06-13). 출처 파일 명시. 상태: ❌미구현 / 🟡부분·준비중 / ❓확인필요
+
+### 콘텐츠·크리에이터 도구
+- [ ] ❌ **AI 자동 자막 생성/번역** — 현재 수동 자막만(언어 메타 + 파일 업로드). [Upload.tsx:1470](../src/app/components/Upload.tsx#L1470), [VideoEditModal.tsx](../src/app/components/VideoEditModal.tsx)
+- [ ] ❌ **홍보문건(마케팅 소재) 자동 생성** — 코드·문서에 흔적 없음. 기획만 존재
+- [ ] 🟡 **영상 클립 자동 생성 파이프라인** — 업로드 시 전 영화 hero clip 자동 생성("방법 B"). [hero_clip.sql:13](../supabase/hero_clip.sql)
+
+### 알림·소셜
+- [ ] 🟡 **푸시 알림 FCM 연동** — 현재 컬럼만, "준비 중" 표시. [NotificationSettings.tsx:8](../src/app/components/NotificationSettings.tsx#L8), [phase34_notifications.sql:13](../supabase/phase34_notifications.sql#L13)
+- [ ] 🟡 **이메일 알림 트리거 잔여** — `ad_budget_low` 등 일부 트리거 미구현("준비 중" 비활성). `new_video_from_followed`는 6/12 구현됨(`new_video_follower_notify_20260612.sql`). [NotificationSettings.tsx:9](../src/app/components/NotificationSettings.tsx#L9)
+- [ ] 🟡 **어드민 브로드캐스트 이메일 발송** — 현재 인앱만, Resend 이메일 연동 향후. [AdminBroadcast.tsx:104](../src/app/components/AdminBroadcast.tsx#L104)
+- [ ] 🟡 **카카오톡 공유 SDK 연동** — 현재 링크 복사 안내로 대체. [ShareModal.tsx:8](../src/app/components/ShareModal.tsx#L8)
+
+### 수익화 (베타 후)
+- [ ] 🟡 **외부 광고 통합** (Google AdSense / 쿠팡 파트너스 등) — "준비 중 · 베타 후 통합". [AdminExternalAds.tsx](../src/app/components/AdminExternalAds.tsx)
+- [ ] 🟡 **크리에이터 스폰서십/협찬 배지 검수** — 데이터 누적 후 본격 구현 예정. [AdminSponsorships.tsx:10](../src/app/components/AdminSponsorships.tsx#L10)
+
+### 글로벌·기타
+- [ ] 🟡 **다국어 확장** — 일본어(ja)·중국어 간체(zh-CN) 추후 추가. [i18n/index.ts:5](../src/app/i18n/index.ts#L5) · 수익 가이드 등 본문 i18n 보강([CreatorRevenueGuide.tsx:15](../src/app/components/CreatorRevenueGuide.tsx#L15))
+- [ ] 🟡 **댓글 금지어 word_boundary 옵션** — [phase23_comment_management.sql:12](../supabase/phase23_comment_management.sql#L12)
+- [ ] 🟡 **어드민 RPC 전반 감사로그 기록 보강** — [phase10_7_broadcast_and_logs.sql:162](../supabase/phase10_7_broadcast_and_logs.sql#L162)
+- [ ] ❓ **계정 삭제 30일 후 자동 삭제 cron** — 컬럼은 있음, 실제 삭제 크론 동작 여부 확인 필요. [phase27_user_data_rights.sql:24](../supabase/phase27_user_data_rights.sql#L24)
+
+### 코드 감사 잔여 (5번 항목과 연동)
+- [ ] **R5** 구독풀 분배 정책 결정 (시네마 전용 크리에이터 0원)
+- [ ] **R11~** 자잘한 항목 — 가입 레이트리밋/캡차, collab 알림 원문 200자 노출, 저대비 텍스트, timeAgo 유틸 3곳 중복, 광고 setTimeout unmount 미클리어, ₩/원 표기 혼용
+- [ ] **M9** VAST 트래킹 픽셀 무인증 — impression 위조 가능 (현재 베타 House Ads 한정 수용 중)
+
+### 기술 부채(정리)
+- [ ] ❓ `AuthModal.new.tsx` 중복 파일 정리 여부 확인 ([AuthModal.new.tsx](../src/app/components/AuthModal.new.tsx))
+- [x] Showcase Mock 영상 — `SHOWCASE_ENABLED=false` 이미 OFF (실제 시드 146편 등록, 2026-06-06). 참고용
+
+> ⚠️ 이 백로그는 코드/문서에 **글로 남은 것만** 수집한 결과입니다. 머릿속에만 있던 기획은 추가로 떠오르는 대로 이 섹션에 적어주시면 검증해 채워 넣겠습니다.
+
 ---
 
 ## 진행 메모
 
 - 2026-06-13: 체크리스트 최초 작성. 컴퓨터 재설치 후 개발환경 복구 완료, R4 만료알림 구현·배포.
+- 2026-06-13: 기능 백로그 섹션 추가(코드 전수 검색). 자동 자막·홍보문건 생성 등 미구현 기획 포함.
