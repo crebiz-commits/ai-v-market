@@ -94,7 +94,7 @@
 - [ ] **M9** VAST 트래킹 픽셀 무인증 — impression 위조 가능 (현재 베타 House Ads 한정 수용 중)
 
 ### 기술 부채(정리)
-- [ ] ❓ `AuthModal.new.tsx` 중복 파일 정리 여부 확인 ([AuthModal.new.tsx](../src/app/components/AuthModal.new.tsx))
+- [x] ✅ `AuthModal.new.tsx` 중복 파일 정리 (2026-06-14) — 어디서도 import 안 되는 고아 파일 확인 후 삭제. 실사용은 `AuthModal.tsx`([App.tsx:73](../src/app/App.tsx#L73)).
 - [x] Showcase Mock 영상 — `SHOWCASE_ENABLED=false` 이미 OFF (실제 시드 146편 등록, 2026-06-06). 참고용
 
 > ⚠️ 이 백로그는 코드/문서에 **글로 남은 것만** 수집한 결과입니다. 머릿속에만 있던 기획은 추가로 떠오르는 대로 이 섹션에 적어주시면 검증해 채워 넣겠습니다.
