@@ -1081,6 +1081,51 @@ app.post('/billing-run', async (c) => {
 });
 
 // ============================================
+// 계정 삭제 30일 경과 영구 파기 (스케줄러 전용) — 2026-06-14
+// 호출: POST /server/purge-deletions  헤더 x-cron-secret: <BILLING_CRON_SECRET>
+//   profiles.deletion_requested_at <= now()-30d 대상 → auth.admin.deleteUser(id).
+//   profiles.id REFERENCES auth.users(id) ON DELETE CASCADE 이므로 auth.users 삭제 시
+//   profiles 및 연관 사용자 데이터가 CASCADE로 일괄 정리됨 (개인정보 파기 의무 충족).
+//   ※ SQL의 purge_pending_deletions 는 auth.uid() 어드민 가드가 있어 cron 호출 불가 →
+//     자동 파기는 이 엔드포인트가 담당. (어드민 수동 호출용으로 SQL 함수는 그대로 보존)
+// ============================================
+app.post('/purge-deletions', async (c) => {
+  try {
+    const secret = c.req.header('x-cron-secret');
+    const expected = Deno.env.get('BILLING_CRON_SECRET');
+    if (!expected || secret !== expected) return c.json({ error: 'unauthorized' }, 401);
+
+    const admin = getSupabaseClient(true);
+    const threshold = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    // 30일+ 경과한 삭제 요청자 (한 번에 최대 100건 — 폭주 방지, 매일 반복 처리)
+    const { data: targets, error } = await admin
+      .from('profiles')
+      .select('id')
+      .not('deletion_requested_at', 'is', null)
+      .lte('deletion_requested_at', threshold)
+      .limit(100);
+    if (error) return c.json({ error: error.message }, 500);
+
+    let ok = 0, fail = 0;
+    for (const t of (targets || [])) {
+      try {
+        // auth.users 삭제 → FK CASCADE 로 profiles·연관 데이터 일괄 파기
+        const { error: delErr } = await admin.auth.admin.deleteUser(t.id);
+        if (delErr) { console.error('[purge-deletions] deleteUser 실패', t.id, delErr.message); fail++; continue; }
+        ok++;
+      } catch (e: any) {
+        console.error('[purge-deletions] 예외', t.id, e?.message || e); fail++;
+      }
+    }
+    return c.json({ success: true, purged: ok, failed: fail, total: (targets || []).length });
+  } catch (err: any) {
+    console.error('[purge-deletions] 예외:', err);
+    return c.json({ error: String(err?.message || err) }, 500);
+  }
+});
+
+// ============================================
 // Phase 34 — Resend 이메일 발송
 // ============================================
 //

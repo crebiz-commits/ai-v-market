@@ -30,7 +30,7 @@
 ## 🚀 2. 배포·인프라 (대부분 구축됨 — live 점검만)
 
 - [x] Vercel 배포 (creaite.net 연결 정황 — index.html canonical)
-- [ ] **Supabase 마이그레이션 누락분 적용 확인** — `supabase/*.sql` 중 SQL Editor 수동 적용 파일 다수. 빠진 것 없는지 점검
+- [x] **Supabase 마이그레이션 누락분 적용 확인** (2026-06-14) — `_verify_migrations_applied.sql` 진단 쿼리로 최근 41개 객체(테이블·함수) 전수 점검 → 전부 `exists=true`, 누락 없음. 결제·빌링·알림·graceful RPC 모두 적용 확인.
   - [x] `subscription_expiry_notify_20260613.sql` 적용 (2026-06-13 적용 완료)
 - [ ] 프로덕션 환경변수 전체 점검 (Supabase URL/anon, Bunny, VAPID, Toss)
 - [ ] Bunny Stream 페이월·라이브러리 설정 ([BUNNY_SETUP_GUIDE.md](../BUNNY_SETUP_GUIDE.md))
@@ -86,7 +86,7 @@
 - [ ] 🟡 **다국어 확장** — 일본어(ja)·중국어 간체(zh-CN) 추후 추가. [i18n/index.ts:5](../src/app/i18n/index.ts#L5) · 수익 가이드 등 본문 i18n 보강([CreatorRevenueGuide.tsx:15](../src/app/components/CreatorRevenueGuide.tsx#L15))
 - [ ] 🟡 **댓글 금지어 word_boundary 옵션** — [phase23_comment_management.sql:12](../supabase/phase23_comment_management.sql#L12)
 - [ ] 🟡 **어드민 RPC 전반 감사로그 기록 보강** — [phase10_7_broadcast_and_logs.sql:162](../supabase/phase10_7_broadcast_and_logs.sql#L162)
-- [ ] ❓ **계정 삭제 30일 후 자동 삭제 cron** — 컬럼은 있음, 실제 삭제 크론 동작 여부 확인 필요. [phase27_user_data_rights.sql:24](../supabase/phase27_user_data_rights.sql#L24)
+- [x] ✅ **계정 삭제 30일 후 자동 삭제 cron** — (2026-06-14 해결·배포 완료) 기존엔 cron 미등록 + 함수 어드민 가드 + auth.users 미삭제로 **전혀 작동 안 함**(컴플라이언스 갭)이었음. → Edge Function `/server/purge-deletions`(auth.admin.deleteUser→CASCADE 파기) 신설·재배포(`--no-verify-jwt`), `purge-deletions-daily` cron 등록(매일 04:00 UTC). 엔드포인트 호출 검증 완료(`success:true, total:0`). 적용 SQL: [purge_deletions_cron_20260614.sql](../supabase/purge_deletions_cron_20260614.sql). [phase27_user_data_rights.sql:24](../supabase/phase27_user_data_rights.sql#L24)
 
 ### 코드 감사 잔여 (5번 항목과 연동)
 - [ ] **R5** 구독풀 분배 정책 결정 (시네마 전용 크리에이터 0원)
