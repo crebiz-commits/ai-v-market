@@ -48,6 +48,18 @@
 - [ ] 사업자등록 + 통신판매업 신고 (PG 계약·전자상거래 필수 전제 — 1번과 연동)
 - [ ] 결제/환불 정책 고지 노출 확인
 
+## 🚨 0. 긴급 보안 (2026-06-14 전체감사 — 출시 블로커, 즉시 수정)
+
+> 상세: [full-audit-2026-06-14.md](full-audit-2026-06-14.md). 🔬 = 운영 DB 직접 검증 완료(실제 악용 가능 확인).
+
+- [ ] 🔴 **C1 권한상승** 🔬 — 누구나 `UPDATE profiles SET is_admin=true` 로 어드민 승격 가능. → is_admin/구독/정산 컬럼 REVOKE UPDATE + protect 트리거 보강
+- [ ] 🔴 **C2 정산계좌 전체 노출** 🔬 — `get_revenue_distributions_by_period` anon/auth 실행 가능, admin 가드 없음 → 모든 크리에이터 계좌번호 조회. → assert_admin 추가
+- [ ] 🔴 **C3 결제 우회(무료 취득)** 🔬 — `confirm_payment`/`fail_payment` authenticated 실행 가능 + Toss 검증 없이 권한 부여 → 브라우저에서 결제 없이 프리미엄/라이선스 취득. → service_role 전용 REVOKE
+- [ ] 🔴 **C4 회계 CASCADE 소실** 🔬 — payments/revenue_distributions FK가 auth.users ON DELETE CASCADE → purge-deletions cron이 결제·정산 원장 삭제(5년 보존 위반). → FK SET NULL 또는 purge 전 익명화. **cron 가동 전 처리**
+- [ ] 🔴 **C5 빌링 이중청구** — billing-auth-confirm 멱등성 부재
+- [ ] 🔴 **C6 환불 후 재청구** — 환불 시 billing_subscriptions 미해지
+- [ ] 🟠 추천 깨짐(variable_conflict pragma) / 광고예산 위조 / 통계 IDOR / 빌드 타입검사 전무 / react-router 취약점 / Vercel 보안헤더 / 라이선스 중복구매 등 — 상세는 감사 문서
+
 ## 🧩 5. 코드 (감사 거의 종료)
 
 - [x] R1 Bunny 키 노출 / R2 이메일 검증 우회 (완료)
