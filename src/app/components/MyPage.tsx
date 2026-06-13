@@ -1266,7 +1266,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       </p>
                       <p className="text-xs font-medium text-white/80 mt-1">{tierMeta.desc}</p>
                       {isSubscriber && profile?.subscription_expires_at && (() => {
-                        // R4(2026-06-11): 만료 임박(D-7) 표시 — 자동갱신이 없으므로 수동 연장 유도
+                        // R4: 만료 임박(D-7) 표시 — 자동갱신 OFF/실패 시 수동 연장 유도 (자동갱신 ON이면 billing-run 이 자동 청구)
                         const daysLeft = Math.ceil((new Date(profile.subscription_expires_at).getTime() - Date.now()) / 86400000);
                         return (
                           <p className={`text-[11px] mt-2 ${daysLeft <= 7 ? "text-amber-200 font-bold" : "text-white/60"}`}>
