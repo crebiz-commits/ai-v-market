@@ -438,7 +438,7 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
           </motion.div>
 
           {/* 미니 푸터 (필수 사업자 정보만) */}
-          <p className="text-xs text-gray-600 mt-12 leading-relaxed">
+          <p className="text-xs text-gray-400 mt-12 leading-relaxed">
             © {new Date().getFullYear()} CREAITE · 세계 최초 AI 시네마 OTT
             <br />
             <button

@@ -324,7 +324,7 @@ export function CreatorRevenueGuide({ onBack }: CreatorRevenueGuideProps) {
 
         {/* ⑦ 면책 */}
         <section className="text-center">
-          <p className="text-[11px] text-gray-600 leading-relaxed">
+          <p className="text-[11px] text-gray-400 leading-relaxed">
             본 안내문의 분배 비율·정책은 운영상의 필요에 따라 변경될 수 있으며, 변경 시 사전 공지됩니다.
             <br />
             상세한 이용약관은{" "}

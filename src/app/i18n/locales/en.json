@@ -784,6 +784,7 @@
       "confirmDeleteAll": "Delete all watch history?\n(This action cannot be undone)",
       "deleteSuccess": "Watch record deleted",
       "deleteFailed": "Delete failed: {{message}}",
+      "loadFailed": "Failed to load watch history: {{message}}",
       "clearAllSuccess": "All watch history deleted",
       "noTitle": "No title",
       "nameless": "Unknown"

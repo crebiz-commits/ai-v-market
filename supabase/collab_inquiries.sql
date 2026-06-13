@@ -103,7 +103,8 @@ BEGIN
   INSERT INTO public.notifications (user_id, type, title, body, link)
   VALUES (v_other, 'collab',
           COALESCE(v_name, '크리에이터') || '님의 협업 문의',
-          '「' || COALESCE(v_title, '협업') || '」 ' || left(v_body, 60),
+          -- 메시지 원문 비노출 (2026-06-14, R11): 알림엔 공개 정보인 글 제목만.
+          '「' || COALESCE(v_title, '협업') || '」 새 메시지가 도착했어요',
           '/?tab=community&sub=collab&post=' || v_post::text);
 
   RETURN QUERY SELECT v_id, v_at;

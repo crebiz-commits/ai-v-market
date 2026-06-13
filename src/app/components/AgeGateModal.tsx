@@ -145,7 +145,7 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
               </div>
             </div>
 
-            <p className="text-[10px] text-gray-600 leading-relaxed">
+            <p className="text-[10px] text-gray-400 leading-relaxed">
               ※ The date of birth is used solely for age verification. Stored securely per our privacy policy.
             </p>
           </div>

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { useTranslation } from "react-i18next";
+import { timeAgo } from "../utils/timeAgo";
 
 interface Notification {
   id: string;
@@ -91,20 +92,6 @@ const TYPE_BG: Record<string, string> = {
   collab: "bg-purple-500/10",
 };
 const DEFAULT_BG = "bg-[#6366f1]/10";
-
-function timeAgo(dateStr: string, isKo: boolean): string {
-  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-  if (isKo) {
-    if (diff < 60) return "방금 전";
-    if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
-    return `${Math.floor(diff / 86400)}일 전`;
-  }
-  if (diff < 60) return "now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
-}
 
 interface NotificationPanelProps {
   onClose: () => void;

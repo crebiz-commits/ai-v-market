@@ -780,6 +780,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
       const { data, error } = await supabase.rpc('get_my_watch_history', { p_limit: 50, p_offset: 0 });
       if (error) {
         console.warn('[MyPage] watch history 조회 실패:', error.message);
+        toast.error(t("mypage.watchHistory.loadFailed", { message: error.message }));
         setWatchHistory([]);
       } else {
         setWatchHistory(data || []);
@@ -810,6 +811,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     const { data, error } = await supabase.rpc('get_my_playlists');
     if (error) {
       console.warn('[MyPage] 플레이리스트 조회 실패:', error.message);
+      toast.error(t("mypage.playlist.playlistFetchFailed", { message: error.message }));
       setPlaylists([]);
     } else {
       setPlaylists(data || []);

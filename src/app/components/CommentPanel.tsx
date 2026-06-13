@@ -8,6 +8,7 @@ import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { ReportModal } from "./ReportModal";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { timeAgo } from "../utils/timeAgo";
 import { sendNotification, buildCommentReplyEmail } from "../utils/sendNotification";
 
 interface Comment {
@@ -47,17 +48,6 @@ interface CommentPanelProps {
   mode?: "sheet" | "panel";
 }
 
-function timeAgo(dateStr: string): string {
-  const now = new Date();
-  const date = new Date(dateStr);
-  const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
-  if (diff < 60) return "now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
-  return date.toLocaleDateString();
-}
-
 function getInitials(name: string): string {
   return name.slice(0, 1).toUpperCase();
 }
@@ -85,7 +75,8 @@ function Avatar({ name, src, size = 36 }: { name: string; src?: string; size?: n
 }
 
 export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onCommentPosted, onViewCreator, mode = "sheet" }: CommentPanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isKo = i18n.language?.startsWith("ko");
   const { user, isAuthenticated, profile } = useAuth();
   const isVideoOwner = !!(videoId && videoCreatorId && user?.id === videoCreatorId);
 
@@ -554,7 +545,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
                 {t("mypage.account.creator")}
               </span>
             )}
-            <span className="text-xs text-gray-500">{timeAgo(comment.created_at)}</span>
+            <span className="text-xs text-gray-500">{timeAgo(comment.created_at, isKo)}</span>
           </div>
           {editing ? (
             <div className="mt-1.5">

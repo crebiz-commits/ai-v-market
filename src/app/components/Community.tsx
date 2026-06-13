@@ -13,6 +13,7 @@ import { useBackButton } from "../hooks/useBackButton";
 import { supabase } from "../utils/supabaseClient";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { timeAgo } from "../utils/timeAgo";
 
 // community_posts row → Post 매핑. (mock 데모는 CommunityMockShowcase.tsx 에 보존: ?preview=community-mock)
 function rowToPost(r: any, localeTag: string): Post {
@@ -282,20 +283,6 @@ interface CollabPost {
 }
 
 // 상대 시간 ("3시간 전" / "3h ago")
-function timeAgo(iso: string | null | undefined, isKo: boolean): string {
-  if (!iso) return "";
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const min = Math.floor(diffMs / 60000);
-  if (min < 1) return isKo ? "방금" : "just now";
-  if (min < 60) return isKo ? `${min}분 전` : `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return isKo ? `${hr}시간 전` : `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return isKo ? `${day}일 전` : `${day}d ago`;
-  const wk = Math.floor(day / 7);
-  return isKo ? `${wk}주 전` : `${wk}w ago`;
-}
-
 // collab_posts row → CollabPost
 function collabRowToPost(r: any, isKo: boolean): CollabPost {
   return {

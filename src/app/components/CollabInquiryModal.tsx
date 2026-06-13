@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { X, ArrowLeft, Send, Loader2, MessageSquare, Lock, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
+import { timeAgo } from "../utils/timeAgo";
 
 interface ThreadRow {
   threadId: string;
@@ -33,21 +34,6 @@ export interface CollabDetailPost {
   status: "open" | "closed";
   applicants: number;
   timestamp: string;
-}
-
-function timeAgo(iso: string | null, isKo: boolean): string {
-  if (!iso) return "";
-  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (isKo) {
-    if (diff < 60) return "방금";
-    if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
-    return `${Math.floor(diff / 86400)}일 전`;
-  }
-  if (diff < 60) return "now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-  return `${Math.floor(diff / 86400)}d`;
 }
 
 function Avatar({ name, src }: { name: string; src: string | null }) {

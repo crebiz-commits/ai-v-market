@@ -784,6 +784,7 @@
       "confirmDeleteAll": "전체 시청 기록을 삭제하시겠습니까?\n(이 작업은 되돌릴 수 없습니다)",
       "deleteSuccess": "시청 기록 삭제됨",
       "deleteFailed": "삭제 실패: {{message}}",
+      "loadFailed": "시청 기록 로드 실패: {{message}}",
       "clearAllSuccess": "전체 시청 기록 삭제됨",
       "noTitle": "제목 없음",
       "nameless": "이름 없음"
@@ -1230,7 +1231,7 @@
     "shortVideoExplain": "홈 피드 숏폼은 광고 수익만 정산됩니다. 라이선스 판매를 원하시면 3분 이상 영상으로 업로드해 주세요.",
     "priceLabel": "가격 *",
     "priceVatNotice": "가격은 VAT 포함",
-    "freeVideoNotice": "💡 가격을 0원으로 설정하면 라이선스 판매 없이 무료 시청만 제공합니다. 영상 다운로드는 불가하지만 광고 수익 + 구독자 시청 수익은 동일하게 정산됩니다.",
+    "freeVideoNotice": "💡 가격을 ₩0으로 설정하면 라이선스 판매 없이 무료 시청만 제공합니다. 영상 다운로드는 불가하지만 광고 수익 + 구독자 시청 수익은 동일하게 정산됩니다.",
     "copyrightHeader": "저작권 서약",
     "copyrightPledge": "본 영상은 타인의 저작권을 침해하지 않았으며, 상업적 이용이 가능한 요금제를 사용하여 제작되었음을 확인합니다. 허위 사실 기재 시 법적 책임은 전적으로 본인에게 있음에 동의합니다.",
     "uploadComplete": "업로드 완료",

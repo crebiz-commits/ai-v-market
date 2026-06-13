@@ -675,6 +675,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     const LISTENER_ID = "creaite-overlay-ad";
     const BUNNY_ORIGIN = "https://iframe.mediadelivery.net";
     let fired = false;
+    let adTimer: ReturnType<typeof setTimeout> | undefined;
 
     const subscribe = () => {
       iframe.contentWindow?.postMessage(
@@ -718,7 +719,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       const targetPct = ad.trigger_position_pct ?? 30;
       const currentPct = (seconds / durationSeconds) * 100;
       const delaySec = currentPct >= targetPct ? 0 : (durationSeconds * (targetPct - currentPct)) / 100;
-      setTimeout(() => {
+      adTimer = setTimeout(() => {
         setOverlayAd(ad);
         recordAdImpression(ad.ad_id, product.id, "overlay", { positionSeconds: Math.floor(seconds + delaySec) });
       }, delaySec * 1000);
@@ -728,6 +729,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     window.addEventListener("message", handleMessage);
     return () => {
       clearTimeout(initialSubscribe);
+      if (adTimer) clearTimeout(adTimer);
       window.removeEventListener("message", handleMessage);
     };
   }, [product.id, durationSeconds, iframeBlocked]);
@@ -747,6 +749,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
 
     const LISTENER_ID = "creaite-midroll-ad";
     let fired = false;
+    let adTimer: ReturnType<typeof setTimeout> | undefined;
 
     const subscribe = () => {
       iframe.contentWindow?.postMessage(
@@ -782,7 +785,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       const targetPct = ad.trigger_position_pct ?? 50;
       const currentPct = (seconds / durationSeconds) * 100;
       const delaySec = currentPct >= targetPct ? 0 : (durationSeconds * (targetPct - currentPct)) / 100;
-      setTimeout(() => {
+      adTimer = setTimeout(() => {
         postBunnyCommand(iframeRef.current, "pause");
         setMidrollAd(ad);
       }, delaySec * 1000);
@@ -792,6 +795,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     window.addEventListener("message", handleMessage);
     return () => {
       clearTimeout(initialSubscribe);
+      if (adTimer) clearTimeout(adTimer);
       window.removeEventListener("message", handleMessage);
     };
   }, [product.id, durationSeconds, iframeBlocked, isSubscriber]);
