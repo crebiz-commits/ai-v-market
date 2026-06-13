@@ -63,7 +63,35 @@
 - [x] 에러 모니터링·로그 추적 체계 (2026-06-14) — Sentry(@sentry/react) env 게이트 연동 완료. `initSentry()`([main.tsx](../src/main.tsx)) + ErrorBoundary 자동 캡처([ErrorBoundary.tsx](../src/app/components/ErrorBoundary.tsx)). **활성화: Vercel 환경변수 `VITE_SENTRY_DSN` 추가 후 재배포** (미설정 시 비활성·무해). 청크에러는 자동 새로고침 복구라 보고 제외.
 - [ ] 베타 테스터 모집 + 피드백 채널 운영
 
-## 🧱 7. 기능 백로그 (미구현·보류 기획)
+## 📱 7. 모바일 앱 출시 + 스토어 수수료 우회 (꼭 해야 함)
+
+> 웹/PWA 출시 안정화 후 진행. 핵심은 **인앱결제(IAP) 30% 수수료를 피하는 넷플릭스식 "리더 앱" 구조.**
+
+### 앱 패키징
+- [ ] 패키징 방식 결정 — 현재 PWA 기반이라 **Android는 TWA(Trusted Web Activity)** 가 최단 경로. iOS는 WebView 래퍼(Capacitor 등) 또는 별도 검토
+- [ ] Google Play 개발자 계정 등록 ($25 1회) / Apple Developer Program ($99/년)
+- [ ] 앱 아이콘·스플래시·스토어 스크린샷·설명문 준비 (로고 자산 [로고/](../로고/) 활용)
+- [ ] 스토어 등록·심사 제출
+
+### 💳 결제 스토어 수수료 우회 (넷플릭스/스포티파이 "리더 앱" 방식) — 최우선
+- [ ] **앱 내에서 구독 결제 UI를 노출하지 않음** → 결제는 웹(creaite.net)에서 Toss로만. 인앱결제(IAP) 미사용 = 30% 수수료 회피
+  - [ ] 앱 래퍼 실행 감지 (UserAgent/주입 플래그) → `SubscriptionPage`/`SubscriptionModal` 의 결제 버튼을 "웹에서 구독하기" 안내로 대체
+  - [ ] 구독 결제 흐름을 **외부 브라우저**로 라우팅 (Toss 결제창이 WebView에서 막히지 않게)
+  - [ ] 앱에서는 이미 결제한 구독의 "이용/관리"만 — 구매 진입점 자체를 앱에 두지 않아야 스토어 리젝 안전
+- [ ] 정책 근거 확인 — 한국 **전기통신사업법(인앱결제 강제금지법, 2021)** + Apple **리더 앱(reader app)** 가이드라인 준수
+- [ ] 스토어 심사 리젝 대비 시나리오 정리 (디지털 콘텐츠 구매 경로가 앱에 없음을 명확히)
+
+## 📢 8. 광고 수익화 신청 (꼭 해야 함)
+
+> 코드 인프라는 이미 준비됨(`ExternalAdSlot`, env 스위치). **계정 신청·승인만 하면 노출 활성화.**
+
+- [ ] **Google AdSense** 가입 → 사이트(creaite.net) 승인 → 게시자 ID(`ca-pub-...`) + 300×250 광고슬롯 ID 발급 → Vercel env `VITE_ADSENSE_CLIENT` / `VITE_ADSENSE_SLOT`
+- [ ] **카카오 애드핏** 광고단위(300×250) 생성 → `VITE_ADFIT_UNIT_ID`
+- [ ] (선택) 쿠팡 파트너스 등 제휴 광고
+- [ ] 승인 완료 후 Vercel env `VITE_EXTERNAL_ADS_ENABLED=1` 로 외부광고 노출 ON → 재배포
+- [ ] 노출·수익 리포트 모니터링 체계
+
+## 🧱 9. 기능 백로그 (미구현·보류 기획)
 
 > 코드 주석·SQL·문서 전수 검색으로 수집(2026-06-13). 출처 파일 명시. 상태: ❌미구현 / 🟡부분·준비중 / ❓확인필요
 
