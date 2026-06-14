@@ -679,6 +679,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     const LISTENER_ID = "creaite-overlay-ad";
     const BUNNY_ORIGIN = "https://iframe.mediadelivery.net";
     let fired = false;
+    let cancelled = false;
     let adTimer: ReturnType<typeof setTimeout> | undefined;
 
     const subscribe = () => {
@@ -718,7 +719,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       if (checkPct < 25) return;
       fired = true;
       const ad = await fetchAdForVideo(product.id, "overlay");
-      if (!ad) return;
+      if (cancelled || !ad) return;  // 영상 전환 중 stale 광고 적용 방지
       // 광고가 지정한 trigger_position_pct에 아직 도달 안 했으면 그 지점까지 대기
       const targetPct = ad.trigger_position_pct ?? 30;
       const currentPct = (seconds / durationSeconds) * 100;
@@ -732,6 +733,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     const initialSubscribe = setTimeout(subscribe, 500);
     window.addEventListener("message", handleMessage);
     return () => {
+      cancelled = true;
       clearTimeout(initialSubscribe);
       if (adTimer) clearTimeout(adTimer);
       window.removeEventListener("message", handleMessage);
@@ -753,6 +755,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
 
     const LISTENER_ID = "creaite-midroll-ad";
     let fired = false;
+    let cancelled = false;
     let adTimer: ReturnType<typeof setTimeout> | undefined;
 
     const subscribe = () => {
@@ -785,7 +788,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       if (pct < 48) return;
       fired = true;
       const ad = await fetchAdForVideo(product.id, "midroll");
-      if (!ad) return;
+      if (cancelled || !ad) return;  // 영상 전환 중 stale 광고 적용 방지
       const targetPct = ad.trigger_position_pct ?? 50;
       const currentPct = (seconds / durationSeconds) * 100;
       const delaySec = currentPct >= targetPct ? 0 : (durationSeconds * (targetPct - currentPct)) / 100;
@@ -798,6 +801,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     const initialSubscribe = setTimeout(subscribe, 500);
     window.addEventListener("message", handleMessage);
     return () => {
+      cancelled = true;
       clearTimeout(initialSubscribe);
       if (adTimer) clearTimeout(adTimer);
       window.removeEventListener("message", handleMessage);

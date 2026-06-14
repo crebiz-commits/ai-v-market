@@ -19,6 +19,10 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+  // 프로덕션 빌드에서 console.log/info/debug 제거(노이즈·민감정보 누출 방지). error/warn 은 유지.
+  esbuild: {
+    pure: ['console.log', 'console.info', 'console.debug'],
+  },
   server: {
     host: true,
   },

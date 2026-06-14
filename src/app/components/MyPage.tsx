@@ -446,7 +446,12 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   // 정산 계좌는 보안상 profiles 직접 select 불가 → 본인 전용 RPC로 조회 (C2)
   const [payoutInfo, setPayoutInfo] = useState<any | null>(null);
   const loadPayoutInfo = async () => {
-    const { data } = await supabase.rpc("get_my_payout_info");
+    const { data, error } = await supabase.rpc("get_my_payout_info");
+    if (error) {
+      console.warn("[MyPage] 정산 계좌 조회 실패:", error.message);
+      toast.error(t("mypage.payout.loadFailed", "정산 계좌 정보를 불러오지 못했습니다."));
+      return;
+    }
     setPayoutInfo(data ?? null);
   };
   const [purchaseHistory, setPurchaseHistory] = useState<Purchase[]>([]);
@@ -830,9 +835,11 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
       setPlaylistVideos([]);
       return;
     }
+    let cancelled = false;
     (async () => {
       setPlaylistVideosLoading(true);
       const { data, error } = await supabase.rpc('get_playlist_videos', { p_playlist_id: activePlaylistId });
+      if (cancelled) return;  // 빠른 플레이리스트 전환 시 stale 응답 덮어쓰기 방지
       if (error) {
         toast.error(t("mypage.playlist.videoLoadFailed", { message: error.message }));
         setPlaylistVideos([]);
@@ -841,6 +848,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
       }
       setPlaylistVideosLoading(false);
     })();
+    return () => { cancelled = true; };
   }, [activePlaylistId]);
 
   const handleDeletePlaylist = async (playlistId: string, name: string, isWatchLater: boolean) => {
@@ -1995,16 +2003,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                         <ChevronRight className="w-4 h-4" />
                       </Button>
                     </motion.div>
-                    <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-                      <Button
-                        variant="outline"
-                        onClick={() => toast.info(t("mypage.settings.twoFactorComingSoon"))}
-                        className="w-full justify-between bg-[#1c1c1e] text-gray-300 border-white/5 hover:bg-white/5 hover:text-white font-medium rounded-xl h-12 shadow-sm"
-                      >
-                        <span>{t("mypage.settings.twoFactorAuth")}</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    </motion.div>
+                    {/* 2단계 인증(2FA): 미구현 — 실제 기능 추가 전까지 "준비 중" 버튼 비노출 (2026-06-14) */}
                   </div>
                 </div>
 

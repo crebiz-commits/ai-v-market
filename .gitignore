@@ -11,6 +11,7 @@ yarn.lock
 
 # Claude Code 내부 파일
 .claude/scheduled_tasks.lock
+.claude/settings.local.json
 
 # Supabase CLI 임시 파일
 supabase/.temp/

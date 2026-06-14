@@ -166,6 +166,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
   const showcase = shouldShowShowcase(profile?.is_admin);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchSeqRef = useRef(0);   // race 가드: 늦게 도착한 이전 검색이 최신 결과 덮어쓰기 방지
 
   // 옵션 라벨은 언어에 따라 변환 (값은 그대로 유지)
   const durationLabels = useMemo(() => [
@@ -208,6 +209,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
   }, [query]);
 
   const runSearch = useCallback(async (q: string) => {
+    const seq = ++searchSeqRef.current;
     const trimmed = q.trim();
     setSubmittedQuery(trimmed);
     setShowDropdown(false);
@@ -233,6 +235,8 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
           ? supabase.rpc("search_creators", { p_query: trimmed, p_limit: 20 })
           : Promise.resolve({ data: [] as CreatorResult[], error: null }),
       ]);
+
+      if (seq !== searchSeqRef.current) return;  // 더 최신 검색이 진행 중이면 폐기
 
       if (videosRes.error) {
         console.error("[SearchPage] search_videos error:", videosRes.error);
@@ -262,7 +266,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
         setCreators((creatorsRes.data ?? []) as CreatorResult[]);
       }
     } finally {
-      setLoading(false);
+      if (seq === searchSeqRef.current) setLoading(false);
     }
   }, [category, aiTool, durationIdx, sort]);
 

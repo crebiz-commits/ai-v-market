@@ -26,6 +26,7 @@ import { TopCreatorsRow } from "./TopCreators";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { getGenreLabel } from "../i18n/categoryLabels";
 
 // ShowcaseVideo → CarouselVideo 변환
@@ -175,6 +176,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
     : t("cinema.heroSubtitleCinema");
 
   useEffect(() => {
+    let cancelled = false;
     async function loadAll() {
       setLoading(true);
       try {
@@ -198,6 +200,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
             supabase.rpc("get_videos_by_genre", { p_genre: g, p_tier: tier, p_limit: 50 }),
           ),
         ]);
+        if (cancelled) return;  // tier/showcase 전환 중 stale 응답 적용 방지
         const formatResults = restResults.slice(0, FORMAT_DEFS.length);
         const categoryResults = restResults.slice(FORMAT_DEFS.length);
 
@@ -251,12 +254,14 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
         setCategoryRows(rows);
       } catch (err: any) {
         console.warn("[Cinema] 로딩 실패:", err?.message);
+        if (!cancelled) toast.error(t("common.loadError", "콘텐츠를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."));
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     loadAll();
-  }, [tier]);
+    return () => { cancelled = true; };
+  }, [tier, showcase]);
 
   const handleClick = (v: CarouselVideo) => onProductClick(toProduct(v));
   const handleAddToCart = onAddToCart

@@ -17,6 +17,7 @@ import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { GENRES } from "../data/genres";
 import { getGenreStyle } from "../utils/brandColors";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { useAgeRatings } from "../hooks/useAgeRatings";
 
@@ -213,6 +214,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
   }, [onHeroScroll]);
 
   useEffect(() => {
+    let cancelled = false;
     async function loadAll() {
       setLoading(true);
       try {
@@ -244,6 +246,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
         const merge = (real: CarouselVideo[], opts?: { category?: string }) =>
           showcase ? mergeShowcase(real, showcaseToCarousel, { tier: "ott", ...opts }) : real;
 
+        if (cancelled) return;  // showcase 전환 중 stale 응답 적용 방지
         setTrending(merge(trd || []));
         setFormatRows(
           OTT_FORMAT_DEFS.map((f, i) => ({
@@ -271,11 +274,13 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
         setGenreRows(mergedRows.filter((r) => r.videos.length > 0));
       } catch (err: any) {
         console.warn("[Ott] 로딩 실패:", err?.message);
+        if (!cancelled) toast.error(t("common.loadError", "콘텐츠를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."));
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     loadAll();
+    return () => { cancelled = true; };
   }, [showcase]);
 
   if (loading) {

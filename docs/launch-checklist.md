@@ -60,6 +60,8 @@
 - [x] ✅ 🔴 **C6 환불 후 재청구** (2026-06-14 적용·검증) — `admin_refund_payment` 구독 환불 분기에 `billing_subscriptions` 해지(auto_renew=false, canceled) 추가. (`refund_cancel_billing_20260614.sql`)
 - [x] ✅ 🟠 **High 대부분 처리** (2026-06-14) — 추천 깨짐(pragma)·통계 IDOR·라이선스 중복구매(부분 UNIQUE)·search_path 13개 일괄 고정·광고이벤트 인덱스 (`high_fixes_20260614.sql`, DB 검증) / 장르 라벨 오역·ProductDetail createdAt(SEO uploadDate) 수정 / **빌드 타입검사 도입**(tsc --noEmit, 타입에러 11개 수정) / react-router 등 **미사용 deps 6개 제거**(취약점 해소) / **Vercel 보안헤더** 추가(nosniff·HSTS·X-Frame·Referrer·Permissions).
   - [ ] 🟡 광고예산 위조(increment_ad_impressions) — 베타는 House Ads뿐이라 **외부 광고주 온보딩 전 차단**으로 보류(M9와 동일 게이트). dedup 테이블 필요.
+- [x] ✅ 🟡 **Medium 대부분 처리** (2026-06-14) — DB: 가입 트리거 안전망(가입실패 방지)·팔로워 알림 opt-in 정렬(`medium_fixes_db_20260614.sql`) / FE: Cinema·Ott 캐러셀 취소가드+로딩실패 toast, ProductDetail 광고 await 취소가드, SearchPage 검색 race 가드(seq), MyPage 플레이리스트 취소가드·정산조회 에러 toast / 정리: settings.local.json gitignore, 프로덕션 console.log drop(vite), 2FA "준비 중" 버튼 비노출. video_likes UNIQUE는 이미 존재(거짓양성), N7 환불 실패는 어드민 동기 알림으로 이미 처리됨.
+  - [ ] 🟡 잔여(낮은 우선순위): N3 billing-run race(행 락), N9 구독풀 산정 방식(payments 기준 재계산), CommentItem 리마운트 리팩터, 이메일 변경 기능, 과대 청크 manualChunks, 마이그레이션 정본 문서화 — 출시 후/백로그.
 
 ## 🧩 5. 코드 (감사 거의 종료)
 
