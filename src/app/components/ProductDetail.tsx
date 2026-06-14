@@ -113,6 +113,7 @@ interface ProductDetailProps {
     // Phase 31.6: 카운트 (Cinema/OTT 캐러셀 진입 시 전달)
     views?: number;
     likes?: number;
+    createdAt?: string;   // JSON-LD uploadDate (SEO)용 — 진입 경로에 따라 누락 가능
   };
   onClose: () => void;
   onAddToCart?: (product: any, licenseType: "standard" | "commercial" | "extended") => Promise<boolean> | boolean | void;
@@ -169,6 +170,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     licenseSourceUrl?: string;
     attribution?: string;
     originalCreator?: string;
+    createdAt?: string;
   }>({});
   // 진입 경로별 누락 필드를 DB fetch 결과로 보강한 통합 product (Cinema/OTT 가벼운 페이로드 보강용)
   const product = useMemo(() => ({
@@ -195,6 +197,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     licenseSourceUrl: extra.licenseSourceUrl,
     attribution: extra.attribution,
     originalCreator: extra.originalCreator,
+    createdAt: productProp.createdAt ?? extra.createdAt,
   }), [productProp, extra]);
   // Phase 26: 연령 게이트
   const [ageGateOpen, setAgeGateOpen] = useState(false);
@@ -308,6 +311,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       setVideoMeta(meta);
       setExtra({
         description: d.description || undefined,
+        createdAt: d.created_at || undefined,
         genre: d.genre || undefined,
         productionYear: d.production_year || undefined,
         castCredits: d.cast_credits || undefined,

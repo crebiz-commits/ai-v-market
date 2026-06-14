@@ -1012,7 +1012,7 @@ function AppContent() {
             </motion.button>
             {/* Language Switcher (Phase 35) */}
             <LanguageSwitcher />
-            <HamburgerMenu onNavigate={(tab) => setActiveTab(tab)} />
+            <HamburgerMenu onNavigate={(tab) => setActiveTab(tab as Tab)} />
           </div>
         </div>
       </motion.header>

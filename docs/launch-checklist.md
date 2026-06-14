@@ -58,7 +58,8 @@
 - [x] ✅ 🔴 **C4 회계 CASCADE 소실** (2026-06-14 적용·검증) — payments·revenue_distributions·orders FK를 `ON DELETE SET NULL`+nullable화. 계정삭제 시 원장 익명화 보존. purge cron 안전.
 - [x] ✅ 🔴 **C5 빌링 이중청구** (2026-06-14 적용·배포) — 서버 멱등성 가드(최근 3분 내 활성 빌링이면 재청구 안 함) + 클라이언트 authKey URL 즉시 제거·중복실행 방지. Edge 재배포 완료.
 - [x] ✅ 🔴 **C6 환불 후 재청구** (2026-06-14 적용·검증) — `admin_refund_payment` 구독 환불 분기에 `billing_subscriptions` 해지(auto_renew=false, canceled) 추가. (`refund_cancel_billing_20260614.sql`)
-- [ ] 🟠 추천 깨짐(variable_conflict pragma) / 광고예산 위조 / 통계 IDOR / 빌드 타입검사 전무 / react-router 취약점 / Vercel 보안헤더 / 라이선스 중복구매 등 — 상세는 감사 문서
+- [x] ✅ 🟠 **High 대부분 처리** (2026-06-14) — 추천 깨짐(pragma)·통계 IDOR·라이선스 중복구매(부분 UNIQUE)·search_path 13개 일괄 고정·광고이벤트 인덱스 (`high_fixes_20260614.sql`, DB 검증) / 장르 라벨 오역·ProductDetail createdAt(SEO uploadDate) 수정 / **빌드 타입검사 도입**(tsc --noEmit, 타입에러 11개 수정) / react-router 등 **미사용 deps 6개 제거**(취약점 해소) / **Vercel 보안헤더** 추가(nosniff·HSTS·X-Frame·Referrer·Permissions).
+  - [ ] 🟡 광고예산 위조(increment_ad_impressions) — 베타는 House Ads뿐이라 **외부 광고주 온보딩 전 차단**으로 보류(M9와 동일 게이트). dedup 테이블 필요.
 
 ## 🧩 5. 코드 (감사 거의 종료)
 

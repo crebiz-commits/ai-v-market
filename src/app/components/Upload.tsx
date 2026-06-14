@@ -1939,7 +1939,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
               <div className="bg-card p-3 rounded border border-border">
                 <p className="text-muted-foreground mb-0.5">{t("upload.summaryCategoryGenre")}</p>
                 <p className="font-semibold">
-                  {getCategoryLabel(formData.category, t) || "—"} / {getCategoryLabel(formData.genre, t) || "—"}
+                  {getCategoryLabel(formData.category, t) || "—"} / {getGenreLabel(formData.genre, t) || "—"}
                 </p>
               </div>
               <div className="bg-card p-3 rounded border border-border">
