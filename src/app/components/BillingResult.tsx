@@ -5,7 +5,7 @@
 //     실패 → /?billing=fail&code=xxx&message=xxx
 //   성공 시 Edge Function billing-auth-confirm 호출 → 빌링키 발급 + 첫 결제 + 구독 활성
 // ════════════════════════════════════════════════════════════════════════════
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Check, X, Loader2, Home, Crown } from "lucide-react";
 import { Button } from "./ui/button";
@@ -25,8 +25,13 @@ export function BillingResult({ onClose }: Props) {
   const isKo = (i18n.language || "en").startsWith("ko");
   const [status, setStatus] = useState<Status>("processing");
   const [message, setMessage] = useState<string>("");
+  // C5(2026-06-14): 이중 청구 방지 — 한 번만 처리(StrictMode 재호출/재마운트 가드)
+  const processedRef = useRef(false);
 
   useEffect(() => {
+    if (processedRef.current) return;
+    processedRef.current = true;
+
     const params = new URLSearchParams(window.location.search);
     const outcome = params.get("billing");
 
@@ -45,6 +50,9 @@ export function BillingResult({ onClose }: Props) {
         setMessage(isKo ? "잘못된 접근입니다." : "Invalid request.");
         return;
       }
+      // authKey 를 URL 에서 즉시 제거 — 새로고침 시 재처리(이중 청구) 방지.
+      // 처리 중 화면은 state 로 유지되고, 새로고침하면 쿼리가 없어 일반 앱 홈으로.
+      window.history.replaceState({}, "", window.location.pathname);
       (async () => {
         try {
           const { data: { session } } = await supabase.auth.getSession();

@@ -963,6 +963,20 @@ app.post('/billing-auth-confirm', async (c) => {
     if (!authKey || !customerKey) return c.json({ error: 'authKey, customerKey 필요' }, 400);
     if (customerKey !== user.id) return c.json({ error: 'customerKey 불일치' }, 400);
 
+    // C5(2026-06-14) 멱등성: 최근 3분 내 이미 자동결제가 설정·청구됐으면 재청구 방지.
+    //   success URL 새로고침 / 중복 제출 / 빠른 재마운트로 인한 이중 청구 차단.
+    const idemClient = getSupabaseClient(true);
+    const { data: existingSub } = await idemClient
+      .from('billing_subscriptions')
+      .select('status, last_charge_at, created_at')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+    const lastChargeTs = existingSub?.last_charge_at || existingSub?.created_at;
+    if (existingSub && lastChargeTs && (Date.now() - new Date(lastChargeTs).getTime()) < 3 * 60 * 1000) {
+      return c.json({ success: true, message: '자동결제가 이미 설정되어 있습니다.', idempotent: true });
+    }
+
     const tossSecretKey = Deno.env.get('TOSS_SECRET_KEY');
     if (!tossSecretKey) return c.json({ error: '결제 서버 설정 오류 (관리자 문의)' }, 500);
     const authBasic = `Basic ${btoa(tossSecretKey + ':')}`;
