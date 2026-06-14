@@ -12,7 +12,7 @@ import {
   ShieldCheck, Megaphone, Settings, Coins, Flag, EyeOff,
   ArrowLeft, Menu, X, ShieldAlert, Loader2, LayoutDashboard,
   Users, Film, DollarSign, Send, ClipboardList, MessageSquare,
-  Globe, Sparkles, Inbox, Trophy, Image as ImageIcon, Bug, Coffee, LifeBuoy
+  Globe, Sparkles, Inbox, Trophy, Image as ImageIcon, Bug, Coffee, LifeBuoy, ClipboardCheck
 } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -32,6 +32,7 @@ const AdminPayments = lazy(() => import("./AdminPayments").then(m => ({ default:
 const AdminBroadcast = lazy(() => import("./AdminBroadcast").then(m => ({ default: m.AdminBroadcast })));
 const AdminActivityLog = lazy(() => import("./AdminActivityLog").then(m => ({ default: m.AdminActivityLog })));
 const AdminExternalAds = lazy(() => import("./AdminExternalAds").then(m => ({ default: m.AdminExternalAds })));
+const AdminAdReview = lazy(() => import("./AdminAdReview").then(m => ({ default: m.AdminAdReview })));
 const AdminSponsorships = lazy(() => import("./AdminSponsorships").then(m => ({ default: m.AdminSponsorships })));
 const AdminInquiries = lazy(() => import("./AdminInquiries").then(m => ({ default: m.AdminInquiries })));
 const AdminSupportInquiries = lazy(() => import("./AdminSupportInquiries").then(m => ({ default: m.AdminSupportInquiries })));
@@ -43,6 +44,7 @@ const AdminMegaUploader = lazy(() => import("./AdminMegaUploader").then(m => ({ 
 type AdminPage =
   | "overview"      // 대시보드 (한눈에 보기)
   | "ads"           // 자체 광고 (CREAITE House Ads)
+  | "ad_reviews"    // 광고 심사 (광고주 셀프서비스 제출 큐)
   | "external_ads"  // 외부 광고 (Google AdSense / 쿠팡 등) — placeholder
   | "sponsorships"  // 크리에이터 스폰서십 검수 — placeholder
   | "policy"        // 수익 정책
@@ -81,6 +83,7 @@ const MENU: MenuItem[] = [
   { key: "bugs",         label: "버그 제보",       icon: Bug,             group: "👥 운영" },
   { key: "mega",         label: "메가 업로더",      icon: Coffee,          group: "👥 운영" },
   { key: "ads",          label: "자체 광고",       icon: Megaphone,       group: "📢 광고 관리" },
+  { key: "ad_reviews",   label: "광고 심사",       icon: ClipboardCheck,  group: "📢 광고 관리" },
   { key: "external_ads", label: "외부 광고",       icon: Globe,           group: "📢 광고 관리" },
   { key: "sponsorships", label: "크리에이터 스폰서십", icon: Sparkles,        group: "📢 광고 관리" },
   { key: "policy",       label: "수익 정책",       icon: Settings,        group: "💰 수익화" },
@@ -104,6 +107,7 @@ const PAGE_META: Record<AdminPage, { title: string; subtitle: string }> = {
   bugs:       { title: "버그 제보",       subtitle: "\"버그를 잡아라\" 이벤트 제보를 검토하고 커피 쿠폰 지급을 관리합니다" },
   mega:       { title: "메가 업로더 이벤트", subtitle: "영화 30편 업로드 달성자를 확인하고 메가커피 3만원권 지급을 관리합니다" },
   ads:          { title: "자체 광고",          subtitle: "CREAITE House Ads — 영상 pre-roll, 피드 카드 광고 등록·관리" },
+  ad_reviews:   { title: "광고 심사",          subtitle: "광고주가 제출한 광고를 검토하고 승인·반려합니다" },
   external_ads: { title: "외부 광고",          subtitle: "Google AdSense / 쿠팡 파트너스 등 외부 광고 통합 (준비 중)" },
   sponsorships: { title: "크리에이터 스폰서십", subtitle: "크리에이터가 영상에 등록한 협찬·스폰서 배지 검수 (준비 중)" },
   policy:     { title: "수익 정책",      subtitle: "크리에이터 분배율·CPM·정산 허들을 변경하고 이력을 추적합니다" },
@@ -196,6 +200,7 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
         {currentPage === "bugs" && <AdminBugReports />}
         {currentPage === "mega" && <AdminMegaUploader />}
         {currentPage === "ads" && <AdminDashboard />}
+        {currentPage === "ad_reviews" && <AdminAdReview />}
         {currentPage === "external_ads" && <AdminExternalAds />}
         {currentPage === "sponsorships" && <AdminSponsorships />}
         {currentPage === "policy" && <AdminRevenuePolicy />}
