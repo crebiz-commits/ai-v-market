@@ -32,7 +32,7 @@
 
 - [ ] 프로덕션 환경변수 전체 점검 (Supabase URL/anon, Bunny, VAPID, Toss, 선택 Sentry DSN)
 - [ ] Bunny Stream 페이월·라이브러리 설정 ([BUNNY_SETUP_GUIDE.md](../BUNNY_SETUP_GUIDE.md))
-- [ ] 이메일 발신 도메인 인증 — Resend `mail.creaite.net` DKIM/SPF ([SMTP_SETUP_GUIDE.md](../SMTP_SETUP_GUIDE.md))
+- [ ] (선택) DMARC 레코드 추가 — `_dmarc.mail.creaite.net` TXT `v=DMARC1; p=none; rua=mailto:support@creaite.net` (수신율 개선, 필수 아님)
 
 ## 🔐 3. 소셜 로그인 검수
 
@@ -120,6 +120,7 @@
 `collab_notify_privacy_20260614` · `purge_deletions_cron_20260614` · `security_patch_critical_20260614` · `refund_cancel_billing_20260614` · `high_fixes_20260614` · `medium_fixes_db_20260614` · (빌링 C5는 Edge Function 재배포)
 
 **이전 완료:** Vercel 배포, 약관·개인정보·청소년정책, 고객센터 1:1, R1~R10 감사 수정, 구독 만료 알림.
+**이메일 (2026-06-14 확인 — 이미 완료):** Resend 도메인 인증(mail.creaite.net DKIM+SPF+MX), Supabase Auth 커스텀 SMTP(smtp.resend.com), Resend API 키·발신/회신 설정 모두 OK. DMARC만 선택 잔여.
 
 ## 진행 메모
 - 2026-06-13: 체크리스트 최초 작성. 개발환경 복구, R4 만료알림 배포.
