@@ -139,7 +139,12 @@ draft ──제출──> pending_review ──어드민 승인──> approved 
 
 ## 10. 단계별 구현 계획
 
-**Phase 1 — 데이터·권한 (백엔드 기반)**
+> 진행: **Phase 1·2·3·4 완료 (2026-06-14)** — 생성→제출→승인→충전→노출(dedup) MVP 동작.
+> 관련 SQL: `advertiser_self_service_phase1_20260614` · `_phase4_admin_review_` · `ad_charge_dedup_phase3_`.
+> 컴포넌트: AdvertiserDashboard · AdCreateModal · AdTopupModal · AdminAdReview.
+> Phase 5(성과 상세·정산 검증)만 폴리시로 잔여. **실제 예산 결제는 Toss live 키 전환 후 활성.**
+
+**Phase 1 — 데이터·권한 (백엔드 기반)** ✅
 - ads 컬럼 추가(owner_id, status, review_*), 레거시 마이그레이션(status='approved')
 - RLS + RPC(create/submit/set_active/admin_review), 서빙에 status='approved' 필터
 - 컬럼 보호(budget/spent/status)
