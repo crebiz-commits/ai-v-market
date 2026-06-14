@@ -13,6 +13,7 @@ import { supabase } from "../utils/supabaseClient";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Footer } from "./Footer";
+import { isAppWrapper, openWebSubscribe } from "../utils/appWrapper";
 
 interface Props {
   onBack: () => void;
@@ -51,6 +52,14 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
   const subscribe = async () => {
     if (!isAuthenticated) { onSignInClick?.(); return; }
     if (!user?.id) return;
+
+    // 리더앱: 네이티브 앱 안에서는 IAP 수수료 회피를 위해 웹 결제로 유도
+    if (isAppWrapper()) {
+      toast.info(isKo ? "구독 결제는 웹(creaite.net)에서 진행됩니다. 브라우저로 이동합니다." : "Subscribe on the web (creaite.net). Opening browser…");
+      openWebSubscribe();
+      return;
+    }
+
     setPaying(true);
     try {
       await startAutoBilling({ customerKey: user.id, email: user?.email });
@@ -180,6 +189,7 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
               {paying ? <><Loader2 className="w-5 h-5 animate-spin" />{isKo ? "카드 등록 중…" : "Opening…"}</>
                 : isPremium ? <>{isKo ? "이용 중" : "Active"}</>
                 : !isAuthenticated ? <><Crown className="w-5 h-5" />{isKo ? "로그인 후 구독하기" : "Sign in to subscribe"}</>
+                : isAppWrapper() ? <><Crown className="w-5 h-5" />{isKo ? "웹에서 구독하기" : "Subscribe on web"}</>
                 : <><Crown className="w-5 h-5" />{isKo ? "프리미엄 구독하기" : "Subscribe to Premium"}</>}
             </button>
             <p className="text-[11px] text-gray-500 text-center mt-3">

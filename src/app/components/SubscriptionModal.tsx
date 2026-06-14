@@ -6,6 +6,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { usePayment } from "../hooks/usePayment";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { isAppWrapper, openWebSubscribe } from "../utils/appWrapper";
 
 export type PaywallReason = "ott_block" | "cinema_cutoff" | "upgrade";
 
@@ -60,6 +61,15 @@ export function SubscriptionModal({
     }
 
     if (!user?.id) return;
+
+    // 리더앱: 네이티브 앱 안에서는 IAP 수수료 회피를 위해 인앱 결제 대신 웹으로 유도
+    if (isAppWrapper()) {
+      toast.info(t("subscription.subscribeOnWeb", "구독 결제는 웹(creaite.net)에서 진행됩니다. 브라우저로 이동합니다."));
+      openWebSubscribe();
+      onClose();
+      return;
+    }
+
     setPaying(true);
     try {
       await startAutoBilling({ customerKey: user.id, email: user?.email });
@@ -164,7 +174,7 @@ export function SubscriptionModal({
                   ) : isAuthenticated ? (
                     <>
                       <Crown className="w-5 h-5" />
-                      {t("subscriptionModal.subscribeCTA")}
+                      {isAppWrapper() ? t("subscription.subscribeOnWebCTA", "웹에서 구독하기") : t("subscriptionModal.subscribeCTA")}
                     </>
                   ) : (
                     <>
