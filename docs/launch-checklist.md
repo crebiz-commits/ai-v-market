@@ -62,6 +62,7 @@
   - [ ] 🟡 광고예산 위조(increment_ad_impressions) — 베타는 House Ads뿐이라 **외부 광고주 온보딩 전 차단**으로 보류(M9와 동일 게이트). dedup 테이블 필요.
 - [x] ✅ 🟡 **Medium 대부분 처리** (2026-06-14) — DB: 가입 트리거 안전망(가입실패 방지)·팔로워 알림 opt-in 정렬(`medium_fixes_db_20260614.sql`) / FE: Cinema·Ott 캐러셀 취소가드+로딩실패 toast, ProductDetail 광고 await 취소가드, SearchPage 검색 race 가드(seq), MyPage 플레이리스트 취소가드·정산조회 에러 toast / 정리: settings.local.json gitignore, 프로덕션 console.log drop(vite), 2FA "준비 중" 버튼 비노출. video_likes UNIQUE는 이미 존재(거짓양성), N7 환불 실패는 어드민 동기 알림으로 이미 처리됨.
   - [ ] 🟡 잔여(낮은 우선순위): N3 billing-run race(행 락), N9 구독풀 산정 방식(payments 기준 재계산), CommentItem 리마운트 리팩터, 이메일 변경 기능, 과대 청크 manualChunks, 마이그레이션 정본 문서화 — 출시 후/백로그.
+- [x] ✅ 🟢 **죽은 파일 5개 삭제** (2026-06-14) — AuthModalNew·Market·PremiumOTT·EmailConfirmationBanner·figma/ImageWithFallback (전부 import 0건 확인, 빌드 통과).
 
 ## 🧩 5. 코드 (감사 거의 종료)
 
