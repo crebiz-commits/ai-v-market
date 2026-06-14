@@ -2,6 +2,7 @@
 // AdminDashboard에 등록된 광고 중 ads.format / target_tiers / target_categories /
 // min_video_duration_sec / 활성 상태 / 예산 잔액으로 필터링한 1개를 RPC로 받음.
 import { supabase } from "./supabaseClient";
+import { getViewerSessionKey } from "./sessionKey";
 
 export type AdFormat = "feed" | "preroll" | "midroll" | "overlay" | "postroll" | "bumper";
 
@@ -70,6 +71,7 @@ export async function recordAdImpression(
       p_position_seconds: opts?.positionSeconds ?? null,
       p_completed: opts?.completed ?? false,
       p_skipped: opts?.skipped ?? false,
+      p_viewer_key: getViewerSessionKey(),   // 예산광고 dedup·과금 정합용
     });
   } catch (err) {
     console.warn(`[ad ${format}] impression error:`, err);

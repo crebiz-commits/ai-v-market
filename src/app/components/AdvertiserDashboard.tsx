@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { AdCreateModal, AdvertiserAd } from "./AdCreateModal";
 import { AdTopupModal } from "./AdTopupModal";
+import { AdStatsModal } from "./AdStatsModal";
 
 interface MyAd {
   id: string; title: string; format: string; ad_type: string; status: string; is_active: boolean;
@@ -36,6 +37,7 @@ export function AdvertiserDashboard({ onBack, onSignInClick }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editAd, setEditAd] = useState<AdvertiserAd | null>(null);
   const [topupAd, setTopupAd] = useState<{ id: string; title: string } | null>(null);
+  const [statsAd, setStatsAd] = useState<{ id: string; title: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -121,11 +123,13 @@ export function AdvertiserDashboard({ onBack, onSignInClick }: Props) {
                             <p className="font-bold text-sm truncate">{a.title}</p>
                             {statusBadge(a.status)}
                           </div>
-                          <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-400">
+                          <button onClick={() => setStatsAd({ id: a.id, title: a.title })}
+                            className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-400 hover:text-[#a78bfa] transition-colors">
                             <span className="flex items-center gap-1"><BarChart3 className="w-3 h-3" />{isKo ? "노출" : "Imp"} {a.impressions.toLocaleString()}</span>
                             <span>{isKo ? "클릭" : "Clicks"} {a.clicks.toLocaleString()}</span>
                             <span>CTR {ctr(a)}</span>
-                          </div>
+                            <span className="underline decoration-dotted">{isKo ? "추이" : "trend"}</span>
+                          </button>
                         </div>
                       </div>
 
@@ -188,6 +192,7 @@ export function AdvertiserDashboard({ onBack, onSignInClick }: Props) {
 
       <AdCreateModal open={modalOpen} editAd={editAd} onClose={() => setModalOpen(false)} onSaved={load} />
       {topupAd && <AdTopupModal open={!!topupAd} adId={topupAd.id} adTitle={topupAd.title} onClose={() => setTopupAd(null)} />}
+      {statsAd && <AdStatsModal open={!!statsAd} adId={statsAd.id} adTitle={statsAd.title} onClose={() => setStatsAd(null)} />}
     </div>
   );
 }

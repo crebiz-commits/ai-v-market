@@ -139,10 +139,12 @@ draft ──제출──> pending_review ──어드민 승인──> approved 
 
 ## 10. 단계별 구현 계획
 
-> 진행: **Phase 1·2·3·4 완료 (2026-06-14)** — 생성→제출→승인→충전→노출(dedup) MVP 동작.
-> 관련 SQL: `advertiser_self_service_phase1_20260614` · `_phase4_admin_review_` · `ad_charge_dedup_phase3_`.
-> 컴포넌트: AdvertiserDashboard · AdCreateModal · AdTopupModal · AdminAdReview.
-> Phase 5(성과 상세·정산 검증)만 폴리시로 잔여. **실제 예산 결제는 Toss live 키 전환 후 활성.**
+> 진행: **Phase 1~5 전부 완료 (2026-06-14)** — 생성→제출→승인→충전→노출(dedup·과금)→성과 동작.
+> 관련 SQL: `_phase1_` · `_phase4_admin_review_` · `ad_charge_dedup_phase3_` · `_phase5_`.
+> 컴포넌트: AdvertiserDashboard · AdCreateModal · AdTopupModal · AdStatsModal · AdminAdReview.
+> Phase 5에서 예산광고 과금 정합(record_ad_impression dedup+CPM 과금) + 일자별 성과 추가.
+> **실제 예산 결제는 Toss live 키 전환 후 활성**(현재 test 키 = 가상결제로 동작).
+> 후속 폴리시(블로커 아님): 이미지 업로드, 영상 프리롤 광고, 영상광고(track_video_ad_event) dedup.
 
 **Phase 1 — 데이터·권한 (백엔드 기반)** ✅
 - ads 컬럼 추가(owner_id, status, review_*), 레거시 마이그레이션(status='approved')
