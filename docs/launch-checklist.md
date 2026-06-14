@@ -62,11 +62,8 @@
 - [ ] 앱 아이콘·스플래시·스토어 스크린샷·설명문 준비 ([로고/](../로고/) 활용)
 - [ ] 스토어 등록·심사 제출
 
-### 💳 결제 수수료 우회 (리더 앱 방식) — 코드 작업(대행 가능)
-- [ ] **앱 내 구독 결제 UI 비노출** → 결제는 웹(creaite.net)에서 Toss로만 (IAP 미사용)
-  - [ ] 앱 래퍼 감지(UA/플래그) → `SubscriptionPage`/`SubscriptionModal` 결제 버튼을 "웹에서 구독" 안내로 대체
-  - [ ] 구독 결제 흐름을 외부 브라우저로 라우팅 (Toss 결제창이 WebView에서 안 막히게)
-  - [ ] 앱에선 결제한 구독의 "이용/관리"만 — 구매 진입점을 앱에서 제거
+### 💳 결제 수수료 우회 (리더 앱 방식)
+- [x] ✅ **결제 우회 코드 완료** (2026-06-14) — `appWrapper.ts` 앱 래퍼 감지 → SubscriptionModal/Page 결제 버튼이 "웹에서 구독"으로 분기·외부 브라우저 라우팅. 웹/PWA 영향 0. 앱 래퍼 빌드 시 UA `CreaiteApp`/`?app=1`/localStorage 중 하나만 설정하면 동작.
 - [ ] 정책 근거 확인 — 전기통신사업법(인앱결제 강제금지, 2021) + Apple 리더앱 가이드라인
 - [ ] 스토어 리젝 대비 시나리오 정리
 
@@ -88,21 +85,19 @@
 - [ ] 🟡 영상 클립 자동 생성 파이프라인 (업로드 시 hero clip 자동) — [hero_clip.sql](../supabase/hero_clip.sql)
 
 ### 알림·소셜
-- [ ] 🟡 푸시 알림 FCM 연동 (현재 컬럼만·"준비 중")
-- [ ] 🟡 이메일 알림 트리거 잔여 (`ad_budget_low` 등 미구현)
-- [ ] 🟡 어드민 브로드캐스트 이메일 발송 (현재 인앱만 → Resend 연동)
-- [ ] 🟡 카카오톡 공유 SDK 연동 (현재 링크 복사 대체)
+- [ ] 🟡 푸시 알림 FCM 연동 (현재 컬럼만·"준비 중") — Firebase 프로젝트 필요
+- [ ] 🟡 `ad_budget_low` 알림 트리거 — **이제 광고주 셀프서비스로 owner_id 생겨 구현 가능** (예산 80% 도달 시 광고주 알림)
+- [ ] 🟡 어드민 브로드캐스트 이메일 발송 (현재 인앱만 → Resend 연동, 배치 발송 설계 필요)
 
 ### 수익화·글로벌·기타
 - [ ] 🟡 외부 광고 통합 (AdSense/쿠팡 — 7번과 연동)
 - [ ] 🟡 크리에이터 스폰서십/협찬 배지 검수 (데이터 누적 후)
 - [ ] 🟡 다국어 확장 (일본어·중국어) + 본문 i18n 보강
-- [ ] 🟡 댓글 금지어 word_boundary 옵션
 - [ ] 🟡 어드민 RPC 전반 감사로그 기록 보강
+- [ ] 🟡 광고주 셀프서비스 후속 — 이미지 업로드(현재 URL), 영상 프리롤 광고, 영상광고(track_video_ad_event) dedup
 
 ## 🧩 9. 감사 잔여 (낮은 우선순위 — 출시 후/코드)
 
-- [ ] 🟡 광고예산 위조(`increment_ad_impressions`) — **외부 광고주 온보딩 전 차단**(dedup 테이블). 베타 House Ads엔 영향 적음
 - [ ] 🟡 N3 billing-run race(행 락) / N9 구독풀 산정 payments 기준 재계산 / CommentItem 리마운트 리팩터 / 이메일 변경 기능 / 과대 청크 manualChunks / 마이그레이션 정본 문서화
 - [ ] 🟡 부분환불(N6)·원천징수 범위(N10) — 정책/세무 확인 필요
 - [ ] **M9** VAST 트래킹 픽셀 무인증 (베타 House Ads 한정 수용 중)
@@ -121,7 +116,10 @@
 `collab_notify_privacy_20260614` · `purge_deletions_cron_20260614` · `security_patch_critical_20260614` · `refund_cancel_billing_20260614` · `high_fixes_20260614` · `medium_fixes_db_20260614` · (빌링 C5는 Edge Function 재배포)
 
 **이전 완료:** Vercel 배포, 약관·개인정보·청소년정책, 고객센터 1:1, R1~R10 감사 수정, 구독 만료 알림.
-**이메일 (2026-06-14 확인 — 이미 완료):** Resend 도메인 인증(mail.creaite.net DKIM+SPF+MX), Supabase Auth 커스텀 SMTP(smtp.resend.com), Resend API 키·발신/회신 설정 모두 OK. DMARC만 선택 잔여.
+**이메일 (2026-06-14 확인):** Resend 도메인 인증(DKIM+SPF+MX), Supabase Auth 커스텀 SMTP, API 키 모두 OK. DMARC만 선택 잔여.
+**OAuth (2026-06-14 확인):** Google/Kakao Supabase 연동·Site/Redirect URL 완료. 콘솔 게시 상태만 잔여(§3).
+**기능 (2026-06-14 추가):** 카카오톡 공유 SDK(env 게이트), 리더앱 결제우회 코드, 댓글 금지어 word_boundary(하드닝), 광고예산 dedup.
+**광고주 셀프서비스 (2026-06-14, Phase 1~5 완료):** 광고 생성→심사→승인→예산충전(Toss)→노출(dedup·과금)→일자별 성과. 컴포넌트 5개+RPC 9개 운영 적용. 실결제는 Toss live 키 후 활성.
 
 ## 진행 메모
 - 2026-06-13: 체크리스트 최초 작성. 개발환경 복구, R4 만료알림 배포.
