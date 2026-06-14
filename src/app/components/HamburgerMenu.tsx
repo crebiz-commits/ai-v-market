@@ -1,7 +1,7 @@
 import { useState } from "react";
 // @ts-ignore — react-dom 타입 미설치, 런타임은 정상
 import { createPortal } from "react-dom";
-import { Menu, X, Briefcase, Building2, FileText, Shield, Mail, Coins, LifeBuoy, Crown } from "lucide-react";
+import { Menu, X, Briefcase, Building2, FileText, Shield, Mail, Coins, LifeBuoy, Crown, Megaphone } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useBackButton } from "../hooks/useBackButton";
 import { useTranslation } from "react-i18next";
@@ -106,6 +106,8 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
                     <p className="text-[15px] font-bold text-white">{t("footer.creatorRevenue")}</p>
                   </div>
                 </a>
+
+                <MenuItem icon={Megaphone} label={t("hamburger.advertiser", "광고주 센터")} onClick={() => handleNav("advertiser")} />
 
                 <div className="my-2 border-t border-white/5" />
 

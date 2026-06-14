@@ -67,6 +67,7 @@ const SubscriptionPage = lazy(() => import("./components/SubscriptionPage").then
 const PaymentResult = lazy(() => import("./components/PaymentResult").then(m => ({ default: m.PaymentResult })));
 const BillingResult = lazy(() => import("./components/BillingResult").then(m => ({ default: m.BillingResult })));
 const SearchPage = lazy(() => import("./components/SearchPage").then(m => ({ default: m.SearchPage })));
+const AdvertiserDashboard = lazy(() => import("./components/AdvertiserDashboard").then(m => ({ default: m.AdvertiserDashboard })));
 
 // 모달·패널 (열릴 때만 로드)
 const ProductDetail = lazy(() => import("./components/ProductDetail").then(m => ({ default: m.ProductDetail })));
@@ -112,7 +113,7 @@ function PageLoading() {
   );
 }
 
-type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy" | "youth" | "faq" | "notices" | "bug-report" | "top-creators" | "support" | "subscription" | "search";
+type Tab = "discovery" | "market" | "ott" | "upload" | "community" | "channel" | "mypage" | "admin" | "business" | "about" | "terms" | "privacy" | "youth" | "faq" | "notices" | "bug-report" | "top-creators" | "support" | "subscription" | "search" | "advertiser";
 type Panel = "cart" | "notifications" | null;
 
 interface VideoProduct {
@@ -901,6 +902,8 @@ function AppContent() {
         return <SupportPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} onSignInClick={() => setShowAuthModal(true)} initialInquiryId={pendingSupportId} />;
       case "subscription":
         return <SubscriptionPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} onSignInClick={() => setShowAuthModal(true)} />;
+      case "advertiser":
+        return <AdvertiserDashboard onBack={() => window.history.back()} onSignInClick={() => setShowAuthModal(true)} />;
       case "search":
         return (
           <SearchPage
