@@ -14,12 +14,14 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Copy, Check, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { isKakaoConfigured, shareToKakao } from "../utils/kakaoShare";
 
 interface ShareModalProps {
   open: boolean;
   url: string;            // 공유할 URL
   title: string;          // 영상 제목
   text?: string;          // 공유 텍스트 (예: "CREAITE: 우주소녀 정란이")
+  thumbnail?: string;     // 카카오 공유 카드 이미지(절대 https URL). 없으면 텍스트 형식.
   onClose: () => void;
 }
 
@@ -79,7 +81,7 @@ const TARGETS: ShareTarget[] = [
   },
 ];
 
-export function ShareModal({ open, url, title, text, onClose }: ShareModalProps) {
+export function ShareModal({ open, url, title, text, thumbnail, onClose }: ShareModalProps) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const shareText = text || `CREAITE: ${title}`;
@@ -96,6 +98,13 @@ export function ShareModal({ open, url, title, text, onClose }: ShareModalProps)
   };
 
   const handleShareClick = async (target: ShareTarget) => {
+    // 카카오톡: SDK 연동 시 실제 공유 카드 전송, 실패 시 클립보드 폴백
+    if (target.key === "kakao" && isKakaoConfigured()) {
+      const ok = await shareToKakao({ title, description: shareText, imageUrl: thumbnail, link: url });
+      if (ok) return;
+      // 실패하면 아래 클립보드 폴백으로 진행
+    }
+
     const shareUrl = target.getUrl(url, shareText);
 
     if (shareUrl === null) {

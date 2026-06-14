@@ -1930,6 +1930,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
         url={`${typeof window !== "undefined" ? window.location.origin : ""}?video=${product.id}`}
         title={product.title}
         text={`CREAITE: ${product.title} by ${product.creator}`}
+        thumbnail={product.thumbnail}
         onClose={() => setShareOpen(false)}
       />
 

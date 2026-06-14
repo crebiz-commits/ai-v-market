@@ -1280,6 +1280,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
         url={shareTarget ? `${window.location.origin}?video=${shareTarget.id}` : ""}
         title={shareTarget?.title || ""}
         text={shareTarget ? `CREAITE: ${shareTarget.title}` : ""}
+        thumbnail={shareTarget?.thumbnail}
         onClose={() => setShareTarget(null)}
       />
 
