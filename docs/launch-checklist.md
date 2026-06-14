@@ -36,9 +36,10 @@
 
 ## 🔐 3. 소셜 로그인 검수
 
-- [ ] **Google OAuth 프로덕션 검수/게시** ([GOOGLE_AUTH_SETUP.md](../GOOGLE_AUTH_SETUP.md))
-- [ ] **Kakao 비즈앱 전환/검수** ([KAKAO_AUTH_SETUP.md](../KAKAO_AUTH_SETUP.md))
-- [ ] Redirect URL·Site URL 프로덕션 도메인으로 설정
+> Supabase 연동(키·활성화)·Site/Redirect URL 모두 완료 확인(2026-06-14, API). 남은 건 **콘솔 게시 상태**뿐.
+
+- [ ] **Google OAuth 동의화면 게시 상태 확인** — Google Cloud Console → OAuth 동의 화면 → 게시 상태가 `프로덕션`인지(테스트면 "앱 게시" 클릭). 기본 스코프는 구글 검수 불필요 ([GOOGLE_AUTH_SETUP.md](../GOOGLE_AUTH_SETUP.md))
+- [ ] **Kakao 비즈앱 전환 확인** — Kakao Developers → 앱 설정 → 비즈니스 → 비즈앱 전환(미전환 시 로그인 사용자 수 제한) ([KAKAO_AUTH_SETUP.md](../KAKAO_AUTH_SETUP.md))
 
 ## ⚖️ 4. 법적·사업자
 
