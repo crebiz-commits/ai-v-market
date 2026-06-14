@@ -6,6 +6,7 @@ import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
+import { getViewerSessionKey } from "../utils/sessionKey";
 import { useAuth } from "../contexts/AuthContext";
 import { CommentPanel } from "./CommentPanel";
 import { ShareModal } from "./ShareModal";
@@ -876,9 +877,9 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     return () => io.disconnect();
   }, [loading, loadMore]);
 
-  // 노출 트래킹
+  // 노출 트래킹 — 세션키 전달(서버 dedup: 광고·뷰어·1시간 1회 과금)
   const handleAdImpression = useCallback(async (adId: string) => {
-    try { await supabase.rpc("increment_ad_impressions", { ad_id: adId }); } catch {}
+    try { await supabase.rpc("increment_ad_impressions", { ad_id: adId, p_viewer_key: getViewerSessionKey() }); } catch {}
   }, []);
 
   // 영상 목록에 광고를 interval_count마다 삽입하여 피드 아이템 배열 생성
