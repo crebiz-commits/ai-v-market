@@ -1153,12 +1153,9 @@ app.post('/billing-run', async (c) => {
 
     // 만료 1일 전부터 청구 (구독 공백 방지)
     const dueBefore = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    // N3: 원자적 claim(FOR UPDATE SKIP LOCKED) — cron 동시실행 시 이중청구 방지
     const { data: due, error } = await admin
-      .from('billing_subscriptions')
-      .select('user_id, billing_key, customer_key, amount')
-      .eq('auto_renew', true).eq('status', 'active')
-      .lte('next_charge_at', dueBefore)
-      .limit(200);
+      .rpc('billing_claim_due', { p_limit: 200, p_due_before: dueBefore });
     if (error) return c.json({ error: error.message }, 500);
 
     let ok = 0, fail = 0;
