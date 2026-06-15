@@ -18,6 +18,7 @@ import { getCategoryLabel, getGenreLabel } from "../i18n/categoryLabels";
 import { formatCompactNumber } from "../i18n/numberFormat";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { useAuth } from "../contexts/AuthContext";
+import { isNegotiationOnly } from "../utils/licensePricing";
 import { useSettings } from "../contexts/SettingsContext";
 import { supabase } from "../utils/supabaseClient";
 
@@ -235,7 +236,9 @@ function VideoCard({ video, idx, onVideoClick, onAddToCart, showProgress, showRa
         {/* 가격 — 판매 중이면 ₩가격, 아니면 라이선스 미판매 (홈피드와 동일) */}
         <p className="text-[11px] md:text-sm font-black mt-0.5 md:mt-1">
           {typeof video.price_standard === "number" && video.price_standard > 0 ? (
-            <span className="text-[#f87171]">₩{video.price_standard.toLocaleString()}</span>
+            isNegotiationOnly(video.price_standard)
+              ? <span className="text-amber-400">별도 협의</span>
+              : <span className="text-[#f87171]">₩{video.price_standard.toLocaleString()}</span>
           ) : (
             <span className="text-gray-500">{t("video.notForSaleShort")}</span>
           )}

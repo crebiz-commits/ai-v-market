@@ -18,6 +18,7 @@ import { GENRES } from "../data/genres";
 import { getGenreStyle } from "../utils/brandColors";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { isNegotiationOnly } from "../utils/licensePricing";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { useAgeRatings } from "../hooks/useAgeRatings";
 
@@ -617,7 +618,9 @@ function CategoryRow({
                         )}
                         <span className="ml-auto text-[12px] md:text-sm font-black">
                           {typeof v.price_standard === "number" && v.price_standard > 0
-                            ? <span className="text-[#f87171]">₩{v.price_standard.toLocaleString()}</span>
+                            ? (isNegotiationOnly(v.price_standard)
+                                ? <span className="text-amber-400">별도 협의</span>
+                                : <span className="text-[#f87171]">₩{v.price_standard.toLocaleString()}</span>)
                             : <span className="text-gray-400">{t("video.notForSaleShort")}</span>}
                         </span>
                       </div>

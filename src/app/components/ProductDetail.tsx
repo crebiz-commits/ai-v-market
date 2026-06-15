@@ -1,4 +1,4 @@
-import { X, Heart, Send, Download, Check, MessageCircle, Crown, Lock, Flag, Bookmark, FileText, ShoppingCart, Eye } from "lucide-react";
+import { X, Heart, Send, Download, Check, MessageCircle, Crown, Lock, Flag, Bookmark, FileText, ShoppingCart, Eye, Mail } from "lucide-react";
 import { formatCompactNumber } from "../i18n/numberFormat";
 import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
 import { Button } from "./ui/button";
@@ -30,6 +30,7 @@ import { getCategoryLabel } from "../i18n/categoryLabels";
 import { AdOverlayBanner } from "./AdOverlayBanner";
 import { AdMidrollPlayer } from "./AdMidrollPlayer";
 import { fetchAdForVideo, recordAdImpression, type AdRpcResult } from "../utils/adFetch";
+import { isNegotiationOnly, licenseInquiryMailto } from "../utils/licensePricing";
 
 const BUNNY_PLAYER_ORIGIN = "https://iframe.mediadelivery.net";
 function postBunnyCommand(iframe: HTMLIFrameElement | null, method: "play" | "pause") {
@@ -994,6 +995,11 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       toast.error(t("productDetail.toast.notLicensable"));
       return;
     }
+    // ₩1,000만 이상 고가 라이선스는 직접 결제 불가(토스 한도) → 1:1 협의 문의로
+    if (isNegotiationOnly(product.price)) {
+      window.location.href = licenseInquiryMailto(product.title, product.price);
+      return;
+    }
 
     setBuyingLicense(true);
     try {
@@ -1514,10 +1520,12 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                   <div className="p-5 rounded-lg border-2 border-[#6366f1] bg-[#6366f1]/5">
                     <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
                       <div>
-                        <p className="font-bold">All-in-One License</p>
-                        <p className="text-sm text-muted-foreground">{t("productDetail.license.subtitle")}</p>
+                        <p className="font-bold">{isNegotiationOnly(product.price) ? "프리미엄 라이선스" : "All-in-One License"}</p>
+                        <p className="text-sm text-muted-foreground">{isNegotiationOnly(product.price) ? "고가 라이선스 · 1:1 협의 판매" : t("productDetail.license.subtitle")}</p>
                       </div>
-                      <p className="text-xl font-black text-[#6366f1]">₩{product.price.toLocaleString()}</p>
+                      {isNegotiationOnly(product.price)
+                        ? <p className="text-lg font-black text-amber-400">별도 협의</p>
+                        : <p className="text-xl font-black text-[#6366f1]">₩{product.price.toLocaleString()}</p>}
                     </div>
                     {/* Phase 31.3 — 모바일은 4개 + "더 보기" / 데스크탑은 9개 전체 */}
                     {(() => {
@@ -1567,7 +1575,21 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                       );
                     })()}
 
-                    {/* 라이선스 박스 안에 [장바구니]/[구매] 가로 반반 (Phase 31.4) */}
+                    {/* ₩1,000만 이상: 직접 구매 불가 → 1:1 라이선스 문의 (토스 한도) */}
+                    {isNegotiationOnly(product.price) ? (
+                      <div className="mt-5 space-y-2">
+                        <a
+                          href={licenseInquiryMailto(product.title, product.price)}
+                          className="w-full h-12 rounded-xl flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black hover:opacity-90 transition-opacity"
+                        >
+                          <Mail className="w-5 h-5" /> 1:1 라이선스 문의
+                        </a>
+                        <p className="text-[11px] text-amber-200/80 text-center leading-relaxed">
+                          ₩1,000만 이상 고가 라이선스는 사이트 직접 구매 대신 운영팀과 1:1 협의로 판매됩니다 (영화 배급 등).
+                        </p>
+                      </div>
+                    ) : (
+                    /* 라이선스 박스 안에 [장바구니]/[구매] 가로 반반 (Phase 31.4) */
                     <div className="grid grid-cols-2 gap-3 mt-5">
                       <Button
                         onClick={handleAddToCart}
@@ -1605,6 +1627,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                         )}
                       </Button>
                     </div>
+                    )}
                   </div>
 
                   {/* 주의 사항 */}

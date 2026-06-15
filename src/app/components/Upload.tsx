@@ -23,6 +23,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useSettings } from "../contexts/SettingsContext";
 import { supabase, supabaseAnonKey, supabaseUrl } from "../utils/supabaseClient";
 import { tusUploadToBunny, type BunnyTusAuth } from "../utils/bunnyUpload";
+import { isNegotiationOnly } from "../utils/licensePricing";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { getCategoryLabel, getGenreLabel, getAiToolLabel, getLanguageLabel } from "../i18n/categoryLabels";
@@ -1798,6 +1799,13 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
                         <p className="text-xs text-muted-foreground mt-1">
                           {t("upload.priceVatNotice")}
                         </p>
+                        {isNegotiationOnly(parseInt((formData.standardPrice || "0").replace(/,/g, ""), 10)) && (
+                          <div className="mt-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                            <p className="text-xs text-amber-200/90 leading-relaxed">
+                              💡 ₩1,000만 이상은 사이트 직접 판매가 아닌 <b>1:1 협의 판매</b>로 등록됩니다 (영화 배급 등 고가 라이선스). 구매자에겐 "별도 협의"로 표시되고, 「라이선스 문의」를 통해 운영팀과 협의 후 판매됩니다.
+                            </p>
+                          </div>
+                        )}
                         <div className="mt-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
                           <p className="text-xs text-blue-200/90 leading-relaxed">
                             {t("upload.freeVideoNotice")}
