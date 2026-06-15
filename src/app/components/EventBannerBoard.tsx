@@ -94,7 +94,7 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
         onPointerLeave={resume}
         onTouchStart={pause}
         onTouchEnd={resume}
-        className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex gap-3 overflow-x-auto scrollbar-hide"
       >
         {/* 배너 2벌 복제 → 무한 흐름. 뒷벌은 보조용(aria-hidden) */}
         {[...banners, ...banners].map((b, i) => (
