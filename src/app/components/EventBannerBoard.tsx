@@ -87,11 +87,9 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
   if (banners.length === 0) return null;
 
   return (
-    <div className="relative px-1 md:px-2">
+    <div className="relative px-1 md:px-2" onPointerEnter={pause} onPointerLeave={resume}>
       <div
         ref={scrollRef}
-        onPointerEnter={pause}
-        onPointerLeave={resume}
         onTouchStart={pause}
         onTouchEnd={resume}
         className="flex gap-3 overflow-x-auto scrollbar-hide"
@@ -135,7 +133,7 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
                 {b.eyebrow && (
                   <span className={`text-[11px] font-semibold tracking-widest uppercase mb-1.5 ${b.dark ? "text-[#5a4500]" : "text-[#c4b5fd]"}`}>{b.eyebrow}</span>
                 )}
-                <h3 className={`font-black leading-tight line-clamp-2 ${b.align === "center" ? "text-xl md:text-3xl" : "text-lg md:text-xl"} ${b.titleGradient ? `text-transparent bg-clip-text bg-gradient-to-r ${BRAND} italic` : b.dark ? "text-[#1a1a1a]" : "text-white"} ${b.badge ? "mt-6" : ""}`}>
+                <h3 className={`font-black leading-tight ${b.align === "center" ? "text-xl md:text-3xl" : "text-lg md:text-xl"} ${b.titleGradient ? `text-transparent bg-clip-text bg-gradient-to-r ${BRAND} italic` : b.dark ? "text-[#1a1a1a]" : "text-white"} ${b.badge ? "mt-6" : ""}`}>
                   {b.title}
                 </h3>
                 {b.subtitle && (
@@ -171,7 +169,7 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
             type="button"
             aria-label="이전 배너"
             onClick={() => scrollByCard(-1)}
-            className="hidden md:flex absolute left-1 top-1/2 -translate-y-1/2 z-20 w-9 h-9 items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm border border-white/10 shadow-lg transition-colors"
+            className="flex absolute left-1 top-1/2 -translate-y-1/2 z-20 w-9 h-9 items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm border border-white/10 shadow-lg transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -179,7 +177,7 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
             type="button"
             aria-label="다음 배너"
             onClick={() => scrollByCard(1)}
-            className="hidden md:flex absolute right-1 top-1/2 -translate-y-1/2 z-20 w-9 h-9 items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm border border-white/10 shadow-lg transition-colors"
+            className="flex absolute right-1 top-1/2 -translate-y-1/2 z-20 w-9 h-9 items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm border border-white/10 shadow-lg transition-colors"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
