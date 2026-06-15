@@ -1,0 +1,139 @@
+# CREAITE 마이그레이션 정본 (Migrations Index)
+
+> SQL은 마이그레이션 툴이 아니라 **Supabase Management API / SQL Editor로 직접 적용**(멱등 작성).
+> 적용 여부 검증: `supabase/_verify_migrations_applied.sql` 실행.
+> 파일명이 곧 설명(phaseN_*, *_YYYYMMDD). 날짜형은 적용일 기준 최신 순.
+> 갱신: 2026-06-16 (자동 생성 목록).
+
+## 날짜형 (2026 최신 — 세션 적용분 포함)
+- ad_budget_low_notify_20260615.sql
+- ad_charge_dedup_phase3_20260614.sql
+- ad_images_advertiser_upload_20260615.sql
+- ad_overlay_duration_pricing_20260615.sql
+- ad_surface_exclusive_20260615.sql
+- advertiser_edit_approved_rereview_20260615.sql
+- advertiser_my_ads_add_video_url_20260615.sql
+- advertiser_self_service_phase1_20260614.sql
+- advertiser_self_service_phase4_admin_review_20260614.sql
+- advertiser_self_service_phase5_20260614.sql
+- advertiser_update_ad_media_coalesce_20260615.sql
+- banners_bugreports_20260611.sql
+- billing_charge_rpcs_20260612.sql
+- billing_cron_20260612.sql
+- billing_subscriptions_20260612.sql
+- broadcast_email_20260616.sql
+- bug_screenshots_20260611.sql
+- collab_notify_privacy_20260614.sql
+- comment_filter_word_boundary_hardening_20260614.sql
+- community_upgrade_20260610.sql
+- fix_ad_images_storage_rls_20260611.sql
+- fixes_audit_20260611.sql
+- high_fixes_20260614.sql
+- home_feed_chip_filter_20260611.sql
+- home_feed_count_20260611.sql
+- medium_fixes_db_20260614.sql
+- mega_uploader_event_20260611.sql
+- new_video_follower_notify_20260612.sql
+- payment_hardening_20260612.sql
+- phase_polish_20260531.sql
+- phase_security_hardening_20260531.sql
+- phase_web_push_20260531.sql
+- purge_deletions_cron_20260614.sql
+- refund_cancel_billing_20260614.sql
+- security_patch_critical_20260614.sql
+- subscription_expiry_notify_20260613.sql
+- support_inquiries_20260611.sql
+- weekly_top_creators_20260611.sql
+
+## Phase 시리즈 (기능 단위, 번호순)
+- phase1_video_placement.sql
+- phase6_5_channel_enhancements.sql
+- phase6_5_user_banners_storage.sql
+- phase6_6_user_avatars.sql
+- phase8_5_ad_budget_accounting.sql
+- phase8_platform_settings.sql
+- phase8_revenue_distributions.sql
+- phase8_video_views.sql
+- phase9_payments.sql
+- phase10_5_admin_dashboard.sql
+- phase10_6_admin_management.sql
+- phase10_6_fix_views_cast.sql
+- phase10_7_broadcast_and_logs.sql
+- phase10_reports.sql
+- phase12_search_enhancements.sql
+- phase13_fix_recommended_ambiguous.sql
+- phase13_fix_similar_videos_ambiguous.sql
+- phase13_recommendations.sql
+- phase17_watch_history.sql
+- phase18_playlists.sql
+- phase20_creator_analytics.sql
+- phase21_creator_dashboard.sql
+- phase22_video_edit.sql
+- phase23_1_video_likes_count_sync.sql
+- phase23_admin_comments.sql
+- phase23_comment_management.sql
+- phase24_user_blocks.sql
+- phase25_moderation.sql
+- phase26_age_rating.sql
+- phase26_card_age_lookup.sql
+- phase27_user_data_rights.sql
+- phase28_ad_diversification.sql
+- phase28_ad_revenue_distribution_fix.sql
+- phase29_download_logs.sql
+- phase29_license_type_unify.sql
+- phase30_category_genre_unify.sql
+- phase31_carousel_genre_likes.sql
+- phase32_similar_videos.sql
+- phase32_tax_withholding.sql
+- phase33_video_edit_extended.sql
+- phase34_notifications.sql
+- phase34_refund_notification.sql
+- phase35_filter_match_mode.sql
+- phase_admin_payments_refund_reason.sql
+- phase_admin_rls_unify.sql
+- phase_notifications_realtime.sql
+- phase_payout_info.sql
+- phase_polish_20260531.sql
+- phase_security_hardening_20260531.sql
+- phase_settlement_payout_account.sql
+- phase_user_payment_history.sql
+- phase_web_push_20260531.sql
+
+## 영역별 기반/기타
+- _verify_migrations_applied.sql
+- ad_images_storage.sql
+- admin_audit_ads_trigger.sql
+- admin_rls_is_admin_function.sql
+- ads_table.sql
+- ads_video_preroll.sql
+- business_inquiries.sql
+- collab_admin_delete.sql
+- collab_inquiries.sql
+- collab_space.sql
+- content_policy_v2.sql
+- content_policy_v2_hotfix_ambiguous.sql
+- content_policy_v2_notes.sql
+- content_policy_v2_vast_fix.sql
+- creator_ad_stats.sql
+- creator_followers.sql
+- features_tables.sql
+- genre_based_rows.sql
+- hero_clip.sql
+- home_feed_personalized.sql
+- orders_table.sql
+- profiles_table.sql
+- recommended_add_genre.sql
+- security_definer_search_path_fix.sql
+- seed_blender_films.sql
+- seed_blender_films_2.sql
+- seed_blender_titles_ko.sql
+- seed_cc_films_3.sql
+- seed_cc_films_4.sql
+- seed_cc_films_5.sql
+- storage_delete_policies.sql
+- storage_rls_audit.sql
+- videos_extended_columns.sql
+- videos_license_columns.sql
+
+## 시드(콘텐츠)
+- seed_*.sql — 공용 라이선스 영화 시드 (운영 데이터, 마이그레이션 아님)
