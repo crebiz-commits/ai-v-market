@@ -1,15 +1,16 @@
 // ════════════════════════════════════════════════════════════════════════════
-// 광고 생성/수정 모달 — 광고주 셀프서비스 Phase 2
-//   MVP: 오버레이 배너 광고(이미지 + 링크 + CTA). 영상 프리롤은 후속.
-//   저장 → advertiser_create_ad / advertiser_update_ad RPC.
-//   "저장 후 심사 제출" → advertiser_submit_ad.
+// 광고 생성/수정 모달 — 광고주 셀프서비스
+//   광고 유형: ① 오버레이 배너(이미지) ② 영상 프리롤(동영상)
+//   저장 → advertiser_create_ad / advertiser_update_ad RPC. "저장 후 제출" → advertiser_submit_ad.
+//   이미지 = ad-images 스토리지 업로드 / 영상 = Bunny(create-upload + TUS) 업로드.
 // ════════════════════════════════════════════════════════════════════════════
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Loader2, Image as ImageIcon, Send, Upload } from "lucide-react";
+import { X, Loader2, Image as ImageIcon, Send, Upload, Film, Check } from "lucide-react";
 import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
+import { uploadAdVideo } from "../utils/adVideoUpload";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -18,6 +19,7 @@ export interface AdvertiserAd {
   title: string;
   status: string;
   image_url: string | null;
+  video_url?: string | null;
   link_url: string;
   cta_text: string;
   format?: string;
@@ -25,49 +27,69 @@ export interface AdvertiserAd {
 
 interface Props {
   open: boolean;
-  editAd?: AdvertiserAd | null;   // 있으면 수정 모드
+  editAd?: AdvertiserAd | null;
   onClose: () => void;
-  onSaved: () => void;            // 저장/제출 후 목록 갱신
+  onSaved: () => void;
 }
 
 export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
   const { i18n } = useTranslation();
   const { user } = useAuth();
   const isKo = (i18n.language || "en").startsWith("ko");
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
+  const imgRef = useRef<HTMLInputElement>(null);
+  const vidRef = useRef<HTMLInputElement>(null);
 
-  const handleUpload = async (file: File | undefined) => {
+  const initialKind: "image" | "video" = editAd?.format === "preroll" || editAd?.video_url ? "video" : "image";
+  const [kind, setKind] = useState<"image" | "video">(initialKind);
+  const [title, setTitle] = useState(editAd?.title || "");
+  const [imageUrl, setImageUrl] = useState(editAd?.image_url || "");
+  const [videoUrl, setVideoUrl] = useState(editAd?.video_url || "");
+  const [thumbUrl, setThumbUrl] = useState("");
+  const [linkUrl, setLinkUrl] = useState(editAd?.link_url || "");
+  const [ctaText, setCtaText] = useState(editAd?.cta_text || (isKo ? "자세히 보기" : "Learn more"));
+  const [advertiser, setAdvertiser] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [imgUploading, setImgUploading] = useState(false);
+  const [vidUploading, setVidUploading] = useState(false);
+  const [vidProgress, setVidProgress] = useState(0);
+
+  const handleImageUpload = async (file: File | undefined) => {
     if (!file || !user?.id) return;
-    if (!file.type.startsWith("image/")) { toast.error(isKo ? "이미지 파일만 업로드 가능합니다." : "Images only."); return; }
+    if (!file.type.startsWith("image/")) { toast.error(isKo ? "이미지 파일만 가능합니다." : "Images only."); return; }
     if (file.size > 10 * 1024 * 1024) { toast.error(isKo ? "10MB 이하만 가능합니다." : "Max 10MB."); return; }
-    setUploading(true);
+    setImgUploading(true);
     try {
       const ext = (file.name.split(".").pop() || "png").toLowerCase();
       const path = `${user.id}/${Date.now()}.${ext}`;
       const { error } = await supabase.storage.from("ad-images").upload(path, file, { upsert: true, contentType: file.type });
       if (error) throw error;
-      const { data } = supabase.storage.from("ad-images").getPublicUrl(path);
-      setImageUrl(data.publicUrl);
+      setImageUrl(supabase.storage.from("ad-images").getPublicUrl(path).data.publicUrl);
       toast.success(isKo ? "이미지를 업로드했어요." : "Uploaded.");
     } catch (e: any) {
       toast.error((isKo ? "업로드 실패: " : "Upload failed: ") + (e?.message || ""));
-    } finally {
-      setUploading(false);
-    }
+    } finally { setImgUploading(false); }
   };
-  const [title, setTitle] = useState(editAd?.title || "");
-  const [imageUrl, setImageUrl] = useState(editAd?.image_url || "");
-  const [linkUrl, setLinkUrl] = useState(editAd?.link_url || "");
-  const [ctaText, setCtaText] = useState(editAd?.cta_text || (isKo ? "자세히 보기" : "Learn more"));
-  const [advertiser, setAdvertiser] = useState("");
-  const [busy, setBusy] = useState(false);
 
-  const valid = title.trim() && linkUrl.trim() && imageUrl.trim();
+  const handleVideoUpload = async (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("video/")) { toast.error(isKo ? "동영상 파일만 가능합니다." : "Video only."); return; }
+    if (file.size > 300 * 1024 * 1024) { toast.error(isKo ? "300MB 이하만 가능합니다." : "Max 300MB."); return; }
+    setVidUploading(true); setVidProgress(0);
+    try {
+      const { videoUrl: vu, thumbnailUrl: tu } = await uploadAdVideo(file, setVidProgress);
+      setVideoUrl(vu); setThumbUrl(tu);
+      toast.success(isKo ? "영상을 업로드했어요. 인코딩 후 노출됩니다." : "Uploaded. Encoding…");
+    } catch (e: any) {
+      toast.error((isKo ? "영상 업로드 실패: " : "Video upload failed: ") + (e?.message || ""));
+    } finally { setVidUploading(false); }
+  };
+
+  const mediaReady = kind === "image" ? !!imageUrl.trim() : !!videoUrl.trim();
+  const valid = title.trim() && linkUrl.trim() && mediaReady && !imgUploading && !vidUploading;
 
   const save = async (submit: boolean) => {
     if (!valid) {
-      toast.error(isKo ? "광고명·이미지·링크는 필수입니다." : "Title, image, and link are required.");
+      toast.error(isKo ? "광고명·링크·소재(이미지/영상)는 필수입니다." : "Title, link, and creative are required.");
       return;
     }
     setBusy(true);
@@ -75,15 +97,23 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
       let adId = editAd?.id;
       if (editAd) {
         const { error } = await supabase.rpc("advertiser_update_ad", {
-          p_ad_id: editAd.id, p_title: title.trim(), p_link_url: linkUrl.trim(),
-          p_cta_text: ctaText.trim(), p_image_url: imageUrl.trim(), p_video_url: null, p_thumbnail_url: null,
+          p_ad_id: editAd.id, p_title: title.trim(), p_link_url: linkUrl.trim(), p_cta_text: ctaText.trim(),
+          p_image_url: kind === "image" ? imageUrl.trim() : null,
+          p_video_url: kind === "video" ? videoUrl.trim() : null,
+          p_thumbnail_url: kind === "video" ? (thumbUrl || null) : null,
         });
         if (error) throw error;
       } else {
+        const isVideo = kind === "video";
         const { data, error } = await supabase.rpc("advertiser_create_ad", {
-          p_title: title.trim(), p_format: "overlay", p_ad_type: "feed_display", p_link_url: linkUrl.trim(),
-          p_cta_text: ctaText.trim(), p_image_url: imageUrl.trim(), p_video_url: null,
-          p_thumbnail_url: null, p_advertiser: advertiser.trim() || null,
+          p_title: title.trim(),
+          p_format: isVideo ? "preroll" : "overlay",
+          p_ad_type: isVideo ? "video_preroll" : "feed_display",
+          p_link_url: linkUrl.trim(), p_cta_text: ctaText.trim(),
+          p_image_url: isVideo ? null : imageUrl.trim(),
+          p_video_url: isVideo ? videoUrl.trim() : null,
+          p_thumbnail_url: isVideo ? (thumbUrl || null) : null,
+          p_advertiser: advertiser.trim() || null,
         });
         if (error) throw error;
         adId = data as string;
@@ -99,9 +129,7 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
       onClose();
     } catch (e: any) {
       toast.error((isKo ? "오류: " : "Error: ") + (e?.message || ""));
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   };
 
   const inputCls = "w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#8b5cf6]";
@@ -122,6 +150,18 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
             </div>
 
             <div className="p-5 space-y-4">
+              {/* 광고 유형 (새 광고만) */}
+              {!editAd && (
+                <div className="grid grid-cols-2 gap-2">
+                  {([["image", isKo ? "오버레이 배너" : "Overlay banner", ImageIcon], ["video", isKo ? "영상 프리롤" : "Video preroll", Film]] as const).map(([k, label, Icon]) => (
+                    <button key={k} type="button" onClick={() => setKind(k)}
+                      className={`py-2.5 rounded-lg text-sm font-bold border flex items-center justify-center gap-1.5 transition-colors ${kind === k ? "bg-[#8b5cf6] text-white border-[#8b5cf6]" : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10"}`}>
+                      <Icon className="w-4 h-4" />{label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-gray-400 mb-1.5">{isKo ? "광고명" : "Ad name"}</label>
                 <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80}
@@ -136,28 +176,55 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
                 </div>
               )}
 
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-gray-400">{isKo ? "배너 이미지" : "Banner image"}</label>
-                  <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
-                    className="text-[11px] font-bold text-[#a78bfa] hover:text-white flex items-center gap-1 disabled:opacity-50">
-                    {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                    {isKo ? "파일 업로드" : "Upload"}
-                  </button>
-                  <input ref={fileRef} type="file" accept="image/*" className="hidden"
-                    onChange={(e) => { handleUpload(e.target.files?.[0]); e.target.value = ""; }} />
-                </div>
-                <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder={isKo ? "업로드 또는 이미지 URL 붙여넣기 (300×250 권장)" : "Upload or paste URL"} className={inputCls} />
-                {imageUrl.trim() ? (
-                  <div className="mt-2 rounded-lg overflow-hidden border border-white/10 bg-black/30 aspect-[6/5] flex items-center justify-center">
-                    <img src={imageUrl} alt="preview" className="max-w-full max-h-full object-contain"
-                      onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+              {/* 소재 — 이미지 */}
+              {kind === "image" && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-gray-400">{isKo ? "배너 이미지" : "Banner image"}</label>
+                    <button type="button" onClick={() => imgRef.current?.click()} disabled={imgUploading}
+                      className="text-[11px] font-bold text-[#a78bfa] hover:text-white flex items-center gap-1 disabled:opacity-50">
+                      {imgUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}{isKo ? "파일 업로드" : "Upload"}
+                    </button>
+                    <input ref={imgRef} type="file" accept="image/*" className="hidden"
+                      onChange={(e) => { handleImageUpload(e.target.files?.[0]); e.target.value = ""; }} />
                   </div>
-                ) : (
-                  <p className="mt-1.5 text-[11px] text-gray-500 flex items-center gap-1"><ImageIcon className="w-3 h-3" />{isKo ? "호스팅된 이미지 주소를 붙여넣어 주세요." : "Paste a hosted image URL."}</p>
-                )}
-              </div>
+                  <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder={isKo ? "업로드 또는 이미지 URL 붙여넣기 (300×250 권장)" : "Upload or paste URL"} className={inputCls} />
+                  {imageUrl.trim() ? (
+                    <div className="mt-2 rounded-lg overflow-hidden border border-white/10 bg-black/30 aspect-[6/5] flex items-center justify-center">
+                      <img src={imageUrl} alt="preview" className="max-w-full max-h-full object-contain" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+                    </div>
+                  ) : (
+                    <p className="mt-1.5 text-[11px] text-gray-500 flex items-center gap-1"><ImageIcon className="w-3 h-3" />{isKo ? "영상 위 오버레이 배너로 노출됩니다." : "Shows as overlay banner over videos."}</p>
+                  )}
+                </div>
+              )}
+
+              {/* 소재 — 영상 프리롤 */}
+              {kind === "video" && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 mb-1.5">{isKo ? "광고 영상 (프리롤)" : "Ad video (preroll)"}</label>
+                  <input ref={vidRef} type="file" accept="video/*" className="hidden"
+                    onChange={(e) => { handleVideoUpload(e.target.files?.[0]); e.target.value = ""; }} />
+                  {vidUploading ? (
+                    <div className="p-4 rounded-lg border border-white/10 bg-white/5">
+                      <div className="flex items-center gap-2 text-sm text-gray-300 mb-2"><Loader2 className="w-4 h-4 animate-spin" />{isKo ? "업로드 중…" : "Uploading…"} {vidProgress}%</div>
+                      <div className="h-1.5 rounded-full bg-white/10 overflow-hidden"><div className="h-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]" style={{ width: `${vidProgress}%` }} /></div>
+                    </div>
+                  ) : videoUrl ? (
+                    <button type="button" onClick={() => vidRef.current?.click()}
+                      className="w-full p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 flex items-center gap-2 text-sm text-emerald-300 hover:bg-emerald-500/15">
+                      <Check className="w-4 h-4" />{isKo ? "영상 업로드 완료 — 다시 올리려면 클릭" : "Uploaded — click to replace"}
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => vidRef.current?.click()}
+                      className="w-full p-4 rounded-lg border-2 border-dashed border-white/15 hover:border-[#8b5cf6]/50 flex flex-col items-center gap-1 text-sm text-gray-400">
+                      <Upload className="w-6 h-6" />{isKo ? "광고 영상 업로드 (최대 300MB)" : "Upload ad video (≤300MB)"}
+                      <span className="text-[11px] text-gray-500">{isKo ? "짧은 프리롤 영상 권장 (15~30초). 영상 시작 전 재생됩니다." : "Short preroll recommended."}</span>
+                    </button>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-gray-400 mb-1.5">{isKo ? "클릭 시 이동할 링크" : "Click-through link"}</label>
