@@ -4,11 +4,12 @@
 //   저장 → advertiser_create_ad / advertiser_update_ad RPC.
 //   "저장 후 심사 제출" → advertiser_submit_ad.
 // ════════════════════════════════════════════════════════════════════════════
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Loader2, Image as ImageIcon, Send } from "lucide-react";
+import { X, Loader2, Image as ImageIcon, Send, Upload } from "lucide-react";
 import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
+import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -31,7 +32,30 @@ interface Props {
 
 export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
   const { i18n } = useTranslation();
+  const { user } = useAuth();
   const isKo = (i18n.language || "en").startsWith("ko");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (file: File | undefined) => {
+    if (!file || !user?.id) return;
+    if (!file.type.startsWith("image/")) { toast.error(isKo ? "이미지 파일만 업로드 가능합니다." : "Images only."); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error(isKo ? "10MB 이하만 가능합니다." : "Max 10MB."); return; }
+    setUploading(true);
+    try {
+      const ext = (file.name.split(".").pop() || "png").toLowerCase();
+      const path = `${user.id}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("ad-images").upload(path, file, { upsert: true, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from("ad-images").getPublicUrl(path);
+      setImageUrl(data.publicUrl);
+      toast.success(isKo ? "이미지를 업로드했어요." : "Uploaded.");
+    } catch (e: any) {
+      toast.error((isKo ? "업로드 실패: " : "Upload failed: ") + (e?.message || ""));
+    } finally {
+      setUploading(false);
+    }
+  };
   const [title, setTitle] = useState(editAd?.title || "");
   const [imageUrl, setImageUrl] = useState(editAd?.image_url || "");
   const [linkUrl, setLinkUrl] = useState(editAd?.link_url || "");
@@ -113,9 +137,18 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
               )}
 
               <div>
-                <label className="block text-xs font-bold text-gray-400 mb-1.5">{isKo ? "배너 이미지 URL" : "Banner image URL"}</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-gray-400">{isKo ? "배너 이미지" : "Banner image"}</label>
+                  <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+                    className="text-[11px] font-bold text-[#a78bfa] hover:text-white flex items-center gap-1 disabled:opacity-50">
+                    {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                    {isKo ? "파일 업로드" : "Upload"}
+                  </button>
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden"
+                    onChange={(e) => { handleUpload(e.target.files?.[0]); e.target.value = ""; }} />
+                </div>
                 <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://...  (300×250 권장)" className={inputCls} />
+                  placeholder={isKo ? "업로드 또는 이미지 URL 붙여넣기 (300×250 권장)" : "Upload or paste URL"} className={inputCls} />
                 {imageUrl.trim() ? (
                   <div className="mt-2 rounded-lg overflow-hidden border border-white/10 bg-black/30 aspect-[6/5] flex items-center justify-center">
                     <img src={imageUrl} alt="preview" className="max-w-full max-h-full object-contain"
