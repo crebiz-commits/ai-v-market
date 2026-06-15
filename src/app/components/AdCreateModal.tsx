@@ -57,7 +57,7 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
         if (error) throw error;
       } else {
         const { data, error } = await supabase.rpc("advertiser_create_ad", {
-          p_title: title.trim(), p_format: "overlay", p_ad_type: "overlay", p_link_url: linkUrl.trim(),
+          p_title: title.trim(), p_format: "overlay", p_ad_type: "feed_display", p_link_url: linkUrl.trim(),
           p_cta_text: ctaText.trim(), p_image_url: imageUrl.trim(), p_video_url: null,
           p_thumbnail_url: null, p_advertiser: advertiser.trim() || null,
         });
