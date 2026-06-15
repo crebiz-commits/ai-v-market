@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { ExternalAdSlot } from "./ExternalAdSlot";
 import { Trophy, MessageCircle, Heart, Bookmark, Plus, X, Send, Loader2, Handshake, UserPlus, HelpCircle, Briefcase, Megaphone, Terminal, Play, Film } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Footer } from "./Footer";
@@ -348,6 +349,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
   const { user, isAuthenticated, profile } = useAuth();
+  const isPremium = profile?.subscription_tier === "premium"; // 프리미엄=광고 없음
   const localeTag = isKo ? "ko-KR" : "en-US";
   const [activeTab, setActiveTab] = useState("posts");
   // 외부에서 특정 탭으로 진입 (예: 시네마 콘테스트 공모전 배너 → 챌린지 탭)
@@ -953,6 +955,8 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                   <p>{isKo ? "이 카테고리의 글이 아직 없어요." : "No posts in this category yet."}</p>
                 </div>
               )}
+              {/* 외부 광고(AdSense/애드핏) — 비프리미엄만, 미설정 시 운영에선 null (활성화 시 노출) */}
+              {!isPremium && <ExternalAdSlot index={0} className="rounded-lg mb-1" />}
               <AnimatePresence initial={false}>
                 {visiblePosts.map((post) => (
                   <motion.div
