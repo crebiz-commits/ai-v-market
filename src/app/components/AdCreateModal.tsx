@@ -54,6 +54,8 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
   const [kind, setKind] = useState<AdKind>(initialKind);
   const isImageKind = kind === "overlay" || kind === "feed_image";
   const isVideoKind = kind === "feed_video" || kind === "preroll";
+  // 승인/심사중 광고 편집 → 재심사 흐름. submit RPC를 또 부르면 안 되고(이미 pending) 단일 저장만.
+  const reReview = !!editAd && (editAd.status === "approved" || editAd.status === "pending_review");
   const [title, setTitle] = useState(editAd?.title || "");
   const [imageUrl, setImageUrl] = useState(editAd?.image_url || "");
   const [videoUrl, setVideoUrl] = useState(editAd?.video_url || "");
@@ -138,6 +140,8 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
         const { error: subErr } = await supabase.rpc("advertiser_submit_ad", { p_ad_id: adId });
         if (subErr) throw subErr;
         toast.success(isKo ? "광고를 심사 제출했어요. 승인 후 노출됩니다." : "Submitted for review.");
+      } else if (reReview) {
+        toast.success(isKo ? "수정 사항을 저장했어요. 다시 심사를 거치며, 재승인되면 노출이 자동 재개됩니다." : "Saved. It will be re-reviewed; serving resumes once re-approved.");
       } else {
         toast.success(isKo ? "저장했어요." : "Saved.");
       }
@@ -280,20 +284,36 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
                 <input value={ctaText} onChange={(e) => setCtaText(e.target.value)} maxLength={20} className={inputCls} />
               </div>
 
-              <p className="text-[11px] text-gray-500 leading-relaxed">
-                {isKo ? "저장 후 「심사 제출」하면 운영팀 검토를 거쳐 승인됩니다. 승인 후 예산을 충전하면 노출이 시작됩니다."
-                      : "Submit for review after saving. Once approved, top up budget to start serving."}
-              </p>
+              {reReview ? (
+                <p className="text-[11px] text-amber-300/90 bg-amber-500/10 rounded-md px-2.5 py-2 leading-relaxed">
+                  {isKo ? "⚠️ 승인된 광고를 수정하면 다시 심사를 거칩니다. 재승인 전까지 노출이 일시 중단되며, 재승인되면 자동으로 재개됩니다."
+                        : "⚠️ Editing an approved ad triggers re-review. Serving pauses until re-approved, then resumes automatically."}
+                </p>
+              ) : (
+                <p className="text-[11px] text-gray-500 leading-relaxed">
+                  {isKo ? "저장 후 「심사 제출」하면 운영팀 검토를 거쳐 승인됩니다. 승인 후 예산을 충전하면 노출이 시작됩니다."
+                        : "Submit for review after saving. Once approved, top up budget to start serving."}
+                </p>
+              )}
             </div>
 
             <div className="flex gap-2 px-5 py-4 border-t border-border sticky bottom-0 bg-card">
-              <Button onClick={() => save(false)} disabled={busy || !valid} variant="outline" className="flex-1">
-                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : (isKo ? "임시 저장" : "Save draft")}
-              </Button>
-              <Button onClick={() => save(true)} disabled={busy || !valid}
-                className="flex-1 gap-1.5 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold">
-                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" />{isKo ? "저장 후 제출" : "Save & submit"}</>}
-              </Button>
+              {reReview ? (
+                <Button onClick={() => save(false)} disabled={busy || !valid}
+                  className="flex-1 gap-1.5 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold">
+                  {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" />{isKo ? "저장 후 재심사 요청" : "Save & re-review"}</>}
+                </Button>
+              ) : (
+                <>
+                  <Button onClick={() => save(false)} disabled={busy || !valid} variant="outline" className="flex-1">
+                    {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : (isKo ? "임시 저장" : "Save draft")}
+                  </Button>
+                  <Button onClick={() => save(true)} disabled={busy || !valid}
+                    className="flex-1 gap-1.5 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold">
+                    {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" />{isKo ? "저장 후 제출" : "Save & submit"}</>}
+                  </Button>
+                </>
+              )}
             </div>
           </motion.div>
         </>

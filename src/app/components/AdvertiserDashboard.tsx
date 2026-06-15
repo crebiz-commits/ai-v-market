@@ -60,6 +60,10 @@ export function AdvertiserDashboard({ onBack, onSignInClick }: Props) {
     if (error) return toast.error(error.message);
     load();
   };
+  const openEdit = (a: MyAd) => {
+    setEditAd({ id: a.id, title: a.title, status: a.status, image_url: a.image_url, video_url: a.video_url, link_url: a.link_url, cta_text: a.cta_text, format: a.format });
+    setModalOpen(true);
+  };
 
   const statusBadge = (s: string) => {
     const map: Record<string, { label: string; cls: string }> = {
@@ -156,7 +160,7 @@ export function AdvertiserDashboard({ onBack, onSignInClick }: Props) {
                         {(a.status === "draft" || a.status === "rejected") && (
                           <>
                             <Button size="sm" variant="outline" className="flex-1 gap-1 h-9"
-                              onClick={() => { setEditAd({ id: a.id, title: a.title, status: a.status, image_url: a.image_url, video_url: a.video_url, link_url: a.link_url, cta_text: a.cta_text, format: a.format }); setModalOpen(true); }}>
+                              onClick={() => openEdit(a)}>
                               <Pencil className="w-3.5 h-3.5" />{isKo ? "수정" : "Edit"}
                             </Button>
                             <Button size="sm" className="flex-1 gap-1 h-9 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold"
@@ -172,13 +176,23 @@ export function AdvertiserDashboard({ onBack, onSignInClick }: Props) {
                               <Wallet className="w-3.5 h-3.5" />{isKo ? "충전" : "Top up"}
                             </Button>
                             <Button size="sm" variant="outline" className="flex-1 gap-1 h-9"
+                              onClick={() => openEdit(a)}>
+                              <Pencil className="w-3.5 h-3.5" />{isKo ? "수정" : "Edit"}
+                            </Button>
+                            <Button size="sm" variant="outline" className="flex-1 gap-1 h-9"
                               onClick={() => setActive(a.id, !a.is_active)}>
                               {a.is_active ? <><Pause className="w-3.5 h-3.5" />{isKo ? "일시중지" : "Pause"}</> : <><Play className="w-3.5 h-3.5" />{isKo ? "재개" : "Resume"}</>}
                             </Button>
                           </>
                         )}
                         {a.status === "pending_review" && (
-                          <p className="text-[11px] text-amber-300 py-2">{isKo ? "운영팀 심사 중입니다 (보통 1영업일)." : "Under review (~1 business day)."}</p>
+                          <div className="flex-1 flex items-center justify-between gap-2">
+                            <p className="text-[11px] text-amber-300">{isKo ? "운영팀 심사 중 (보통 1영업일)." : "Under review (~1 business day)."}</p>
+                            <Button size="sm" variant="outline" className="gap-1 h-9 shrink-0"
+                              onClick={() => openEdit(a)}>
+                              <Pencil className="w-3.5 h-3.5" />{isKo ? "수정" : "Edit"}
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </motion.div>
