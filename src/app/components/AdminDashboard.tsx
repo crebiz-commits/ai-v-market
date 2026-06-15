@@ -14,7 +14,7 @@ import { toast } from "sonner";
 const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer";
 // ─────────────────────────────────────────────────────────────────
 
-type AdType = "feed_display" | "video_preroll";
+type AdType = "feed_display" | "video_preroll" | "overlay";
 // Phase 28: 광고 형식 (DB의 ads.format 컬럼)
 type AdFormat = "feed" | "preroll" | "midroll" | "overlay" | "postroll" | "bumper";
 type AdTier = "home" | "cinema" | "ott";
@@ -35,12 +35,14 @@ const AD_CATEGORIES = ["AI영화", "AI드라마", "AI애니메이션", "AI다큐
 const AD_TYPE_TO_FORMAT: Record<AdType, AdFormat> = {
   feed_display: "feed",
   video_preroll: "preroll",
+  overlay: "overlay",
 };
+// 노출면 상호 배타: overlay 는 ad_type='overlay' 로 (피드 쿼리 ad_type='feed_display' 와 분리).
 const FORMAT_TO_AD_TYPE: Record<AdFormat, AdType> = {
   feed: "feed_display",
   preroll: "video_preroll",
   midroll: "video_preroll",
-  overlay: "feed_display",
+  overlay: "overlay",
   postroll: "video_preroll",
   bumper: "video_preroll",
 };
@@ -627,16 +629,14 @@ export function AdminDashboard() {
                         ? <ToggleRight className="w-5 h-5 text-green-400" />
                         : <ToggleLeft className="w-5 h-5 text-muted-foreground" />}
                     </button>
-                    {/* 자체광고만 어드민이 직접 수정 — 광고주 광고는 광고주가 광고센터에서 수정/심사는 [광고 심사] */}
-                    {!ad.owner_id && (
-                      <button
-                        onClick={() => openEdit(ad)}
-                        className="p-2 rounded-lg hover:bg-muted transition-colors"
-                        title="수정"
-                      >
-                        <Pencil className="w-4 h-4 text-[#6366f1]" />
-                      </button>
-                    )}
+                    {/* 자체광고·광고주 광고 모두 운영팀 직접 수정 가능(모더레이션·긴급 정정). 소유자(owner_id)는 보존됨 */}
+                    <button
+                      onClick={() => openEdit(ad)}
+                      className="p-2 rounded-lg hover:bg-muted transition-colors"
+                      title={ad.owner_id ? "수정 (광고주 광고 — 운영팀 직접 수정)" : "수정"}
+                    >
+                      <Pencil className="w-4 h-4 text-[#6366f1]" />
+                    </button>
                     <button
                       onClick={() => setDeleteConfirm(ad.id)}
                       className="p-2 rounded-lg hover:bg-red-500/10 transition-colors"
@@ -679,6 +679,14 @@ export function AdminDashboard() {
             </div>
 
             <div className="flex-1 p-5 space-y-5">
+
+              {/* 광고주 광고를 운영팀이 직접 수정하는 경우 — 안내 */}
+              {editingId && ads.find(a => a.id === editingId)?.owner_id && (
+                <div className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5 leading-relaxed">
+                  ⚠️ 광고주가 등록한 광고입니다. 운영팀이 직접 수정하면 광고주 계정에 그대로 반영됩니다.
+                  예산·형식 변경은 신중히 하세요. (소유자·소진액은 보존됩니다)
+                </div>
+              )}
 
               {/* Phase 28: 광고 형식 6개 선택 */}
               <Field label="광고 형식 *">
