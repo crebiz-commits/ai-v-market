@@ -89,7 +89,7 @@
 ## 🧱 8. 기능 백로그 (베타 후 — 코드, 대행 가능)
 
 ### 콘텐츠·크리에이터
-- [ ] ❌ AI 자동 자막 생성/번역 (현재 수동 자막만)
+- [~] 🟡 AI 자동 자막 생성/번역 — **코드 완료(2026-06-16)**: Bunny 내장 transcribe 연동(엣지 `/videos/:id/transcribe` 배포) + VideoEditModal "AI 자막 생성·번역" UI(원본 언어+번역 다국어). iframe 플레이어에 자동 표시. **선행 필요: Bunny 라이브러리 Transcription 기능 활성화(대시보드, 분당 과금)**. 활성화 전엔 502+안내.
 - [ ] ❌ 홍보문건(마케팅 소재) 자동 생성 (기획만 존재)
 - [ ] 🟡 영상 클립 자동 생성 파이프라인 (업로드 시 hero clip 자동) — [hero_clip.sql](../supabase/hero_clip.sql)
 

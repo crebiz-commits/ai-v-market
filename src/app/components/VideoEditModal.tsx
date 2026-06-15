@@ -5,12 +5,18 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { X, Loader2, Upload as UploadIcon, Plus, Trash2, Image as ImageIcon, FileText, Clock as ClockIcon, Save, AlertCircle, Sparkles, Film, Tag as TagIcon, Briefcase } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { supabase } from "../utils/supabaseClient";
+import { supabase, supabaseUrl, supabaseAnonKey } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { getCategoryLabel, getGenreLabel, getAiToolLabel, getLanguageLabel } from "../i18n/categoryLabels";
+
+// AI 자막(transcribe) 지원 언어 — ISO 639-1
+const SUBTITLE_LANGS: [string, string][] = [
+  ["ko", "한국어"], ["en", "English"], ["ja", "日本語"], ["zh", "中文"],
+  ["es", "Español"], ["fr", "Français"], ["vi", "Tiếng Việt"], ["id", "Indonesia"],
+];
 
 // Upload.tsx와 동일한 선택지 (Phase 33 — 편집 모달에서도 동일 옵션 제공)
 const CATEGORIES = ["영화", "드라마", "애니메이션", "다큐멘터리", "뮤직비디오", "기타"];
@@ -123,6 +129,10 @@ export function VideoEditModal({
   const [subtitleFile, setSubtitleFile] = useState<File | null>(null);
   const [uploadingSubtitle, setUploadingSubtitle] = useState(false);
   const [clearSubtitle, setClearSubtitle] = useState(false);
+  // AI 자막 생성·번역 (Bunny 내장 transcribe)
+  const [transcribing, setTranscribing] = useState(false);
+  const [aiSubSource, setAiSubSource] = useState("ko");
+  const [aiSubTargets, setAiSubTargets] = useState<string[]>(["en"]);
 
   const [ageRating, setAgeRating] = useState<string>(initialAgeRating);
 
@@ -254,6 +264,33 @@ export function VideoEditModal({
     }
     setSubtitleFile(file);
     setClearSubtitle(false);
+  };
+
+  // AI 자막 생성·번역 (Bunny 내장 transcribe) — 비동기, 완료 후 플레이어에 자동 표시
+  const toggleAiTarget = (code: string) => {
+    setAiSubTargets((prev) => prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]);
+  };
+  const handleAiTranscribe = async () => {
+    setTranscribing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { toast.error(t("videoEditModal.signInRequired", "로그인이 필요합니다.")); return; }
+      const res = await fetch(`${supabaseUrl}/functions/v1/server/videos/${videoId}/transcribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: supabaseAnonKey },
+        body: JSON.stringify({ sourceLanguage: aiSubSource, targetLanguages: aiSubTargets.filter((l) => l !== aiSubSource) }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || `요청 실패 (${res.status})`);
+      toast.success(t("videoEditModal.transcribeQueued", "AI 자막 생성을 시작했어요. 몇 분 후 플레이어에 자막이 표시됩니다."));
+      setSubtitleLanguage(aiSubSource);
+      setClearSubtitle(false);
+    } catch (e: any) {
+      toast.error((t("videoEditModal.transcribeFailed", "자막 생성 실패: ")) + (e?.message || ""));
+    } finally {
+      setTranscribing(false);
+    }
   };
 
   // 챕터 추가
@@ -724,6 +761,43 @@ export function VideoEditModal({
                   ✓ {subtitleFile.name} ({Math.round(subtitleFile.size / 1024)}KB)
                 </p>
               )}
+
+              {/* AI 자막 생성·번역 (Bunny 내장) */}
+              <div className="mt-4 p-3 rounded-lg border border-[#8b5cf6]/25 bg-[#8b5cf6]/5">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Sparkles className="w-4 h-4 text-[#a78bfa]" />
+                  <span className="text-xs font-bold text-[#c4b5fd]">{t("videoEditModal.aiSubtitleTitle", "AI 자막 생성·번역")}</span>
+                </div>
+                <p className="text-[11px] text-gray-500 mb-2 leading-relaxed">
+                  {t("videoEditModal.aiSubtitleHint", "영상 음성을 인식해 자막을 자동 생성하고 선택한 언어로 번역합니다. 생성까지 몇 분 걸리며, 완료되면 플레이어에 자동 표시됩니다.")}
+                </p>
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <label className="text-[11px] text-gray-400">{t("videoEditModal.aiSubtitleSource", "원본 언어")}</label>
+                  <select value={aiSubSource} onChange={(e) => { setAiSubSource(e.target.value); setAiSubTargets((p) => p.filter((c) => c !== e.target.value)); }}
+                    className="bg-white/5 border border-white/10 rounded-md px-2 py-1 text-xs text-white focus:outline-none focus:border-[#8b5cf6]">
+                    {SUBTITLE_LANGS.map(([code, label]) => <option key={code} value={code} className="bg-[#1a1a1c]">{label}</option>)}
+                  </select>
+                </div>
+                <div className="mb-2.5">
+                  <span className="text-[11px] text-gray-400">{t("videoEditModal.aiSubtitleTargets", "번역 (추가 언어)")}</span>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {SUBTITLE_LANGS.filter(([code]) => code !== aiSubSource).map(([code, label]) => {
+                      const on = aiSubTargets.includes(code);
+                      return (
+                        <button key={code} type="button" onClick={() => toggleAiTarget(code)}
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${on ? "bg-[#8b5cf6]/20 border-[#8b5cf6] text-[#c4b5fd]" : "bg-white/5 border-white/10 text-gray-400 hover:border-[#8b5cf6]/40"}`}>
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <Button onClick={handleAiTranscribe} disabled={transcribing}
+                  className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold h-9">
+                  {transcribing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {t("videoEditModal.aiSubtitleGenerate", "AI 자막 생성")}
+                </Button>
+              </div>
             </section>
 
             {/* 5. 시네마 크레딧 (Phase 33) */}

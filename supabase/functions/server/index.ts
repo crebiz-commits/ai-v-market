@@ -409,6 +409,86 @@ app.post("/videos/:videoId/thumbnail", async (c) => {
   }
 });
 
+// AI 자막 생성·번역 (Bunny Stream 내장 transcribe) — 비동기 큐잉, 완료 시 iframe 플레이어에 자동 표시
+app.post("/videos/:videoId/transcribe", async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const accessToken = authHeader?.split(' ')[1];
+    if (!accessToken) return c.json({ error: "인증 토큰이 필요합니다." }, 401);
+
+    const supabase = getSupabaseClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) return c.json({ error: "유효하지 않은 토큰입니다." }, 401);
+
+    const videoId = c.req.param('videoId');
+    if (!videoId || !/^[0-9a-f-]{36}$/i.test(videoId)) {
+      return c.json({ error: "올바른 videoId가 필요합니다." }, 400);
+    }
+
+    // 소유권 검증 (썸네일과 동일): KV → videos.creator_id → 어드민
+    const supabaseAdmin = getSupabaseClient(true);
+    let isOwner = false;
+    const kvRecord = await kv.get(`video:${videoId}`);
+    if (kvRecord?.userId === user.id) {
+      isOwner = true;
+    } else {
+      const { data: videoRow } = await supabaseAdmin
+        .from('videos').select('creator_id').eq('id', videoId).maybeSingle();
+      if (videoRow?.creator_id === user.id) isOwner = true;
+    }
+    if (!isOwner) {
+      const { data: profile } = await supabaseAdmin
+        .from('profiles').select('is_admin').eq('id', user.id).single();
+      if (!profile?.is_admin) {
+        return c.json({ error: "본인 영상에만 자막을 생성할 수 있습니다." }, 403);
+      }
+    }
+
+    const libraryId = Deno.env.get('BUNNY_LIBRARY_ID');
+    const apiKey = Deno.env.get('BUNNY_API_KEY');
+    if (!libraryId || !apiKey) {
+      return c.json({ error: "Bunny.net 설정이 완료되지 않았습니다." }, 500);
+    }
+
+    // 입력: 원본 언어 + 번역 대상 언어들 (ISO 639-1)
+    const reqBody = await c.req.json().catch(() => ({}));
+    const sourceLanguage: string = (reqBody.sourceLanguage || 'ko').toString().slice(0, 5);
+    const targetLanguages: string[] = Array.isArray(reqBody.targetLanguages)
+      ? reqBody.targetLanguages.filter((l: any) => typeof l === 'string').slice(0, 10)
+      : [];
+
+    const bunnyRes = await fetch(
+      `https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}/transcribe`,
+      {
+        method: 'POST',
+        headers: { 'AccessKey': apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceLanguage, targetLanguages }),
+      }
+    );
+
+    if (!bunnyRes.ok) {
+      const text = await bunnyRes.text().catch(() => '');
+      console.error('Bunny transcribe failed:', bunnyRes.status, text);
+      // 401/403: 라이브러리에 자막(transcription) 기능 미활성 가능성
+      const hint = (bunnyRes.status === 401 || bunnyRes.status === 403)
+        ? " (Bunny 라이브러리의 Transcription 기능이 켜져 있는지 확인하세요)" : "";
+      return c.json({ error: `자막 생성 요청 실패 (${bunnyRes.status})${hint}` }, 502);
+    }
+
+    // 완료는 비동기(수 분). 메타데이터에 자막 언어 표시 + 캡션 VTT URL 기록(완료 후 유효).
+    const hostname = Deno.env.get('BUNNY_HOSTNAME') || `vz-${libraryId}.b-cdn.net`;
+    const captionUrl = `https://${hostname}/${videoId}/captions/${sourceLanguage}.vtt`;
+    await supabaseAdmin.from('videos')
+      .update({ subtitle_language: sourceLanguage, subtitle_url: captionUrl })
+      .eq('id', videoId);
+
+    return c.json({ ok: true, queued: true, sourceLanguage, targetLanguages });
+  } catch (error) {
+    console.error('자막 생성 중 에러:', error);
+    return c.json({ error: `자막 생성 중 오류: ${error.message}` }, 500);
+  }
+});
+
 // 비디오 메타데이터 저장
 app.post("/videos/save-metadata", async (c) => {
   try {
