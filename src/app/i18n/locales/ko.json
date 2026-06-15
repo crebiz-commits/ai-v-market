@@ -972,7 +972,9 @@
       "adBudgetLowLabel": "광고 예산 소진 임박",
       "adBudgetLowDesc": "내 광고 예산이 거의 떨어졌을 때",
       "refundCompletedLabel": "환불 완료",
-      "refundCompletedDesc": "환불 처리가 완료되었을 때"
+      "refundCompletedDesc": "환불 처리가 완료되었을 때",
+      "broadcastLabel": "서비스 공지 이메일",
+      "broadcastDesc": "운영팀의 점검·이벤트·정책 변경 등 공지를 이메일로 받기"
     }
   },
   "share": {

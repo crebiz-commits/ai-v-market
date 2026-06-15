@@ -1379,6 +1379,76 @@ app.post('/send-email', async (c) => {
 });
 
 // ============================================
+// 어드민 브로드캐스트 이메일 (2026-06-16) — 세그먼트 대상에게 Resend 배치 발송.
+//   어드민 검증 → admin_broadcast_email_targets(segment) → Resend /emails/batch (100건씩).
+//   수신거부자(notification_preferences.email_broadcast=false) 제외 + 푸터에 수신거부 링크.
+// ============================================
+// 호출: POST /server/broadcast-email   Body: { segment, title, body, link }
+app.post('/broadcast-email', async (c) => {
+  try {
+    const admin = getSupabaseClient(true);
+    const token = (c.req.header('authorization') || '').replace(/^Bearer\s+/i, '');
+    if (!token) return c.json({ error: '인증이 필요합니다' }, 401);
+    const { data: caller, error: callerErr } = await admin.auth.getUser(token);
+    if (callerErr || !caller?.user) return c.json({ error: '인증 실패' }, 401);
+    const { data: prof } = await admin.from('profiles').select('is_admin').eq('id', caller.user.id).single();
+    if (!prof?.is_admin) return c.json({ error: '어드민만 발송 가능합니다' }, 403);
+
+    const { segment = 'all', title, body, link } = await c.req.json();
+    if (!title || !String(title).trim()) return c.json({ error: '제목이 필요합니다' }, 400);
+
+    const { data: targets, error: tErr } = await admin.rpc('admin_broadcast_email_targets', { p_segment: segment });
+    if (tErr) return c.json({ error: '대상 조회 실패: ' + tErr.message }, 500);
+    const list: { email: string }[] = (targets || []).filter((t: any) => t?.email);
+    if (list.length === 0) return c.json({ success: true, sent: 0, total: 0 });
+
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'noreply@mail.creaite.net';
+    const replyTo = Deno.env.get('RESEND_REPLY_TO') || 'support@creaite.net';
+    if (!resendApiKey) return c.json({ error: 'Resend API key not configured' }, 500);
+
+    const esc = (s: string) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const settingsUrl = 'https://www.creaite.net/?tab=mypage&section=settings';
+    const ctaUrl = typeof link === 'string' && link ? (link.startsWith('http') ? link : `https://www.creaite.net${link}`) : '';
+    const html = `<!doctype html><html><body style="margin:0;background:#0a0a0a;font-family:-apple-system,Segoe UI,Roboto,sans-serif;">
+      <div style="max-width:560px;margin:0 auto;padding:32px 24px;color:#e5e7eb;">
+        <div style="font-weight:900;font-size:20px;color:#a78bfa;margin-bottom:24px;">CREAITE</div>
+        <h1 style="font-size:20px;color:#fff;margin:0 0 16px;">${esc(title)}</h1>
+        ${body ? `<div style="font-size:14px;line-height:1.7;color:#d1d5db;">${esc(body).replace(/\n/g, '<br>')}</div>` : ''}
+        ${ctaUrl ? `<div style="margin:24px 0;"><a href="${esc(ctaUrl)}" style="display:inline-block;background:linear-gradient(90deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;font-weight:700;padding:12px 24px;border-radius:10px;">자세히 보기</a></div>` : ''}
+        <hr style="border:none;border-top:1px solid #262626;margin:28px 0;">
+        <div style="font-size:11px;color:#6b7280;line-height:1.6;">
+          이 메일은 CREAITE 서비스 공지입니다. 수신을 원치 않으시면 <a href="${settingsUrl}" style="color:#a78bfa;">알림 설정</a>에서 공지 이메일 수신을 끄실 수 있습니다.<br>
+          크레비즈 · 경기도 파주시 평화로342번길 71-5 · <a href="mailto:support@creaite.net" style="color:#a78bfa;">support@creaite.net</a>
+        </div>
+      </div></body></html>`;
+
+    const subject = `[CREAITE] ${String(title).trim()}`;
+    let sent = 0;
+    // Resend 배치 API: 1회 최대 100건
+    for (let i = 0; i < list.length; i += 100) {
+      const chunk = list.slice(i, i + 100);
+      const payload = chunk.map((u) => ({ from: `CREAITE <${fromEmail}>`, to: [u.email], reply_to: replyTo, subject, html }));
+      try {
+        const res = await fetch('https://api.resend.com/emails/batch', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) { sent += chunk.length; }
+        else { console.error('[broadcast-email] batch 실패', res.status, await res.text().catch(() => '')); }
+      } catch (e) {
+        console.error('[broadcast-email] batch 예외', e);
+      }
+    }
+    return c.json({ success: true, sent, total: list.length });
+  } catch (err: any) {
+    console.error('[broadcast-email] 예외:', err);
+    return c.json({ error: String(err?.message || err) }, 500);
+  }
+});
+
+// ============================================
 // 어드민 공지 푸시 발송 (Phase 10.7 보강 — 인앱 벨 INSERT 는 admin_broadcast_notification RPC 가,
 // 잠금화면 푸시는 이 엔드포인트가 담당. AdminBroadcast.tsx 가 둘 다 호출)
 // ============================================

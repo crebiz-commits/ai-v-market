@@ -972,7 +972,9 @@
       "adBudgetLowLabel": "Ad budget running low",
       "adBudgetLowDesc": "When your ad budget is nearly depleted",
       "refundCompletedLabel": "Refund completed",
-      "refundCompletedDesc": "When your refund has been processed"
+      "refundCompletedDesc": "When your refund has been processed",
+      "broadcastLabel": "Service announcement emails",
+      "broadcastDesc": "Receive maintenance, event, and policy update announcements by email"
     }
   },
   "share": {

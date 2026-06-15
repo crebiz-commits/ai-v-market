@@ -28,6 +28,7 @@ interface NotificationPreferences {
   email_report_result: boolean;
   email_ad_budget_low: boolean;
   email_refund_completed: boolean;
+  email_broadcast: boolean;
   push_welcome: boolean;
   push_subscription_receipt: boolean;
   push_new_video_from_followed: boolean;
@@ -41,7 +42,7 @@ interface NotificationPreferences {
 
 interface NotificationItem {
   emailKey: keyof NotificationPreferences;
-  pushKey: keyof NotificationPreferences;
+  pushKey?: keyof NotificationPreferences;   // 렌더 미사용(푸시는 상단 통합 토글) — 옵셔널
   labelKey: string;
   descKey: string;
   /** 트리거 미구현 — UI에 "준비 중" 표시 + 토글 비활성화 (메모리: phase34_*_pending) */
@@ -97,6 +98,12 @@ const ITEMS: NotificationItem[] = [
     pushKey: "push_refund_completed",
     labelKey: "notificationSettings.items.refundCompletedLabel",
     descKey: "notificationSettings.items.refundCompletedDesc",
+  },
+  {
+    // 운영팀 공지(점검·이벤트·정책) 이메일 — 끄면 브로드캐스트 이메일 수신 안 함
+    emailKey: "email_broadcast",
+    labelKey: "notificationSettings.items.broadcastLabel",
+    descKey: "notificationSettings.items.broadcastDesc",
   },
   // 광고 예산 소진 임박(email_ad_budget_low) — 광고주 셀프 서비스 도입 시 광고주에게만 노출
   // (메모리: project_advertiser_self_service_pending.md). DB 컬럼·i18n 키는 보존.

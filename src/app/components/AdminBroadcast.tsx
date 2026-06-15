@@ -31,6 +31,7 @@ export function AdminBroadcast() {
   const [linkChoice, setLinkChoice] = useState("");   // LINK_OPTIONS 의 key
   const [videoId, setVideoId] = useState("");          // linkChoice === "video" 일 때만 사용
   const [sending, setSending] = useState(false);
+  const [sendEmail, setSendEmail] = useState(false);   // 이메일도 함께 발송
   const [lastResult, setLastResult] = useState<{ count: number; segment: string } | null>(null);
 
   // 선택값 → 실제 link 문자열 (없으면 null)
@@ -86,6 +87,31 @@ export function AdminBroadcast() {
       console.warn("[broadcast] 푸시 발송 실패:", e);
     }
 
+    // 이메일 발송 (체크 시) — 수신거부자 제외하고 Resend 배치 발송
+    if (sendEmail) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(`https://${projectId}.supabase.co/functions/v1/server/broadcast-email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: publicAnonKey,
+            Authorization: `Bearer ${session?.access_token || publicAnonKey}`,
+          },
+          body: JSON.stringify({ segment, title, body: body || null, link: resolvedLink }),
+        });
+        const ed = await res.json();
+        if (res.ok && typeof ed?.sent === "number") {
+          toast.success(`이메일 ${ed.sent}건 발송 (수신거부 제외)`);
+        } else {
+          toast.error("이메일 발송 실패: " + (ed?.error || res.status));
+        }
+      } catch (e) {
+        console.warn("[broadcast] 이메일 발송 실패:", e);
+        toast.error("이메일 발송 중 오류");
+      }
+    }
+
     setTitle("");
     setBody("");
     setLinkChoice("");
@@ -101,7 +127,7 @@ export function AdminBroadcast() {
           <li>• 인앱 알림(🔔) + 잠금화면 푸시로 발송됩니다</li>
           <li>• 푸시는 "이 기기에서 푸시 받기"를 켠 구독 기기에만 도달합니다</li>
           <li>• 정지된 계정에는 발송하지 않습니다</li>
-          <li>• 이메일 발송은 향후 별도 작업 (Resend 연동)</li>
+          <li>• 이메일도 발송하려면 아래 「이메일도 발송」을 체크하세요 (수신거부자 제외)</li>
         </ul>
       </div>
 
@@ -198,6 +224,15 @@ export function AdminBroadcast() {
           적용 링크: <span className="font-mono text-blue-300/90">{resolvedLink || "(이동 없음)"}</span>
         </p>
       </div>
+
+      {/* 이메일 동시 발송 */}
+      <label className="flex items-start gap-2.5 p-3 rounded-lg border-2 border-border hover:border-[#6366f1]/40 cursor-pointer">
+        <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} className="mt-0.5 w-4 h-4 accent-[#6366f1]" />
+        <div>
+          <p className="font-semibold text-sm">📧 이메일도 발송</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">인앱·푸시에 더해 이메일도 발송합니다. 공지 이메일 수신을 끈 사용자는 자동 제외됩니다. (제목·본문 그대로 사용)</p>
+        </div>
+      </label>
 
       {/* 발송 버튼 */}
       <Button
