@@ -439,6 +439,12 @@ export function AdminDashboard() {
   const totalClicks = visibleAds.reduce((s, a) => s + a.clicks, 0);
   const activeCount = visibleAds.filter(a => a.is_active).length;
 
+  // 광고 형식별로 필요한 소재/필드만 노출 (수정 폼) — 포맷마다 입력란이 달라 헷갈리던 문제 해소
+  const ff = form.format;
+  const showImageField    = ff === "feed" || ff === "overlay";      // 이미지 배너: 피드 카드 / 오버레이
+  const showVideoField    = ff !== "overlay";                       // 영상 소재: 피드(영상)·프리롤·미드롤·포스트롤·범퍼
+  const showVideoTargeting = ff !== "feed";                         // 영상에 붙는 광고만 tier/카테고리/최소영상길이 타겟 적용
+
   return (
     <div>
       {/* 광고 구분 탭 + (자체광고 탭에서만) 광고 추가 버튼 */}
@@ -733,7 +739,8 @@ export function AdminDashboard() {
                 />
               </Field>
 
-              {/* 이미지 URL + 직접 업로드 */}
+              {/* 이미지 URL + 직접 업로드 — 피드 카드/오버레이만 */}
+              {showImageField && (
               <Field label="이미지 URL" icon={<ImageIcon className="w-4 h-4 text-muted-foreground" />}>
                 <input
                   className="input-base"
@@ -780,8 +787,10 @@ export function AdminDashboard() {
                   💡 이미지 직접 업로드 시 Supabase Storage에 저장됩니다 (10MB 이하).
                 </p>
               </Field>
+              )}
 
-              {/* Bunny 영상 URL + 직접 업로드 버튼 */}
+              {/* Bunny 영상 URL + 직접 업로드 버튼 — 영상 소재 형식만 */}
+              {showVideoField && (<>
               <Field label="Bunny 영상 URL (HLS)" icon={<Video className="w-4 h-4 text-muted-foreground" />}>
                 <input
                   className="input-base"
@@ -846,6 +855,7 @@ export function AdminDashboard() {
                   />
                 </Field>
               )}
+              </>)}
 
               {/* 랜딩 URL */}
               <Field label="랜딩 URL *" icon={<Link className="w-4 h-4 text-muted-foreground" />}>
@@ -1049,6 +1059,8 @@ export function AdminDashboard() {
                 </div>
               )}
 
+              {/* 영상에 붙는 광고(프리롤/미드롤/오버레이/포스트롤/범퍼)만 — 어느 영상에 노출할지 타겟팅 */}
+              {showVideoTargeting && (<>
               {/* Phase 28: 공통 타겟팅 — tier */}
               <Field label="노출 영상 tier (체크한 tier에만 노출, 모두 해제 시 전체)">
                 <div className="flex gap-2 flex-wrap">
@@ -1119,6 +1131,7 @@ export function AdminDashboard() {
                   이 길이 미만의 영상에는 광고를 노출하지 않습니다. (Overlay 권장: 60, Mid-roll 권장: 600)
                 </p>
               </Field>
+              </>)}
 
               {/* 기간 */}
               <Field label="노출 기간" icon={<Calendar className="w-4 h-4 text-muted-foreground" />}>
