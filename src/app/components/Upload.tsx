@@ -59,6 +59,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
   const [isUploading, setIsUploading] = useState(false);
   const [bunnyVideoId, setBunnyVideoId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollRootRef = useRef<HTMLDivElement>(null);
   const [forceUpdate, setForceUpdate] = useState(0); // 강제 리렌더링용
   // 챌린지 참가로 진입한 경우 — 출품작 태그를 제출 시 자동 부착 (가시 태그칩은 건드리지 않음)
   const [activeChallenge, setActiveChallenge] = useState<{ tag: string; title: string } | null>(null);
@@ -241,6 +242,13 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
       localStorage.removeItem(draftKey);
     }
   }, [uploadComplete, draftKey]);
+
+  // 진입(마운트)·단계 전환 시 스크롤을 항상 상단으로 — 탭 전환 시 이전 스크롤 위치가
+  // 남아 하단에서 시작되던 문제 방지. (자체 스크롤 컨테이너 + 윈도우 둘 다 리셋)
+  useEffect(() => {
+    scrollRootRef.current?.scrollTo({ top: 0 });
+    if (typeof window !== "undefined") window.scrollTo({ top: 0 });
+  }, [step]);
 
   // 사이즈/시간 포맷터
   const formatBytes = (bytes: number): string => {
@@ -887,7 +895,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-background">
+    <div ref={scrollRootRef} className="h-full overflow-y-auto bg-background">
       <div className="max-w-3xl mx-auto p-6 md:p-8 pb-28 md:pb-8">
 
         {/* 챌린지 참가 배너 — '참가하기'로 진입한 경우 */}
