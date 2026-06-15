@@ -1,11 +1,13 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 
 // ════════════════════════════════════════════════════════════════════════════
-// 이벤트 배너 보드 — 스크롤-스냅 캐러셀 (2026-06-16 재작성)
-//  - 모바일: 손가락 스와이프(네이티브 가로 스크롤), 카드가 화면 폭에 맞게 넓어 글자 안 잘림
-//  - 데스크탑: 좌우 화살표 버튼으로 수동 이동
-//  - 자동 흐름: 4초마다 한 칸씩 부드럽게 이동(끝에서 처음으로). 마우스 호버/터치 중엔 일시정지
+// 이벤트 배너 보드 — 끊김 없는 연속 흐름 + 수동 제어 (2026-06-16)
+//  - 흐름: 진짜 스크롤 컨테이너의 scrollLeft 를 rAF로 천천히 증가(끊김 없는 마퀴).
+//          배너 2벌 복제 → 절반 지나면 -절반(이음매 없음)으로 무한 루프.
+//  - 모바일: 손가락 스와이프(네이티브 가로 스크롤). 카드 폭이 넓어 글자 안 잘림.
+//  - 데스크탑: 좌우 화살표 버튼으로 수동 이동.
+//  - 마우스 호버/터치 중엔 자동 흐름 일시정지.
 //  - 카드 변형: image(사진+badge), center(슬로건 중앙), badges(D-14/진행중)
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -34,6 +36,7 @@ interface Props {
 
 export function EventBannerBoard({ banners, onNavigate }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pausedRef = useRef(false);
 
   const go = (link?: string) => {
     if (!link) return;
@@ -46,44 +49,40 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
     } catch { /* ignore */ }
   };
 
-  // 한 카드(+gap) 만큼 좌우 이동
+  const pause = useCallback(() => { pausedRef.current = true; }, []);
+  const resume = useCallback(() => { pausedRef.current = false; }, []);
+
+  // 끊김 없는 연속 흐름 — rAF로 scrollLeft 증가. 절반(1벌) 지나면 -절반으로 무한 루프.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || banners.length === 0) return;
+    const SPEED = 0.5; // px/frame (~30px/s, 천천히)
+    let raf = 0;
+    const tick = () => {
+      const half = el.scrollWidth / 2;   // 복제 1벌 폭
+      if (half > 0) {
+        if (!pausedRef.current) el.scrollLeft += SPEED;
+        // 이음매 없는 루프 (앞/뒤 양방향)
+        if (el.scrollLeft >= half) el.scrollLeft -= half;
+        else if (el.scrollLeft < 0) el.scrollLeft += half;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [banners.length]);
+
+  // 한 카드(+gap)씩 좌우 이동 (데스크탑 버튼)
   const scrollByCard = (dir: 1 | -1) => {
     const el = scrollRef.current;
     if (!el) return;
     const card = el.querySelector<HTMLElement>("[data-banner-card]");
-    const amount = card ? card.offsetWidth + 12 : el.clientWidth * 0.85;
+    const amount = card ? card.offsetWidth + 12 : 300;
+    const half = el.scrollWidth / 2;
+    // 왼쪽 끝에서 더 뒤로 갈 땐 미리 +절반(이음매 없이 이어짐)
+    if (dir < 0 && half > 0 && el.scrollLeft - amount < 0) el.scrollLeft += half;
     el.scrollBy({ left: dir * amount, behavior: "smooth" });
   };
-
-  // 자동 흐름 — 4초마다 한 칸. 호버/터치 중엔 일시정지.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el || banners.length <= 1) return;
-    let paused = false;
-    const pause = () => { paused = true; };
-    const resume = () => { paused = false; };
-    el.addEventListener("pointerenter", pause);
-    el.addEventListener("pointerleave", resume);
-    el.addEventListener("touchstart", pause, { passive: true });
-    el.addEventListener("touchend", resume, { passive: true });
-    const id = window.setInterval(() => {
-      if (paused) return;
-      const card = el.querySelector<HTMLElement>("[data-banner-card]");
-      const amount = card ? card.offsetWidth + 12 : el.clientWidth;
-      if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 4) {
-        el.scrollTo({ left: 0, behavior: "smooth" });
-      } else {
-        el.scrollBy({ left: amount, behavior: "smooth" });
-      }
-    }, 4000);
-    return () => {
-      window.clearInterval(id);
-      el.removeEventListener("pointerenter", pause);
-      el.removeEventListener("pointerleave", resume);
-      el.removeEventListener("touchstart", pause);
-      el.removeEventListener("touchend", resume);
-    };
-  }, [banners.length]);
 
   if (banners.length === 0) return null;
 
@@ -91,10 +90,20 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
     <div className="relative px-1 md:px-2">
       <div
         ref={scrollRef}
-        className="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        onPointerEnter={pause}
+        onPointerLeave={resume}
+        onTouchStart={pause}
+        onTouchEnd={resume}
+        className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {banners.map((b) => (
-          <div key={b.id} data-banner-card className="snap-start shrink-0 w-[86vw] max-w-[360px] md:w-[360px]">
+        {/* 배너 2벌 복제 → 무한 흐름. 뒷벌은 보조용(aria-hidden) */}
+        {[...banners, ...banners].map((b, i) => (
+          <div
+            key={`${b.id}-${i}`}
+            data-banner-card
+            aria-hidden={i >= banners.length}
+            className="shrink-0 w-[86vw] max-w-[360px] md:w-[360px]"
+          >
             <button
               onClick={() => go(b.link)}
               className="relative w-full h-44 md:h-48 rounded-2xl overflow-hidden text-left group block"
