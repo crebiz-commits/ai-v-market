@@ -23,11 +23,22 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
   useBackButton(open, () => setOpen(false));
 
   const handleNav = (tab: string) => {
+    // setOpen(false) → useBackButton cleanup → history.back() → popstate 발생.
+    // App 의 popstate 핸들러가 URL→activeTab 동기화를 하므로, navigation 은 그 popstate 가
+    // 처리된 "직후"에 실행해야 경합이 없다. rAF(불확정 타이밍)는 popstate 보다 먼저 실행될 수
+    // 있어 navigation 이 되돌려지므로, popstate 이벤트에 체이닝해 확정적으로 1회만 navigate.
+    let done = false;
+    const navigate = () => {
+      if (done) return;
+      done = true;
+      window.removeEventListener("popstate", onPop);
+      onNavigate(tab);
+    };
+    const onPop = () => navigate();
+    window.addEventListener("popstate", onPop);
     setOpen(false);
-    // setOpen(false) → useBackButton cleanup → history.back() 발동.
-    // 동시에 onNavigate(tab) 호출하면 setActiveTab useEffect 의 pushState 와 race condition 가능.
-    // requestAnimationFrame 으로 한 프레임 지연시켜 cleanup 의 history.back() 완료 후 navigation 처리.
-    requestAnimationFrame(() => onNavigate(tab));
+    // 안전장치: 어떤 이유로 popstate 가 오지 않으면(이미 닫힘 등) 일정 시간 후 강제 navigate.
+    window.setTimeout(navigate, 200);
   };
 
   return (
