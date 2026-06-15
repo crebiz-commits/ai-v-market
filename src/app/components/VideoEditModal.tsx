@@ -116,7 +116,7 @@ export function VideoEditModal({
   onSaved,
 }: VideoEditModalProps) {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string>(initialThumbnail || "");
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
@@ -762,7 +762,9 @@ export function VideoEditModal({
                 </p>
               )}
 
-              {/* AI 자막 생성·번역 (Bunny 내장) */}
+              {/* AI 자막 생성·번역 (Bunny 내장) — 플랫폼 Bunny 계정에 분당 과금되므로 운영자(어드민)만 노출.
+                  크리에이터는 위의 무료 수동 .vtt 업로드만 사용. */}
+              {profile?.is_admin && (
               <div className="mt-4 p-3 rounded-lg border border-[#8b5cf6]/25 bg-[#8b5cf6]/5">
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <Sparkles className="w-4 h-4 text-[#a78bfa]" />
@@ -798,6 +800,7 @@ export function VideoEditModal({
                   {t("videoEditModal.aiSubtitleGenerate", "AI 자막 생성")}
                 </Button>
               </div>
+              )}
             </section>
 
             {/* 5. 시네마 크레딧 (Phase 33) */}
