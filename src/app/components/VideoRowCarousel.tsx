@@ -237,7 +237,7 @@ function VideoCard({ video, idx, onVideoClick, onAddToCart, showProgress, showRa
         <p className="text-[11px] md:text-sm font-black mt-0.5 md:mt-1">
           {typeof video.price_standard === "number" && video.price_standard > 0 ? (
             isNegotiationOnly(video.price_standard)
-              ? <span className="text-amber-400">별도 협의</span>
+              ? <span className="text-amber-400">{t("video.negotiationOnly", "별도 협의")}</span>
               : <span className="text-[#f87171]">₩{video.price_standard.toLocaleString()}</span>
           ) : (
             <span className="text-gray-500">{t("video.notForSaleShort")}</span>

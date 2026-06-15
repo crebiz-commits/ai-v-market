@@ -20,6 +20,7 @@ import { VideoFullscreen } from "./VideoFullscreen";
 import { CreatorAvatar } from "./CreatorAvatar";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { useBackButton } from "../hooks/useBackButton";
+import { isNegotiationOnly } from "../utils/licensePricing";
 import { toast } from "sonner";
 
 interface Ad {
@@ -594,7 +595,9 @@ const MovieSection = memo(({
                 {video.price > 0 ? (
                   <>
                     <span className="text-[10px] text-white/50 font-medium leading-none mb-1">{t("video.downloadCommercial")}</span>
-                    <span className="text-sm font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>
+                    {isNegotiationOnly(video.price)
+                      ? <span className="text-sm font-black text-amber-400">{t("video.negotiationOnly", "별도 협의")}</span>
+                      : <span className="text-sm font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>}
                   </>
                 ) : (
                   <>
@@ -1447,7 +1450,9 @@ function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onCommen
             {video.price > 0 ? (
               <>
                 <span className="text-[10px] text-white/50 font-medium leading-none mb-1">{t("video.downloadCommercial")}</span>
-                <span className="text-lg font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>
+                {isNegotiationOnly(video.price)
+                  ? <span className="text-lg font-black text-amber-400">{t("video.negotiationOnly", "별도 협의")}</span>
+                  : <span className="text-lg font-black text-[#f87171]">₩{video.price.toLocaleString()}</span>}
               </>
             ) : (
               <>
