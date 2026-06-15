@@ -100,7 +100,7 @@ function Card({ icon: Icon, title, desc }: { icon: any; title: string; desc: str
 // ──────────────────────────────────────────────────────────────────────
 // Terms of Service
 // ──────────────────────────────────────────────────────────────────────
-const LEGAL_LAST_MODIFIED = "2026-06-12";
+const LEGAL_LAST_MODIFIED = "2026-06-16";
 
 export function TermsPage({ onBack, onNavigate }: StaticPageProps) {
   const isKo = useIsKorean();
@@ -195,8 +195,8 @@ const ABOUT_KO = {
 const TERMS_KO = {
   title: "이용약관",
   lastModifiedLabel: "최종 개정일",
-  draftLabel: "초안",
-  draftNotice: "본 문서는 초안입니다. 정식 서비스 출시 전 법무 검토를 거쳐 최종본으로 대체됩니다.",
+  draftLabel: "",
+  draftNotice: "본 문서는 출시 기준에 맞춰 작성·보강되었습니다. 회사의 구체적 사업 상황에 따라 변호사 등 전문가의 최종 검토를 권장합니다.",
   sections: [
     { title: "제1조 (목적)", body: '본 약관은 크레비즈(이하 "회사", 사업자등록번호 107-10-27099)가 운영하는 AI 시네마 OTT 서비스 "CREAITE"(이하 "서비스") 이용에 관한 회사와 이용자의 권리·의무 및 책임사항, 기타 필요한 사항을 규정함을 목적으로 합니다.' },
     { title: "제2조 (이용 자격)", body: "만 14세 이상의 사용자는 누구나 회원으로 가입할 수 있습니다. 미성년자는 보호자의 동의를 받아야 합니다." },
@@ -208,15 +208,18 @@ const TERMS_KO = {
     { title: "제8조 (서비스 변경·중단)", body: "회사는 운영·기술상의 필요에 따라 서비스 내용을 변경하거나 중단할 수 있으며, 중대한 변경 시 사전 공지합니다." },
     { title: "제9조 (회원 탈퇴 · 계정 삭제)", body: '이용자는 언제든지 마이페이지 → 설정 → 위험 영역에서 계정 삭제를 요청할 수 있습니다. 삭제 요청 후 <span class="font-bold text-white">30일의 유예 기간</span>이 부여되며, 이 기간 동안은 언제든 취소할 수 있습니다. 30일 경과 시 계정 및 모든 개인 데이터(영상·댓글·좋아요·시청 기록·플레이리스트 등)가 영구 삭제됩니다. 단, 전자상거래법 등 관계 법령에 따라 보존이 필요한 결제 기록은 해당 법령에서 정한 기간 동안 보관됩니다.' },
     { title: "제10조 (이용자 데이터 권리)", body: '이용자는 마이페이지 → 설정 → "내 데이터 다운로드"에서 자신의 모든 데이터를 JSON 형식으로 언제든 다운로드할 수 있습니다 (개인정보보호법상 데이터 이동권).' },
-    { title: "제11조 (분쟁 해결)", body: "본 약관과 관련된 분쟁은 대한민국 법률을 적용하며, 서울중앙지방법원을 1심 관할 법원으로 합니다." },
+    { title: "제11조 (분쟁 해결 및 관할)", body: "본 약관 및 서비스 이용과 관련한 분쟁에 대하여는 대한민국 법을 준거법으로 합니다. 회사와 이용자 간에 발생한 분쟁에 관한 소송은 「민사소송법」이 정한 관할 법원에 제기합니다. (소비자인 이용자의 경우 제소 당시 주소지를 관할하는 법원에 제기할 수 있습니다.)" },
+    { title: "제12조 (통신판매중개자의 지위 및 책임)", body: '① 회사는 구독 서비스에 대하여는 <strong class="text-white">통신판매업자</strong>로서 이를 직접 제공합니다.<br />② 크리에이터가 등록한 영상 라이선스의 판매에 대하여 회사는 <strong class="text-white">통신판매중개자</strong>이며 해당 거래의 당사자가 아닙니다. 상품 정보 및 거래에 관한 책임은 판매자인 크리에이터에게 있습니다.<br />③ 다만 회사의 고의 또는 과실로 이용자에게 손해가 발생한 경우 회사는 그 범위에서 책임을 부담하며, 이용자 보호를 위해 분쟁 발생 시 합리적 범위에서 중재·환불 등 필요한 조치를 취할 수 있습니다.' },
+    { title: "제13조 (회사의 면책 및 책임 제한)", body: "① 회사는 천재지변, 디도스(DDoS) 공격, 기간통신사업자의 서비스 중지 등 불가항력으로 인한 서비스 장애에 대하여 책임을 지지 않습니다.<br />② 회사는 이용자의 귀책사유로 인한 이용 장애, 이용자가 게시·전송한 정보의 신뢰도·정확성, 이용자 상호 간 또는 이용자와 제3자 간 분쟁에 대하여 책임을 지지 않습니다.<br />③ 무료로 제공되는 서비스의 이용과 관련하여는 관련 법령에 특별한 규정이 없는 한 책임을 지지 않습니다." },
+    { title: "제14조 (약관의 게시 및 개정)", body: "① 회사는 본 약관을 서비스 화면에 게시합니다.<br />② 회사는 「약관의 규제에 관한 법률」, 「전자상거래 등에서의 소비자보호에 관한 법률」 등 관련 법령을 위반하지 않는 범위에서 약관을 개정할 수 있습니다.<br />③ 약관을 개정하는 경우 적용일자 및 개정사유를 명시하여 적용일 7일 전(이용자에게 불리하거나 중대한 변경은 30일 전)부터 공지합니다.<br />④ 이용자가 개정 약관에 동의하지 않는 경우 회원 탈퇴할 수 있으며, 공지된 적용일 이후에도 서비스를 계속 이용하는 경우 개정 약관에 동의한 것으로 봅니다." },
   ],
 };
 
 const PRIVACY_KO = {
   title: "개인정보처리방침",
   lastModifiedLabel: "최종 개정일",
-  draftLabel: "초안",
-  draftNotice: "본 문서는 초안입니다. 정식 서비스 출시 전 법무 검토를 거쳐 최종본으로 대체됩니다.",
+  draftLabel: "",
+  draftNotice: "본 문서는 출시 기준에 맞춰 작성·보강되었습니다. 회사의 구체적 사업 상황에 따라 변호사 등 전문가의 최종 검토를 권장합니다.",
   sections: [
     { title: "1. 수집하는 개인정보 항목", body: '회원가입 시: 이메일, 이름, OAuth 프로필 이미지(구글/카카오 로그인 시).<br />서비스 이용 중: IP 주소, 기기 정보, 시청 이력, 결제 정보(PG사 위탁).<br />추가 수집(해당 시): 생년월일(연령 확인), 정산 계좌 정보(은행명·계좌번호·예금주 — 크리에이터 수익 정산), 세금 정보(사업자 구분·사업자등록번호 — 원천징수·세무 신고), 푸시 알림 구독 정보(기기 토큰).' },
     { title: "2. 수집·이용 목적", body: "서비스 제공, 본인 확인, 결제·정산, 부정 이용 방지, 통계 분석, 마케팅(별도 동의 시)." },
@@ -226,7 +229,12 @@ const PRIVACY_KO = {
     { title: "6. 개인정보 국외 이전", body: '회사는 서비스 제공을 위해 아래와 같이 개인정보를 국외로 이전(보관)합니다.<br />· <strong class="text-white">Supabase Inc.</strong>(미국) — 계정·콘텐츠·DB 보관, 회원 탈퇴 시까지<br />· <strong class="text-white">Bunny.net</strong>(Bunnyway d.o.o., 슬로베니아·EU) — 영상 스트리밍, 회원 탈퇴 시까지<br />· <strong class="text-white">Vercel Inc.</strong>(미국) — 웹 호스팅·접속 정보<br />· <strong class="text-white">Resend</strong>(미국) — 이메일 발송(이메일 주소)<br />이전 시점·방법: 위 서비스 이용 시점에 정보통신망을 통해 전송됩니다. 이용자는 개인정보 국외 이전을 거부할 수 있으나, 거부 시 서비스 이용이 제한될 수 있습니다.' },
     { title: "7. 이용자 권리 (열람·수정·삭제·다운로드)", body: '이용자는 개인정보보호법에 따라 다음 권리를 행사할 수 있습니다:<br /><strong class="text-white">· 열람·수정:</strong> 마이페이지 → 프로필 편집에서 직접 수정<br /><strong class="text-white">· 데이터 다운로드:</strong> 마이페이지 → 설정 → "내 데이터 다운로드"에서 본인 데이터 전체 JSON 다운로드<br /><strong class="text-white">· 계정 삭제:</strong> 마이페이지 → 설정 → 위험 영역에서 요청. 30일 유예 후 영구 삭제. 그 전까지 언제든 취소 가능<br />기타 문의는 <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>으로 연락주세요.' },
     { title: "8. 쿠키 사용", body: "서비스는 로그인 유지 및 사용성 개선을 위해 쿠키를 사용합니다. 브라우저 설정에서 거부할 수 있으나 일부 기능이 제한될 수 있습니다." },
-    { title: "9. 개인정보 보호 책임자", body: '성명: 이현우 (크레비즈 대표)<br />이메일: <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>' },
+    { title: "9. 만 14세 미만 아동의 개인정보", body: "회사는 만 14세 미만 아동의 회원가입을 받지 않으며, 만 14세 미만 아동의 개인정보를 수집하지 않습니다." },
+    { title: "10. 개인정보의 파기 절차 및 방법", body: "회사는 보유기간이 경과하거나 처리목적이 달성된 개인정보를 지체 없이 파기합니다.<br />· 전자적 파일: 복구·재생이 불가능한 방법으로 영구 삭제<br />· 종이 출력물: 분쇄 또는 소각<br />단, 관계 법령에 따라 보존이 필요한 정보는 별도 분리하여 보관 후 파기합니다." },
+    { title: "11. 개인정보의 안전성 확보 조치", body: "회사는 「개인정보 보호법」 제29조에 따라 다음과 같은 안전조치를 취합니다.<br />· 비밀번호 등 중요정보의 암호화 저장·전송 (HTTPS 적용)<br />· 개인정보 접근 권한의 최소화 및 접근 통제<br />· 접근 기록의 보관 및 위·변조 방지<br />· 처리 위탁사의 보안 수준 점검" },
+    { title: "12. 권익침해 구제 방법", body: '개인정보 침해로 인한 상담·신고는 아래 기관에 문의하실 수 있습니다.<br />· 개인정보분쟁조정위원회 (<a href="https://www.kopico.go.kr" target="_blank" rel="noopener" class="text-[#8b5cf6] hover:underline">kopico.go.kr</a> / 1833-6972)<br />· 개인정보침해신고센터 (<a href="https://privacy.kisa.or.kr" target="_blank" rel="noopener" class="text-[#8b5cf6] hover:underline">privacy.kisa.or.kr</a> / 국번없이 118)<br />· 대검찰청 사이버수사과 (1301) · 경찰청 사이버수사국 (182)' },
+    { title: "13. 개인정보 보호 책임자", body: '성명: 이현우 (크레비즈 대표)<br />이메일: <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a><br />이용자는 서비스 이용 중 발생하는 개인정보 보호 관련 문의·불만·피해구제를 위 책임자에게 신고할 수 있으며, 회사는 지체 없이 답변·처리합니다.' },
+    { title: "14. 개인정보처리방침의 변경", body: "본 방침은 법령·서비스의 변경에 따라 개정될 수 있으며, 개정 시 시행일 7일 전부터(중요한 변경은 30일 전부터) 서비스 공지사항을 통해 안내합니다." },
   ],
 };
 
@@ -284,7 +292,10 @@ const TERMS_EN = {
     { title: "Article 8 (Service Changes / Suspension)", body: "The Company may change or suspend service contents for operational or technical reasons. Significant changes will be announced in advance." },
     { title: "Article 9 (Membership Withdrawal · Account Deletion)", body: 'Users may request account deletion at any time via My Page → Settings → Danger Zone. After requesting deletion, a <span class="font-bold text-white">30-day grace period</span> is granted, during which users may cancel the request at any time. After 30 days, the account and all personal data (videos, comments, likes, watch history, playlists, etc.) are permanently deleted. However, payment records required for retention under applicable laws (e.g., e-commerce law) are retained for the period specified by such laws.' },
     { title: "Article 10 (User Data Rights)", body: 'Users may download all of their data in JSON format at any time via My Page → Settings → "Download my data" (right to data portability under personal information protection law).' },
-    { title: "Article 11 (Dispute Resolution)", body: "Disputes related to these Terms shall be governed by the laws of the Republic of Korea, with the Seoul Central District Court as the court of first instance." },
+    { title: "Article 11 (Dispute Resolution & Jurisdiction)", body: "These Terms and the use of the Service shall be governed by the laws of the Republic of Korea. Lawsuits between the Company and a user shall be filed with the court having jurisdiction under the Civil Procedure Act. (A user who is a consumer may file with the court having jurisdiction over their address at the time of filing.)" },
+    { title: "Article 12 (Marketplace Intermediary Status & Liability)", body: "① For subscription services, the Company acts as a direct seller (telecommunication sales business operator).<br />② For sales of video licenses registered by creators, the Company is a marketplace intermediary and not a party to such transactions; responsibility for the goods and the transaction lies with the creator (seller).<br />③ However, the Company is liable for damages caused by its own intent or negligence, and may take reasonable measures such as mediation or refunds to protect users in case of disputes." },
+    { title: "Article 13 (Disclaimer & Limitation of Liability)", body: "① The Company is not liable for service disruptions caused by force majeure such as natural disasters, DDoS attacks, or outages of telecommunication carriers.<br />② The Company is not liable for disruptions due to a user's fault, the reliability/accuracy of information posted by users, or disputes between users or between users and third parties.<br />③ Unless otherwise provided by law, the Company is not liable in connection with services provided free of charge." },
+    { title: "Article 14 (Posting & Amendment of Terms)", body: "① The Company posts these Terms on the Service.<br />② The Company may amend these Terms within the scope permitted by applicable law.<br />③ When amending, the Company announces the effective date and reason at least 7 days in advance (30 days for changes unfavorable or material to users).<br />④ If a user does not agree to the amended Terms, they may withdraw membership; continued use of the Service after the effective date is deemed acceptance." },
   ],
 };
 
@@ -302,7 +313,12 @@ const PRIVACY_EN = {
     { title: "6. Cross-border Transfer of Personal Information", body: 'For service provision, personal information is transferred (stored) overseas as follows:<br />· <strong class="text-white">Supabase Inc.</strong> (USA) — account / content / database, until withdrawal<br />· <strong class="text-white">Bunny.net</strong> (Bunnyway d.o.o., Slovenia / EU) — video streaming, until withdrawal<br />· <strong class="text-white">Vercel Inc.</strong> (USA) — web hosting / access info<br />· <strong class="text-white">Resend</strong> (USA) — email delivery (email address)<br />Time / method of transfer: transmitted over the network at the time the above services are used. You may refuse the cross-border transfer, but service use may be restricted as a result.' },
     { title: "7. User Rights (Access, Edit, Delete, Download)", body: 'Users may exercise the following rights under personal information protection law:<br /><strong class="text-white">· Access / Edit:</strong> Edit directly via My Page → Edit Profile<br /><strong class="text-white">· Download:</strong> Download all your data as JSON via My Page → Settings → "Download my data"<br /><strong class="text-white">· Account deletion:</strong> Request via My Page → Settings → Danger Zone. Permanent deletion after a 30-day grace period; cancelable at any time before<br />For other inquiries, please contact <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>.' },
     { title: "8. Cookies", body: "The Service uses cookies to maintain login sessions and improve usability. You may decline cookies in your browser settings, but some functions may be limited." },
-    { title: "9. Personal Information Officer", body: 'Name: Lee Hyunwoo (이현우, CEO of Crebiz)<br />Email: <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a>' },
+    { title: "9. Children Under 14", body: "The Company does not allow membership registration by, nor collect personal information from, children under the age of 14." },
+    { title: "10. Destruction of Personal Information", body: "The Company destroys personal information without delay once the retention period expires or the purpose is achieved.<br />· Electronic files: permanently deleted by irrecoverable means<br />· Paper printouts: shredded or incinerated<br />Information required to be retained by law is stored separately before destruction." },
+    { title: "11. Security Measures", body: "Pursuant to Article 29 of the Personal Information Protection Act, the Company applies: encryption of important data in storage/transit (HTTPS), minimization and control of access privileges, retention and tamper-prevention of access logs, and security reviews of processors." },
+    { title: "12. Remedies for Rights Infringement", body: 'For consultation or reporting of privacy infringement, you may contact:<br />· Personal Information Dispute Mediation Committee (<a href="https://www.kopico.go.kr" target="_blank" rel="noopener" class="text-[#8b5cf6] hover:underline">kopico.go.kr</a> / 1833-6972)<br />· Privacy Infringement Report Center (<a href="https://privacy.kisa.or.kr" target="_blank" rel="noopener" class="text-[#8b5cf6] hover:underline">privacy.kisa.or.kr</a> / 118)<br />· Supreme Prosecutors\' Office Cyber Investigation (1301) · National Police Agency Cyber Bureau (182)' },
+    { title: "13. Personal Information Officer", body: 'Name: Lee Hyunwoo (이현우, CEO of Crebiz)<br />Email: <a href="mailto:legal@creaite.net" class="text-[#8b5cf6] hover:underline">legal@creaite.net</a><br />Users may report privacy-related inquiries, complaints, or remedy requests to the officer above, and the Company will respond without delay.' },
+    { title: "14. Changes to this Policy", body: "This Policy may be amended in line with changes to law or the Service. Amendments are announced via the Service at least 7 days in advance (30 days for material changes)." },
   ],
 };
 
