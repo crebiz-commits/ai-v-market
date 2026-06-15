@@ -150,7 +150,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
   // clipUrl(미리 잘린 30초 하이라이트 클립)이 있으면 seek 없이 처음부터 재생(안정적).
   const [heroSrc, setHeroSrc] = useState<{ url: string; start: number; end: number; clipUrl?: string; previewUrl?: string } | null>(null);
   const [heroMuted, setHeroMuted] = useState(true);
-  const [heroIdx, setHeroIdx] = useState(0);   // 히어로 순환 인덱스 (8초마다)
+  const [heroIdx, setHeroIdx] = useState(0);   // 히어로 순환 인덱스 (20초마다)
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const allVideoIds = useMemo(() => {
@@ -177,14 +177,14 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
     [genreRows, band],
   );
 
-  // 히어로 후보: 트렌딩(비면 카테고리 행 영화) 상위 5편을 8초마다 순환 (2026-06-12)
+  // 히어로 후보: 트렌딩(비면 카테고리 행 영화) 상위 5편을 20초마다 순환 (2026-06-12)
   const heroFallback = genreRows.flatMap((r) => r.videos);
   const heroes = (trending.length > 0 ? trending : heroFallback).slice(0, 5);
   const heroId = heroes[heroIdx]?.id;
   useEffect(() => { setHeroIdx(0); }, [heroes.length]);   // 목록 바뀌면 처음부터
   useEffect(() => {
     if (heroes.length <= 1) return;
-    const id = setInterval(() => setHeroIdx((i) => (i + 1) % heroes.length), 12000);
+    const id = setInterval(() => setHeroIdx((i) => (i + 1) % heroes.length), 20000);
     return () => clearInterval(id);
   }, [heroes.length]);
   // 현재 히어로의 재생 URL(+클립) 로딩 — RPC엔 video_url 이 없어 별도 조회
