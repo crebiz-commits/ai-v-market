@@ -713,7 +713,8 @@ export function VideoEditModal({
                 <FileText className="w-4 h-4 text-[#8b5cf6]" />
                 {t("videoEditModal.subtitleHeader")}
               </h3>
-              <p className="text-xs text-gray-500 mb-3">{t("videoEditModal.subtitleHint")} <a href="https://en.wikipedia.org/wiki/WebVTT" target="_blank" rel="noopener" className="text-[#a78bfa] hover:underline">WebVTT?</a></p>
+              <p className="text-xs text-gray-500 mb-1">{t("videoEditModal.subtitleHint")} <a href="https://en.wikipedia.org/wiki/WebVTT" target="_blank" rel="noopener" className="text-[#a78bfa] hover:underline">WebVTT?</a></p>
+              <p className="text-[11px] text-amber-300/80 mb-3 leading-relaxed">💡 {t("upload.subtitleSoftHint", "시청자가 자막을 켜고 끄게 하려면 영상에 자막을 합치지(번인) 말고 .vtt 파일로 따로 올려주세요. 영상에 박힌 자막은 끌 수 없습니다.")}</p>
 
               {hasSubtitle && !hasNewSubtitleFile && (
                 <div className="flex items-center gap-2 p-2 bg-[#10b981]/10 border border-[#10b981]/20 rounded-lg mb-2">

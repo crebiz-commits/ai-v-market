@@ -127,6 +127,10 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
   const [customThumbnail, setCustomThumbnail] = useState<string | null>(null);
   const customThumbInputRef = useRef<HTMLInputElement>(null);
 
+  // 자막 파일(.vtt) — 소프트섭(시청자 on/off 가능)
+  const [subtitleFile, setSubtitleFile] = useState<File | null>(null);
+  const subtitleFileRef = useRef<HTMLInputElement>(null);
+
   // 태그 칩(Pill) 입력
   const [tagInput, setTagInput] = useState("");
 
@@ -690,6 +694,21 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
         }
       }
 
+      // 2-b. 자막 파일(.vtt) 업로드 — video-subtitles 스토리지 (소프트섭)
+      let subtitleUrl = '';
+      if (subtitleFile && user) {
+        try {
+          const path = `${user.id}/${videoId}/subtitle.vtt`;
+          const { error: subErr } = await supabase.storage.from('video-subtitles')
+            .upload(path, subtitleFile, { upsert: true, contentType: 'text/vtt' });
+          if (subErr) throw subErr;
+          subtitleUrl = supabase.storage.from('video-subtitles').getPublicUrl(path).data.publicUrl;
+        } catch (subErr) {
+          console.warn('Subtitle upload failed:', subErr);
+          toast.warning(t("upload.subtitleUploadFailed", "자막 업로드에 실패했어요. 영상 수정에서 다시 시도할 수 있습니다."));
+        }
+      }
+
       // 3. 메타데이터 저장 (Edge Function 호출로 변경 - KV 및 DB 동시 저장)
       console.log('Saving metadata via Edge Function...');
       // @ts-ignore
@@ -726,6 +745,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
         productionYear: formData.productionYear || '',
         language: formData.language || '',
         subtitleLanguage: formData.subtitleLanguage || '',
+        subtitleUrl: subtitleUrl,
         // 공개 설정
         visibility: formData.visibility || 'public',
         // 라이선스/출처 (어드민 시드 콘텐츠용 — 일반 업로드는 기본 'original')
@@ -809,6 +829,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
     setSelectedThumbnail(null);
     setSelectedThumbnailIndex(-1);
     setCustomThumbnail(null);
+    setSubtitleFile(null);
     setTagInput("");
     setVideoDurationSec(0);
     setHighlight({ start: 0, end: 30 });
@@ -1498,6 +1519,40 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
                         {languages.filter(l => l !== "무음/instrumental").map((l) => <option key={l} value={l}>{getLanguageLabel(l, t)}</option>)}
                       </select>
                     </div>
+                  </div>
+
+                  {/* 자막 파일(.vtt) 업로드 — 소프트섭 */}
+                  <div className="mt-4">
+                    <Label className="mb-2 block text-sm">{t("upload.subtitleFileLabel", "자막 파일 (.vtt)")}</Label>
+                    <input
+                      ref={subtitleFileRef}
+                      type="file"
+                      accept=".vtt,text/vtt"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!f) return;
+                        if (!f.name.toLowerCase().endsWith(".vtt")) { toast.error(t("upload.subtitleFormatHint", "WebVTT(.vtt) 파일만 가능합니다.")); return; }
+                        if (f.size > 1024 * 1024) { toast.error(t("upload.subtitleTooLarge", "자막은 1MB 이하만 가능합니다.")); return; }
+                        setSubtitleFile(f);
+                      }}
+                    />
+                    {subtitleFile ? (
+                      <div className="flex items-center gap-2 p-2 bg-[#10b981]/10 border border-[#10b981]/20 rounded-lg">
+                        <FileText className="w-4 h-4 text-[#10b981] shrink-0" />
+                        <span className="text-xs text-[#10b981] flex-1 truncate">{subtitleFile.name} ({Math.round(subtitleFile.size / 1024)}KB)</span>
+                        <button type="button" onClick={() => setSubtitleFile(null)} className="text-xs text-gray-400 hover:text-red-400 underline">{t("common.remove", "제거")}</button>
+                      </div>
+                    ) : (
+                      <Button type="button" variant="outline" onClick={() => subtitleFileRef.current?.click()} className="gap-2 w-fit">
+                        <UploadIcon className="w-4 h-4" />{t("upload.subtitleUpload", "자막 파일 업로드")}
+                      </Button>
+                    )}
+                    {/* 하드섭/소프트섭 안내 */}
+                    <p className="text-[11px] text-amber-300/80 mt-2 leading-relaxed">
+                      💡 {t("upload.subtitleSoftHint", "시청자가 자막을 켜고 끄게 하려면 영상에 자막을 합치지(번인) 말고 .vtt 파일로 따로 올려주세요. 영상에 박힌 자막은 끌 수 없습니다.")}
+                    </p>
                   </div>
                 </div>
               </details>

@@ -571,6 +571,7 @@ app.post("/videos/save-metadata", async (c) => {
         production_year: productionYearNum,
         language: metadata.language || '',
         subtitle_language: metadata.subtitleLanguage || '',
+        subtitle_url: metadata.subtitleUrl || null,
         // 공개 설정
         visibility: ['public', 'unlisted', 'private'].includes(metadata.visibility) ? metadata.visibility : 'public',
         // 라이선스/출처 (어드민 시드 콘텐츠용 — 일반 업로드는 기본 'original')
