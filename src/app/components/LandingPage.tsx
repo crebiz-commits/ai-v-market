@@ -241,7 +241,7 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1, duration: 1 }}
-          className="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white hover:scale-110 transition-transform cursor-pointer"
+          className="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center gap-2 text-white hover:scale-110 transition-transform cursor-pointer"
           aria-label="다음 섹션으로 스크롤"
         >
           <span className="text-sm md:text-base font-bold drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
