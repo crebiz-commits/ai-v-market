@@ -198,6 +198,22 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
                 </div>
               )}
 
+              {/* 비용 안내 — 노출당 단가 + 예산 충전제 설명 (전 형식 ₩2/노출 동일) */}
+              <div className="rounded-lg border border-[#8b5cf6]/25 bg-[#8b5cf6]/5 px-3 py-2.5 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-[#c4b5fd]">{isKo ? "💰 비용" : "💰 Cost"}</span>
+                  <span className="text-[13px] font-black text-white">{isKo ? "노출당 ₩2" : "₩2 / imp"}</span>
+                </div>
+                <p className="text-[11px] text-gray-400 leading-relaxed">
+                  {isKo ? "CPM ₩2,000 기준 노출 1회당 ₩2 차감 (모든 형식 동일). 클릭은 무료."
+                        : "₩2 per impression (CPM ₩2,000), same for all formats. Clicks are free."}
+                </p>
+                <p className="text-[11px] text-gray-500 leading-relaxed">
+                  {isKo ? "예) ₩10,000 충전 → 약 5,000회 노출. 승인 후 충전한 예산만큼만 노출되고, 소진되면 자동 중단됩니다."
+                        : "e.g. ₩10,000 → ~5,000 impressions. Serves only up to your topped-up budget; auto-stops when depleted."}
+                </p>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-gray-400 mb-1.5">{isKo ? "광고명" : "Ad name"}</label>
                 <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80}
