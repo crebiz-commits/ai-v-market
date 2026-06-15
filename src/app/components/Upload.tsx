@@ -556,6 +556,30 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
     console.log('Upload complete to Bunny.net');
   };
 
+  // 스텝2(콘텐츠 정보) 필수 항목 검증 — '다음' 이동/최종 제출 공통.
+  // 첫 누락 항목에서 toast 후 false 반환. (검증 없이 다음 단계로 넘어가던 버그 차단)
+  const validateStep2 = (): boolean => {
+    if (!formData.title.trim()) {
+      toast.error(t("upload.toast.titleRequired", "제목을 입력해주세요."));
+      return false;
+    }
+    // 카테고리·장르 필수 — 장르는 시네마/OTT 행 분류 기준이라 비면 어느 행에도 안 나옴
+    if (!formData.category) {
+      toast.error(t("upload.toast.categoryRequired", "카테고리를 선택해주세요."));
+      return false;
+    }
+    if (!formData.genre) {
+      toast.error(t("upload.toast.genreRequired", "장르를 선택해주세요."));
+      return false;
+    }
+    // Phase 31.1 — 시청 등급 필수
+    if (!formData.ageRating) {
+      toast.error(t("upload.toast.ageRatingRequired", "시청 등급을 선택해주세요."));
+      return false;
+    }
+    return true;
+  };
+
   // form onSubmit (또는 "업로드 완료" 클릭) → 미리보기 모달 오픈
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -567,20 +591,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
       toast.error(t("upload.toast.fileRequired"));
       return;
     }
-    // Phase 31.1 — 시청 등급 필수 검증
-    if (!formData.ageRating) {
-      toast.error(t("upload.toast.ageRatingRequired", "시청 등급을 선택해주세요."));
-      return;
-    }
-    // 카테고리·장르 필수 검증 — 장르는 시네마/OTT 행 분류 기준이라 비면 어느 행에도 안 나옴
-    if (!formData.category) {
-      toast.error(t("upload.toast.categoryRequired", "카테고리를 선택해주세요."));
-      return;
-    }
-    if (!formData.genre) {
-      toast.error(t("upload.toast.genreRequired", "장르를 선택해주세요."));
-      return;
-    }
+    if (!validateStep2()) return;
     setShowPreview(true);
   };
 
@@ -1672,7 +1683,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
                 </Button>
                 <Button
                   type="button"
-                  onClick={() => setStep(3)}
+                  onClick={() => { if (validateStep2()) setStep(3); }}
                   className="flex-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
                 >
                   {t("upload.next")}
