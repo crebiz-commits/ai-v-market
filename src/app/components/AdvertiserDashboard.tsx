@@ -83,7 +83,7 @@ export function AdvertiserDashboard({ onBack, onSignInClick }: Props) {
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <div className="max-w-2xl mx-auto px-4 py-5">
         <div className="flex items-center gap-3 mb-5">
-          <button onClick={onBack} className="p-2 rounded-lg hover:bg-white/5"><ArrowLeft className="w-5 h-5" /></button>
+          <button onClick={onBack} className="p-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-white transition-colors"><ArrowLeft className="w-5 h-5" /></button>
           <div className="flex items-center gap-2">
             <Megaphone className="w-5 h-5 text-[#a78bfa]" />
             <h1 className="text-lg font-black">{isKo ? "광고주 센터" : "Advertiser Center"}</h1>

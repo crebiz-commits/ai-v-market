@@ -16,6 +16,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import { ArrowLeft, ShoppingBag, Megaphone, Crown, Clock, FileText, TrendingUp, Sparkles, AlertCircle } from "lucide-react";
+import { BackButton } from "./BackButton";
 import { motion } from "motion/react";
 import { Button } from "./ui/button";
 
@@ -37,13 +38,7 @@ export function CreatorRevenueGuide({ onBack }: CreatorRevenueGuideProps) {
         <div className="absolute -bottom-32 -right-32 w-[480px] h-[480px] rounded-full opacity-30" style={{ background: "radial-gradient(circle, rgba(245,158,11,0.4) 0%, transparent 60%)", filter: "blur(40px)" }} />
 
         <div className="relative max-w-4xl mx-auto px-4 md:px-6 py-12 md:py-16">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white mb-6 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            돌아가기
-          </button>
+          <BackButton onClick={onBack} label="돌아가기" className="mb-6" />
 
           <motion.h1
             initial={{ opacity: 0, y: 10 }}

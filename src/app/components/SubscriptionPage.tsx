@@ -89,7 +89,7 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
   return (
     <div className="h-full overflow-y-auto bg-[#0a0a0a]">
       <div className="max-w-4xl mx-auto px-4 md:px-6 py-6 md:py-10 pb-20">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white mb-6">
+        <button onClick={onBack} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 active:bg-white/25 border border-white/15 text-sm font-semibold text-white shadow-sm transition-colors mb-6">
           <ArrowLeft className="w-4 h-4" /> {isKo ? "뒤로" : "Back"}
         </button>
 

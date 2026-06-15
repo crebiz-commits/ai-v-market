@@ -153,7 +153,7 @@ export function CommunityChallengeDetail({ challenge, onClose, onParticipate, on
         <div className="max-w-3xl mx-auto flex items-center gap-3 px-4 py-3">
           <button
             onClick={onClose}
-            className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors text-foreground"
+            className="p-2 -ml-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition-colors text-white"
             aria-label={t("creatorChannel.back")}
           >
             <ArrowLeft className="w-5 h-5" />

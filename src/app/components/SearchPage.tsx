@@ -347,7 +347,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
           {onClose && (
             <button
               onClick={onClose}
-              className="p-2 -ml-1 text-gray-400 hover:text-white rounded-lg transition-colors"
+              className="p-2 -ml-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-white transition-colors"
               aria-label={t("searchPage.closeAriaLabel")}
             >
               <ArrowLeft className="w-5 h-5" />

@@ -186,7 +186,7 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center gap-3">
           <button
             onClick={onBack}
-            className="flex items-center gap-1.5 text-sm text-gray-300 hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-white px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             {t("creatorChannel.channelList")}

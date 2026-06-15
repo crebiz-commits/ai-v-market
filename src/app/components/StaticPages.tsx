@@ -3,6 +3,7 @@ import { ArrowLeft, Sparkles, Film, Crown, Users, Zap, ChevronDown, HelpCircle, 
 import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { Footer } from "./Footer";
+import { BackButton } from "./BackButton";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
@@ -22,13 +23,7 @@ function PageShell({ title, subtitle, onBack, onNavigate, children }: { title: s
   return (
     <div className="h-full overflow-y-auto bg-[#0a0a0a]">
       <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 md:py-10 pb-20">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          {t("creatorChannel.back")}
-        </button>
+        <BackButton onClick={onBack} label={t("creatorChannel.back")} className="mb-6" />
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <h1 className="text-3xl md:text-4xl font-black text-white mb-2">{title}</h1>
           {subtitle && <p className="text-gray-400 text-sm md:text-base">{subtitle}</p>}
