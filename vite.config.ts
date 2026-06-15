@@ -23,6 +23,19 @@ export default defineConfig({
   esbuild: {
     pure: ['console.log', 'console.info', 'console.debug'],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // eager 코어인 react 생태계만 별도 청크로 분리(캐싱 개선, 메인 index 축소).
+        // video.js·recharts 등은 이미 lazy 청크라 손대지 않음(eager화 방지).
+        manualChunks(id) {
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler|react-i18next|i18next)[\\/]/.test(id)) {
+            return 'react-vendor';
+          }
+        },
+      },
+    },
+  },
   server: {
     host: true,
   },
