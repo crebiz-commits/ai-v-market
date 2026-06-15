@@ -1,0 +1,8 @@
+# Supabase CLI 설정 — Edge Functions 게이트웨이 JWT 검증 끄기.
+# server 함수는 라우트별로 내부에서 자체 인증(토큰/관리자/cron-secret)을 하고,
+# VAST 픽셀(vast-tag/vast-track) 등 무인증 공개 엔드포인트가 있어 verify_jwt=false 가 필수.
+# ⚠️ 배포 시 항상: supabase functions deploy server --no-verify-jwt (이 설정 누락 시 공개 픽셀 401).
+project_id = "tvbpiuwmvrccfnplhwer"
+
+[functions.server]
+verify_jwt = false

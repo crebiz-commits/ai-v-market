@@ -728,6 +728,16 @@ function vastCorsHeaders(c: any) {
   };
 }
 
+// M9: VAST 트래킹 픽셀 서명 — 무인증 픽셀의 위조/스팸 차단.
+//   sig = HMAC-SHA256(service_role_key, "adId.videoId.exp")[:32]. exp 만료 시 무효.
+//   서버가 생성한 태그만 유효한 sig 를 가지므로 외부에서 임의 ad_id 위조 불가.
+async function vastSign(adId: string, videoId: string, exp: number): Promise<string> {
+  const secret = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || 'creaite-vast';
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const buf = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${adId}.${videoId}.${exp}`));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+
 async function handleVastTag(c: any, sourceVideoId: string) {
   try {
     const supabaseAdmin = getSupabaseClient(true);
@@ -761,9 +771,13 @@ async function handleVastTag(c: any, sourceVideoId: string) {
     // → Mixed Content 차단으로 IMA SDK가 VAST 거부하던 문제 수정
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const trackBase = `${supabaseUrl}/functions/v1/server/vast-track`;
+    const vastExp = Math.floor(Date.now() / 1000) + 6 * 3600; // 6시간 유효
+    const vastSig = await vastSign(ad.id, sourceVideoId || '', vastExp);
     const trackParams = new URLSearchParams({
       ad_id: ad.id,
       source_video_id: sourceVideoId,
+      exp: String(vastExp),
+      sig: vastSig,
     });
 
     // VAST 2.0 XML 생성
@@ -861,7 +875,13 @@ app.get("/vast-track", async (c) => {
     const event = c.req.query('event');
     const sourceVideoId = c.req.query('source_video_id') || null;
 
-    if (adId && event) {
+    // M9: 서명·만료 검증 — 위조/스팸 트래킹 차단 (실패 시 픽셀은 응답하되 기록 안 함)
+    const exp = parseInt(c.req.query('exp') || '0', 10);
+    const sig = c.req.query('sig') || '';
+    const sigValid = !!sig && exp > Math.floor(Date.now() / 1000) &&
+      (await vastSign(adId || '', sourceVideoId || '', exp)) === sig;
+
+    if (adId && event && sigValid) {
       const supabaseAdmin = getSupabaseClient(true);
       const userAgent = c.req.header('user-agent') || null;
       const ipAddress = c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || null;
