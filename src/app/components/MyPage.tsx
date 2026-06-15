@@ -488,6 +488,11 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  // 이메일 변경 (이메일/비번 계정만 — 소셜 로그인은 provider 소유라 제한)
+  const [emailEditMode, setEmailEditMode] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [emailChanging, setEmailChanging] = useState(false);
+  const [canChangeEmail, setCanChangeEmail] = useState(false);
 
   const handleAvatarUpload = async (file: File) => {
     if (!user) return;
@@ -952,6 +957,39 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   const handleBackToSelect = () => {
     setPageMode('select');
     localStorage.removeItem(PAGE_MODE_STORAGE_KEY);
+  };
+
+  // 프로필 편집 모달 열릴 때: 이메일/비번 계정인지(= 이메일 변경 가능) 판별
+  useEffect(() => {
+    if (!showProfileEdit) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      const identities = (data?.user?.identities || []) as Array<{ provider?: string }>;
+      if (!cancelled) setCanChangeEmail(identities.some((i) => i.provider === "email"));
+    })();
+    return () => { cancelled = true; };
+  }, [showProfileEdit]);
+
+  const handleChangeEmail = async () => {
+    const target = newEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target)) { toast.error(isKo ? "올바른 이메일 형식이 아닙니다." : "Invalid email."); return; }
+    if (target === (user?.email || "").toLowerCase()) { toast.error(isKo ? "현재 이메일과 동일합니다." : "Same as current email."); return; }
+    setEmailChanging(true);
+    try {
+      // Supabase: 새 주소로 확인 메일 발송 → 링크 클릭 시 변경 확정.
+      const { error } = await supabase.auth.updateUser({ email: target });
+      if (error) throw error;
+      toast.success(isKo
+        ? `확인 메일을 ${target} 로 보냈어요. 메일의 링크를 클릭하면 이메일 변경이 완료됩니다.`
+        : `Confirmation sent to ${target}. Click the link to finish changing your email.`);
+      setEmailEditMode(false);
+      setNewEmail("");
+    } catch (e: any) {
+      toast.error((isKo ? "이메일 변경 실패: " : "Failed: ") + (e?.message || ""));
+    } finally {
+      setEmailChanging(false);
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -2062,7 +2100,41 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
               </div>
               <div className="mb-4">
                 <label className="block text-xs font-semibold text-gray-400 mb-1.5">{t("mypage.profileEditModal.emailLabel")}</label>
-                <p className="px-4 py-3 bg-white/5 rounded-xl text-sm text-gray-500 border border-white/5">{user?.email}</p>
+                {!emailEditMode ? (
+                  <div className="flex items-center gap-2">
+                    <p className="flex-1 px-4 py-3 bg-white/5 rounded-xl text-sm text-gray-300 border border-white/5 truncate">{user?.email}</p>
+                    {canChangeEmail ? (
+                      <button type="button" onClick={() => { setNewEmail(""); setEmailEditMode(true); }}
+                        className="shrink-0 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-bold text-white transition-colors">
+                        {isKo ? "변경" : "Change"}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <input
+                      type="email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder={isKo ? "새 이메일 주소" : "New email address"}
+                      className="w-full px-4 py-3 bg-white/5 rounded-xl text-sm text-white border border-white/10 focus:outline-none focus:border-[#8b5cf6] placeholder-gray-600"
+                    />
+                    <div className="flex gap-2">
+                      <button type="button" onClick={handleChangeEmail} disabled={emailChanging}
+                        className="flex-1 px-3 py-2 rounded-lg bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-xs font-bold text-white disabled:opacity-60 flex items-center justify-center gap-1.5">
+                        {emailChanging ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{isKo ? "확인 메일 보내기" : "Send confirmation"}
+                      </button>
+                      <button type="button" onClick={() => { setEmailEditMode(false); setNewEmail(""); }}
+                        className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-gray-300">
+                        {isKo ? "취소" : "Cancel"}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-gray-500 leading-relaxed">{isKo ? "새 주소로 보낸 확인 링크를 클릭해야 변경이 완료됩니다." : "Click the confirmation link sent to the new address to finish."}</p>
+                  </div>
+                )}
+                {!canChangeEmail && !emailEditMode && (
+                  <p className="text-[11px] text-gray-500 mt-1.5">{isKo ? "소셜 로그인 계정은 이메일을 변경할 수 없습니다." : "Social login accounts can't change email."}</p>
+                )}
               </div>
 
               {/* 아바타 업로드 (Phase 6.6) */}

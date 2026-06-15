@@ -104,7 +104,7 @@
 
 ## 🧩 9. 감사 잔여 (낮은 우선순위 — 출시 후/코드)
 
-- [ ] 🟡 N3 billing-run race(행 락) / N9 구독풀 산정 payments 기준 재계산 / CommentItem 리마운트 리팩터 / 이메일 변경 기능 / 과대 청크 manualChunks / 마이그레이션 정본 문서화
+- [ ] 🟡 N3 billing-run race(행 락) / N9 구독풀 산정 payments 기준 재계산 / CommentItem 리마운트 리팩터 / 과대 청크 manualChunks / 마이그레이션 정본 문서화
 - [ ] 🟡 부분환불(N6)·원천징수 범위(N10) — 정책/세무 확인 필요
 - [ ] **M9** VAST 트래킹 픽셀 무인증 (베타 House Ads 한정 수용 중)
 
