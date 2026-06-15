@@ -30,7 +30,8 @@
 
 ## 🚀 2. 배포·인프라 (live 점검만)
 
-- [ ] 프로덕션 환경변수 전체 점검 (Supabase URL/anon, Bunny, VAPID, Toss, 선택 Sentry DSN)
+- [x] ✅ **Supabase Edge Function 시크릿 전수 확인**(2026-06-16, API) — BUNNY_*·RESEND_*·TOSS_SECRET_KEY·VAPID_*·GOOGLE_VISION_API_KEY·BILLING_CRON_SECRET 모두 설정됨. (TOSS_SECRET_KEY는 현재 test → live 전환만 남음)
+- [ ] Vercel 프론트 환경변수 확인 (VITE_BUNNY_*·VITE_TOSS_CLIENT_KEY·VITE_VAPID_PUBLIC_KEY·VITE_KAKAO_JS_KEY / 선택 SENTRY·ADSENSE·ADFIT·EXTERNAL_ADS) — 콘솔에서 직접 확인. (Supabase URL/anon은 코드 하드코딩이라 env 불필요)
 - [ ] Bunny Stream 페이월·라이브러리 설정 ([BUNNY_SETUP_GUIDE.md](../BUNNY_SETUP_GUIDE.md))
 - [ ] (선택) DMARC 레코드 추가 — `_dmarc.mail.creaite.net` TXT `v=DMARC1; p=none; rua=mailto:support@creaite.net` (수신율 개선, 필수 아님)
 
@@ -44,7 +45,7 @@
 ## ⚖️ 4. 법적·사업자
 
 - [ ] 사업자등록 + 통신판매업 신고 (PG 계약·전자상거래 전제 — 1번과 연동)
-- [ ] 결제/환불 정책 고지 노출 확인 *(약관 7조+FAQ 존재 → 노출 위치 최종 확인)*
+- [x] ✅ **결제/환불 정책 고지 노출 완료**(2026-06-16) — 약관 제7조+FAQ에 더해, 결제 직전 고지 추가: 구독모달(정기결제)·라이선스 구매(청약철회 제한)·광고 충전(환불). 모두 약관 제7조 링크. (전자상거래법 결제 전 고지 충족)
 
 ### 지식재산(IP)
 - [x] ✅ **상표권 출원 (CREAITE, 영문)** — 국내 선등록 0건 확인. 셀프 출원·납부 완료(2026-06-16, 출원번호 **40-2026-0120579**, 제41·38·42류, ₩138,000). 심사 8~14개월. *유사상표 CREAITER(일본 41류) 주의 — 의견제출통지 시 대응 필요.*
