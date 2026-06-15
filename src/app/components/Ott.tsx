@@ -148,7 +148,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
   const [formatRows, setFormatRows] = useState<{ category: string; position: "top" | "bottom"; videos: CarouselVideo[] }[]>([]);
   // 풀블리드 히어로: 자동재생 영상 소스 + 음소거 토글.
   // clipUrl(미리 잘린 30초 하이라이트 클립)이 있으면 seek 없이 처음부터 재생(안정적).
-  const [heroSrc, setHeroSrc] = useState<{ url: string; start: number; end: number; clipUrl?: string } | null>(null);
+  const [heroSrc, setHeroSrc] = useState<{ url: string; start: number; end: number; clipUrl?: string; previewUrl?: string } | null>(null);
   const [heroMuted, setHeroMuted] = useState(true);
   const [heroIdx, setHeroIdx] = useState(0);   // 히어로 순환 인덱스 (8초마다)
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -184,7 +184,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
   useEffect(() => { setHeroIdx(0); }, [heroes.length]);   // 목록 바뀌면 처음부터
   useEffect(() => {
     if (heroes.length <= 1) return;
-    const id = setInterval(() => setHeroIdx((i) => (i + 1) % heroes.length), 8000);
+    const id = setInterval(() => setHeroIdx((i) => (i + 1) % heroes.length), 12000);
     return () => clearInterval(id);
   }, [heroes.length]);
   // 현재 히어로의 재생 URL(+클립) 로딩 — RPC엔 video_url 이 없어 별도 조회
@@ -202,7 +202,12 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
         const hStart = data.highlight_start || 0;
         // 히어로 미리보기: 크리에이터 하이라이트(기본 30초) 그대로, 없으면 +30초
         const hEnd = data.highlight_end || (hStart + 30);
-        setHeroSrc({ url: data.video_url, start: hStart, end: hEnd, clipUrl: data.hero_clip_url || undefined });
+        // 클립 없는 영상은 Bunny 자동 생성 애니메이션 미리보기(preview.webp)로 동적 표시.
+        // video_url(.../playlist.m3u8) 의 마지막 경로만 preview.webp 로 치환.
+        const previewUrl = /\/[^/]+\.m3u8$/i.test(data.video_url)
+          ? data.video_url.replace(/\/[^/]+$/, "/preview.webp")
+          : undefined;
+        setHeroSrc({ url: data.video_url, start: hStart, end: hEnd, clipUrl: data.hero_clip_url || undefined, previewUrl });
       }
     })();
     return () => { cancelled = true; };
@@ -384,7 +389,7 @@ function HeroBillboard({
   onPlay,
 }: {
   video: CarouselVideo;
-  src: { url: string; start: number; end: number; clipUrl?: string } | null;
+  src: { url: string; start: number; end: number; clipUrl?: string; previewUrl?: string } | null;
   ageGuard: AgeGuard;
   muted: boolean;
   onToggleMute: () => void;
@@ -403,6 +408,8 @@ function HeroBillboard({
   // (클립 없는 영화로 deep seek/풀영상 재생하면 멈춤·검은화면 위험 → 포스터가 안전·깔끔)
   const playUrl = src?.clipUrl || "";
   const useVideo = !g.isAgeLocked && !!src?.clipUrl;
+  // 클립이 없으면 Bunny 애니메이션 미리보기(preview.webp)로 동적 표시 (정적 멈춤 방지).
+  const usePreview = !g.isAgeLocked && !src?.clipUrl && !!src?.previewUrl;
 
   // 네이티브 <video> 사용(배경 영상 표준). playUrl 변경 시 노출 초기화 → 포스터부터 다시.
   useEffect(() => { setVideoReady(false); }, [playUrl]);
@@ -421,6 +428,16 @@ function HeroBillboard({
             src={video.thumbnail}
             alt=""
             className={`absolute inset-0 w-full h-full object-cover ${g.isAgeLocked ? "blur-2xl scale-110" : ""}`}
+          />
+        )}
+        {/* 클립 없는 영상 — Bunny 애니메이션 미리보기(preview.webp). 로드 실패 시 숨겨 썸네일 노출. */}
+        {usePreview && (
+          <img
+            key={src!.previewUrl}
+            src={src!.previewUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
           />
         )}
         {/* 영상 — 네이티브 <video> 배경재생. 재생 시작(videoReady) 전까진 투명이라 포스터가 보임.
