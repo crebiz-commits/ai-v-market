@@ -12,6 +12,20 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { getCategoryLabel, getGenreLabel, getAiToolLabel, getLanguageLabel } from "../i18n/categoryLabels";
 
+// AI 홍보문건 결과 필드 — 복사 버튼 포함
+function PromoField({ label, value, t, multiline }: { label: string; value: string; t: any; multiline?: boolean }) {
+  const copy = () => { try { navigator.clipboard?.writeText(value); toast.success(t("common.copied", "복사했어요")); } catch { /* ignore */ } };
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-lg p-2.5">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[11px] font-bold text-gray-400">{label}</span>
+        <button type="button" onClick={copy} className="text-[11px] text-[#a78bfa] hover:text-white font-semibold">{t("common.copy", "복사")}</button>
+      </div>
+      <p className={`text-sm text-white ${multiline ? "leading-relaxed whitespace-pre-wrap" : "truncate"}`}>{value}</p>
+    </div>
+  );
+}
+
 // AI 자막(transcribe) 지원 언어 — ISO 639-1
 const SUBTITLE_LANGS: [string, string][] = [
   ["ko", "한국어"], ["en", "English"], ["ja", "日本語"], ["zh", "中文"],
@@ -133,6 +147,9 @@ export function VideoEditModal({
   const [transcribing, setTranscribing] = useState(false);
   const [aiSubSource, setAiSubSource] = useState("ko");
   const [aiSubTargets, setAiSubTargets] = useState<string[]>(["en"]);
+  // AI 홍보문건 생성
+  const [promoGenerating, setPromoGenerating] = useState(false);
+  const [promoResult, setPromoResult] = useState<{ tagline?: string; caption?: string; hashtags?: string[] } | null>(null);
 
   const [ageRating, setAgeRating] = useState<string>(initialAgeRating);
 
@@ -270,6 +287,28 @@ export function VideoEditModal({
   const toggleAiTarget = (code: string) => {
     setAiSubTargets((prev) => prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]);
   };
+  const handleGeneratePromo = async () => {
+    if (!title.trim()) { toast.error(t("videoEditModal.promoNeedTitle", "제목을 먼저 입력하세요.")); return; }
+    setPromoGenerating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { toast.error(t("videoEditModal.signInRequired", "로그인이 필요합니다.")); return; }
+      const res = await fetch(`${supabaseUrl}/functions/v1/server/generate-promo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: supabaseAnonKey },
+        body: JSON.stringify({ title, description, category, language: "ko" }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || `실패 (${res.status})`);
+      setPromoResult(j.result || null);
+    } catch (e: any) {
+      toast.error((t("videoEditModal.promoFailed", "생성 실패: ")) + (e?.message || ""));
+    } finally {
+      setPromoGenerating(false);
+    }
+  };
+
   const handleAiTranscribe = async () => {
     setTranscribing(true);
     try {
@@ -801,6 +840,33 @@ export function VideoEditModal({
                   {t("videoEditModal.aiSubtitleGenerate", "AI 자막 생성")}
                 </Button>
               </div>
+              )}
+            </section>
+
+            {/* 4-b. AI 홍보문건 생성 */}
+            <section>
+              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#a78bfa]" />
+                {t("videoEditModal.promoHeader", "AI 홍보문건 생성")}
+              </h3>
+              <p className="text-xs text-gray-500 mb-3">{t("videoEditModal.promoHint", "제목·설명·장르로 캐치프레이즈·SNS 캡션·해시태그를 자동 생성합니다.")}</p>
+              <Button onClick={handleGeneratePromo} disabled={promoGenerating}
+                className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold h-9">
+                {promoGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {t("videoEditModal.promoGenerate", "홍보문건 생성")}
+              </Button>
+              {promoResult && (
+                <div className="mt-3 space-y-2.5">
+                  {promoResult.tagline && (
+                    <PromoField label={t("videoEditModal.promoTagline", "캐치프레이즈")} value={promoResult.tagline} t={t} />
+                  )}
+                  {promoResult.caption && (
+                    <PromoField label={t("videoEditModal.promoCaption", "SNS 캡션")} value={promoResult.caption} t={t} multiline />
+                  )}
+                  {promoResult.hashtags && promoResult.hashtags.length > 0 && (
+                    <PromoField label={t("videoEditModal.promoHashtags", "해시태그")} value={promoResult.hashtags.join(" ")} t={t} />
+                  )}
+                </div>
               )}
             </section>
 

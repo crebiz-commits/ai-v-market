@@ -410,6 +410,56 @@ app.post("/videos/:videoId/thumbnail", async (c) => {
 });
 
 // AI 자막 생성·번역 (Bunny Stream 내장 transcribe) — 비동기 큐잉, 완료 시 iframe 플레이어에 자동 표시
+// 홍보문건(마케팅 소재) 자동 생성 — Claude API. 영상 제목·설명·장르로 홍보 카피/SNS 캡션/해시태그 생성.
+//   선행: Supabase Edge 시크릿 ANTHROPIC_API_KEY 설정 필요(미설정 시 안내 에러).
+app.post("/generate-promo", async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const accessToken = authHeader?.split(' ')[1];
+    if (!accessToken) return c.json({ error: "인증 토큰이 필요합니다." }, 401);
+    const supabase = getSupabaseClient(true);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) return c.json({ error: "유효하지 않은 토큰입니다." }, 401);
+
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    if (!apiKey) return c.json({ error: "AI 홍보문건 기능이 아직 설정되지 않았습니다. (ANTHROPIC_API_KEY 미설정)" }, 503);
+
+    const body = await c.req.json().catch(() => ({}));
+    const title = String(body.title || '').slice(0, 200);
+    const description = String(body.description || '').slice(0, 1500);
+    const category = String(body.category || '').slice(0, 50);
+    const lang = String(body.language || 'ko').startsWith('ko') ? '한국어' : 'English';
+    if (!title.trim()) return c.json({ error: "영상 제목이 필요합니다." }, 400);
+
+    const prompt = `당신은 AI 영상 OTT 플랫폼 CREAITE의 마케팅 카피라이터입니다. 아래 영상의 홍보 소재를 ${lang}로 작성하세요.\n\n` +
+      `[제목] ${title}\n[장르] ${category || '미지정'}\n[설명] ${description || '없음'}\n\n` +
+      `다음을 JSON으로만 출력(설명·코드펜스 없이): {"tagline":"한 줄 캐치프레이즈(20자 내외)","caption":"SNS 게시용 2~3문장 홍보문","hashtags":["#태그",...최대 8개]}`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      console.error('[generate-promo] Anthropic 오류', res.status, t);
+      return c.json({ error: `생성 실패 (${res.status})` }, 502);
+    }
+    const data = await res.json();
+    const text = (data?.content?.[0]?.text || '').trim();
+    let parsed: any = null;
+    try { parsed = JSON.parse(text.replace(/^```json\s*|\s*```$/g, '')); } catch { /* fall back to raw */ }
+    return c.json({ ok: true, result: parsed || { caption: text, tagline: '', hashtags: [] } });
+  } catch (error: any) {
+    console.error('[generate-promo] 예외:', error);
+    return c.json({ error: String(error?.message || error) }, 500);
+  }
+});
+
 app.post("/videos/:videoId/transcribe", async (c) => {
   try {
     const authHeader = c.req.header('Authorization');
