@@ -18,7 +18,7 @@ import { AdStatsModal } from "./AdStatsModal";
 
 interface MyAd {
   id: string; title: string; format: string; ad_type: string; status: string; is_active: boolean;
-  image_url: string | null; thumbnail_url: string | null; link_url: string; cta_text: string;
+  image_url: string | null; video_url: string | null; thumbnail_url: string | null; link_url: string; cta_text: string;
   budget_krw: number; spent_krw: number; impressions: number; clicks: number;
   review_note: string | null; created_at: string; submitted_at: string | null;
 }
@@ -156,7 +156,7 @@ export function AdvertiserDashboard({ onBack, onSignInClick }: Props) {
                         {(a.status === "draft" || a.status === "rejected") && (
                           <>
                             <Button size="sm" variant="outline" className="flex-1 gap-1 h-9"
-                              onClick={() => { setEditAd({ id: a.id, title: a.title, status: a.status, image_url: a.image_url, link_url: a.link_url, cta_text: a.cta_text, format: a.format }); setModalOpen(true); }}>
+                              onClick={() => { setEditAd({ id: a.id, title: a.title, status: a.status, image_url: a.image_url, video_url: a.video_url, link_url: a.link_url, cta_text: a.cta_text, format: a.format }); setModalOpen(true); }}>
                               <Pencil className="w-3.5 h-3.5" />{isKo ? "수정" : "Edit"}
                             </Button>
                             <Button size="sm" className="flex-1 gap-1 h-9 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold"

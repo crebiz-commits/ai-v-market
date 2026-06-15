@@ -814,6 +814,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
         const adResult = await supabase.from("ads")
           .select("id,title,advertiser,image_url,video_url,thumbnail_url,link_url,cta_text,interval_count,ad_type")
           .eq("is_active", true)
+          .eq("status", "approved") // 승인된 광고만 — 미승인(draft/pending/rejected) 광고 피드 노출 차단. status는 NOT NULL DEFAULT 'approved'(레거시 하우스 광고 무중단)
           .or("ad_type.eq.feed_display,ad_type.is.null")
           .or("starts_at.is.null,starts_at.lte." + new Date().toISOString())
           .or("ends_at.is.null,ends_at.gte." + new Date().toISOString());

@@ -15,6 +15,8 @@ interface AdOverlayBannerProps {
 export function AdOverlayBanner({ ad, videoId, onDismiss }: AdOverlayBannerProps) {
   const duration = ad.duration_seconds || 10;
   const [remaining, setRemaining] = useState(duration);
+  // 소재 이미지가 로드 실패(잘못된 URL·HTML 페이지 등)하면 깨진 이미지 대신 텍스트 배너로 폴백.
+  const [imgBroken, setImgBroken] = useState(false);
 
   // 자동 닫힘 카운트다운
   useEffect(() => {
@@ -48,8 +50,8 @@ export function AdOverlayBanner({ ad, videoId, onDismiss }: AdOverlayBannerProps
       >
         <div className="bg-black/85 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl overflow-hidden">
           <div className="flex items-stretch gap-3 p-3">
-            {/* 광고 이미지 / 썸네일 */}
-            {(ad.image_url || ad.thumbnail_url) && (
+            {/* 광고 이미지 / 썸네일 — 로드 실패 시 숨기고 텍스트 배너로 폴백 */}
+            {(ad.image_url || ad.thumbnail_url) && !imgBroken && (
               <button
                 onClick={handleClick}
                 className="w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden bg-white/5 flex-shrink-0 hover:opacity-80 transition-opacity"
@@ -58,6 +60,7 @@ export function AdOverlayBanner({ ad, videoId, onDismiss }: AdOverlayBannerProps
                   src={ad.image_url || ad.thumbnail_url || ""}
                   alt={ad.title}
                   className="w-full h-full object-cover"
+                  onError={() => setImgBroken(true)}
                 />
               </button>
             )}

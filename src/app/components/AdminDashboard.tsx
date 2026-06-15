@@ -77,6 +77,8 @@ interface Ad {
   target_tiers: AdTier[] | null;
   target_categories: string[] | null;
   min_video_duration_sec: number;
+  // 소유자: NULL=자체광고(운영팀 직접), 값 있음=광고주 셀프서비스 등록 광고
+  owner_id?: string | null;
 }
 
 const emptyForm = (): Omit<Ad, "id" | "impressions" | "clicks" | "created_at" | "spent_krw"> => ({
@@ -146,6 +148,8 @@ export function AdminDashboard() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  // 광고 목록 탭: 자체광고(owner_id 없음) / 광고주 광고(owner_id 있음)
+  const [adTab, setAdTab] = useState<"house" | "advertiser">("house");
 
   // 광고 영상 직접 업로드 (Bunny에만 저장, videos 테이블 미등록)
   const adVideoFileRef = useRef<HTMLInputElement>(null);
@@ -425,22 +429,51 @@ export function AdminDashboard() {
   }
 
   // ── 메인 대시보드 ────────────────────────────────────────────────
-  const totalImpressions = ads.reduce((s, a) => s + a.impressions, 0);
-  const totalClicks = ads.reduce((s, a) => s + a.clicks, 0);
-  const activeCount = ads.filter(a => a.is_active).length;
+  // 자체광고(운영팀 직접 — 구글애드/오프라인 수주/계열사) vs 광고주 셀프서비스 등록 광고 분리
+  const houseAds = ads.filter(a => !a.owner_id);
+  const advertiserAds = ads.filter(a => a.owner_id);
+  const visibleAds = adTab === "house" ? houseAds : advertiserAds;
+  const totalImpressions = visibleAds.reduce((s, a) => s + a.impressions, 0);
+  const totalClicks = visibleAds.reduce((s, a) => s + a.clicks, 0);
+  const activeCount = visibleAds.filter(a => a.is_active).length;
 
   return (
     <div>
-      {/* 광고 추가 버튼 */}
-      <div className="flex justify-end mb-4">
-        <Button
-          onClick={openCreate}
-          className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 font-bold"
-        >
-          <Plus className="w-4 h-4" />
-          광고 추가
-        </Button>
+      {/* 광고 구분 탭 + (자체광고 탭에서만) 광고 추가 버튼 */}
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="inline-flex p-1 rounded-xl bg-muted/50 border border-border">
+          {([
+            ["house", "자체광고", houseAds.length],
+            ["advertiser", "광고주 광고", advertiserAds.length],
+          ] as const).map(([key, label, count]) => (
+            <button
+              key={key}
+              onClick={() => setAdTab(key)}
+              className={`px-3.5 py-1.5 rounded-lg text-sm font-bold transition-colors ${
+                adTab === key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {label} <span className="text-xs opacity-70">{count}</span>
+            </button>
+          ))}
+        </div>
+        {adTab === "house" && (
+          <Button
+            onClick={openCreate}
+            className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 font-bold"
+          >
+            <Plus className="w-4 h-4" />
+            광고 추가
+          </Button>
+        )}
       </div>
+
+      {/* 탭 설명 */}
+      <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+        {adTab === "house"
+          ? "운영팀이 직접 올리는 광고 — 구글애드/외부 애드 연결, 오프라인 수주, 계열사 광고."
+          : "광고주가 광고센터에서 직접 등록·충전하는 셀프서비스 광고. 심사는 [광고 심사] 탭에서 처리합니다."}
+      </p>
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mb-6">
@@ -462,15 +495,24 @@ export function AdminDashboard() {
           <div className="flex justify-center py-16">
             <Loader2 className="w-8 h-8 text-[#6366f1] animate-spin" />
           </div>
-        ) : ads.length === 0 ? (
+        ) : visibleAds.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
             <Megaphone className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>등록된 광고가 없습니다.</p>
-            <p className="text-sm mt-1">위의 [광고 추가] 버튼으로 첫 광고를 만들어 보세요.</p>
+            {adTab === "house" ? (
+              <>
+                <p>등록된 자체광고가 없습니다.</p>
+                <p className="text-sm mt-1">위의 [광고 추가] 버튼으로 첫 광고를 만들어 보세요.</p>
+              </>
+            ) : (
+              <>
+                <p>광고주가 등록한 광고가 없습니다.</p>
+                <p className="text-sm mt-1">광고주가 광고센터에서 등록하면 여기에 표시됩니다.</p>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
-            {ads.map(ad => {
+            {visibleAds.map(ad => {
               const isDepleted = ad.budget_krw != null && (ad.spent_krw || 0) >= ad.budget_krw;
               return (
               <div
@@ -585,13 +627,16 @@ export function AdminDashboard() {
                         ? <ToggleRight className="w-5 h-5 text-green-400" />
                         : <ToggleLeft className="w-5 h-5 text-muted-foreground" />}
                     </button>
-                    <button
-                      onClick={() => openEdit(ad)}
-                      className="p-2 rounded-lg hover:bg-muted transition-colors"
-                      title="수정"
-                    >
-                      <Pencil className="w-4 h-4 text-[#6366f1]" />
-                    </button>
+                    {/* 자체광고만 어드민이 직접 수정 — 광고주 광고는 광고주가 광고센터에서 수정/심사는 [광고 심사] */}
+                    {!ad.owner_id && (
+                      <button
+                        onClick={() => openEdit(ad)}
+                        className="p-2 rounded-lg hover:bg-muted transition-colors"
+                        title="수정"
+                      >
+                        <Pencil className="w-4 h-4 text-[#6366f1]" />
+                      </button>
+                    )}
                     <button
                       onClick={() => setDeleteConfirm(ad.id)}
                       className="p-2 rounded-lg hover:bg-red-500/10 transition-colors"
@@ -619,8 +664,9 @@ export function AdminDashboard() {
         )}
 
       {/* ── 광고 등록/수정 폼 (슬라이드 패널) ── */}
+      {/* z-[120]: 모바일 하단 탭바(z-50) 위로 올려야 sticky 저장 버튼이 가려지지 않음 */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex">
+        <div className="fixed inset-0 z-[120] flex">
           {/* Backdrop */}
           <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setShowForm(false)} />
           {/* Panel */}
@@ -951,6 +997,9 @@ export function AdminDashboard() {
                       onChange={e => setForm(f => ({ ...f, duration_seconds: Number(e.target.value) }))}
                       className="w-full accent-[#6366f1]"
                     />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      💰 예산 광고는 노출시간 비례 과금 — 10초 ₩2 기준 (20초 ₩4, 30초 ₩6).
+                    </p>
                   </Field>
                   <p className="text-xs text-amber-300/80">
                     💡 Overlay는 1분 이상 영상에서만 노출됩니다 (아래 "최소 영상 길이" 60초로 기본 설정).
