@@ -87,6 +87,14 @@ export function AdTopupModal({ open, adId, adTitle, cpm = 2, onClose }: Props) {
                 {isKo ? `예상 노출 약 ${estImpressions.toLocaleString()}회 (노출당 ₩${cpm}). 충전 후 즉시 노출에 반영됩니다.`
                       : `~${estImpressions.toLocaleString()} impressions (₩${cpm}/imp). Applied immediately.`}
               </div>
+
+              {/* 전자상거래법 — 충전금 환불 고지 (결제 전) */}
+              <p className="text-[10px] text-gray-500 mt-2 leading-relaxed">
+                {isKo
+                  ? "노출 시작 전 충전일로부터 7일 내 전액 환불 가능, 노출 시작 후엔 잔액 한도 내 환불. 환불 정책: "
+                  : "Full refund within 7 days before serving; remaining balance refundable after. Refund policy: "}
+                <a href="?info=terms" className="underline hover:text-gray-300">{isKo ? "이용약관 제7조" : "Terms §7"}</a>
+              </p>
             </div>
 
             <div className="px-5 py-4 border-t border-border">

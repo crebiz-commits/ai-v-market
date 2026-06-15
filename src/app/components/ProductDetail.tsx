@@ -126,7 +126,8 @@ interface ProductDetailProps {
 }
 
 export function ProductDetail({ product: productProp, onClose, onAddToCart, onSignInClick, onViewCreator, onNavigateToVideo, autoOpenComments, startFullscreen }: ProductDetailProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isKo = (i18n.language || "en").startsWith("ko");
   const [isLiked, setIsLiked] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
   // Phase 31.6 — 좋아요·조회수 카운트 (DB videos.likes / videos.views 자동 동기화, 트리거 Phase 23.1)
@@ -1590,6 +1591,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                       </div>
                     ) : (
                     /* 라이선스 박스 안에 [장바구니]/[구매] 가로 반반 (Phase 31.4) */
+                    <>
                     <div className="grid grid-cols-2 gap-3 mt-5">
                       <Button
                         onClick={handleAddToCart}
@@ -1627,6 +1629,14 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                         )}
                       </Button>
                     </div>
+                    {/* 전자상거래법 — 디지털콘텐츠 청약철회 제한 고지 (결제 전) */}
+                    <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
+                      {isKo
+                        ? "구매 후 다운로드·시청을 시작하면 청약철회가 제한됩니다(전자상거래법 제17조). 환불·청약철회 정책: "
+                        : "Withdrawal is restricted once download/viewing begins. Refund & withdrawal policy: "}
+                      <a href="?info=terms" className="underline hover:text-foreground">{isKo ? "이용약관 제7조" : "Terms §7"}</a>
+                    </p>
+                    </>
                     )}
                   </div>
 

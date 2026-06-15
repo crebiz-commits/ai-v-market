@@ -31,7 +31,8 @@ export function SubscriptionModal({
   onClose,
   onSignInClick,
 }: SubscriptionModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isKo = (i18n.language || "en").startsWith("ko");
   const { isAuthenticated, user } = useAuth();
   const { startAutoBilling } = usePayment();
   const [paying, setPaying] = useState(false);
@@ -183,6 +184,17 @@ export function SubscriptionModal({
                     </>
                   )}
                 </Button>
+
+                {/* 전자상거래법 — 결제 전 정기결제·청약철회 고지 */}
+                <p className="text-[10px] text-gray-500 text-center mt-2 leading-relaxed">
+                  {isKo
+                    ? "매월 ₩4,900 자동결제(정기결제) · 언제든 해지 가능. 청약철회·환불은 "
+                    : "₩4,900/mo recurring · cancel anytime. Refund & withdrawal: "}
+                  <a href="?info=terms" className="underline hover:text-gray-300">
+                    {isKo ? "이용약관 제7조" : "Terms §7"}
+                  </a>
+                  {isKo ? " 참조." : "."}
+                </p>
 
                 <button
                   onClick={onClose}
