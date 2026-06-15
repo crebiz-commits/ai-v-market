@@ -90,7 +90,7 @@
 ### 콘텐츠·크리에이터
 - [x] ✅ 자막 정책 확정(2026-06-16) — **크리에이터가 직접 .vtt 수동 업로드(무료, 기존 기능)**. 플랫폼은 AI 자막 비용 부담 안 함. Bunny AI 자막($0.10/분/언어)은 비싸서 **어드민 전용 버튼으로만** 남김(크리에이터 비노출 → 플랫폼 과금 차단). Bunny Transcription 기능은 미활성 유지(안 켜면 0원). *시청자는 플레이어 CC로 on/off, 자막은 영상별 opt-in.*
 - [ ] ❌ 홍보문건(마케팅 소재) 자동 생성 (기획만 존재)
-- [ ] 🟡 영상 클립 자동 생성 파이프라인 (업로드 시 hero clip 자동) — [hero_clip.sql](../supabase/hero_clip.sql)
+- [x] ✅ OTT 히어로 미리보기 동적화(2026-06-16) — 클립 없는 영상도 Bunny 자동 preview.webp로 동적 표시(검증 200), 회전 20초. **결정: 진짜 클립 자동생성(ffmpeg 인프라 필요)은 비용대비 보류 — preview.webp로 충분. 출시 후 필요 시 ffmpeg.wasm/Bunny MP4fallback 도입 검토.** ([hero_clip.sql](../supabase/hero_clip.sql) 참고)
 
 ### 알림·소셜
 - [ ] 🟡 푸시 알림 FCM 연동 (현재 컬럼만·"준비 중") — Firebase 프로젝트 필요
