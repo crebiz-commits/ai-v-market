@@ -1152,6 +1152,9 @@ function AppContent() {
                 </Button>
               </motion.div>
             )}
+
+            {/* 더보기(햄버거) — 데스크탑은 무한스크롤로 하단 푸터 도달이 어려워 상단에서 광고주센터·약관·문의 등 진입 (2026-06-15) */}
+            <HamburgerMenu onNavigate={(tab) => setActiveTab(tab as Tab)} />
           </div>
         </div>
       </motion.header>

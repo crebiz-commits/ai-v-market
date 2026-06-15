@@ -11,9 +11,10 @@ interface HamburgerMenuProps {
 }
 
 /**
- * 모바일 헤더용 햄버거 메뉴 (외부인용 페이지 진입).
+ * 헤더용 햄버거 메뉴 (외부인용 페이지 진입 — 광고주센터·약관·문의 등).
  *
- * 데스크톱은 푸터가 같은 역할을 한다.
+ * 모바일·데스크톱 공통. 데스크톱은 홈 피드가 무한스크롤이라 하단 푸터에
+ * 도달하기 어려워, 상단 헤더에서도 동일 진입점을 제공한다.
  */
 export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
   const { t, i18n } = useTranslation();
