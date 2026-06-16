@@ -1123,10 +1123,10 @@ function AppContent() {
               whileTap={{ scale: 0.96 }}
               onClick={() => setActiveTab("subscription")}
               title={t("nav.membership", "멤버십")}
-              className="hidden md:flex items-center gap-1.5 px-3 h-9 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-bold shadow-md shadow-amber-500/20 hover:opacity-90"
+              className="hidden md:flex shrink-0 whitespace-nowrap items-center gap-1.5 px-3 h-9 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-bold shadow-md shadow-amber-500/20 hover:opacity-90"
             >
-              <Crown className="w-4 h-4" />
-              <span className="hidden lg:inline">{t("nav.membership", "멤버십")}</span>
+              <Crown className="w-4 h-4 shrink-0" />
+              <span className="hidden xl:inline">{t("nav.membership", "멤버십")}</span>
             </motion.button>
 
             {/* Auth */}
@@ -1135,19 +1135,19 @@ function AppContent() {
                 onClick={signOut}
                 variant="outline"
                 size="sm"
-                className="gap-2 bg-transparent border-white/10 hover:bg-white/5 font-semibold"
+                className="gap-2 shrink-0 bg-transparent border-white/10 hover:bg-white/5 font-semibold"
               >
-                <LogOut className="w-4 h-4" />
-                {profile?.display_name || user?.name}
+                <LogOut className="w-4 h-4 shrink-0" />
+                <span className="truncate max-w-[120px]">{profile?.display_name || user?.name}</span>
               </Button>
             ) : (
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button
                   onClick={() => setShowAuthModal(true)}
-                  className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 border border-white/10 shadow-lg shadow-[#6366f1]/20 font-bold"
+                  className="gap-2 shrink-0 whitespace-nowrap bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 border border-white/10 shadow-lg shadow-[#6366f1]/20 font-bold"
                   size="sm"
                 >
-                  <LogIn className="w-4 h-4" />
+                  <LogIn className="w-4 h-4 shrink-0" />
                   {t("auth.signIn")}
                 </Button>
               </motion.div>

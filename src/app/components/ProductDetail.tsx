@@ -420,9 +420,12 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   // 페이월 정책 v2 — 동적 설정 (어드민 조절 가능). fallback은 1분
   const previewSeconds = settings.cinemaPreviewSeconds || FALLBACK_CINEMA_PREVIEW;
   const cinemaMinSec = settings.cinemaMinSeconds || FALLBACK_CINEMA_MIN;
+  // 서버 재생토큰이 인정하는 풀액세스(구독·영상 소유자·라이선스 구매자·관리자) — 컷오프 면제.
+  // isSubscriber(프리미엄)만으로는 구매자/소유자/관리자를 못 거르므로 서버 판정을 그대로 반영.
+  const [playFullAccess, setPlayFullAccess] = useState(false);
   // 영상이 미리보기 시간보다 길면 비구독자에게 미리보기 cutoff 적용
   // (영상이 더 짧으면 자동으로 풀 시청 — 별도 처리 불필요)
-  const needsPreviewCutoff = durationSeconds > previewSeconds && !isSubscriber;
+  const needsPreviewCutoff = durationSeconds > previewSeconds && !isSubscriber && !playFullAccess;
   // OTT 영상도 1분 미리보기 통일 (즉시 차단 X) — 단 카드에는 "🔒 프리미엄" 배지 표시
   const isOttVideo = durationSeconds >= (settings.ottMinSeconds || FALLBACK_OTT_THRESHOLD);
   const isCinemaVideo = durationSeconds >= cinemaMinSec;
@@ -432,6 +435,8 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   // 미리보기 컷오프 발동 후 iframe 제거 플래그
   const [cinemaCutoffTriggered, setCinemaCutoffTriggered] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  // 미리보기 컷오프 보조 타이머(능동 재구독 인터벌 + 월클록 백스톱) 핸들 — 누수 방지용
+  const cutoffTimersRef = useRef<{ interval?: number; wall?: number }>({});
 
   // 비구독자 미리보기 컷오프 — 영상 currentTime이 previewSeconds(기본 60초) 도달 시 차단
   // Bunny Stream Player의 player.js 프로토콜(postMessage)로 재생 위치 추적.
@@ -490,6 +495,57 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       window.removeEventListener("message", handleMessage);
     };
   }, [needsPreviewCutoff, cinemaCutoffTriggered, previewSeconds]);
+
+  // 미리보기 컷오프 견고화 — iframe (재)로드마다 호출.
+  // ① Bunny 'ready' 레이스로 timeupdate 구독을 놓치는 문제 방어: ready 를 기다리지 않고
+  //    timeupdate 를 능동적으로 반복 구독(플레이어가 살아나는 즉시 등록됨).
+  // ② player.js 가 끝내 응답 없어도(임베드 변경·차단 등) 미리보기 한도를 보장하는 월클록 백스톱.
+  //    정상 동작 시엔 위 timeupdate 핸들러가 정확히 previewSeconds 초에 먼저 컷하므로 이 타이머는 미발동.
+  const startPreviewCutoffWatch = () => {
+    if (cutoffTimersRef.current.interval) window.clearInterval(cutoffTimersRef.current.interval);
+    if (cutoffTimersRef.current.wall) window.clearTimeout(cutoffTimersRef.current.wall);
+    cutoffTimersRef.current = {};
+    if (!needsPreviewCutoff || cinemaCutoffTriggered) return;
+
+    const BUNNY_ORIGIN = "https://iframe.mediadelivery.net";
+    const sub = () =>
+      iframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({
+          context: "player.js",
+          version: "0.0.1",
+          method: "addEventListener",
+          value: "timeupdate",
+          listener: "creaite-cinema-cutoff",
+        }),
+        BUNNY_ORIGIN,
+      );
+    sub();
+    let tries = 0;
+    const interval = window.setInterval(() => {
+      sub();
+      if (++tries >= 10) window.clearInterval(interval); // 최대 ~4초간 재시도
+    }, 400);
+    const wall = window.setTimeout(() => {
+      setCinemaCutoffTriggered(true);
+      setPaywallReason("cinema_cutoff");
+      setPaywallOpen(true);
+    }, (previewSeconds + 2) * 1000); // +2초: 임베드 로드~재생 시작 여유
+    cutoffTimersRef.current = { interval, wall };
+  };
+
+  // 컷오프 확정·언마운트 시 보조 타이머 정리 (메모리/오발동 방지)
+  useEffect(() => {
+    const timers = cutoffTimersRef.current;
+    if (cinemaCutoffTriggered) {
+      if (timers.interval) window.clearInterval(timers.interval);
+      if (timers.wall) window.clearTimeout(timers.wall);
+      cutoffTimersRef.current = {};
+    }
+    return () => {
+      if (cutoffTimersRef.current.interval) window.clearInterval(cutoffTimersRef.current.interval);
+      if (cutoffTimersRef.current.wall) window.clearTimeout(cutoffTimersRef.current.wall);
+    };
+  }, [cinemaCutoffTriggered]);
 
   // ── Phase 8: 시청 기록 (video_views 적재용) ──
   // 페이월 통과한 사용자가 영상을 실제로 시청하면 30% 도달 시 1회 RPC 호출.
@@ -572,6 +628,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   useEffect(() => {
     setTokenReady(false);
     setPlayToken({ token: null, expires: null });
+    setPlayFullAccess(false);
     if (!product.id) return;
     let cancelled = false;
     (async () => {
@@ -587,7 +644,10 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
           body: JSON.stringify({ videoId: product.id }),
         });
         const body = await res.json().catch(() => ({}));
-        if (!cancelled) setPlayToken({ token: body?.token ?? null, expires: body?.expires ?? null });
+        if (!cancelled) {
+          setPlayToken({ token: body?.token ?? null, expires: body?.expires ?? null });
+          setPlayFullAccess(!!body?.fullAccess);
+        }
       } catch {
         if (!cancelled) setPlayToken({ token: null, expires: null });
       } finally {
@@ -657,12 +717,19 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     if (!startFullscreen || fsRequestedRef.current) return;
     if (iframeBlocked || !bunnyEmbedUrl) return;
     fsRequestedRef.current = true;
-    const id = setTimeout(() => {
+    const id = setTimeout(async () => {
       const el: any = iframeRef.current;
-      if (el?.requestFullscreen) el.requestFullscreen().catch(() => {});
-      else if (el?.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      try {
+        if (el?.requestFullscreen) await el.requestFullscreen();
+        else if (el?.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      } catch { /* 무시 */ }
+      // PWA 세로고정 우회 — 가로 영상이 기기 전체화면에서 꽉 차도록 가로 잠금(지원 기기만)
+      try { await (screen.orientation as any)?.lock?.("landscape"); } catch { /* 미지원 무시 */ }
     }, 150);
-    return () => clearTimeout(id);
+    return () => {
+      clearTimeout(id);
+      try { (screen.orientation as any)?.unlock?.(); } catch { /* 무시 */ }
+    };
   }, [startFullscreen, iframeBlocked, bunnyEmbedUrl]);
 
   // ── Phase 28: Overlay 광고 (재생 중 30% 지점, 1분+ 영상만) ──
@@ -1117,6 +1184,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
               ref={iframeRef}
               src={bunnyEmbedUrl}
               loading="lazy"
+              onLoad={startPreviewCutoffWatch}
               className="absolute inset-0 w-full h-full"
               style={{ border: 0 }}
               allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
@@ -1259,7 +1327,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
           {/* 우상단: 1분 미리보기 배지 (비구독자만) + 닫기 X (가로 정렬, Phase 31.4) */}
           <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
             {needsPreviewCutoff && !iframeBlocked && (
-              <div className="px-2.5 py-1 bg-amber-500/85 backdrop-blur rounded-full text-[10px] md:text-xs font-bold text-black flex items-center gap-1">
+              <div className="px-2.5 py-1 bg-black/30 backdrop-blur-md rounded-full text-[10px] md:text-xs font-bold text-amber-300 border border-amber-300/30 flex items-center gap-1 shadow-sm">
                 <Lock className="w-3 h-3" />
                 {t("productDetail.paywall.cinemaPreviewBadge")}
               </div>

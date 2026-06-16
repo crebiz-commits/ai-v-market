@@ -190,6 +190,7 @@
     "unmute": "Unmute",
     "fullscreen": "Fullscreen",
     "exitFullscreen": "Exit fullscreen",
+    "deviceFullscreen": "Fullscreen (landscape)",
     "speed": "Speed",
     "pip": "Picture-in-picture",
     "subtitles": "Subtitles",

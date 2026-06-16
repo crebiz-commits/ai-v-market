@@ -679,9 +679,14 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   const [commentVideo, setCommentVideo] = useState<Video | null>(null);
   const [shareTarget, setShareTarget] = useState<Video | null>(null);
   const [fullscreenVideo, setFullscreenVideo] = useState<Video | null>(null);
-  // 비구독자가 장편(미리보기 초과) 풀스크린 진입 시 전체 무료재생되는 우회 차단 → 페이월(ProductDetail)로
+  // 비구독자가 장편(미리보기 초과) 풀스크린 진입 시 전체 무료재생되는 우회 차단 → 페이월(ProductDetail)로.
+  // 페일세이프: 무제한 플레이어(VideoFullscreen)는 "구독자" 이거나 "길이를 확실히 아는 60초 이하 숏폼"
+  // 일 때만 직접 연다. 길이 메타가 0/누락이면(durationSeconds 미확정) 알 수 없으므로 페이월로 우회
+  // (ProductDetail 이 자체 previewSeconds 기준으로 컷오프/풀재생을 다시 판단 → 새는 길 차단).
   const openFullscreenGated = (v: Video) => {
-    if (!isSubscriber && (v.durationSeconds || 0) > 60) { onVideoClick(v); return; }
+    const dur = v.durationSeconds || 0;
+    const knownShort = dur > 0 && dur <= 60;
+    if (!isSubscriber && !knownShort) { onVideoClick(v); return; }
     setFullscreenVideo(v);
   };
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});

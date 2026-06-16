@@ -398,7 +398,7 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
         <>
           <button
             onClick={handlePrev}
-            className="flex absolute left-2 md:left-8 top-1/2 -translate-y-1/2 z-[200] w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all items-center justify-center group"
+            className="flex absolute left-2 md:left-8 top-1/2 -translate-y-1/2 z-30 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all items-center justify-center group"
             aria-label="Previous"
           >
             <ChevronLeft className="w-5 h-5 md:w-6 md:h-6 text-white" />
@@ -406,7 +406,7 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
 
           <button
             onClick={handleNext}
-            className="flex absolute right-2 md:right-8 top-1/2 -translate-y-1/2 z-[200] w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all items-center justify-center group"
+            className="flex absolute right-2 md:right-8 top-1/2 -translate-y-1/2 z-30 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all items-center justify-center group"
             aria-label="Next"
           >
             <ChevronRight className="w-5 h-5 md:w-6 md:h-6 text-white" />

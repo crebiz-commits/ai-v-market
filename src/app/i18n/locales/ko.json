@@ -190,6 +190,7 @@
     "unmute": "음소거 해제",
     "fullscreen": "전체화면",
     "exitFullscreen": "전체화면 나가기",
+    "deviceFullscreen": "전체화면 (가로)",
     "speed": "재생 속도",
     "pip": "PiP",
     "subtitles": "자막",

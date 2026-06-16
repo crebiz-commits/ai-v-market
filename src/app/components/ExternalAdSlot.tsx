@@ -23,7 +23,6 @@ import { useEffect, useRef } from "react";
 const ENV: any = (import.meta as any).env ?? {};
 const _flag = String(ENV.VITE_EXTERNAL_ADS_ENABLED ?? "").toLowerCase();
 const EXTERNAL_ADS_ON = _flag === "1" || _flag === "true";
-const IS_DEV = !!ENV.DEV;
 
 // 광고 카드 규격 (미디엄 렉탱글 300×250)
 const AD_W = Number(ENV.VITE_ADFIT_WIDTH ?? 300);
@@ -113,26 +112,8 @@ export function ExternalAdSlot({ index = 0, className = "" }: ExternalAdSlotProp
     };
   }, [network]);
 
-  // 미설정/비활성 — 운영: null, 개발: 300×250 자리표시
+  // 미설정/비활성 — 운영·개발 모두 렌더 안 함(빈 슬롯). ID(env) 등록 시에만 실제 광고 노출.
   if (!EXTERNAL_ADS_ON || !network) {
-    if (IS_DEV) {
-      return (
-        <div className={`relative flex items-center justify-center bg-[#0a0a0a] ${className}`}>
-          <div className="absolute top-3 left-3 z-10 px-2 py-0.5 bg-black/50 border border-white/20 rounded-full text-[10px] font-bold text-white/60 tracking-widest">
-            AD
-          </div>
-          <div
-            className="rounded-xl border border-dashed border-white/20 bg-white/[0.03] flex items-center justify-center"
-            style={{ width: AD_W, height: AD_H }}
-          >
-            <div className="text-center px-4">
-              <p className="text-white/45 text-xs font-bold">외부 광고 300×250</p>
-              <p className="text-white/25 text-[10px] mt-1">(미설정 — ID 등록 시 노출)</p>
-            </div>
-          </div>
-        </div>
-      );
-    }
     return null;
   }
 

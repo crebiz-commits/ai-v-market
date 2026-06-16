@@ -32,20 +32,23 @@
 ## 🚀 2. 배포·인프라 (live 점검만)
 
 - [x] ✅ **Supabase Edge Function 시크릿 전수 확인**(2026-06-16, API) — BUNNY_*·RESEND_*·TOSS_SECRET_KEY·VAPID_*·GOOGLE_VISION_API_KEY·BILLING_CRON_SECRET 모두 설정됨. (TOSS_SECRET_KEY는 현재 test → live 전환만 남음)
-- [ ] Vercel 프론트 환경변수 확인 (VITE_BUNNY_*·VITE_TOSS_CLIENT_KEY·VITE_VAPID_PUBLIC_KEY·VITE_KAKAO_JS_KEY / 선택 SENTRY·ADSENSE·ADFIT·EXTERNAL_ADS) — 콘솔에서 직접 확인. (Supabase URL/anon은 코드 하드코딩이라 env 불필요)
-- [ ] Bunny Stream 페이월·라이브러리 설정 ([BUNNY_SETUP_GUIDE.md](../BUNNY_SETUP_GUIDE.md))
+- [x] ✅ **Vercel 프론트 환경변수 확인 완료**(2026-06-16). 필수 모두 등록됨: `VITE_BUNNY_HOSTNAME`(All)·`VITE_BUNNY_LIBRARY_ID`(Production)·`VITE_TOSS_CLIENT_KEY`(test, 승인 후 live 교체)·`VITE_VAPID_PUBLIC_KEY`·`VITE_SUPABASE_URL/ANON_KEY`. ⚪ `VITE_KAKAO_JS_KEY`는 **카카오톡 공유 전용**(로그인은 Supabase OAuth라 무관) — 없으면 링크복사 폴백, 출시 무관. ⚪ (선택) `VITE_BUNNY_LIBRARY_ID`를 Preview에도 추가하면 PR 미리보기 배포에서 영상 노출됨(Production엔 영향 없음).
+- [x] ✅ **Bunny Stream 페이월·라이브러리 설정 확인**(2026-06-16). 라이브러리 creaite_market(615810): Direct play ON·**Embed view token auth ON**·CDN token auth OFF(맞음)·Allowed domains에 `*`. 서버 `BUNNY_TOKEN_AUTH_KEY` 설정됨(엔드포인트가 실토큰 발급 확인). 마켓 재생 정상 = 키 일치. 🟡(선택) Allowed domains에서 localhost 정리+실도메인(`creaite.net`,`*.vercel.app`) 추가는 출시 후. ([BUNNY_SETUP_GUIDE.md](../BUNNY_SETUP_GUIDE.md))
+- [x] ✅ **미리보기 1분 컷오프 버그 수정**(2026-06-16, ProductDetail.tsx) — 비구독자가 1분 후에도 끝까지 재생되던 문제. 원인: player.js `ready` 레이스로 timeupdate 구독을 놓쳐 컷오프·조회수·종료오버레이가 모두 죽음. 수정: ① ready 대기 없이 timeupdate 능동 반복구독(레이스 방어) ② 월클록 백스톱 타이머로 한도 보장. 인접버그도 수정: 클라 컷오프가 `isSubscriber`만 봐서 **라이선스 구매자·영상 소유자·관리자도 1분에 잘리던** 모순 → 서버 `fullAccess` 반영해 면제. **Vercel 재배포 후 비구독 계정으로 재검증 필요.**
+- [x] ✅ **재생 페이월 전 피드 전수 점검**(2026-06-16) — 홈/시네마/OTT 모든 재생 표면 확인. 결과: 모든 "보기" 진입점이 ProductDetail(페이월)로 funnel됨. 인라인 카드=30초 하이라이트 루프·시네마 히어로(CoverFlow)=15초 루프·OTT 히어로=30초 클립/preview.webp → 전편 노출 없음. 유일한 무제한 플레이어 VideoFullscreen은 홈피드 풀스크린 버튼에서만 도달하며 게이트(`openFullscreenGated`)로 구독자·숏폼만 허용. **추가 수정**: 게이트가 길이 메타 0/누락 영상을 통과시키던 페일세이프 구멍 → "길이를 확실히 아는 60초 이하"만 직접 재생, 미확정은 페이월로 우회(DiscoveryFeed.tsx). ⚠️ 잔여(경미): 게이트 임계값이 하드코딩 60초 — 어드민이 `cinemaPreviewSeconds`를 60 미만으로 낮추면 30~60초 영상이 풀스크린 버튼으로 샐 수 있음(기본 60이라 현재 무관, 설정 낮출 때만 주의).
 - [ ] (선택) DMARC 레코드 추가 — `_dmarc.mail.creaite.net` TXT `v=DMARC1; p=none; rua=mailto:support@creaite.net` (수신율 개선, 필수 아님)
 
 ## 🔐 3. 소셜 로그인 검수
 
-> Supabase 연동(키·활성화)·Site/Redirect URL 모두 완료 확인(2026-06-14, API). 남은 건 **콘솔 게시 상태**뿐.
+> Supabase 연동(키·활성화)·Site/Redirect URL 모두 완료 확인(2026-06-14, API). 콘솔 게시 상태도 확인 완료(2026-06-16).
 
-- [ ] **Google OAuth 동의화면 게시 상태 확인** — Google Cloud Console → OAuth 동의 화면 → 게시 상태가 `프로덕션`인지(테스트면 "앱 게시" 클릭). 기본 스코프는 구글 검수 불필요 ([GOOGLE_AUTH_SETUP.md](../GOOGLE_AUTH_SETUP.md))
-- [ ] **Kakao 비즈앱 전환 확인** — Kakao Developers → 앱 설정 → 비즈니스 → 비즈앱 전환(미전환 시 로그인 사용자 수 제한) ([KAKAO_AUTH_SETUP.md](../KAKAO_AUTH_SETUP.md))
+- [x] ✅ **Google OAuth 동의화면 — 프로덕션 게시 확인 완료**(2026-06-16). 프로젝트 `aimarket`(aimarket-490109), 게시 상태=프로덕션, 사용자 유형=외부, 기본 스코프(email·profile)라 구글 별도 검수 불필요. ([GOOGLE_AUTH_SETUP.md](../GOOGLE_AUTH_SETUP.md))
+- [x] ✅ **Kakao 비즈앱 전환 확인 완료**(2026-06-16). 앱 AI-V-Market(ID 1411057)=비즈앱, 카카오 로그인·동의항목 설정함. 사용자 수 제한 없음. (비즈니스 채널 미연결은 로그인에 무관 — 선택 기능.) ([KAKAO_AUTH_SETUP.md](../KAKAO_AUTH_SETUP.md))
 
 ## ⚖️ 4. 법적·사업자
 
 - [ ] 사업자등록 + 통신판매업 신고 (PG 계약·전자상거래 전제 — 1번과 연동)
+- [x] ✅ **운영 주체 확정**(2026-06-16): **개인사업자 크레비즈 / 107-10-27099 / 대표 이현우**. 푸터·햄버거 사업자정보 표시가 이와 일치(유지). ⚠️ **토스 가맹계약·정산통장도 반드시 이 개인사업자(107-10-27099) 명의**로 진행. (참고: 카카오 비즈앱은 법인 "주식회사 크레비즈/683-87-03399"로 인증돼 있으나 로그인 전용이라 무관.)
 - [x] ✅ **결제/환불 정책 고지 노출 완료**(2026-06-16) — 약관 제7조+FAQ에 더해, 결제 직전 고지 추가: 구독모달(정기결제)·라이선스 구매(청약철회 제한)·광고 충전(환불). 모두 약관 제7조 링크. (전자상거래법 결제 전 고지 충족)
 
 ### 지식재산(IP)

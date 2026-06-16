@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Play, Pause, Volume2, VolumeX, Heart, MessageCircle, Send, Minimize2, Gauge, PictureInPicture2 } from "lucide-react";
+import { X, Play, Pause, Volume2, VolumeX, Heart, MessageCircle, Send, Minimize2, Maximize2, Gauge, PictureInPicture2 } from "lucide-react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
@@ -43,6 +43,7 @@ export function VideoFullscreen({
   onShare,
 }: VideoFullscreenProps) {
   const { t } = useTranslation();
+  const rootRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -247,6 +248,61 @@ export function VideoFullscreen({
     };
   }, []);
 
+  // ── 기기 네이티브 전체화면 + 가로 잠금 ──
+  // PWA manifest 가 portrait 고정이라 폰을 돌려도 페이지가 회전하지 않음.
+  // 영상만 네이티브 Fullscreen API + Screen Orientation 잠금으로 가로 전체화면 진입(유튜브 패턴).
+  // iPhone Safari 는 엘리먼트 풀스크린 미지원 → <video> 네이티브 풀스크린(webkitEnterFullscreen)이
+  // 기기 회전까지 자동 처리.
+  const [isDeviceFs, setIsDeviceFs] = useState(false);
+  const enterDeviceFullscreen = async () => {
+    const vEl: any = videoRef.current;
+    if (typeof document !== "undefined" && !document.fullscreenEnabled && vEl?.webkitEnterFullscreen) {
+      try { vEl.webkitEnterFullscreen(); return; } catch { /* 폴백 진행 */ }
+    }
+    const root: any = rootRef.current;
+    try {
+      if (root?.requestFullscreen) await root.requestFullscreen();
+      else if (root?.webkitRequestFullscreen) root.webkitRequestFullscreen();
+    } catch { /* 사용자 제스처 없으면 차단될 수 있음 — 무시 */ }
+    try { await (screen.orientation as any)?.lock?.("landscape"); } catch { /* 미지원 기기 무시 */ }
+  };
+  const exitDeviceFullscreen = async () => {
+    try { (screen.orientation as any)?.unlock?.(); } catch { /* 무시 */ }
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen();
+      else if ((document as any).webkitFullscreenElement && (document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
+    } catch { /* 무시 */ }
+  };
+  const toggleDeviceFullscreen = () => {
+    const fs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+    if (fs) exitDeviceFullscreen(); else enterDeviceFullscreen();
+    setShowControls(true);
+  };
+  // 전체화면 상태 동기화(버튼 아이콘) + 가로 회전 자동 진입(best-effort) + 언마운트 정리.
+  useEffect(() => {
+    const syncFs = () => setIsDeviceFs(!!(document.fullscreenElement || (document as any).webkitFullscreenElement));
+    const onOrientation = () => {
+      const type = (screen.orientation as any)?.type || "";
+      const isFs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+      // 가로로 돌리면 자동 전체화면 시도(브라우저가 제스처 요구 시 조용히 실패).
+      if (type.startsWith("landscape") && !isFs) enterDeviceFullscreen();
+    };
+    document.addEventListener("fullscreenchange", syncFs);
+    document.addEventListener("webkitfullscreenchange", syncFs as any);
+    (screen.orientation as any)?.addEventListener?.("change", onOrientation);
+    window.addEventListener("orientationchange", onOrientation);
+    return () => {
+      document.removeEventListener("fullscreenchange", syncFs);
+      document.removeEventListener("webkitfullscreenchange", syncFs as any);
+      (screen.orientation as any)?.removeEventListener?.("change", onOrientation);
+      window.removeEventListener("orientationchange", onOrientation);
+      // 닫힐 때 전체화면/가로 잠금 해제 (다른 화면이 가로로 남는 것 방지)
+      try { (screen.orientation as any)?.unlock?.(); } catch { /* 무시 */ }
+      try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen(); } catch { /* 무시 */ }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const togglePlay = () => {
     const p = playerRef.current;
     if (!p || p.isDisposed()) return;
@@ -277,6 +333,7 @@ export function VideoFullscreen({
 
   return (
     <motion.div
+      ref={rootRef}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -490,6 +547,18 @@ export function VideoFullscreen({
                       <PictureInPicture2 className="w-5 h-5" />
                     </button>
                   )}
+
+                  {/* 기기 전체화면(가로) 토글 — PWA 세로고정 우회. 가로 영상은 풀스크린에서 꽉 참 */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleDeviceFullscreen(); }}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                      isDeviceFs ? "bg-[#6366f1]/30 text-[#8b5cf6]" : "text-white hover:bg-white/10"
+                    }`}
+                    aria-label={t("videoFullscreen.deviceFullscreen", "전체화면")}
+                    title={t("videoFullscreen.deviceFullscreen", "전체화면")}
+                  >
+                    <Maximize2 className="w-5 h-5" />
+                  </button>
 
                   <button
                     onClick={(e) => { e.stopPropagation(); onClose(); }}
