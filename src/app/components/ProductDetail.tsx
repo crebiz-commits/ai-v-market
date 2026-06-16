@@ -732,6 +732,28 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     };
   }, [startFullscreen, iframeBlocked, bunnyEmbedUrl]);
 
+  // 전체화면 진입 시 가로 잠금 — Bunny 플레이어 자체 전체화면 버튼까지 포함해 모두 커버.
+  // (위 startFullscreen 효과는 "지금 보기" 자동진입만 처리 → 사용자가 플레이어 ⛶ 버튼을 직접
+  //  누른 경우 fullscreenchange 이벤트로 잡아 가로 잠금. iOS는 lock API 미지원이라 무시되고
+  //  Bunny가 <video> 네이티브 전체화면으로 기기 회전을 자동 처리.)
+  useEffect(() => {
+    const onFsChange = () => {
+      const fsEl = document.fullscreenElement || (document as any).webkitFullscreenElement;
+      if (fsEl) {
+        try { (screen.orientation as any)?.lock?.("landscape"); } catch { /* 미지원 무시 */ }
+      } else {
+        try { (screen.orientation as any)?.unlock?.(); } catch { /* 무시 */ }
+      }
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange as any);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("webkitfullscreenchange", onFsChange as any);
+      try { (screen.orientation as any)?.unlock?.(); } catch { /* 무시 */ }
+    };
+  }, []);
+
   // ── Phase 28: Overlay 광고 (재생 중 30% 지점, 1분+ 영상만) ──
   const [overlayAd, setOverlayAd] = useState<AdRpcResult | null>(null);
   // 영상 변경 시 광고 상태 초기화
