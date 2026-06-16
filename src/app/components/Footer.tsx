@@ -193,6 +193,9 @@ export function Footer({ onNavigate }: FooterProps) {
               <span className="text-gray-500">{t("footer.businessInfo.address")}</span> 경기도 파주시 평화로342번길 71-5, A동 (검산동)
             </p>
             <p>
+              <span className="text-gray-500">{t("footer.businessInfo.phone", "전화")}</span>{" "}
+              <a href="tel:01027977009" className="text-gray-300 hover:text-white transition-colors">010-2797-7009</a>
+              <span className="text-gray-600 mx-1.5">·</span>
               <span className="text-gray-500">{t("footer.businessInfo.contact")}</span>{" "}
               <a href="mailto:support@creaite.net" className="text-gray-300 hover:text-white transition-colors">support@creaite.net</a>
             </p>

@@ -411,6 +411,7 @@
       "mailOrder": "Mail-order license",
       "address": "Address",
       "contact": "Contact",
+      "phone": "Tel",
       "hosting": "Hosting"
     },
     "notices": "Notices",

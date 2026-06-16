@@ -157,6 +157,11 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
                     <span className="text-gray-600">{t("footer.businessInfo.address")}</span> 경기도 파주시 평화로342번길 71-5, A동 (검산동)
                   </p>
                   <p>
+                    <span className="text-gray-600">{t("footer.businessInfo.phone", "전화")}</span> 010-2797-7009
+                    <span className="text-gray-700 mx-1">·</span>
+                    <span className="text-gray-600">{t("footer.businessInfo.contact")}</span> support@creaite.net
+                  </p>
+                  <p>
                     <span className="text-gray-600">{t("footer.businessInfo.hosting")}</span> Vercel Inc.
                   </p>
                 </div>
