@@ -97,11 +97,17 @@ bubblewrap build
 
 앱과 사이트를 연결해 **브라우저 주소창·하단바 없이 풀스크린 앱**으로 뜨게 하는 검증입니다. 잘못되면 앱 상단에 URL 바가 남습니다.
 
+**현재 상태(2026-06-16)**: PWABuilder가 만든 **로컬 서명키 지문**(`6D:90:DA:…:3D:85`)은 이미 [`public/.well-known/assetlinks.json`](../public/.well-known/assetlinks.json) 에 기입·배포됨 → **직접 설치한 APK는 검증 통과**. 아래는 Play 업로드 후 **두 번째 지문(Play 앱서명 키)** 추가 절차.
+
 1. **Play Console → 앱 → 테스트 및 출시 → 앱 무결성(App integrity) → 앱 서명** 으로 이동.
 2. **"앱 서명 키 인증서"의 SHA-256 인증서 지문**을 복사 (예: `AB:CD:12:...`).
-3. 이 저장소의 [`public/.well-known/assetlinks.json`](../public/.well-known/assetlinks.json) 에서
-   `REPLACE_WITH_PLAY_APP_SIGNING_SHA256` 를 그 값으로 교체 → 커밋 → Vercel 배포.
-   - (여러 키 허용하려면 배열에 업로드 키 지문도 함께 추가 가능)
+3. `public/.well-known/assetlinks.json` 의 `sha256_cert_fingerprints` **배열에 그 값을 한 줄 더 추가**(기존 로컬키 지문은 그대로 둠) → 커밋 → Vercel 배포.
+   ```json
+   "sha256_cert_fingerprints": [
+     "6D:90:DA:89:E5:DC:20:F4:90:89:8A:BE:48:A4:5B:05:27:D8:43:EA:3A:61:BE:68:30:92:6E:4F:C8:CF:3D:85",
+     "여기에_Play_앱서명_SHA256_추가"
+   ]
+   ```
 4. 배포 후 확인: `https://www.creaite.net/.well-known/assetlinks.json` 가 그 JSON을 그대로 반환하는지 브라우저로 확인.
 5. 검증 점검 도구: https://developers.google.com/digital-asset-links/tools/generator
 
