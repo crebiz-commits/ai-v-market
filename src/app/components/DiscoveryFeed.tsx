@@ -17,6 +17,7 @@ import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { Lock } from "lucide-react";
 import { VideoFullscreen } from "./VideoFullscreen";
+import { ExternalAdSlot } from "./ExternalAdSlot";
 import { CreatorAvatar } from "./CreatorAvatar";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { useBackButton } from "../hooks/useBackButton";
@@ -38,6 +39,12 @@ interface Ad {
 type FeedItem =
   | ({ kind: "video" } & Video)
   | ({ kind: "ad"; adIndex?: number } & Ad);
+
+// 데스크탑 그리드 전용 아이템 — 자체광고(selfad) 우선, 소진 시 애드핏(adfit) 폴백
+type DesktopItem =
+  | { kind: "video"; video: Video }
+  | { kind: "selfad"; ad: Ad; key: string }
+  | { kind: "adfit"; slot: number };
 
 interface Video {
   // 기본 정보
@@ -908,6 +915,26 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     return result;
   })();
 
+  // 데스크탑 그리드 광고 삽입: 7칸마다(2·3·4열 어디서도 같은 열에 안 박히게 서로소),
+  // 자체광고 먼저(반복 없이) → 소진되면 애드핏(ExternalAdSlot) 폴백
+  const DESKTOP_AD_INTERVAL = 7;
+  const desktopItems: DesktopItem[] = (() => {
+    const out: DesktopItem[] = [];
+    let adSlot = 0;
+    videos.forEach((v, i) => {
+      out.push({ kind: "video", video: v });
+      if ((i + 1) % DESKTOP_AD_INTERVAL === 0) {
+        if (adSlot < ads.length) {
+          out.push({ kind: "selfad", ad: ads[adSlot], key: `selfad-${ads[adSlot].id}-${adSlot}` });
+        } else {
+          out.push({ kind: "adfit", slot: adSlot });
+        }
+        adSlot++;
+      }
+    });
+    return out;
+  })();
+
   // 스크롤 스냅 완료 후 상단 영상 감지 및 활성화
   useEffect(() => {
     const container = containerRef.current;
@@ -1148,22 +1175,38 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
             <div className="neon-divider absolute left-0 right-0 bottom-0" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8 pt-8 pb-12">
-            {videos.map(v => (
-              <DesktopMovieCard
-                key={v.id}
-                video={v}
-                onVideoClick={onVideoClick}
-                isLiked={likedVideos.has(v.id)}
-                onToggleLike={toggleLike}
-                onComment={(vid) => { if (handleShowcaseClick(vid.id)) return; setCommentVideo(vid); }}
-                onShare={handleShare}
-                commentCount={commentCounts[v.id] || 0}
-                creatorAvatar={v.creatorId ? creatorInfo[v.creatorId]?.avatar ?? null : null}
-                creatorName={v.creatorId ? creatorInfo[v.creatorId]?.name ?? null : null}
-                onViewCreator={onViewCreator}
-                onSignInClick={onSignInClick}
-              />
-            ))}
+            {desktopItems.map((item) => {
+              if (item.kind === "selfad") {
+                return <DesktopAdCard key={item.key} ad={item.ad} onImpression={handleAdImpression} />;
+              }
+              if (item.kind === "adfit") {
+                // 자체광고 소진 시 폴백 — 미설정/비활성이면 ExternalAdSlot 이 null 반환(빈 셀 없음)
+                return (
+                  <ExternalAdSlot
+                    key={`adfit-${item.slot}`}
+                    index={item.slot}
+                    className="rounded-2xl border border-white/[0.08] min-h-[280px] h-full"
+                  />
+                );
+              }
+              const v = item.video;
+              return (
+                <DesktopMovieCard
+                  key={v.id}
+                  video={v}
+                  onVideoClick={onVideoClick}
+                  isLiked={likedVideos.has(v.id)}
+                  onToggleLike={toggleLike}
+                  onComment={(vid) => { if (handleShowcaseClick(vid.id)) return; setCommentVideo(vid); }}
+                  onShare={handleShare}
+                  commentCount={commentCounts[v.id] || 0}
+                  creatorAvatar={v.creatorId ? creatorInfo[v.creatorId]?.avatar ?? null : null}
+                  creatorName={v.creatorId ? creatorInfo[v.creatorId]?.name ?? null : null}
+                  onViewCreator={onViewCreator}
+                  onSignInClick={onSignInClick}
+                />
+              );
+            })}
           </div>
           {/* 무한 스크롤 sentinel (데스크탑) */}
           <div className="feed-load-sentinel h-1" aria-hidden />
@@ -1357,6 +1400,68 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     </div>
   );
 }
+
+// 데스크탑 그리드용 자체광고 카드 — DesktopMovieCard 와 동일 셸(aspect-video + 푸터)로 그리드 리듬 유지
+const DesktopAdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) => void }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const tracked = useRef(false);
+
+  useEffect(() => {
+    if (!cardRef.current || tracked.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !tracked.current) {
+          tracked.current = true;
+          onImpression(ad.id);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    observer.observe(cardRef.current);
+    return () => observer.disconnect();
+  }, [ad.id, onImpression]);
+
+  const handleClick = async () => {
+    try { await supabase.rpc("increment_ad_clicks", { ad_id: ad.id }); } catch {}
+    window.open(ad.link_url, "_blank", "noopener,noreferrer");
+  };
+
+  return (
+    <div
+      ref={cardRef}
+      onClick={handleClick}
+      className="bg-[#141414] rounded-2xl overflow-hidden border border-white/[0.08] hover:border-[#6366f1]/50 shadow-lg hover:shadow-[0_0_30px_rgba(99,102,241,0.15)] transition-all duration-300 cursor-pointer group flex flex-col"
+    >
+      <div className="relative aspect-video bg-black overflow-hidden">
+        {ad.image_url ? (
+          <img src={ad.image_url} alt={ad.title} className="absolute inset-0 w-full h-full object-cover" />
+        ) : ad.video_url ? (
+          <video src={ad.video_url} poster={ad.thumbnail_url || undefined} className="absolute inset-0 w-full h-full object-cover" autoPlay loop muted playsInline />
+        ) : ad.thumbnail_url ? (
+          <img src={ad.thumbnail_url} alt={ad.title} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-[#6366f1] to-[#8b5cf6]" />
+        )}
+        <div className="absolute top-3 left-3 z-10 px-2 py-0.5 bg-black/50 backdrop-blur-sm border border-white/20 rounded-full text-[10px] font-bold text-white/70 tracking-widest">
+          AD
+        </div>
+      </div>
+      <div className="p-5 flex-1 flex flex-col">
+        {ad.advertiser && (
+          <p className="text-xs text-white/50 font-medium mb-1">{ad.advertiser}</p>
+        )}
+        <h3 className="font-extrabold text-lg text-white line-clamp-2 uppercase tracking-tight">{ad.title}</h3>
+        <button
+          onClick={handleClick}
+          className="mt-4 self-start flex items-center gap-1.5 px-4 py-2 bg-white text-black text-xs font-bold rounded-full hover:bg-white/90 transition-colors"
+        >
+          {ad.cta_text}
+        </button>
+      </div>
+    </div>
+  );
+});
 
 function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onComment, onShare, commentCount = 0, creatorAvatar = null, creatorName = null, onViewCreator, onSignInClick }: { video: Video; onVideoClick: (video: Video) => void; isLiked: boolean; onToggleLike: (id: string, currentlyLiked: boolean) => void; onComment: (video: Video) => void; onShare: (video: Video) => void; commentCount?: number; creatorAvatar?: string | null; creatorName?: string | null; onViewCreator?: (creatorId: string) => void; onSignInClick?: () => void }) {
   const { t } = useTranslation();

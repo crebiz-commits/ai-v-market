@@ -2,7 +2,7 @@
 
 > **새 컴퓨터에서 이 폴더를 열고 작업을 이어갈 때 가장 먼저 읽는 문서.**
 > 개인 메모리(`~/.claude/...`)는 폴더 밖이라 이동 시 사라짐 → 핵심을 여기(저장소+GitHub)에 박아둠.
-> 마지막 갱신: 2026-06-17.
+> 마지막 갱신: 2026-06-18.
 
 ## 📖 새 컴퓨터에서 읽는 순서
 1. [`CLAUDE.md`](../CLAUDE.md) — 작업 원칙(⭐검증 우선·한글·실서비스·출시순서)
@@ -22,10 +22,15 @@
 - **앱 패키지 파일 위치(⚠️ 폴더 밖!):** `C:\Users\crebi\Downloads\_creaite_pkg\` 와 `CREAITE - Google Play package.zip` 안에 `CREAITE.aab`·`CREAITE.apk`·`signing.keystore`·`signing-key-info.txt`. → **새 컴퓨터로 이 파일들(특히 `signing.keystore`)도 따로 옮기거나, 사용자가 백업한 것 복원.** (.aab/.apk은 PWABuilder로 재생성 가능: https://www.pwabuilder.com → www.creaite.net, Package ID `net.creaite.app`)
 - 패키지명 **`net.creaite.app`**. assetlinks 로컬키 지문은 이미 `public/.well-known/assetlinks.json`에 있음(`6D:90:DA:…:3D:85`). Play 업로드 후 **Play 앱서명 지문을 배열에 추가** 필요([twa-build-guide.md](twa-build-guide.md) 3단계).
 
-### ② 카카오 애드핏 (웹 광고) — 카카오 인증 일시차단 🔒
-- adfit.kakao.com 진행 중 "**연령인증 시도 횟수 초과**"(일시 차단) + 그전 "본인확인 3계정 제한". → **몇 시간~하루 뒤** 재시도.
-- **재시도 방법:** **메인 카카오톡 계정(이미 본인확인됨)으로 QR코드 로그인** → 한도 안 걸림.
-- **그다음:** 매체 등록(웹 / CREAITE / `https://www.creaite.net` / 엔터테인먼트) → **광고단위 300×250** 생성 → `DAN-...` ID 발급 → Vercel env `VITE_ADFIT_UNIT_ID=DAN-...` + `VITE_EXTERNAL_ADS_ENABLED=1` 넣고 재배포(코드는 `ExternalAdSlot`에 연동완료) → **심사 요청**(스크립트가 광고 호출하는 걸 애드핏이 확인해야 통과, 1~2영업일).
+### ② 카카오 애드핏 (웹 광고) — 사업자 계정 가입 완료, 계정 심사중 ⏳
+- ✅ **차단 풀림**(이전 "연령인증 시도 횟수 초과"). 로그인 계정 = **메인 카카오 `nomad55@naver.com`**(아이디/비번 로그인으로도 통과).
+- ✅ **사업자 계정 "크레비즈" 생성 완료**(2026-06-18). 개인사업자 107-10-27099 / 일반과세자 / 대표 이현우 / 세금계산서 **정발행** / 알림 3개(이메일·문자·카톡)+일일리포트 ON / 계정설명 "CREAITE 웹광고". 마스터=본인.
+- ⏳ **계정 상태 = 심사중**(카카오가 사업자정보 검토, 1~2영업일, 결과는 메일/문자/카톡). 심사 **2단계 구조**: ①계정(사업자)심사 ←지금 → ②승인 후 매체·광고단위 만든 뒤 광고심사(또 1~2영업일).
+- ✅ **매체 등록 완료**(CREAITE / Web / creaite.net / 엔터테인먼트·사진영상) + **광고단위 생성 완료**: 배너 300×250, **광고단위 코드 `DAN-u9aMDBktu0JpNuLu`**.
+- ⏳ **다음(미완): Vercel env 2개 넣고 재배포** → `VITE_EXTERNAL_ADS_ENABLED=1` + `VITE_ADFIT_UNIT_ID=DAN-u9aMDBktu0JpNuLu` (Settings→Environment Variables, Production/전체. 빌드타임이라 **Redeploy 필수**). 재배포되면 애드핏 호출 발생 → 카카오 **매체 심사**(1~2영업일) → 승인 시 노출. (코드 `ExternalAdSlot.tsx` 연동완료, 폭/높이 기본 300/250.)
+- 📌 코드 로더 `t1.daumcdn.net/kas/static/ba.min.js` (콘솔 스크립트는 kakaocdn.net — 동일 CDN, 보통 호환. 승인 후 광고 안 뜨면 kakaocdn.net으로 교체).
+- 📌 앱은 **TWA(웹 감싼 앱)**라 웹 광고단위 하나로 웹+앱 둘 다 노출됨 → 애드핏 앱 SDK 별도 연동 불필요(네이티브 앱 만들 때만).
+- 📌 법인 전환 시: 같은 카카오 로그인에서 **법인(683-87-03399) 사업자 계정 새로 생성** → 매체·광고단위 재등록 → env 교체. (기존 적립금 먼저 정산)
 - 가이드: [ad-monetization-guide.md](ad-monetization-guide.md). 토스 무관 — 무료 광고형 수익은 결제 없이 가능.
 
 ### ③ 토스페이먼츠 (결제) — 가맹 심사 대기 ⏳ (진짜 병목)
@@ -58,5 +63,5 @@
 
 ## ▶ 다음 세션 첫 행동
 1. **구글 본인확인 승인 메일 왔나** 확인 → 왔으면 ①의 "앱 만들기→.aab 업로드→테스터 12명"
-2. **카카오 차단 풀렸으면** ②의 메인계정 QR로그인 → 매체등록 → 광고단위 → DAN-ID (받으면 env 넣고 배포)
+2. **카카오 애드핏 계정 심사 승인됐나** 확인(메일/문자/카톡) → 됐으면 ②의 계정"크레비즈" 진입 → 매체등록 → 광고단위 300×250 → DAN-ID (받으면 env 넣고 배포). 심사중이면 대기.
 3. 토스는 계속 대기. 애플은 보류.
