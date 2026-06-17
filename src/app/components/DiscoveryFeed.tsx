@@ -915,9 +915,12 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     return result;
   })();
 
-  // 데스크탑 그리드 광고 삽입: 7칸마다(2·3·4열 어디서도 같은 열에 안 박히게 서로소),
+  // 데스크탑 그리드 광고 삽입: 영상 6개마다 1개.
+  // 핵심: 그리드상 광고 간격 = 영상6 + 광고1 = "7칸 주기"(광고가 들어가며 뒤 영상이 한 칸씩 밀림).
+  //   7은 2·3·4열과 서로소 → 광고가 같은 열에 쏠리지 않고 행마다 대각선으로 회전.
+  //   (interval=7이면 주기 8 = 4의 배수라 4열에서 매번 오른쪽 끝에 박힘 → 6이어야 함)
   // 자체광고 먼저(반복 없이) → 소진되면 애드핏(ExternalAdSlot) 폴백
-  const DESKTOP_AD_INTERVAL = 7;
+  const DESKTOP_AD_INTERVAL = 6;
   const desktopItems: DesktopItem[] = (() => {
     const out: DesktopItem[] = [];
     let adSlot = 0;
