@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1080, initial-scale=1" />
+<title>CREAITE · 시청자 모집 전단 (1080×1080)</title>
+<style>
+  /* ── CREAITE 시청자 모집 · 인스타 정사각 1080×1080 ── */
+  :root{ --v1:#a78bfa; --v2:#ec4899; --v3:#f59e0b; --ink:#fff; --muted:#b9b4d0; }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:#1b1b22;display:flex;justify-content:center;align-items:flex-start}
+  body{padding:0;font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","맑은 고딕",sans-serif;-webkit-font-smoothing:antialiased}
+
+  .card{
+    position:relative;width:1080px;height:1080px;overflow:hidden;
+    background:
+      radial-gradient(120% 90% at 18% 12%, rgba(99,102,241,.42) 0%, transparent 42%),
+      radial-gradient(110% 90% at 88% 86%, rgba(236,72,153,.40) 0%, transparent 44%),
+      radial-gradient(120% 120% at 60% 50%, rgba(168,85,247,.22) 0%, transparent 55%),
+      linear-gradient(155deg,#0b0a16 0%, #07060d 55%, #0a0712 100%);
+    color:var(--ink);display:flex;flex-direction:column;padding:62px 76px 44px;
+  }
+  .card::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+    background-size:54px 54px;mask-image:radial-gradient(120% 100% at 50% 0%,#000 30%,transparent 80%);opacity:.5}
+  .card::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 0 2px rgba(255,255,255,.06), inset 0 0 120px rgba(0,0,0,.55)}
+  .row{position:relative;z-index:2}
+
+  .top{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  .badge{display:inline-flex;align-items:center;gap:10px;padding:11px 20px;border-radius:999px;
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(8px);
+    font-size:21px;font-weight:800;letter-spacing:-.3px;color:#f3e9c9}
+  .badge .dot{width:10px;height:10px;border-radius:999px;background:var(--v3);box-shadow:0 0 14px var(--v3)}
+  .wm{font-size:25px;font-weight:900;letter-spacing:2px;background:linear-gradient(90deg,var(--v1),var(--v2),var(--v3));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+
+  .lead{margin-top:32px}
+  .kicker{font-size:26px;font-weight:800;color:var(--muted);letter-spacing:-.4px}
+  .h1{margin-top:10px;font-size:80px;line-height:1.03;font-weight:900;letter-spacing:-3px}
+  .h1 .grad{background:linear-gradient(98deg,var(--v1) 0%,var(--v2) 52%,var(--v3) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 6px 30px rgba(236,72,153,.25))}
+  .sub{margin-top:16px;font-size:27px;line-height:1.5;color:#d9d4ea;font-weight:600;max-width:900px;letter-spacing:-.5px}
+  .sub b{color:#fff;font-weight:800}
+  .punch{margin-top:16px;display:inline-block;font-size:33px;font-weight:900;letter-spacing:-1px;color:#fff;
+    padding:11px 22px;border-radius:16px;background:linear-gradient(95deg,rgba(167,139,250,.16),rgba(236,72,153,.14));border:1px solid rgba(255,255,255,.16)}
+  .punch .pgrad{background:linear-gradient(90deg,var(--v1),var(--v2),var(--v3));-webkit-background-clip:text;background-clip:text;color:transparent}
+
+  .rev{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:24px}
+  .rcell{border-radius:22px;padding:20px 22px;background:linear-gradient(160deg,rgba(255,255,255,.08),rgba(255,255,255,.02));
+    border:1px solid rgba(255,255,255,.12);position:relative;overflow:hidden}
+  .rcell .glow{position:absolute;inset:auto -30% -50% -30%;height:160px;filter:blur(40px);opacity:.55}
+  .r1 .glow{background:radial-gradient(closest-side,var(--v1),transparent)}
+  .r2 .glow{background:radial-gradient(closest-side,var(--v2),transparent)}
+  .r3 .glow{background:radial-gradient(closest-side,var(--v3),transparent)}
+  .pct{position:relative;font-size:44px;font-weight:900;letter-spacing:-2px;line-height:1}
+  .r1 .pct{color:#c4b5fd}.r2 .pct{color:#f9a8d4}.r3 .pct{color:#fcd34d}
+  .rname{position:relative;margin-top:12px;font-size:25px;font-weight:800;color:#fff}
+  .rdesc{position:relative;margin-top:6px;font-size:18px;color:#b9b4d0;line-height:1.4;font-weight:600}
+
+  .trust{display:flex;flex-wrap:wrap;gap:12px 26px;margin-top:20px}
+  .chip{display:inline-flex;align-items:center;gap:10px;font-size:22px;font-weight:700;color:#e7e3f3}
+  .chip .ck{color:var(--v1);font-size:24px;font-weight:900}
+
+  .spacer{flex:1}
+  .cta{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:22px;padding:22px 32px;border-radius:26px;
+    background:linear-gradient(95deg,rgba(99,102,241,.30),rgba(236,72,153,.24));border:1px solid rgba(255,255,255,.20);box-shadow:0 20px 60px -20px rgba(236,72,153,.5)}
+  .ctatext{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+  .cta .lbl{font-size:24px;font-weight:800;color:#fff}
+  .cta .url{font-size:44px;font-weight:900;letter-spacing:-1px;background:linear-gradient(90deg,#fff,#f3e9c9);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .cta .go{margin-top:4px;font-size:21px;font-weight:900;padding:13px 24px;border-radius:14px;white-space:nowrap;background:linear-gradient(95deg,var(--v1),var(--v2));color:#fff;box-shadow:0 10px 30px -8px rgba(167,139,250,.7)}
+  .qr{display:flex;flex-direction:column;align-items:center;gap:7px;flex:none}
+  .qr img{width:122px;height:122px;border-radius:14px;background:#fff;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+  .qr span{font-size:15px;font-weight:700;color:#e7e3f3;text-align:center;line-height:1.25}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="row top">
+      <span class="badge"><span class="dot"></span>세계 최초 AI 시네마 OTT</span>
+      <span class="wm">CREAITE</span>
+    </div>
+
+    <div class="row lead">
+      <div class="kicker">넷플릭스에도 없는 영화가, 여기 있습니다.</div>
+      <h1 class="h1">AI가 만든 영화,<br><span class="grad">무제한</span>으로.</h1>
+      <p class="sub">영화 · 드라마 · 애니메이션 · 다큐멘터리.<br><b>월 ₩4,900</b>, 광고 없이 무제한 시청.</p>
+      <div class="punch">비회원도 <span class="pgrad">모든 영상 1분 미리보기</span></div>
+    </div>
+
+    <div class="row rev">
+      <div class="rcell r1"><span class="glow"></span>
+        <div class="pct">₩4,900</div>
+        <div class="rname">월 무제한</div>
+        <div class="rdesc">모든 AI 시네마를<br>무제한으로 시청</div>
+      </div>
+      <div class="rcell r2"><span class="glow"></span>
+        <div class="pct">광고 ZERO</div>
+        <div class="rname">깔끔한 몰입</div>
+        <div class="rdesc">프리미엄은 광고<br>완전 제거</div>
+      </div>
+      <div class="rcell r3"><span class="glow"></span>
+        <div class="pct">1분 무료</div>
+        <div class="rname">미리보기</div>
+        <div class="rdesc">비회원도 모든<br>영상 맛보기</div>
+      </div>
+    </div>
+
+    <div class="row trust">
+      <span class="chip"><span class="ck">✓</span> 앱 설치 없이 브라우저로 바로</span>
+      <span class="chip"><span class="ck">✓</span> 데스크탑 · 모바일 · 태블릿 어디서나</span>
+      <span class="chip"><span class="ck">✓</span> 언제든 해지 가능</span>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="row cta">
+      <div class="ctatext">
+        <div class="lbl">지금 바로 시청하세요</div>
+        <div class="url">www.creaite.net</div>
+        <div class="go">무료로 둘러보기 →</div>
+      </div>
+      <div class="qr">
+        <img src="qr-creaite.png" alt="www.creaite.net QR" />
+        <span>스캔하면<br>바로 이동</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -39,6 +39,7 @@
 - phase_security_hardening_20260531.sql
 - phase_web_push_20260531.sql
 - purge_deletions_cron_20260614.sql
+- referral_20260618.sql
 - refund_cancel_billing_20260614.sql
 - security_patch_critical_20260614.sql
 - subscription_expiry_notify_20260613.sql

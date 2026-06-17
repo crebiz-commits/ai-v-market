@@ -4,10 +4,14 @@
  */
 
 import { installConsoleFilter } from './utils/consoleFilter';
+import { captureRefFromUrl } from './utils/referral';
 import './i18n'; // i18n 초기화 (한·영 로드, 언어 감지)
 
 // 즉시 콘솔 필터 설치
 installConsoleFilter();
+
+// 초대링크(?ref=CODE) 캡처 — OAuth 리다이렉트로 사라지기 전에 가장 먼저 저장
+captureRefFromUrl();
 
 // 초기화 완료 메시지
 console.log(

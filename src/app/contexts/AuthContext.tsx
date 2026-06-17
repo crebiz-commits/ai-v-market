@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 import { supabase } from '../utils/supabaseClient';
 import { sendNotification, buildWelcomeEmail } from '../utils/sendNotification';
+import { getStoredRef, clearStoredRef } from '../utils/referral';
 
 interface User {
   id: string;
@@ -181,6 +182,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    // 초대(레퍼럴) 연결 — 신규 가입자만(기존 사용자 자기참조 방지). claim_referral RPC는 멱등.
+    const maybeClaimReferral = (u: any) => {
+      try {
+        const code = getStoredRef();
+        if (!code) return;
+        const provider = u?.app_metadata?.provider;
+        const fresh = (iso: string | null | undefined, windowMs: number) =>
+          !!iso && Date.now() - new Date(iso).getTime() <= windowMs;
+        const isNew = provider === 'email'
+          ? fresh(u?.email_confirmed_at ?? u?.confirmed_at ?? u?.created_at, 600000)
+          : fresh(u?.created_at, 120000);
+        if (!isNew) { clearStoredRef(); return; }  // 기존 사용자면 소진만
+        const guard = `creaite_ref_done_${u.id}`;
+        if (localStorage.getItem(guard)) { clearStoredRef(); return; }
+        localStorage.setItem(guard, '1');
+        void supabase.rpc('claim_referral', { p_code: code }).then(({ error }) => {
+          if (error) console.warn('[AuthContext] claim_referral 실패:', error.message);
+        });
+        clearStoredRef();
+      } catch (e) {
+        console.warn('[AuthContext] referral claim 오류:', e);
+      }
+    };
+
     // 3. 인증 상태 변경 리스너 즉시 등록
     console.log('[AuthContext] Subscribing to auth state changes...');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -194,7 +219,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session) {
         updateUserState(session.user, session.access_token);
         // 신규 가입자 환영 메일 (실제 로그인 이벤트만 — 이메일 가입은 인증 완료 직후)
-        if (event === 'SIGNED_IN' && session.user) maybeSendWelcome(session.user);
+        if (event === 'SIGNED_IN' && session.user) {
+          maybeSendWelcome(session.user);
+          maybeClaimReferral(session.user);
+        }
       } else {
         updateUserState(null, null);
       }

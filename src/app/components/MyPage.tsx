@@ -16,6 +16,7 @@ import { VideoEditModal } from "./VideoEditModal";
 import { NotificationSettings } from "./NotificationSettings";
 import { TaxInfoSection } from "./TaxInfoSection";
 import { MyPaymentsSection } from "./MyPaymentsSection";
+import { ReferralCard } from "./ReferralCard";
 import { SubscriptionModal } from "./SubscriptionModal";
 import { PayoutInfoModal } from "./PayoutInfoModal";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
@@ -2018,8 +2019,12 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
               </TabsContent>
 
               <TabsContent value="settings" className="space-y-3 m-0">
+                {/* ── 초대(레퍼럴) ── */}
+                <p className="px-1 pt-1 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{isKo ? "초대" : "Invite"}</p>
+                <ReferralCard />
+
                 {/* ── 알림 ── */}
-                <p className="px-1 pt-1 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{isKo ? "알림" : "Notifications"}</p>
+                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{isKo ? "알림" : "Notifications"}</p>
                 <NotificationSettings />
 
                 {/* ── 결제 · 세금 ── */}

@@ -8,6 +8,7 @@
 1. [`CLAUDE.md`](../CLAUDE.md) — 작업 원칙(⭐검증 우선·한글·실서비스·출시순서)
 2. **이 문서** — 지금 무엇을 어디까지 했고 다음에 뭘 하는지
 3. [`docs/launch-checklist.md`](launch-checklist.md) — 출시 준비 SSOT(전체 미완/완료)
+4. [`docs/creator-acquisition-plan.md`](creator-acquisition-plan.md) — 크리에이터 유치 계획(공급 콜드스타트). 홍보 자산은 `marketing/`(전단 4종+QR).
 
 ---
 

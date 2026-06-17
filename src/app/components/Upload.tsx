@@ -51,7 +51,7 @@ interface UploadProps {
 
 export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeContext, onChallengeContextConsumed }: UploadProps) {
   const { t } = useTranslation();
-  const { user, profile, accessToken } = useAuth();
+  const { user, profile, accessToken, signInWithGoogle, signInWithKakao } = useAuth();
   const settings = useSettings();
   const [step, setStep] = useState(1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -457,23 +457,74 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
   };
 
   if (!user) {
+    // 무마찰 온보딩: 죽은 로그인 벽 대신 "가치 판매형" 화면 — 수익 구조를 보여주고
+    // 원클릭 소셜 로그인으로 바로 시작 (클릭 수 최소화). 가입 후 즉시 업로드 가능.
+    const socialStart = async (provider: "google" | "kakao") => {
+      try {
+        if (provider === "google") await signInWithGoogle();
+        else await signInWithKakao();
+      } catch (e: any) {
+        toast.error(e?.message || t("auth.loginFail"));
+      }
+    };
+    const gateRev = [
+      { pct: "80%", label: t("upload.gateRevLicense"), color: "text-[#c4b5fd]" },
+      { pct: "50~60%", label: t("upload.gateRevAd"), color: "text-[#f9a8d4]" },
+      { pct: "50%", label: t("upload.gateRevPool"), color: "text-[#fcd34d]" },
+    ];
     return (
       <div className="h-full overflow-y-auto bg-background flex flex-col">
         <div className="flex-1 flex items-center justify-center p-6">
-          <div className="text-center max-w-md mx-auto">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mx-auto mb-6 flex items-center justify-center">
-              <UploadIcon className="w-10 h-10 text-white" />
+          <div className="w-full max-w-md mx-auto">
+            <div className="text-center">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] mx-auto mb-5 flex items-center justify-center shadow-[0_10px_40px_-10px_rgba(99,102,241,0.6)]">
+                <UploadIcon className="w-10 h-10 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold mb-2">{t("upload.gateTitle")}</h2>
+              <p className="text-muted-foreground mb-6 leading-relaxed">
+                {t("upload.gateSubtitle")}
+              </p>
             </div>
-            <h2 className="text-2xl mb-3">{t("upload.loginRequiredTitle")}</h2>
-            <p className="text-muted-foreground mb-6">
-              {t("upload.loginRequiredHint")}
+
+            {/* 3대 수익원 미니 카드 */}
+            <div className="grid grid-cols-3 gap-2 mb-6">
+              {gateRev.map((r) => (
+                <div
+                  key={r.label}
+                  className="rounded-xl border border-white/10 bg-white/[0.03] px-2 py-3 text-center"
+                >
+                  <div className={`text-xl font-black ${r.color}`}>{r.pct}</div>
+                  <div className="text-[11px] text-muted-foreground mt-1 leading-tight">{r.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* 원클릭 시작 */}
+            <div className="space-y-2.5">
+              <Button
+                onClick={() => socialStart("google")}
+                className="w-full bg-white text-gray-900 hover:bg-gray-100 py-6 text-base font-semibold"
+              >
+                {t("auth.continueWithGoogle")}
+              </Button>
+              <Button
+                onClick={() => socialStart("kakao")}
+                className="w-full bg-[#FEE500] text-[#191600] hover:bg-[#f5dd00] py-6 text-base font-semibold"
+              >
+                {t("auth.continueWithKakao")}
+              </Button>
+              <Button
+                onClick={onSignInClick}
+                variant="outline"
+                className="w-full py-6 text-base font-semibold border-white/20 bg-white/5 hover:bg-white/10"
+              >
+                {t("upload.gateEmailStart")}
+              </Button>
+            </div>
+
+            <p className="text-center text-xs text-muted-foreground mt-5">
+              {t("upload.gateFootnote")}
             </p>
-            <Button
-              onClick={onSignInClick}
-              className="w-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] py-6 text-lg"
-            >
-              {t("upload.signInButton")}
-            </Button>
           </div>
         </div>
         <Footer onNavigate={onNavigate || (() => {})} />
