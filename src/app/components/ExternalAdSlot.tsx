@@ -36,6 +36,11 @@ const ADSENSE = {
   slot: (ENV.VITE_ADSENSE_SLOT as string | undefined) || undefined,
 };
 
+// 외부 광고가 실제로 활성(스위치 ON + 최소 한 네트워크 ID 존재)인지 —
+// 피드가 "빈 광고 슬롯"을 만들지 판단하는 가드용. (비활성이면 슬롯 자체를 넣지 않아 빈 칸 방지)
+export const EXTERNAL_ADS_ACTIVE =
+  EXTERNAL_ADS_ON && (!!ADFIT.unit || (!!ADSENSE.client && !!ADSENSE.slot));
+
 type Network = "adfit" | "adsense";
 
 // env 에 ID 가 채워진 네트워크만 활성 목록에 포함

@@ -17,7 +17,7 @@ import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { Lock } from "lucide-react";
 import { VideoFullscreen } from "./VideoFullscreen";
-import { ExternalAdSlot } from "./ExternalAdSlot";
+import { ExternalAdSlot, EXTERNAL_ADS_ACTIVE } from "./ExternalAdSlot";
 import { CreatorAvatar } from "./CreatorAvatar";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { useBackButton } from "../hooks/useBackButton";
@@ -38,13 +38,18 @@ interface Ad {
 
 type FeedItem =
   | ({ kind: "video" } & Video)
-  | ({ kind: "ad"; adIndex?: number } & Ad);
+  | ({ kind: "ad"; adIndex?: number } & Ad)
+  | { kind: "extad"; slot: number };   // 외부 광고(애드핏/애드센스) 슬롯
 
 // 데스크탑 그리드 전용 아이템 — 자체광고(selfad) 우선, 소진 시 애드핏(adfit) 폴백
 type DesktopItem =
   | { kind: "video"; video: Video }
   | { kind: "selfad"; ad: Ad; key: string }
   | { kind: "adfit"; slot: number };
+
+// 홈피드 광고 정책: 초반에는 직접 광고 수주가 어려워 외부 네트워크(애드핏+애드센스)로만 채움.
+// 직접 광고주가 생기면 true 로 바꾸면 자체광고(feed_display) 우선 노출 + 소진분만 외부 폴백.
+const HOME_FEED_SELF_ADS: boolean = false;
 
 interface Video {
   // 기본 정보
@@ -901,15 +906,20 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   // 영상 목록에 광고를 interval_count마다 삽입하여 피드 아이템 배열 생성
   // Phase 24: 차단 사용자 영상은 visibleVideos 기준으로 제외
   const feedItems = (() => {
-    if (ads.length === 0) return visibleVideos.map(v => ({ kind: "video" as const, ...v }));
-    const interval = ads[0].interval_count || 4;
+    const interval = (ads[0]?.interval_count) || 4;
     const result: FeedItem[] = [];
-    let adIdx = 0;
+    let adSlot = 0;
     visibleVideos.forEach((v, i) => {
       result.push({ kind: "video", ...v });
-      if ((i + 1) % interval === 0 && ads.length > 0) {
-        result.push({ kind: "ad", ...ads[adIdx % ads.length], adIndex: adIdx });
-        adIdx++;
+      if ((i + 1) % interval === 0) {
+        // 자체광고 우선(스위치 ON 시) → 없으면 외부 네트워크(애드핏/애드센스). 둘 다 없으면 슬롯 생략(빈 섹션 방지)
+        if (HOME_FEED_SELF_ADS && adSlot < ads.length) {
+          result.push({ kind: "ad", ...ads[adSlot], adIndex: adSlot });
+          adSlot++;
+        } else if (EXTERNAL_ADS_ACTIVE) {
+          result.push({ kind: "extad", slot: adSlot });
+          adSlot++;
+        }
       }
     });
     return result;
@@ -927,12 +937,14 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     videos.forEach((v, i) => {
       out.push({ kind: "video", video: v });
       if ((i + 1) % DESKTOP_AD_INTERVAL === 0) {
-        if (adSlot < ads.length) {
+        // 자체광고 우선(스위치 ON 시) → 없으면 애드핏/애드센스. 둘 다 없으면 슬롯 생략(빈 셀 방지)
+        if (HOME_FEED_SELF_ADS && adSlot < ads.length) {
           out.push({ kind: "selfad", ad: ads[adSlot], key: `selfad-${ads[adSlot].id}-${adSlot}` });
-        } else {
+          adSlot++;
+        } else if (EXTERNAL_ADS_ACTIVE) {
           out.push({ kind: "adfit", slot: adSlot });
+          adSlot++;
         }
-        adSlot++;
       }
     });
     return out;
@@ -1065,11 +1077,13 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
       >
         {feedItems.map((item) => (
           <div
-            key={item.kind === "video" ? item.id : `ad-${item.id}-${item.adIndex}`}
+            key={item.kind === "video" ? item.id : item.kind === "ad" ? `ad-${item.id}-${item.adIndex}` : `extad-${item.slot}`}
             className={`discovery-section-wrapper ${isCommentOpen && item.kind === "video" && item.id === commentVideo?.id ? 'is-comment-active' : ''}`}
           >
             {item.kind === "ad" ? (
               <AdCard ad={item} onImpression={handleAdImpression} />
+            ) : item.kind === "extad" ? (
+              <ExternalAdSlot index={item.slot} className="h-full w-full" />
             ) : (
               <MovieSection
                 video={item}
