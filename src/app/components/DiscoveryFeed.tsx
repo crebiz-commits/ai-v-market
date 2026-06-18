@@ -330,7 +330,8 @@ const MovieSection = memo(({
   onSignInClick?: () => void;
 }) => {
   const { t } = useTranslation();
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const retryCountRef = useRef(0);  // 자동 재시도 카운터 (최대 2회)
   const [isPlaying, setIsPlaying] = useState(false);
@@ -342,14 +343,36 @@ const MovieSection = memo(({
   const isMyVideo = !!user?.id && !!video.creatorId && user.id === video.creatorId;
   const isAgeLocked = !isMyVideo && shouldBlur(video.age_rating, ageVerified);
 
-  // Effect 1: 플레이어 생성/삭제 — video 소스가 바뀔 때만 (isActive 제외!)
-  // isActive를 deps에 넣으면 dispose()가 <video> DOM을 제거해 videoRef가 죽은 요소를 참조하게 됨
+  // 지연 마운트: 섹션이 뷰포트 ±1화면 근처일 때만 플레이어 생성.
+  // (비가상화 피드라 모든 섹션이 동시에 플레이어를 만들면 수십 개 누적 → 메모리 폭발/Aw Snap 크래시)
+  const [inView, setInView] = useState(false);
   useEffect(() => {
-    if (!videoRef.current || !video.videoUrl) return;
+    const el = sectionRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => setInView(entries[0]?.isIntersecting ?? false),
+      { rootMargin: "100% 0px" },  // 화면 1개 위/아래까지 미리 마운트
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  // Effect 1: 플레이어 생성/삭제 — inView && 소스 있을 때만. (isActive 제외 유지)
+  // video 엘리먼트를 React 밖에서 생성해 컨테이너에 append → dispose 시 React removeChild 충돌 방지
+  // (DesktopMovieCard 와 동일 패턴). inView=false 로 스크롤 벗어나면 dispose 되어 메모리 회수.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!inView || !container || !video.videoUrl) return;
 
     setIsPlaying(false);
 
-    const player = videojs(videoRef.current, {
+    const videoEl = document.createElement('video');
+    videoEl.className = 'video-js vjs-big-play-centered w-full h-full';
+    videoEl.setAttribute('playsinline', '');
+    if (video.thumbnail) videoEl.poster = video.thumbnail;
+    container.appendChild(videoEl);
+
+    const player = videojs(videoEl, {
       autoplay: false,
       controls: false,
       loop: true,
@@ -467,6 +490,7 @@ const MovieSection = memo(({
 
   return (
     <div
+      ref={sectionRef}
       className="discovery-section snap-start w-full relative bg-black overflow-hidden"
       data-video-id={video.id}
     >
@@ -478,12 +502,7 @@ const MovieSection = memo(({
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 z-[15] pointer-events-none ${isPlaying ? 'opacity-0' : 'opacity-100'}`}
         />
         <div className="relative w-full h-full z-10 pointer-events-none">
-          <video
-            ref={videoRef}
-            className="video-js vjs-big-play-centered w-full h-full"
-            playsInline
-            poster={video.thumbnail}
-          />
+          <div ref={containerRef} className="w-full h-full" />
           {hasError && (
             <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-center pointer-events-auto">
               <Loader2 className="w-8 h-8 text-[#6366f1] animate-spin mb-2" />
