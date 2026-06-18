@@ -438,6 +438,7 @@
   },
   "splash": {
     "tagline": "Loading the cinematic experience...",
+    "enter": "Browse",
     "features": {
       "cinema": {
         "title": "Curated Cinema",

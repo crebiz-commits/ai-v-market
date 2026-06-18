@@ -93,7 +93,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
             onClick={onComplete}
             className="w-full h-12 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:from-[#5558e3] hover:to-[#7c4ee5] text-lg"
           >
-            {t("auth.signIn")}
+            {t("splash.enter")}
           </Button>
           <p className="text-xs text-muted-foreground mt-4">
             {t("footer.tagline")}

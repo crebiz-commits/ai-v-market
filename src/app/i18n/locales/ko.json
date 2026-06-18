@@ -438,6 +438,7 @@
   },
   "splash": {
     "tagline": "시네마틱 경험을 불러오는 중...",
+    "enter": "둘러보기",
     "features": {
       "cinema": {
         "title": "큐레이션 시네마",
