@@ -18,7 +18,7 @@
 //   VITE_ADSENSE_CLIENT=ca-pub-xxxxxxxxxxxxxxxx   # AdSense 게시자 ID
 //   VITE_ADSENSE_SLOT=xxxxxxxxxx                   # AdSense 300×250 고정 광고 슬롯
 // ════════════════════════════════════════════════════════════════════════════
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const ENV: any = (import.meta as any).env ?? {};
 const _flag = String(ENV.VITE_EXTERNAL_ADS_ENABLED ?? "").toLowerCase();
@@ -70,12 +70,31 @@ interface ExternalAdSlotProps {
 }
 
 export function ExternalAdSlot({ index = 0, className = "" }: ExternalAdSlotProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const networks = enabledNetworks();
   const network: Network | null = networks.length ? networks[index % networks.length] : null;
+  const [visible, setVisible] = useState(false);
+
+  // 지연 로드: 슬롯이 뷰포트 근처에 올 때만 광고 초기화.
+  // (무한 피드의 모든 광고 슬롯이 마운트 즉시 동시에 ba.min.js 로드+광고호출 →
+  //  첫 화면 멈춤·과부하를 유발하던 문제 방지. 화면 밖 슬롯은 빈 div로만 대기.)
+  useEffect(() => {
+    if (!EXTERNAL_ADS_ON || !network) return;
+    const el = wrapperRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) { setVisible(true); io.disconnect(); }
+      },
+      { rootMargin: "300px" },  // 화면 도달 직전 미리 로드
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [network]);
 
   useEffect(() => {
-    if (!EXTERNAL_ADS_ON || !network || !containerRef.current) return;
+    if (!visible || !network || !containerRef.current) return;
     const el = containerRef.current;
     el.innerHTML = "";
 
@@ -115,7 +134,7 @@ export function ExternalAdSlot({ index = 0, className = "" }: ExternalAdSlotProp
     return () => {
       el.innerHTML = "";
     };
-  }, [network]);
+  }, [visible, network]);
 
   // 미설정/비활성 — 운영·개발 모두 렌더 안 함(빈 슬롯). ID(env) 등록 시에만 실제 광고 노출.
   if (!EXTERNAL_ADS_ON || !network) {
@@ -124,6 +143,7 @@ export function ExternalAdSlot({ index = 0, className = "" }: ExternalAdSlotProp
 
   return (
     <div
+      ref={wrapperRef}
       className={`relative flex items-center justify-center bg-[#0a0a0a] overflow-hidden ${className}`}
     >
       {/* 광고 라벨 (정책상 광고 명시 필수) */}
