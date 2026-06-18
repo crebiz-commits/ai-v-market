@@ -23,12 +23,13 @@
 - **앱 패키지 파일 위치(⚠️ 폴더 밖!):** `C:\Users\crebi\Downloads\_creaite_pkg\` 와 `CREAITE - Google Play package.zip` 안에 `CREAITE.aab`·`CREAITE.apk`·`signing.keystore`·`signing-key-info.txt`. → **새 컴퓨터로 이 파일들(특히 `signing.keystore`)도 따로 옮기거나, 사용자가 백업한 것 복원.** (.aab/.apk은 PWABuilder로 재생성 가능: https://www.pwabuilder.com → www.creaite.net, Package ID `net.creaite.app`)
 - 패키지명 **`net.creaite.app`**. assetlinks 로컬키 지문은 이미 `public/.well-known/assetlinks.json`에 있음(`6D:90:DA:…:3D:85`). Play 업로드 후 **Play 앱서명 지문을 배열에 추가** 필요([twa-build-guide.md](twa-build-guide.md) 3단계).
 
-### ② 카카오 애드핏 (웹 광고) — 사업자 계정 가입 완료, 계정 심사중 ⏳
+### ② 카카오 애드핏 (웹 광고) — 계정 승인·env 배포 완료, 매체 재심사 대기 ⏳
 - ✅ **차단 풀림**(이전 "연령인증 시도 횟수 초과"). 로그인 계정 = **메인 카카오 `nomad55@naver.com`**(아이디/비번 로그인으로도 통과).
 - ✅ **사업자 계정 "크레비즈" 생성 완료**(2026-06-18). 개인사업자 107-10-27099 / 일반과세자 / 대표 이현우 / 세금계산서 **정발행** / 알림 3개(이메일·문자·카톡)+일일리포트 ON / 계정설명 "CREAITE 웹광고". 마스터=본인.
-- ⏳ **계정 상태 = 심사중**(카카오가 사업자정보 검토, 1~2영업일, 결과는 메일/문자/카톡). 심사 **2단계 구조**: ①계정(사업자)심사 ←지금 → ②승인 후 매체·광고단위 만든 뒤 광고심사(또 1~2영업일).
+- ✅ **계정 심사 = 승인**(2026-06-18). (계정 승인과 별개로 **매체 심사**가 따로 있음 — 아래.)
 - ✅ **매체 등록 완료**(CREAITE / Web / creaite.net / 엔터테인먼트·사진영상) + **광고단위 생성 완료**: 배너 300×250, **광고단위 코드 `DAN-u9aMDBktu0JpNuLu`**.
-- ⏳ **다음(미완): Vercel env 2개 넣고 재배포** → `VITE_EXTERNAL_ADS_ENABLED=1` + `VITE_ADFIT_UNIT_ID=DAN-u9aMDBktu0JpNuLu` (Settings→Environment Variables, Production/전체. 빌드타임이라 **Redeploy 필수**). 재배포되면 애드핏 호출 발생 → 카카오 **매체 심사**(1~2영업일) → 승인 시 노출. (코드 `ExternalAdSlot.tsx` 연동완료, 폭/높이 기본 300/250.)
+- ✅ **Vercel env 2개 넣고 재배포 완료**: `VITE_EXTERNAL_ADS_ENABLED=1` + `VITE_ADFIT_UNIT_ID=DAN-u9aMDBktu0JpNuLu`(ai-v-market 프로젝트, All). 배포 자산(`ExternalAdSlot-*.js`)에 DAN id·`ba.min.js` 박힌 것 검증함.
+- ⏳ **매체 심사: 1차 보류 → 재심사 요청 완료(매체상태=심사 대기, 1~2영업일).** 보류 사유="로그인/회원가입 요구 페이지"(심사자가 랜딩/스플래시의 로그인 버튼을 로그인벽으로 오인) → **코드 수정**(랜딩 off + 스플래시 라벨 로그인→둘러보기 + 2.8초 자동진입)으로 비로그인도 바로 콘텐츠 도달하게 함 → 재심사 넣음. 통과 시 카카오 하우스광고 대신 실광고 노출.
 - 📌 코드 로더 `t1.daumcdn.net/kas/static/ba.min.js` (콘솔 스크립트는 kakaocdn.net — 동일 CDN, 보통 호환. 승인 후 광고 안 뜨면 kakaocdn.net으로 교체).
 - 📌 앱은 **TWA(웹 감싼 앱)**라 웹 광고단위 하나로 웹+앱 둘 다 노출됨 → 애드핏 앱 SDK 별도 연동 불필요(네이티브 앱 만들 때만).
 - 📌 법인 전환 시: 같은 카카오 로그인에서 **법인(683-87-03399) 사업자 계정 새로 생성** → 매체·광고단위 재등록 → env 교체. (기존 적립금 먼저 정산)
@@ -58,11 +59,18 @@
 - 커밋 전 `npx tsc --noEmit` 통과 확인.
 
 ## ✅ 이번 세션 코드 변경 (모두 커밋·푸시됨, main)
-페이월 1분 컷오프 복구+fullAccess면제+게이트 페일세이프 / 가로 전체화면(VideoFullscreen 버튼+ProductDetail 가로잠금+fullscreenchange) / 미리보기배지 투명화 / CoverFlow 화살표 z-index 누출(z-200→z-30) / 헤더 중간너비 / ExternalAdSlot 빈박스 제거 / TWA 준비(assetlinks·ads.txt·가이드) / CLAUDE.md.
+**2026-06-18 (애드핏 연동·광고 노출·온보딩 UX):**
+- 홈피드 광고: 데스크탑 그리드 **6칸마다** 광고 셀(주기 7칸=2·3·4열 서로소로 같은 열 쏠림 방지) / **현재 `HOME_FEED_SELF_ADS=false`라 자체광고 말고 외부망(애드핏+애드센스)으로만 채움**(나중에 직접 광고주 생기면 true→자체광고 우선) / 모바일도 외부 폴백 추가 / 광고 슬롯 **지연로드**(IntersectionObserver 300px, 첫화면 멈춤·과부하 해소) / 데스크탑 광고 셀 가로·세로 중앙 정렬.
+- 첫화면: **비로그인 랜딩 off**(`SHOW_LANDING=false`, 콘텐츠 우선) / **스플래시** 버튼 라벨 로그인→**둘러보기** + **2.8초 자동진입**(ref+빈deps) + 태그라인 정리. → 애드핏 "로그인벽" 보류 사유 해소 + SEO/유입.
+- 검증 결론: 상세페이지 음량 작음 = **PC 스피커 문제**(영상은 YouTube 동급, Bunny 음량정규화 미지원 → 재인코딩 마이그레이션 **보류**).
+- 인프라(새 PC): Node24 LTS·Git winget 설치, git identity(crebiz-commits), `.claude/settings.local.json` 안전명령 allow목록. node_modules는 D:라 보존됨.
+- 핵심 스위치 위치: 광고정책 `DiscoveryFeed.tsx` `HOME_FEED_SELF_ADS` / 랜딩 `App.tsx` `SHOW_LANDING` / 외부광고 가드 `ExternalAdSlot.tsx` `EXTERNAL_ADS_ACTIVE`.
+
+(별개: 사용자 커밋 `b5157fa` 무마찰 온보딩 게이트+레퍼럴 엔진 — `supabase/referral_20260618.sql`. 이전 세션분은 git 이력 참조.)
 
 ---
 
 ## ▶ 다음 세션 첫 행동
 1. **구글 본인확인 승인 메일 왔나** 확인 → 왔으면 ①의 "앱 만들기→.aab 업로드→테스터 12명"
-2. **카카오 애드핏 계정 심사 승인됐나** 확인(메일/문자/카톡) → 됐으면 ②의 계정"크레비즈" 진입 → 매체등록 → 광고단위 300×250 → DAN-ID (받으면 env 넣고 배포). 심사중이면 대기.
+2. **카카오 애드핏 매체 재심사 결과** 확인(메일/문자/카톡, 1~2영업일). 통과면 카카오 하우스광고→실광고 노출 시작. 또 보류면 사유 보고 대응. (계정·매체·광고단위·env·재배포·재심사요청까지 전부 완료 상태 — ② 참조.)
 3. 토스는 계속 대기. 애플은 보류.
