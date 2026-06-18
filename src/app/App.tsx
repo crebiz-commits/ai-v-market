@@ -811,13 +811,16 @@ function AppContent() {
     return <SplashScreen onComplete={() => setShowSplash(false)} />;
   }
 
+  // 랜딩 스위치 — 아래 case "discovery" 주석 참고. false=비로그인도 바로 콘텐츠(랜딩 끔).
+  const SHOW_LANDING = false;
+
   const renderContent = () => {
     switch (activeTab) {
       case "discovery":
-        // 랜딩 페이지 노출 조건 (2026-06-11 수정 — "너무 자주 뜸" 해결):
-        //  · 로그인 사용자: 랜딩 스킵 → 바로 DiscoveryFeed (LandingPage 본래 설계 의도)
-        //  · 비로그인: 이번 세션에 아직 안 둘러봤을 때만 1회. 둘러보면 sessionStorage 로 기억 → 새로고침마다 재노출 X
-        if (!hasExplored && !isAuthenticated) {
+        // 비로그인 첫화면 랜딩 노출 여부.
+        //  false = 콘텐츠 우선(비로그인도 바로 DiscoveryFeed) — 애드핏 심사·SEO·신규유입 위해 끔(2026-06-18).
+        //  true  = 기존 랜딩 흐름 복원(비로그인 1회 노출, 둘러보면 sessionStorage 기억). LandingPage 컴포넌트는 보존.
+        if (SHOW_LANDING && !hasExplored && !isAuthenticated) {
           return (
             <LandingPage
               isAuthenticated={isAuthenticated}
