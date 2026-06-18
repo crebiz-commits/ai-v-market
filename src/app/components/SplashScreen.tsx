@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { Film, TrendingUp, ShieldCheck } from "lucide-react";
 import { Button } from "./ui/button";
@@ -11,6 +12,16 @@ interface SplashScreenProps {
 
 export function SplashScreen({ onComplete }: SplashScreenProps) {
   const { t } = useTranslation();
+
+  // 2.8초 후 자동 진입(클릭 불필요) — 심사자·방문자 모두 바로 콘텐츠로. 둘러보기 버튼으로 즉시 스킵 가능.
+  // ref+빈 deps: 부모 리렌더로 onComplete 가 새로 와도 타이머 리셋 안 됨.
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+  useEffect(() => {
+    const timer = setTimeout(() => onCompleteRef.current(), 2800);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div className="h-[100dvh] bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {/* Animated Background */}
