@@ -1202,7 +1202,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
                   <ExternalAdSlot
                     key={`adfit-${item.slot}`}
                     index={item.slot}
-                    className="rounded-2xl border border-white/[0.08] min-h-[280px] h-full"
+                    className="justify-self-center self-start"
                   />
                 );
               }
