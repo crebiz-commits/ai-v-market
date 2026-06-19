@@ -147,7 +147,7 @@ const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) 
 
   const handleClick = async () => {
     try {
-      try { await supabase.rpc("increment_ad_clicks", { ad_id: ad.id }); } catch {}
+      try { await supabase.rpc("increment_ad_clicks", { ad_id: ad.id, p_viewer_key: getViewerSessionKey() }); } catch {}
     } catch {}
     openAdLinkSafe(ad.link_url);
   };

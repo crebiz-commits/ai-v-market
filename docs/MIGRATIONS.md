@@ -31,6 +31,7 @@
 - high_fixes_20260614.sql
 - home_feed_chip_filter_20260611.sql
 - home_feed_count_20260611.sql
+- home_security_20260620.sql
 - medium_fixes_db_20260614.sql
 - mega_uploader_event_20260611.sql
 - new_video_follower_notify_20260612.sql
