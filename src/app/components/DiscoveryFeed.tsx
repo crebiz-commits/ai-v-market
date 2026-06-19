@@ -113,6 +113,17 @@ const HOME_CHIPS: { key: string; ko: string; en: string }[] = [
   { key: "cinema", ko: "🎬 시네마급", en: "🎬 Long-form" },
 ];
 
+// 외부 광고 링크 안전 오픈 — http(s) 스킴만 허용(javascript:/data: 등 차단).
+function openAdLinkSafe(rawUrl: string | null | undefined) {
+  if (!rawUrl) return;
+  try {
+    const u = new URL(rawUrl);  // 스킴 없는 값이면 throw → 열지 않음
+    if (u.protocol === "http:" || u.protocol === "https:") {
+      window.open(u.href, "_blank", "noopener,noreferrer");
+    }
+  } catch { /* 잘못된 URL 무시 */ }
+}
+
 // 📢 Ad Card Component
 const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) => void }) => {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -138,7 +149,7 @@ const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) 
     try {
       try { await supabase.rpc("increment_ad_clicks", { ad_id: ad.id }); } catch {}
     } catch {}
-    window.open(ad.link_url, "_blank", "noopener,noreferrer");
+    openAdLinkSafe(ad.link_url);
   };
 
   return (
@@ -710,6 +721,17 @@ const homeFeedCache: Record<string, HomeFeedSnapshot> = {};
 export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOpenSearch }: DiscoveryFeedProps) {
   const { i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
+  // 댓글 패널 단일 마운트용 — 홈피드 모바일/데스크탑 분기(1024px=lg)와 일치.
+  // (이전엔 모바일 시트+데스크탑 모달이 동시 마운트돼 댓글 이중 fetch·이중 구독 발생)
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches,
+  );
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => setIsDesktop(mql.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
   const [searchInput, setSearchInput] = useState("");   // 데스크탑 홈 검색바
   const [chip, setChip] = useState("all");              // 홈 칩 필터 (전체/인기/최신/무료/소장가능/시네마급)
   const chipScrollRef = useRef<HTMLDivElement>(null);   // 칩 바 가로 스크롤 (유튜브식 화살표)
@@ -998,7 +1020,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   const desktopItems: DesktopItem[] = (() => {
     const out: DesktopItem[] = [];
     let adSlot = 0;
-    videos.forEach((v, i) => {
+    // Phase 24: 차단 사용자 영상 제외 — 모바일(feedItems)과 동일하게 visibleVideos 기준
+    visibleVideos.forEach((v, i) => {
       out.push({ kind: "video", video: v });
       if ((i + 1) % DESKTOP_AD_INTERVAL === 0) {
         // 자체광고 우선(스위치 ON 시) → 없으면 애드핏/애드센스. 둘 다 없으면 슬롯 생략(빈 셀 방지)
@@ -1386,7 +1409,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
 
       {/* 모바일 댓글 패널 (TikTok 스타일: 영상 아래 영역) */}
       <AnimatePresence>
-        {commentVideo && (
+        {!isDesktop && commentVideo && (
           <motion.div
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
@@ -1420,7 +1443,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
 
       {/* 데스크탑 댓글 모달 */}
       <AnimatePresence>
-        {commentVideo && (
+        {isDesktop && commentVideo && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1505,7 +1528,7 @@ const DesktopAdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: s
 
   const handleClick = async () => {
     try { await supabase.rpc("increment_ad_clicks", { ad_id: ad.id }); } catch {}
-    window.open(ad.link_url, "_blank", "noopener,noreferrer");
+    openAdLinkSafe(ad.link_url);
   };
 
   return (
