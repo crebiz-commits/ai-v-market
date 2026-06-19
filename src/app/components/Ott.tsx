@@ -135,17 +135,27 @@ function bandRank(genreKey: string, band: ProgrammingBand): number {
   return 100;                          // 나머지 알려진 장르
 }
 
+// 탭 재방문 시 즉시 표시용 모듈 캐시 (stale-while-revalidate). 키 = `${showcase}`.
+type OttSnapshot = {
+  trending: CarouselVideo[];
+  formatRows: { category: string; position: "top" | "bottom"; videos: CarouselVideo[] }[];
+  genreRows: GenreRow[];
+};
+const ottCache: Record<string, OttSnapshot> = {};
+
 export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }: OttProps) {
   const { t } = useTranslation();
   const { profile, user } = useAuth();
   const showcase = shouldShowShowcase(profile?.is_admin);
   const ageVerified = profile?.age_verified ?? false;
 
-  const [loading, setLoading] = useState(true);
-  const [trending, setTrending] = useState<CarouselVideo[]>([]);
-  const [genreRows, setGenreRows] = useState<GenreRow[]>([]);
+  // 모듈 캐시에서 초기 hydrate — 탭 재방문 시 첫 렌더부터 표시(스피너 스킵)
+  const _ottInit = ottCache[String(showcase)];
+  const [loading, setLoading] = useState(!_ottInit);
+  const [trending, setTrending] = useState<CarouselVideo[]>(_ottInit?.trending ?? []);
+  const [genreRows, setGenreRows] = useState<GenreRow[]>(_ottInit?.genreRows ?? []);
   // 형식 카테고리 행 (애니메이션·다큐멘터리·뮤직비디오 — category 기준, 2026-06-11)
-  const [formatRows, setFormatRows] = useState<{ category: string; position: "top" | "bottom"; videos: CarouselVideo[] }[]>([]);
+  const [formatRows, setFormatRows] = useState<{ category: string; position: "top" | "bottom"; videos: CarouselVideo[] }[]>(_ottInit?.formatRows ?? []);
   // 풀블리드 히어로: 자동재생 영상 소스 + 음소거 토글.
   // clipUrl(미리 잘린 30초 하이라이트 클립)이 있으면 seek 없이 처음부터 재생(안정적).
   const [heroSrc, setHeroSrc] = useState<{ url: string; start: number; end: number; clipUrl?: string; previewUrl?: string } | null>(null);
@@ -221,66 +231,66 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
 
   useEffect(() => {
     let cancelled = false;
-    async function loadAll() {
+    const key = String(showcase);
+    const snap = ottCache[key];
+    if (snap) {
+      // 캐시 즉시 반영(stale-while-revalidate) — 스피너 없이 직전 데이터 표시 후 아래서 갱신
+      setTrending(snap.trending); setFormatRows(snap.formatRows); setGenreRows(snap.genreRows);
+      setLoading(false);
+    } else {
       setLoading(true);
+    }
+    async function loadAll() {
       try {
-        const { data: trd } = await supabase.rpc("get_trending_videos", {
-          p_tier: "ott",
-          p_hours: 168,
-          p_limit: 10,
-        });
-
-        // 형식 카테고리 행 (애니메이션·다큐멘터리·뮤직비디오)
-        const formatData = await Promise.all(
-          OTT_FORMAT_DEFS.map((f) =>
-            supabase.rpc("get_videos_by_category", { p_category: f.category, p_tier: "ott", p_limit: 50 }),
+        // 3단 워터폴 → 단일 Promise.all (서로 독립이므로 왕복 3회→1회)
+        const [{ data: trd }, formatData, rows] = await Promise.all([
+          supabase.rpc("get_trending_videos", { p_tier: "ott", p_hours: 168, p_limit: 10 }),
+          Promise.all(
+            OTT_FORMAT_DEFS.map((f) =>
+              supabase.rpc("get_videos_by_category", { p_category: f.category, p_tier: "ott", p_limit: 50 }),
+            ),
           ),
-        );
-
-        // 장르 기준(업로드 장르 목록과 동일 순서) — 장르별 병렬 호출. 영상 있는 장르만 표시(아래 filter).
-        const rows: GenreRow[] = await Promise.all(
-          GENRES.map(async (g) => {
-            const { data } = await supabase.rpc("get_videos_by_genre", {
-              p_genre: g,
-              p_tier: "ott",
-              p_limit: 50,
-            });
-            return { category: g, videos: data || [] };
-          })
-        );
+          Promise.all(
+            GENRES.map(async (g) => {
+              const { data } = await supabase.rpc("get_videos_by_genre", { p_genre: g, p_tier: "ott", p_limit: 50 });
+              return { category: g, videos: data || [] } as GenreRow;
+            }),
+          ),
+        ]);
 
         const merge = (real: CarouselVideo[], opts?: { category?: string }) =>
           showcase ? mergeShowcase(real, showcaseToCarousel, { tier: "ott", ...opts }) : real;
 
         if (cancelled) return;  // showcase 전환 중 stale 응답 적용 방지
-        setTrending(merge(trd || []));
-        setFormatRows(
-          OTT_FORMAT_DEFS.map((f, i) => ({
-            category: f.category,
-            position: f.position,
-            videos: merge(((formatData[i] as any)?.data || []) as CarouselVideo[], { category: f.category }),
-          })).filter((r) => r.videos.length > 0),
-        );
+
+        const nextTrending = merge((trd || []) as CarouselVideo[]);
+        const nextFormatRows = OTT_FORMAT_DEFS.map((f, i) => ({
+          category: f.category,
+          position: f.position,
+          videos: merge(((formatData[i] as any)?.data || []) as CarouselVideo[], { category: f.category }),
+        })).filter((r) => r.videos.length > 0);
 
         const mergedRows = rows.map((r) => ({ ...r, videos: merge(r.videos, { category: r.category }) }));
-
         if (showcase && mergedRows.length < 5) {
           const showcaseCategories = ["drama", "thriller", "romance", "action", "comedy"];
           for (const cat of showcaseCategories) {
             if (mergedRows.find((r) => r.category === cat)) continue;
-            const mockOnly = mergeShowcase([] as CarouselVideo[], showcaseToCarousel, {
-              tier: "ott",
-              category: cat,
-              maxShowcase: 12,
-            });
+            const mockOnly = mergeShowcase([] as CarouselVideo[], showcaseToCarousel, { tier: "ott", category: cat, maxShowcase: 12 });
             if (mockOnly.length > 0) mergedRows.push({ category: cat, videos: mockOnly });
             if (mergedRows.length >= 5) break;
           }
         }
-        setGenreRows(mergedRows.filter((r) => r.videos.length > 0));
+        const nextGenreRows = mergedRows.filter((r) => r.videos.length > 0);
+
+        // 모듈 캐시에 기록 → 다음 재방문 시 즉시 표시
+        ottCache[key] = { trending: nextTrending, formatRows: nextFormatRows, genreRows: nextGenreRows };
+        setTrending(nextTrending);
+        setFormatRows(nextFormatRows);
+        setGenreRows(nextGenreRows);
       } catch (err: any) {
         console.warn("[Ott] 로딩 실패:", err?.message);
-        if (!cancelled) toast.error(t("common.loadError", "콘텐츠를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."));
+        // 캐시 표시 중이면 백그라운드 갱신 실패는 조용히 무시
+        if (!cancelled && !snap) toast.error(t("common.loadError", "콘텐츠를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."));
       } finally {
         if (!cancelled) setLoading(false);
       }
