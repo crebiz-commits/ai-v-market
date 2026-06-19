@@ -2,7 +2,7 @@
 
 > **새 컴퓨터에서 이 폴더를 열고 작업을 이어갈 때 가장 먼저 읽는 문서.**
 > 개인 메모리(`~/.claude/...`)는 폴더 밖이라 이동 시 사라짐 → 핵심을 여기(저장소+GitHub)에 박아둠.
-> 마지막 갱신: 2026-06-18.
+> 마지막 갱신: 2026-06-19.
 
 ## 📖 새 컴퓨터에서 읽는 순서
 1. [`CLAUDE.md`](../CLAUDE.md) — 작업 원칙(⭐검증 우선·한글·실서비스·출시순서)
@@ -65,6 +65,16 @@
 - 검증 결론: 상세페이지 음량 작음 = **PC 스피커 문제**(영상은 YouTube 동급, Bunny 음량정규화 미지원 → 재인코딩 마이그레이션 **보류**).
 - 인프라(새 PC): Node24 LTS·Git winget 설치, git identity(crebiz-commits), `.claude/settings.local.json` 안전명령 allow목록. node_modules는 D:라 보존됨.
 - 핵심 스위치 위치: 광고정책 `DiscoveryFeed.tsx` `HOME_FEED_SELF_ADS` / 랜딩 `App.tsx` `SHOW_LANDING` / 외부광고 가드 `ExternalAdSlot.tsx` `EXTERNAL_ADS_ACTIVE`.
+
+**2026-06-19 (전면 성능 최적화 — "유튜브/넷플릭스급 즉시 전환" 목표):**
+- ⚡ **탭 재방문 즉시화 = 모듈 캐시(stale-while-revalidate) 패턴** 을 모든 주요 탭에 적용. `useAgeRatings` 의 모듈 캐시와 동일 방식 — 컴포넌트 밖 `Record<key, snapshot>` 에 직전 데이터 보관 → 재진입 시 캐시 즉시 표시 + 백그라운드 갱신(스피너 제거). 적용처:
+  - `Cinema.tsx`(`cinemaCache`, 키 tier:showcase) · `Ott.tsx`(`ottCache`, 키 showcase) · `Community.tsx`(`postsCache`/`challengesCache`) · `Channel.tsx`(`channelCreatorsCache`/`followingVideosCache`) · `MyPage.tsx`(`myPageCache`, 키 user.id) · `DiscoveryFeed.tsx`(`homeFeedCache`, 키 user:chip — 무한스크롤 누적분+offset까지 보관해 복귀 시 이어보기).
+  - ⚠️ 전부 **메모리 캐시**(페이지 reload 시 비워짐, 세션 내에서만 유효). 의도된 설계(과한 staleness 방지).
+- ⚡ **홈피드 영상 플레이어 지연 마운트**(`DiscoveryFeed.tsx` MovieSection): 모든 섹션이 즉시 video.js 생성하던 것 → IntersectionObserver(±1화면)로 가까울 때만 생성/dispose. **스크롤 중 Aw Snap 크래시·메모리 폭발 해소.** video 엘리먼트는 React 밖 생성(removeChild 충돌 방지, DesktopMovieCard 패턴).
+- ⚡ **서비스워커 앱셸 캐싱**(`public/sw.js`, CACHE v3): 네비게이션=네트워크 우선(항상 최신), `/assets/*` 해시 자산=캐시 우선(불변) → **재방문 즉시 로드.** 외부 도메인(Supabase/Bunny/애드핏)은 가로채지 않음.
+- ⚡ 초기로딩: Sentry를 idle 동적 import로 첫페인트에서 분리(`main.tsx`) / 썸네일 `loading=lazy` / 탭 lazy청크 idle 프리페치(`App.tsx`) / 인증 4초 실패세이프(`AuthContext.tsx`, 로고 무한멈춤 방지).
+- ⚡ OTT 초기 fetch 3단 워터폴 → 단일 Promise.all(왕복3→1).
+- 🟡 **남은 것(보류)**: 시네마/OTT **첫 진입**(최초 데이터 로드)은 캐시로 못 줄임 — 더 빠르게 하려면 서버 단일 RPC(30쿼리→1) 또는 행당 항목수 50→축소. 사용자가 "충분히 빠름"이라 보류.
 
 (별개: 사용자 커밋 `b5157fa` 무마찰 온보딩 게이트+레퍼럴 엔진 — `supabase/referral_20260618.sql`. 이전 세션분은 git 이력 참조.)
 
