@@ -93,6 +93,7 @@ interface Video {
   visibility?: "public" | "unlisted" | "private";
   highlightStart?: number;
   highlightEnd?: number;
+  seriesId?: string;   // 시리즈(연속물) 소속 — 카드 배지용
 }
 
 interface DiscoveryFeedProps {
@@ -536,6 +537,11 @@ const MovieSection = memo(({
         <span className="px-2.5 py-1 bg-black/60 backdrop-blur-md rounded-md text-white font-bold text-[10px] border border-white/10 uppercase tracking-tight pointer-events-none">
           {video.tool}
         </span>
+        {video.seriesId && (
+          <span className="px-2.5 py-1 bg-[#6366f1]/80 backdrop-blur-md rounded-md text-white font-bold text-[10px] border border-white/20 pointer-events-none">
+            시리즈
+          </span>
+        )}
         <button
           onClick={(e) => { e.stopPropagation(); onToggleMute(); }}
           className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white pointer-events-auto"
@@ -689,6 +695,7 @@ function mapVideoRow(item: any): Video {
     visibility: item.visibility || "public",
     highlightStart: item.highlight_start || 0,
     highlightEnd: item.highlight_end || ((item.highlight_start || 0) + 30),
+    seriesId: item.series_id || undefined,
   } as Video;
 }
 
@@ -1596,10 +1603,15 @@ function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onCommen
         <img src={video.thumbnail} loading="lazy" decoding="async" className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 z-10 ${isHovered ? 'opacity-0' : 'opacity-100'}`} />
         {/* React가 아닌 Video.js가 직접 관리하는 컨테이너 */}
         <div ref={containerRef} className="absolute inset-0 z-0" />
-        <div className="absolute top-3 left-3 z-10">
+        <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 items-start">
           <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md rounded text-white font-bold text-[8px] border border-white/10 uppercase tracking-tighter">
             {video.tool}
           </span>
+          {video.seriesId && (
+            <span className="px-2 py-0.5 bg-[#6366f1]/85 backdrop-blur-md rounded text-white font-bold text-[8px] border border-white/20">
+              시리즈
+            </span>
+          )}
         </div>
         {/* 호버 시 하단 그라디언트 */}
         <div className={`absolute inset-0 bg-gradient-to-t from-black/60 to-transparent transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`} />
