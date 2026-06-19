@@ -785,6 +785,24 @@ function AppContent() {
   useBackButton(!!activePanel, () => setActivePanel(null));
   useBackButton(showAuthModal, () => setShowAuthModal(false));
 
+  // 탭 청크 프리페치: 앱 idle 시 메인 탭 lazy 청크를 미리 받아둠 → 첫 탭 전환 시 다운로드 대기(스피너) 제거.
+  // (이미 받은 청크는 브라우저가 dedup, 실패해도 무해)
+  useEffect(() => {
+    const prefetch = () => {
+      void import("./components/Cinema").catch(() => {});
+      void import("./components/Ott").catch(() => {});
+      void import("./components/Community").catch(() => {});
+      void import("./components/Channel").catch(() => {});
+      void import("./components/MyPage").catch(() => {});
+      void import("./components/Upload").catch(() => {});
+      void import("./components/SearchPage").catch(() => {});
+    };
+    const ric: any = (window as any).requestIdleCallback;
+    if (ric) { const id = ric(prefetch, { timeout: 4000 }); return () => (window as any).cancelIdleCallback?.(id); }
+    const tmr = setTimeout(prefetch, 2500);
+    return () => clearTimeout(tmr);
+  }, []);
+
   if (loading) {
     return (
       <div className="h-[100dvh] flex items-center justify-center bg-background">
