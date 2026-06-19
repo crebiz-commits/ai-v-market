@@ -103,6 +103,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
+    // 실패세이프: getSession 행(hang)·웹뷰 락 등 어떤 이유로든 4초 내 로딩 해제 보장
+    // → 로고 화면에서 무한 멈춤 방지. 정상 흐름에선 그 전에 setLoading(false) 호출돼 무해하고,
+    //   onAuthStateChange 리스너가 이후 실제 세션 상태로 보정함.
+    const loadingFailsafe = setTimeout(() => {
+      if (mounted) {
+        console.warn('[AuthContext] 로딩 실패세이프(4s) 발동 — getSession 지연/행 가능');
+        setLoading(false);
+      }
+    }, 4000);
+
     // 1. 초기 세션 확인 함수
     const checkInitialSession = async () => {
       try {
@@ -236,6 +246,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false;
+      clearTimeout(loadingFailsafe);
       subscription.unsubscribe();
     };
   }, []);
