@@ -66,6 +66,10 @@ function mapVideoForDetail(v: FollowingVideo) {
 
 const formatNumber = formatCompactNumber;
 
+// 탭 재방문 시 즉시 표시용 모듈 캐시 (stale-while-revalidate)
+const channelCreatorsCache: { v?: PopularCreator[] } = {};        // 인기 크리에이터(유저 무관)
+const followingVideosCache: Record<string, FollowingVideo[]> = {}; // 구독 영상(user.id 별)
+
 export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCreatorOpened, onNavigate }: ChannelProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<ChannelTab>("subscribed");
@@ -85,7 +89,7 @@ export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCre
   const [followingLoading, setFollowingLoading] = useState(false);
 
   // 탐색 탭 데이터
-  const [creators, setCreators] = useState<PopularCreator[]>([]);
+  const [creators, setCreators] = useState<PopularCreator[]>(channelCreatorsCache.v ?? []);
   const [creatorsLoading, setCreatorsLoading] = useState(false);
 
   // 내가 팔로우 중인 creator_id 집합 (FollowButton 초기값용)
@@ -110,30 +114,39 @@ export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCre
 
   // 2. 구독 영상 피드
   const fetchFollowingVideos = useCallback(async () => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user) {
       setFollowingVideos([]);
       return;
     }
-    setFollowingLoading(true);
+    const ck = user.id;
+    const cached = followingVideosCache[ck];
+    if (cached) setFollowingVideos(cached);   // 캐시 즉시 표시
+    else setFollowingLoading(true);
     const { data, error } = await supabase.rpc("get_my_following_videos", { p_limit: 30 });
     if (error) {
       console.warn("[Channel] get_my_following_videos 실패:", error.message);
-      setFollowingVideos([]);
+      if (!cached) setFollowingVideos([]);
     } else {
-      setFollowingVideos((data || []) as FollowingVideo[]);
+      const list = (data || []) as FollowingVideo[];
+      followingVideosCache[ck] = list;
+      setFollowingVideos(list);
     }
     setFollowingLoading(false);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user]);
 
   // 3. 인기 크리에이터
   const fetchPopularCreators = useCallback(async () => {
-    setCreatorsLoading(true);
+    const cached = channelCreatorsCache.v;
+    if (cached) setCreators(cached);   // 캐시 즉시 표시
+    else setCreatorsLoading(true);
     const { data, error } = await supabase.rpc("get_popular_creators", { p_limit: 20 });
     if (error) {
       console.warn("[Channel] get_popular_creators 실패:", error.message);
-      setCreators([]);
+      if (!cached) setCreators([]);
     } else {
-      setCreators((data || []) as PopularCreator[]);
+      const list = (data || []) as PopularCreator[];
+      channelCreatorsCache.v = list;
+      setCreators(list);
     }
     setCreatorsLoading(false);
   }, []);
