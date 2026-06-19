@@ -180,6 +180,29 @@ export function VideoEditModal({
   const [sponsorLinkUrl, setSponsorLinkUrl] = useState<string>(initialExtended?.sponsorLinkUrl || "");
   const [clearSponsor, setClearSponsor] = useState(false);
 
+  // 시리즈(연속물) 지정 — 모달 열릴 때 현재 영상의 시리즈 + 내 시리즈 목록 로드
+  const [seriesList, setSeriesList] = useState<{ id: string; title: string; episode_count: number }[]>([]);
+  const [seriesId, setSeriesId] = useState("");
+  const [newSeriesTitle, setNewSeriesTitle] = useState("");
+  const [seasonNumber, setSeasonNumber] = useState("1");
+  const [episodeNumber, setEpisodeNumber] = useState("");
+  useEffect(() => {
+    if (!open || !user) return;
+    let cancelled = false;
+    supabase.rpc("get_my_series").then(({ data }) => { if (!cancelled && data) setSeriesList(data as any); }, () => {});
+    supabase.from("videos").select("series_id, season_number, episode_number").eq("id", videoId).maybeSingle().then(
+      ({ data }) => {
+        if (cancelled || !data) return;
+        const d = data as any;
+        setSeriesId(d.series_id || "");
+        setSeasonNumber(d.season_number ? String(d.season_number) : "1");
+        setEpisodeNumber(d.episode_number ? String(d.episode_number) : "");
+      },
+      () => {},
+    );
+    return () => { cancelled = true; };
+  }, [open, user, videoId]);
+
   const [saving, setSaving] = useState(false);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const subtitleInputRef = useRef<HTMLInputElement>(null);
@@ -447,6 +470,23 @@ export function VideoEditModal({
       });
       if (rpcErr) throw rpcErr;
 
+      // 시리즈 연결/변경/해제 (set_video_series: p_series_id=null 이면 해제)
+      try {
+        let sid: string | null = seriesId === "__new__" ? null : (seriesId || null);
+        if (seriesId === "__new__" && newSeriesTitle.trim()) {
+          const { data: createdId } = await supabase.rpc("create_series", { p_title: newSeriesTitle.trim(), p_genre: genre || null });
+          sid = (createdId as string) || null;
+        }
+        await supabase.rpc("set_video_series", {
+          p_video_id: videoId,
+          p_series_id: sid,
+          p_season_number: parseInt(seasonNumber) || 1,
+          p_episode_number: episodeNumber ? parseInt(episodeNumber) : null,
+        });
+      } catch (e) {
+        console.warn("[VideoEditModal] 시리즈 연결 실패:", e);
+      }
+
       toast.success(t("videoEditModal.saveSuccess"));
       onSaved?.({
         thumbnail: finalThumbnail,
@@ -662,6 +702,32 @@ export function VideoEditModal({
                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]"
                   />
                 </div>
+              </div>
+
+              {/* 시리즈(연속물) 지정 */}
+              <div className="mt-3">
+                <label className="text-xs text-gray-400 mb-1 block">시리즈 (연속물)</label>
+                <select
+                  value={seriesId}
+                  onChange={e => setSeriesId(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6366f1]"
+                >
+                  <option value="">시리즈 아님 (단일 영상)</option>
+                  {seriesList.map(s => <option key={s.id} value={s.id}>{s.title} ({s.episode_count}화)</option>)}
+                  <option value="__new__">+ 새 시리즈 만들기</option>
+                </select>
+                {seriesId === "__new__" && (
+                  <input type="text" value={newSeriesTitle} onChange={e => setNewSeriesTitle(e.target.value)} placeholder="새 시리즈 제목"
+                    className="mt-2 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
+                )}
+                {seriesId && (
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    <input type="number" min="1" value={seasonNumber} onChange={e => setSeasonNumber(e.target.value)} placeholder="시즌"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
+                    <input type="number" min="1" value={episodeNumber} onChange={e => setEpisodeNumber(e.target.value)} placeholder="회차 (N화)"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
+                  </div>
+                )}
               </div>
             </section>
 
