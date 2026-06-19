@@ -19,3 +19,7 @@ supabase/.temp/
 # Landing page 포스터 원본 (압축 전, 로컬 백업용 — 커밋 X)
 public/landing-posters/_original/
 supabase/.billing_cron_secret
+
+# 일괄 업로드 — 시크릿·영상 원본·진행기록 (커밋 X)
+.env.bulk
+/videos/

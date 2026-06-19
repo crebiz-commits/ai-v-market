@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "dev": "vite"
+    "dev": "vite",
+    "bulk-upload": "node scripts/bulk-upload.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
