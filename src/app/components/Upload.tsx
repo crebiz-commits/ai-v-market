@@ -1043,7 +1043,6 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
               </div>
             ))}
           </div>
-          <div className="absolute top-4 right-4 z-50 pointer-events-none opacity-20 text-[8px] text-white">v1.1.1-final</div>
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>{t("upload.stepFileUpload")}</span>
             <span>{t("upload.stepProductInfo")}</span>

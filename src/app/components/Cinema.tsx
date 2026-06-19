@@ -136,18 +136,32 @@ function toProduct(v: CarouselVideo): Product {
   };
 }
 
+// 탭 재방문 시 즉시 표시용 모듈 캐시 (stale-while-revalidate). 키 = `${tier}:${showcase}`.
+// useAgeRatings 의 모듈 캐시와 동일 패턴 — 재진입 시 스피너 없이 직전 데이터를 바로 그리고 뒤에서 갱신.
+type CinemaSnapshot = {
+  recommended: CarouselVideo[];
+  trending: CarouselVideo[];
+  newReleases: CarouselVideo[];
+  top10: CarouselVideo[];
+  formatRows: { category: string; title: string; position: "top" | "bottom"; videos: CarouselVideo[] }[];
+  categoryRows: CategoryRow[];
+};
+const cinemaCache: Record<string, CinemaSnapshot> = {};
+
 export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigate, onViewCreator, onSignInClick }: CinemaProps) {
   const { t } = useTranslation();
   const { profile } = useAuth();
   const showcase = shouldShowShowcase(profile?.is_admin);
-  const [loading, setLoading] = useState(true);
-  const [recommended, setRecommended] = useState<CarouselVideo[]>([]);
-  const [trending, setTrending] = useState<CarouselVideo[]>([]);
-  const [newReleases, setNewReleases] = useState<CarouselVideo[]>([]);
-  const [top10, setTop10] = useState<CarouselVideo[]>([]);
-  const [categoryRows, setCategoryRows] = useState<CategoryRow[]>([]);
+  // 모듈 캐시에서 초기 hydrate — 탭 재방문 시 첫 렌더부터 데이터 표시(스피너 스킵)
+  const _initSnap = cinemaCache[`${tier}:${showcase}`];
+  const [loading, setLoading] = useState(!_initSnap);
+  const [recommended, setRecommended] = useState<CarouselVideo[]>(_initSnap?.recommended ?? []);
+  const [trending, setTrending] = useState<CarouselVideo[]>(_initSnap?.trending ?? []);
+  const [newReleases, setNewReleases] = useState<CarouselVideo[]>(_initSnap?.newReleases ?? []);
+  const [top10, setTop10] = useState<CarouselVideo[]>(_initSnap?.top10 ?? []);
+  const [categoryRows, setCategoryRows] = useState<CategoryRow[]>(_initSnap?.categoryRows ?? []);
   // 형식 카테고리 행 (애니메이션·다큐멘터리·뮤직비디오 — 장르가 아닌 category 기준, 2026-06-11)
-  const [formatRows, setFormatRows] = useState<{ category: string; title: string; position: "top" | "bottom"; videos: CarouselVideo[] }[]>([]);
+  const [formatRows, setFormatRows] = useState<{ category: string; title: string; position: "top" | "bottom"; videos: CarouselVideo[] }[]>(_initSnap?.formatRows ?? []);
   // 이벤트 배너 — DB(event_banners) 로드, 실패/미적용 시 하드코딩 폴백 (2026-06-11)
   const [banners, setBanners] = useState<BoardBanner[]>([]);
   useEffect(() => {
