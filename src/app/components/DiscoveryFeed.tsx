@@ -695,6 +695,11 @@ function mapVideoRow(item: any): Video {
 // 홈 피드 한 페이지 크기 (무한 스크롤)
 const FEED_PAGE_SIZE = 12;
 
+// 탭 복귀 시 즉시 복원용 모듈 캐시(메모리, 세션 내). 키 = `${userId}:${chip}`.
+// 무한스크롤로 누적된 피드를 통째로 보관 → 복귀 시 리로드/스피너 없이 직전 상태 그대로.
+type HomeFeedSnapshot = { videos: Video[]; offset: number; hasMore: boolean; commentCounts: Record<string, number>; ads: Ad[] };
+const homeFeedCache: Record<string, HomeFeedSnapshot> = {};
+
 export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOpenSearch }: DiscoveryFeedProps) {
   const { i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
@@ -838,8 +843,31 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   }, [showcase]);
 
   // 초기 로드: 광고 + 좋아요 상태 + 첫 페이지 영상 (user/칩 변경 시 처음부터 재시작)
+  // 단, 모듈 캐시에 직전 피드가 있으면 즉시 복원(리로드/스피너 없이 — 탭 복귀 즉시화).
   useEffect(() => {
     let cancelled = false;
+    const cacheKey = `${user?.id ?? "anon"}:${chip}`;
+    const snap = homeFeedCache[cacheKey];
+    if (snap) {
+      chipRef.current = chip;
+      offsetRef.current = snap.offset;
+      hasMoreRef.current = snap.hasMore;
+      fetchingRef.current = false;
+      setHasMore(snap.hasMore);
+      setVideos(snap.videos);
+      setAds(snap.ads);
+      setCommentCounts(snap.commentCounts);
+      setActiveId(snap.videos[0]?.id ?? null);
+      setLoading(false);
+      // 좋아요 상태만 백그라운드 갱신(사용자별, 가벼움)
+      if (user) {
+        (async () => {
+          const { data: likesData } = await supabase.from("video_likes").select("video_id").eq("user_id", user.id);
+          if (!cancelled && likesData) setLikedVideos(new Set(likesData.map((l) => l.video_id)));
+        })();
+      }
+      return () => { cancelled = true; };
+    }
     (async () => {
       setLoading(true);
       // 페이지네이션 상태 리셋 (칩 필터 반영)
@@ -876,6 +904,14 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     })();
     return () => { cancelled = true; };
   }, [user?.id, chip, loadMore]);
+
+  // 피드 변경 시 모듈 캐시에 저장 → 탭 복귀 시 즉시 복원용(메모리, 세션 내). 초기 로딩 중엔 기록 안 함.
+  useEffect(() => {
+    if (loading) return;
+    homeFeedCache[`${user?.id ?? "anon"}:${chip}`] = {
+      videos, offset: offsetRef.current, hasMore: hasMoreRef.current, commentCounts, ads,
+    };
+  }, [videos, ads, commentCounts, loading, user?.id, chip]);
 
   // 칩 바 좌우 화살표 표시 여부 (유튜브식: 넘칠 때만, 스크롤 위치 따라)
   const updateChipArrows = useCallback(() => {
