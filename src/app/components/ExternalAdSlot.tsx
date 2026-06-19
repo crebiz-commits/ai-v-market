@@ -144,19 +144,11 @@ export function ExternalAdSlot({ index = 0, className = "" }: ExternalAdSlotProp
   return (
     <div
       ref={wrapperRef}
-      className={`relative flex items-center justify-center bg-[#0a0a0a] overflow-hidden ${className}`}
+      className={`relative flex items-center justify-center bg-[#0a0a0a] ${className}`}
     >
-      {/* 광고 라벨 (정책상 광고 명시 필수) */}
-      <div className="absolute top-3 left-3 z-10 px-2 py-0.5 bg-black/50 backdrop-blur-sm border border-white/20 rounded-full text-[10px] font-bold text-white/70 tracking-widest">
-        AD
-      </div>
-      {/* 300×250 광고 카드 (중앙 배치) */}
-      <div
-        className="rounded-xl overflow-hidden bg-black/30 border border-white/10 shadow-lg flex items-center justify-center"
-        style={{ width: AD_W, height: AD_H }}
-      >
-        <div ref={containerRef} className="flex items-center justify-center" />
-      </div>
+      {/* AdFit 정책: 광고 스크립트의 임의 변형·강조·라운딩·가림 금지.
+          → 라운딩(rounded)·테두리·그림자·AD 오버레이 제거하고 광고를 원본 그대로(모든 영역) 노출. */}
+      <div ref={containerRef} className="flex items-center justify-center" style={{ width: AD_W, height: AD_H }} />
     </div>
   );
 }
