@@ -424,6 +424,9 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
 };
 
+// 재진입 시 즉시 복원용 모듈 캐시(메모리, 세션 내). 키 = user.id. (stale-while-revalidate — 백그라운드 갱신)
+const myPageCache: Record<string, any> = {};
+
 export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigate, initialTab, onInitialTabConsumed }: MyPageProps) {
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
@@ -605,9 +608,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
 
   // 각 쿼리를 독립적으로 try/catch — 한 쿼리 실패가 다른 쿼리를 막지 않음
   // 실패한 쿼리는 console.warn만 (사용자 toast 안 띄움) — 빈 화면 대신 부분 데이터 표시
-  const fetchMyData = async () => {
+  const fetchMyData = async (silent = false) => {
     if (!user) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     let unexpectedError = false;
 
     // ── 1. 구매 내역 (orders 테이블)
@@ -777,11 +780,29 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchMyData();
+    if (isAuthenticated && user) {
+      const snap = myPageCache[user.id];
+      if (snap) {
+        // 캐시 즉시 복원(stale-while-revalidate) — 스피너 없이 표시 후 아래서 백그라운드 갱신
+        if (snap.purchaseHistory) setPurchaseHistory(snap.purchaseHistory);
+        if (snap.myProducts) setMyProducts(snap.myProducts);
+        if (snap.videoTiers) setVideoTiers(snap.videoTiers);
+        if (snap.monthlySales) setMonthlySales(snap.monthlySales);
+        if (snap.adStats) setAdStats(snap.adStats);
+        if (snap.adStatsByVideo) setAdStatsByVideo(snap.adStatsByVideo);
+        if (snap.policyRates) setPolicyRates(snap.policyRates);
+        setLoading(false);
+      }
+      fetchMyData(!!snap);   // 캐시 있으면 silent(스피너 없이) 백그라운드 갱신
       loadPayoutInfo();
     }
   }, [isAuthenticated, user?.id]);
+
+  // 마이페이지 메인 데이터 모듈 캐시 저장 → 재진입 즉시 복원용(메모리, 세션 내)
+  useEffect(() => {
+    if (loading || !user) return;
+    myPageCache[user.id] = { purchaseHistory, myProducts, videoTiers, monthlySales, adStats, adStatsByVideo, policyRates };
+  }, [loading, user?.id, purchaseHistory, myProducts, videoTiers, monthlySales, adStats, adStatsByVideo, policyRates]);
 
   // Phase 17: 시청 기록 탭 활성 시 로드
   useEffect(() => {
