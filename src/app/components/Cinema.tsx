@@ -191,8 +191,17 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
 
   useEffect(() => {
     let cancelled = false;
-    async function loadAll() {
+    const key = `${tier}:${showcase}`;
+    const snap = cinemaCache[key];
+    if (snap) {
+      // 캐시 즉시 반영(stale-while-revalidate) — 스피너 없이 직전 데이터 표시 후 아래서 백그라운드 갱신
+      setRecommended(snap.recommended); setTrending(snap.trending); setNewReleases(snap.newReleases);
+      setTop10(snap.top10); setFormatRows(snap.formatRows); setCategoryRows(snap.categoryRows);
+      setLoading(false);
+    } else {
       setLoading(true);
+    }
+    async function loadAll() {
       try {
         const [
           { data: rec },
@@ -243,32 +252,41 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
         };
 
         // 추천: 개인화 결과(많이 본 사용자는 시청영상 제외돼 마를 수 있음) + 인기순 보충
-        setRecommended(merge(fillPopular((rec || []) as CarouselVideo[], 15)));
+        const nextRecommended = merge(fillPopular((rec || []) as CarouselVideo[], 15));
         // 지금 뜨는(24h): 최근 24시간 조회 데이터 없으면 인기순으로 보충
-        setTrending(merge(fillPopular((trd || []) as CarouselVideo[], 10)));
-        setNewReleases(merge(nrl || []));
+        const nextTrending = merge(fillPopular((trd || []) as CarouselVideo[], 10));
+        const nextNewReleases = merge((nrl || []) as CarouselVideo[]);
         // 이달의 BEST(30일 트렌딩): 실제 조회 영상 앞 + 인기순 보충
-        setTop10(merge(fillPopular((top || []) as CarouselVideo[], 10)));
-
+        const nextTop10 = merge(fillPopular((top || []) as CarouselVideo[], 10));
         // 형식 카테고리 행 (애니메이션·다큐멘터리·뮤직비디오) — 영상 있는 것만
-        setFormatRows(
-          FORMAT_DEFS.map((f, i) => ({
-            category: f.category,
-            title: f.title,
-            position: f.position,
-            videos: merge(((formatResults[i] as any)?.data || []) as CarouselVideo[], { category: f.category }),
-          })).filter((r) => r.videos.length > 0),
-        );
-
+        const nextFormatRows = FORMAT_DEFS.map((f, i) => ({
+          category: f.category,
+          title: f.title,
+          position: f.position,
+          videos: merge(((formatResults[i] as any)?.data || []) as CarouselVideo[], { category: f.category }),
+        })).filter((r) => r.videos.length > 0);
         // 장르별 영상 행 — 업로드 장르 순서(SF·액션·로맨스…). 영상 1개 이상 있는 장르만 표시.
-        const rows: CategoryRow[] = GENRES.map((g, i) => ({
+        const nextCategoryRows: CategoryRow[] = GENRES.map((g, i) => ({
           category: g,
           videos: merge((categoryResults[i] as any)?.data || [], { category: g }),
         })).filter((row) => row.videos.length > 0);
-        setCategoryRows(rows);
+
+        // 모듈 캐시에 기록 → 다음 재방문 시 스피너 없이 즉시 표시
+        cinemaCache[key] = {
+          recommended: nextRecommended, trending: nextTrending, newReleases: nextNewReleases,
+          top10: nextTop10, formatRows: nextFormatRows, categoryRows: nextCategoryRows,
+        };
+
+        setRecommended(nextRecommended);
+        setTrending(nextTrending);
+        setNewReleases(nextNewReleases);
+        setTop10(nextTop10);
+        setFormatRows(nextFormatRows);
+        setCategoryRows(nextCategoryRows);
       } catch (err: any) {
         console.warn("[Cinema] 로딩 실패:", err?.message);
-        if (!cancelled) toast.error(t("common.loadError", "콘텐츠를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."));
+        // 캐시를 이미 표시 중이면(snap) 백그라운드 갱신 실패는 조용히 무시
+        if (!cancelled && !snap) toast.error(t("common.loadError", "콘텐츠를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."));
       } finally {
         if (!cancelled) setLoading(false);
       }
