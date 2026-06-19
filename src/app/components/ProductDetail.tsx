@@ -1181,8 +1181,8 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
         className="bg-background w-full h-full overflow-hidden flex"
         onClick={(e) => e.stopPropagation()}
       >
-      {/* Main column */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+      {/* Main column — 유튜브식: 컬럼 전체가 스크롤(영상 위 → 정보·회차 아래로). 영상은 shrink-0 로 위에 고정 높이 */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-y-auto">
         {/* Header — 영상 재생 영역 (페이월 적용). 슬림 헤더는 영상 우상단 배지로 통합됨 */}
         {/* 데스크탑 max-h 65vh — 영상 + 제목/메타/액션 한 화면에 보이도록 (넷플릭스 패턴, Phase 31.4) */}
         <div className="relative bg-black aspect-video md:aspect-video max-h-[40vh] md:max-h-[65vh] flex items-center justify-center overflow-hidden shrink-0">
@@ -1384,8 +1384,8 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Content — 컬럼 스크롤에 포함(자체 스크롤 제거) → 영상 아래로 자연스럽게 이어짐 */}
+        <div>
           <div className="p-6">
             {/* Title & Creator */}
             <div className="mb-6">

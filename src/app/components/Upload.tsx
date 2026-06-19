@@ -865,6 +865,8 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
               p_genre: formData.genre || null,
             });
             sid = (createdId as string) || null;
+            // 새로 만든 시리즈를 "선택 상태"로 전환 → 다음 화도 같은 시리즈에 묶이게(중복 생성 방지)
+            if (sid) { setSeriesId(sid); setNewSeriesTitle(""); }
           }
           if (sid) {
             await supabase.rpc("set_video_series", {
@@ -873,10 +875,17 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
               p_season_number: parseInt(seasonNumber) || 1,
               p_episode_number: episodeNumber ? parseInt(episodeNumber) : null,
             });
+            // 회차 번호 자동 +1 (다음 화 편의)
+            if (episodeNumber) setEpisodeNumber(String((parseInt(episodeNumber) || 0) + 1));
           }
         } catch (e) {
           console.warn("[Upload] 시리즈 연결 실패:", e);
         }
+        // 시리즈 목록 갱신 → 방금 만든 시리즈가 다음 업로드 드롭다운에도 보이게
+        supabase.rpc("get_my_series").then(
+          ({ data }) => { if (data) setSeriesList(data as any); },
+          () => {},
+        );
       }
 
       // Phase 25 — 자동 모더레이션 (fire-and-forget, 실패해도 업로드 흐름 무관)
