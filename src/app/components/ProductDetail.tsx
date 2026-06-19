@@ -201,6 +201,15 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     originalCreator: extra.originalCreator,
     createdAt: productProp.createdAt ?? extra.createdAt,
   }), [productProp, extra]);
+
+  // 시리즈(연속물) 회차 목록 — 이 영상이 시리즈에 속하면 채워짐
+  const [seriesEpisodes, setSeriesEpisodes] = useState<any[]>([]);
+  const [seriesTitle, setSeriesTitle] = useState<string>("");
+  const seriesNextEp = (() => {
+    const i = seriesEpisodes.findIndex((e) => e.id === product.id);
+    return i >= 0 ? seriesEpisodes[i + 1] : null;
+  })();
+
   // Phase 26: 연령 게이트
   const [ageGateOpen, setAgeGateOpen] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
@@ -298,7 +307,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
           "ai_model_version, prompt, seed, resolution, tags, " +
           "sponsor_brand, sponsor_logo_url, sponsor_disclosure, sponsor_link_url, " +
           "license_type, license_source_url, attribution, original_creator, " +
-          "likes, views"
+          "likes, views, series_id, season_number, episode_number"
         )
         .eq("id", product.id)
         .maybeSingle();
@@ -336,6 +345,17 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
         attribution: d.attribution || undefined,
         originalCreator: d.original_creator || undefined,
       });
+      // 시리즈 회차 목록 로드 (시리즈에 속한 영상만)
+      if (d.series_id) {
+        const { data: eps } = await supabase.rpc("get_series_episodes", { p_series_id: d.series_id });
+        if (!cancelled) {
+          setSeriesEpisodes(Array.isArray(eps) ? eps : []);
+          setSeriesTitle((Array.isArray(eps) && eps[0]?.series_title) || "");
+        }
+      } else if (!cancelled) {
+        setSeriesEpisodes([]);
+        setSeriesTitle("");
+      }
       // Phase 31.6 — 카운트 최신화 (캐러셀 stale 데이터 보정)
       if (typeof d.likes === "number") setLikesCount(d.likes);
       if (typeof d.views === "number") setViewsCount(d.views);
@@ -1564,6 +1584,56 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                       <span className="text-foreground/80">{getCategoryLabel(product.category, t)}</span>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* 시리즈 회차 목록 (넷플릭스식) — 이 영상이 시리즈에 속할 때 */}
+            {seriesEpisodes.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3 gap-2">
+                  <h3 className="text-base font-bold text-white truncate">
+                    {seriesTitle || "시리즈"} <span className="text-gray-500 font-normal text-sm">· 총 {seriesEpisodes.length}화</span>
+                  </h3>
+                  {seriesNextEp && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigateToVideo?.(seriesNextEp.id)}
+                      className="flex-shrink-0 px-3 py-1.5 rounded-full bg-[#6366f1] hover:bg-[#5558e3] text-white text-xs font-bold transition-colors"
+                    >
+                      다음 화 ▶
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-2 max-h-[28rem] overflow-y-auto scrollbar-hide pr-1">
+                  {seriesEpisodes.map((ep) => {
+                    const isCurrent = ep.id === product.id;
+                    return (
+                      <button
+                        key={ep.id}
+                        type="button"
+                        onClick={() => { if (!isCurrent) onNavigateToVideo?.(ep.id); }}
+                        className={`w-full flex gap-3 p-2.5 rounded-xl text-left transition-colors border ${isCurrent ? "bg-[#6366f1]/15 border-[#6366f1]/40" : "bg-white/[0.03] hover:bg-white/[0.07] border-white/5 hover:border-white/15"}`}
+                      >
+                        <div className="w-7 flex-shrink-0 flex items-center justify-center text-2xl font-black text-white/40">{ep.episode_number ?? "·"}</div>
+                        <div className="w-28 md:w-36 aspect-video rounded-lg overflow-hidden flex-shrink-0 relative bg-black">
+                          <img src={ep.thumbnail} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                          {isCurrent && (
+                            <div className="absolute inset-0 bg-[#6366f1]/30 flex items-center justify-center">
+                              <span className="text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded">재생 중</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="font-bold text-sm text-white line-clamp-1">{ep.title}</p>
+                            {ep.duration && <span className="text-xs text-gray-400 flex-shrink-0">{ep.duration}</span>}
+                          </div>
+                          {ep.description && <p className="text-xs text-gray-400 line-clamp-2 mt-0.5">{ep.description}</p>}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
