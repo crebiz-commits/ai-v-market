@@ -1,6 +1,9 @@
-// CREAITE Service Worker (PWA 설치 + 웹 푸시)
-// 캐싱 전략은 단순 — 네트워크 우선, 실패 시 fallback 없음
-const CACHE_NAME = "creaite-v2";
+// CREAITE Service Worker (PWA 설치 + 웹 푸시 + 앱셸 캐싱)
+// 캐싱 전략:
+//   · 네비게이션(HTML) = 네트워크 우선(항상 최신 앱), 오프라인 시 캐시 폴백 → stale-app 혼란 없음
+//   · 해시 자산(/assets/*.js|css) = 캐시 우선(콘텐츠 해시라 불변 → 안전) → 재방문 시 JS/CSS 즉시 로드
+const CACHE_NAME = "creaite-v3";
+const APP_SHELL = ["/", "/index.html"];
 
 // ── 웹 푸시 수신 → 알림 표시 ──────────────────────────────────────────────
 self.addEventListener("push", (event) => {
@@ -45,7 +48,11 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
-self.addEventListener("install", () => {
+self.addEventListener("install", (event) => {
+  // 앱셸 프리캐시 (오프라인/즉시 폴백용). 실패해도 설치는 진행.
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL).catch(() => {}))
+  );
   self.skipWaiting();
 });
 
@@ -58,9 +65,46 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// 네트워크 우선, 실패 시 그냥 통과 (에러 페이지는 브라우저 기본)
 self.addEventListener("fetch", (event) => {
-  // GET 요청만 처리, 외부 도메인은 패스
-  if (event.request.method !== "GET") return;
-  // 자동 캐싱은 안 함 — Vercel CDN이 이미 처리
+  const req = event.request;
+  if (req.method !== "GET") return;
+
+  let url;
+  try { url = new URL(req.url); } catch { return; }
+  // 외부 도메인(Supabase API·Bunny 영상·애드핏 등)은 절대 캐싱/가로채기 안 함 — 항상 네트워크
+  if (url.origin !== self.location.origin) return;
+
+  // ① 네비게이션(HTML) — 네트워크 우선(항상 최신), 오프라인 시 캐시 폴백
+  if (req.mode === "navigate") {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put("/index.html", copy)).catch(() => {});
+          }
+          return res;
+        })
+        .catch(() =>
+          caches.open(CACHE_NAME).then((c) => c.match("/index.html").then((m) => m || c.match("/")))
+        )
+    );
+    return;
+  }
+
+  // ② 해시 정적 자산(/assets/*) — 캐시 우선(불변). 재방문 시 즉시 응답.
+  if (url.pathname.startsWith("/assets/")) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cached = await cache.match(req);
+        if (cached) return cached;
+        const res = await fetch(req);
+        if (res && res.ok) cache.put(req, res.clone());
+        return res;
+      })
+    );
+    return;
+  }
+
+  // 그 외(아이콘·매니페스트 등)는 기본 네트워크 동작
 });
