@@ -19,6 +19,7 @@ import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
 import { TrendingHeroSection } from "./TrendingHeroSection";
 import { Footer } from "./Footer";
 import { useAgeRatings } from "../hooks/useAgeRatings";
+import { useSeriesCounts } from "../hooks/useSeriesCounts";
 import { CoverFlow } from "./CoverFlow";
 import { EventBannerBoard, type BoardBanner } from "./EventBannerBoard";
 import { fetchEventBanners } from "../data/eventBanners";
@@ -182,6 +183,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
     return Array.from(ids).filter(id => !id.startsWith("demo-")); // showcase mock 제외
   }, [recommended, trending, newReleases, top10, formatRows, categoryRows]);
   const ageRatings = useAgeRatings(allVideoIds);
+  const seriesCounts = useSeriesCounts(allVideoIds);
 
   const isOtt = tier === "ott";
   const heroTitle = isOtt ? t("cinema.heroOttTitle") : t("cinema.heroCinemaTitle");
@@ -370,7 +372,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
               onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
               emptyMessage={t("cinema.forYouEmpty")}
-              ageRatings={ageRatings}
+              ageRatings={ageRatings} seriesCounts={seriesCounts}
             />
           </div>
 
@@ -391,7 +393,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
             videos={newReleases}
             onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
-            ageRatings={ageRatings}
+            ageRatings={ageRatings} seriesCounts={seriesCounts}
           />
 
           {/* 이달의 BEST (30일 인기) — 순번 표시 없이 일반 카드 */}
@@ -402,7 +404,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
             onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
             emptyMessage={t("cinema.monthBestEmpty")}
-            ageRatings={ageRatings}
+            ageRatings={ageRatings} seriesCounts={seriesCounts}
           />
 
           {/* 형식 카테고리 (top) — 애니메이션: 장르 행보다 먼저 */}
@@ -413,7 +415,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
               videos={row.videos}
               onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
-              ageRatings={ageRatings}
+              ageRatings={ageRatings} seriesCounts={seriesCounts}
             />
           ))}
 
@@ -425,7 +427,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
               videos={row.videos}
               onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
-              ageRatings={ageRatings}
+              ageRatings={ageRatings} seriesCounts={seriesCounts}
             />
           ))}
 
@@ -437,7 +439,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
               videos={row.videos}
               onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
-              ageRatings={ageRatings}
+              ageRatings={ageRatings} seriesCounts={seriesCounts}
             />
           ))}
 
@@ -449,7 +451,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
               videos={row.videos}
               onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
-              ageRatings={ageRatings}
+              ageRatings={ageRatings} seriesCounts={seriesCounts}
             />
           ))}
 

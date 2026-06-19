@@ -10,7 +10,7 @@
 //   />
 // ════════════════════════════════════════════════════════════════════════════
 import { useRef } from "react";
-import { ChevronLeft, ChevronRight, Play, Crown, Lock, Plus, ThumbsUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, Play, Crown, Lock, Plus, ThumbsUp, Layers } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -57,6 +57,8 @@ interface Props {
   emptyMessage?: string;
   // Phase 26 보강: 영상 id → age_rating 매핑 (부모가 useAgeRatings로 일괄 조회)
   ageRatings?: Record<string, string>;
+  // 시리즈 배지: 영상 id → 시리즈 회차수 (부모가 useSeriesCounts로 일괄 조회). >1 이면 "시리즈 · N화" 표시
+  seriesCounts?: Record<string, number>;
 }
 
 function fmtDuration(s?: number | null) {
@@ -84,9 +86,10 @@ interface VideoCardProps {
   rating: string | undefined;
   isAgeLocked: boolean;
   isOttBadge: boolean;
+  seriesCount?: number;
 }
 
-function VideoCard({ video, idx, onVideoClick, onAddToCart, showProgress, showRank, rating, isAgeLocked, isOttBadge }: VideoCardProps) {
+function VideoCard({ video, idx, onVideoClick, onAddToCart, showProgress, showRank, rating, isAgeLocked, isOttBadge, seriesCount }: VideoCardProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
 
@@ -176,6 +179,14 @@ function VideoCard({ video, idx, onVideoClick, onAddToCart, showProgress, showRa
         {video.duration_seconds && (
           <div className="absolute bottom-1 right-1 px-1 py-0.5 rounded bg-black/70 text-white text-[10px] font-mono">
             {fmtDuration(video.duration_seconds)}
+          </div>
+        )}
+
+        {/* 시리즈 배지 (좌하단) — 회차 2개 이상일 때만 */}
+        {!isAgeLocked && seriesCount && seriesCount > 1 && (
+          <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-[#6366f1]/85 backdrop-blur-sm text-white text-[9px] font-bold flex items-center gap-0.5">
+            <Layers className="w-2.5 h-2.5" />
+            {t("videoRow.seriesBadge", { count: seriesCount, defaultValue: "시리즈 · {{count}}화" })}
           </div>
         )}
 
@@ -278,6 +289,7 @@ export function VideoRowCarousel({
   showRank = false,
   emptyMessage,
   ageRatings,
+  seriesCounts,
 }: Props) {
   const { t } = useTranslation();
   const { user, profile } = useAuth();
@@ -355,6 +367,7 @@ export function VideoRowCarousel({
                 rating={rating}
                 isAgeLocked={isAgeLocked}
                 isOttBadge={isOttBadge}
+                seriesCount={seriesCounts?.[video.id]}
               />
             );
           })}

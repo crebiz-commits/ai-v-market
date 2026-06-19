@@ -1139,7 +1139,8 @@
     "nameless": "Unknown",
     "viewsPrefix": "Views",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "seriesBadge": "Series · {{count}} eps"
   },
   "language": {
     "korean": "Korean",

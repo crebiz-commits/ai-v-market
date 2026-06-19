@@ -1139,7 +1139,8 @@
     "nameless": "이름 없음",
     "viewsPrefix": "조회",
     "previous": "이전",
-    "next": "다음"
+    "next": "다음",
+    "seriesBadge": "시리즈 · {{count}}화"
   },
   "language": {
     "korean": "한국어",

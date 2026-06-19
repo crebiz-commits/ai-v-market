@@ -6,7 +6,7 @@
 //   ↳ 연령 게이트(블러/잠금) + 쇼케이스 합성 유지.
 // ════════════════════════════════════════════════════════════════════════════
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Play, Info, Plus, Lock, Loader2, Volume2, VolumeX, Clock, ChevronLeft, ChevronRight, Heart, Eye } from "lucide-react";
+import { Play, Info, Plus, Lock, Loader2, Volume2, VolumeX, Clock, ChevronLeft, ChevronRight, Heart, Eye, Layers } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { type CarouselVideo } from "./VideoRowCarousel";
@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { isNegotiationOnly } from "../utils/licensePricing";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { useAgeRatings } from "../hooks/useAgeRatings";
+import { useSeriesCounts } from "../hooks/useSeriesCounts";
 
 interface Product {
   id: string;
@@ -171,6 +172,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
     return Array.from(ids).filter((id) => !id.startsWith("demo-"));
   }, [trending, formatRows, genreRows]);
   const ageRatings = useAgeRatings(allVideoIds);
+  const seriesCounts = useSeriesCounts(allVideoIds);
 
   const ageGuard: AgeGuard = (v) => {
     const rating = ageRatings[v.id];
@@ -368,6 +370,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
             highlighted={row.isFormat || band.order.includes(getGenreStyle(row.category).key)}
             onClick={(v) => onProductClick(toProduct(v))}
             ageGuard={ageGuard}
+            seriesCounts={seriesCounts}
           />
         ))}
         {orderedRows.length === 0 && formatRows.length === 0 && (
@@ -534,6 +537,7 @@ function CategoryRow({
   highlighted,
   onClick,
   ageGuard,
+  seriesCounts,
 }: {
   category: string;
   videos: CarouselVideo[];
@@ -541,6 +545,7 @@ function CategoryRow({
   highlighted?: boolean;
   onClick: (v: CarouselVideo) => void;
   ageGuard: AgeGuard;
+  seriesCounts?: Record<string, number>;
 }) {
   const { t } = useTranslation();
   const style = getGenreStyle(category);
@@ -612,6 +617,13 @@ function CategoryRow({
                       decoding="async"
                       className={`w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500 ${g.isAgeLocked ? "blur-xl scale-110" : ""}`}
                     />
+                  )}
+
+                  {!g.isAgeLocked && (seriesCounts?.[v.id] ?? 0) > 1 && (
+                    <div className="absolute top-2 left-2 px-2 py-1 rounded-md bg-[#6366f1]/85 backdrop-blur-sm text-white text-[11px] font-bold flex items-center gap-1 z-10">
+                      <Layers className="w-3 h-3" />
+                      {t("videoRow.seriesBadge", { count: seriesCounts![v.id], defaultValue: "시리즈 · {{count}}화" })}
+                    </div>
                   )}
 
                   {g.isAgeLocked ? (
