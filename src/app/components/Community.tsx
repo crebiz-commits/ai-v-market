@@ -345,6 +345,10 @@ interface CommunityProps {
   onInitialChallengeConsumed?: () => void;
 }
 
+// 탭 재방문 시 즉시 표시용 모듈 캐시 (stale-while-revalidate). 키: posts=localeTag, challenges=isKo
+const postsCache: Record<string, Post[]> = {};
+const challengesCache: Record<string, Challenge[]> = {};
+
 export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChallengeParticipate, onPlayVideo, initialCollabPostId, onInitialCollabPostConsumed, initialPostId, onInitialPostConsumed, initialChallengeId, onInitialChallengeConsumed }: CommunityProps = {}) {
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
@@ -360,14 +364,14 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
       onInitialTabConsumed?.();
     }
   }, [initialTab, onInitialTabConsumed]);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loadingPosts, setLoadingPosts] = useState(true);
+  const [posts, setPosts] = useState<Post[]>(postsCache[localeTag] ?? []);
+  const [loadingPosts, setLoadingPosts] = useState(!postsCache[localeTag]);
   // 게시글 카테고리 필터 + 정렬 (공지는 항상 상단)
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<"latest" | "popular" | "comments">("latest");
   // 챌린지 — DB(challenges) 로드, 테이블 미적용 환경에선 기존 하드코딩 폴백
-  const [challenges, setChallenges] = useState<Challenge[]>([]);
-  const [loadingChallenges, setLoadingChallenges] = useState(true);
+  const [challenges, setChallenges] = useState<Challenge[]>(challengesCache[String(isKo)] ?? []);
+  const [loadingChallenges, setLoadingChallenges] = useState(!challengesCache[String(isKo)]);
   const [collabs, setCollabs] = useState<CollabPost[]>([]);
   const [loadingCollab, setLoadingCollab] = useState(true);
   const [collabFilter, setCollabFilter] = useState<"all" | CollabType>("all");
@@ -451,8 +455,11 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   // H10(2026-05-31): 커뮤니티 글 실제 DB 로드 (기존 mock 은 ?preview=community-mock 에 보존)
   useEffect(() => {
     let cancelled = false;
+    const ckey = localeTag;
+    const cachedPosts = postsCache[ckey];
+    if (cachedPosts) { setPosts(cachedPosts); setLoadingPosts(false); }  // 캐시 즉시 표시 후 아래서 갱신
+    else setLoadingPosts(true);
     (async () => {
-      setLoadingPosts(true);
       const { data, error } = await supabase
         .from("community_posts")
         .select("*")
@@ -474,6 +481,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
             if (v) { p.videoTitle = v.title || "Untitled"; p.videoThumbnail = v.thumbnail || ""; }
           });
         }
+        postsCache[ckey] = mapped;
         setPosts(mapped);
       }
       setLoadingPosts(false);
@@ -484,8 +492,11 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   // 챌린지 DB 로드 + 참여작 수 (영상 태그 challenge:<tag> 카운트)
   useEffect(() => {
     let cancelled = false;
+    const ckey = String(isKo);
+    const cachedCh = challengesCache[ckey];
+    if (cachedCh) { setChallenges(cachedCh); setLoadingChallenges(false); }  // 캐시 즉시 표시 후 갱신
+    else setLoadingChallenges(true);
     (async () => {
-      setLoadingChallenges(true);
       const { data, error } = await supabase
         .from("challenges")
         .select("*")
@@ -495,7 +506,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
       if (error) {
         // 테이블 미적용(마이그레이션 전) 환경 — 기존 하드코딩 폴백
         console.warn("[Community] 챌린지 조회 실패:", error.message);
-        setChallenges(isKo ? CHALLENGES_KO : CHALLENGES_EN);
+        if (!cachedCh) setChallenges(isKo ? CHALLENGES_KO : CHALLENGES_EN);
         setLoadingChallenges(false);
         return;
       }
@@ -511,7 +522,9 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
         })
       );
       if (cancelled) return;
-      setChallenges(rows.map((r: any, i: number) => challengeRowToChallenge(r, isKo, counts[i])));
+      const mappedCh = rows.map((r: any, i: number) => challengeRowToChallenge(r, isKo, counts[i]));
+      challengesCache[ckey] = mappedCh;
+      setChallenges(mappedCh);
       setLoadingChallenges(false);
     })();
     return () => { cancelled = true; };
