@@ -105,6 +105,20 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
   const [uploadComplete, setUploadComplete] = useState(false);
   const [showBunnyGuide, setShowBunnyGuide] = useState(false);
 
+  // 시리즈(연속물) — 업로드 영상을 시리즈에 연결 (선택)
+  const [seriesList, setSeriesList] = useState<{ id: string; title: string; episode_count: number }[]>([]);
+  const [seriesId, setSeriesId] = useState("");          // "" = 단일영상, "__new__" = 새 시리즈
+  const [newSeriesTitle, setNewSeriesTitle] = useState("");
+  const [seasonNumber, setSeasonNumber] = useState("1");
+  const [episodeNumber, setEpisodeNumber] = useState("");
+  useEffect(() => {
+    if (!user) return;
+    supabase.rpc("get_my_series").then(
+      ({ data }) => { if (data) setSeriesList(data as any); },
+      () => {},
+    );
+  }, [user]);
+
   // 챌린지 참가로 진입 시 컨텍스트 1회 캡처 후 부모 신호 소거
   useEffect(() => {
     if (challengeContext) {
@@ -841,6 +855,30 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
       setUploadComplete(true);
       toast.success(t("upload.toast.uploadSuccess"));
 
+      // 시리즈 연결 (선택) — 새 시리즈면 먼저 생성 후 영상에 연결
+      if (seriesId) {
+        try {
+          let sid: string | null = seriesId === "__new__" ? null : seriesId;
+          if (seriesId === "__new__" && newSeriesTitle.trim()) {
+            const { data: createdId } = await supabase.rpc("create_series", {
+              p_title: newSeriesTitle.trim(),
+              p_genre: formData.genre || null,
+            });
+            sid = (createdId as string) || null;
+          }
+          if (sid) {
+            await supabase.rpc("set_video_series", {
+              p_video_id: videoId,
+              p_series_id: sid,
+              p_season_number: parseInt(seasonNumber) || 1,
+              p_episode_number: episodeNumber ? parseInt(episodeNumber) : null,
+            });
+          }
+        } catch (e) {
+          console.warn("[Upload] 시리즈 연결 실패:", e);
+        }
+      }
+
       // Phase 25 — 자동 모더레이션 (fire-and-forget, 실패해도 업로드 흐름 무관)
       const moderateUrl = `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/moderate-video`;
       fetch(moderateUrl, {
@@ -1340,6 +1378,45 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
                     ))}
                   </select>
                 </div>
+              </div>
+
+              {/* 시리즈(연속물) — 선택 */}
+              <div>
+                <Label htmlFor="series" className="mb-2 block">시리즈 (연속물, 선택)</Label>
+                <select
+                  id="series"
+                  value={seriesId}
+                  onChange={(e) => setSeriesId(e.target.value)}
+                  className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm"
+                >
+                  <option value="">시리즈 아님 (단일 영상)</option>
+                  {seriesList.map((s) => (
+                    <option key={s.id} value={s.id}>{s.title} ({s.episode_count}화)</option>
+                  ))}
+                  <option value="__new__">+ 새 시리즈 만들기</option>
+                </select>
+                {seriesId === "__new__" && (
+                  <input
+                    type="text"
+                    value={newSeriesTitle}
+                    onChange={(e) => setNewSeriesTitle(e.target.value)}
+                    placeholder="새 시리즈 제목"
+                    className="mt-2 flex h-9 w-full rounded-md border border-input bg-card px-3 py-2 text-sm"
+                  />
+                )}
+                {seriesId && (
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    <div>
+                      <Label className="mb-1 block text-xs text-muted-foreground">시즌</Label>
+                      <input type="number" min="1" value={seasonNumber} onChange={(e) => setSeasonNumber(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="mb-1 block text-xs text-muted-foreground">회차 (N화)</Label>
+                      <input type="number" min="1" value={episodeNumber} onChange={(e) => setEpisodeNumber(e.target.value)} placeholder="예: 1" className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-2 text-sm" />
+                    </div>
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground mt-1.5">시리즈로 묶으면 상세페이지에서 회차 목록·다음화로 노출됩니다.</p>
               </div>
 
               {/* 시청 등급 — 필수 입력 (Phase 31.1) */}
