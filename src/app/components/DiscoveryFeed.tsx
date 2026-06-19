@@ -499,6 +499,8 @@ const MovieSection = memo(({
         <img
           src={video.thumbnail}
           alt=""
+          loading="lazy"
+          decoding="async"
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 z-[15] pointer-events-none ${isPlaying ? 'opacity-0' : 'opacity-100'}`}
         />
         <div className="relative w-full h-full z-10 pointer-events-none">
@@ -1471,11 +1473,11 @@ const DesktopAdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: s
     >
       <div className="relative aspect-video bg-black overflow-hidden">
         {ad.image_url ? (
-          <img src={ad.image_url} alt={ad.title} className="absolute inset-0 w-full h-full object-cover" />
+          <img src={ad.image_url} alt={ad.title} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
         ) : ad.video_url ? (
           <video src={ad.video_url} poster={ad.thumbnail_url || undefined} className="absolute inset-0 w-full h-full object-cover" autoPlay loop muted playsInline />
         ) : ad.thumbnail_url ? (
-          <img src={ad.thumbnail_url} alt={ad.title} className="absolute inset-0 w-full h-full object-cover" />
+          <img src={ad.thumbnail_url} alt={ad.title} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[#6366f1] to-[#8b5cf6]" />
         )}
@@ -1555,7 +1557,7 @@ function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onCommen
       className="bg-[#141414] rounded-2xl overflow-hidden border border-white/[0.08] hover:border-[#6366f1]/50 shadow-lg hover:shadow-[0_0_30px_rgba(99,102,241,0.15)] transition-all duration-300 cursor-pointer group"
     >
       <div className="relative aspect-video bg-black overflow-hidden">
-        <img src={video.thumbnail} className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 z-10 ${isHovered ? 'opacity-0' : 'opacity-100'}`} />
+        <img src={video.thumbnail} loading="lazy" decoding="async" className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 z-10 ${isHovered ? 'opacity-0' : 'opacity-100'}`} />
         {/* React가 아닌 Video.js가 직접 관리하는 컨테이너 */}
         <div ref={containerRef} className="absolute inset-0 z-0" />
         <div className="absolute top-3 left-3 z-10">
