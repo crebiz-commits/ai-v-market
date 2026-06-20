@@ -1094,7 +1094,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
           </motion.div>
         </motion.div>
         </div>
-        <Footer onNavigate={onNavigate || (() => {})} />
+        <Footer mobile onNavigate={onNavigate || (() => {})} />
       </div>
     );
   }
@@ -1118,7 +1118,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
           <p className="text-muted-foreground font-medium">{t("mypage.profileLoading")}</p>
         </motion.div>
         </div>
-        <Footer onNavigate={onNavigate || (() => {})} />
+        <Footer mobile onNavigate={onNavigate || (() => {})} />
       </div>
     );
   }
@@ -2333,7 +2333,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
           </>
         )}
       </AnimatePresence>
-      <Footer onNavigate={onNavigate || (() => {})} />
+      <Footer mobile onNavigate={onNavigate || (() => {})} />
   </div>
   );
 }

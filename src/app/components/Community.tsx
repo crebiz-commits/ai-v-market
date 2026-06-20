@@ -1341,7 +1341,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
         </Tabs>
       </div>
 
-      <Footer onNavigate={onNavigate || (() => {})} />
+      <Footer mobile onNavigate={onNavigate || (() => {})} />
 
       {/* 댓글 바텀시트 */}
       <AnimatePresence>

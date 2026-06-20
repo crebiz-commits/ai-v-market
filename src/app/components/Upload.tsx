@@ -541,7 +541,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
             </p>
           </div>
         </div>
-        <Footer onNavigate={onNavigate || (() => {})} />
+        <Footer mobile onNavigate={onNavigate || (() => {})} />
       </div>
     );
   }
@@ -2218,7 +2218,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
           </DialogContent>
         </Dialog>
       </div>
-      <Footer onNavigate={onNavigate || (() => {})} />
+      <Footer mobile onNavigate={onNavigate || (() => {})} />
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 interface FooterProps {
   // 각 페이지에서 Footer 호출 시 페이지의 onNavigate prop 그대로 전달 가능하도록 string 타입
   onNavigate: (tab: string) => void;
+  // 모바일에서도 노출할지 (기본 false = 데스크탑 전용). 시네마/OTT/업로드/커뮤니티/채널/마이에서 true.
+  mobile?: boolean;
 }
 
 /**
@@ -13,7 +15,7 @@ interface FooterProps {
  * 우리도 모바일에선 햄버거 메뉴에 동일 내용(비즈니스·회사소개·약관·고객센터·사업자정보)이
  * 모두 있으므로 푸터는 숨기고(md:block), 데스크탑(브라우저)에서만 노출.
  */
-export function Footer({ onNavigate }: FooterProps) {
+export function Footer({ onNavigate, mobile = false }: FooterProps) {
   const { t, i18n } = useTranslation();
   const isKo = i18n.language?.startsWith("ko");
   return (
@@ -21,7 +23,7 @@ export function Footer({ onNavigate }: FooterProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6, delay: 0.4 }}
-      className="hidden md:block border-t border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl mt-auto"
+      className={`${mobile ? "block" : "hidden md:block"} border-t border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl mt-auto`}
     >
       <div className="max-w-[1800px] mx-auto px-5 md:px-10 py-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-6">

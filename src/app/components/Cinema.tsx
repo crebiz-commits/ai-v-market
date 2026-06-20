@@ -311,7 +311,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
         <div className="flex-1 flex items-center justify-center">
           <Loader2 className="w-10 h-10 text-[#6366f1] animate-spin" />
         </div>
-        <Footer onNavigate={onNavigate || (() => {})} />
+        <Footer mobile onNavigate={onNavigate || (() => {})} />
       </div>
     );
   }
@@ -476,7 +476,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
             </div>
           )}
         </div>
-      <Footer onNavigate={onNavigate || (() => {})} />
+      <Footer mobile onNavigate={onNavigate || (() => {})} />
     </div>
   );
 }

@@ -310,7 +310,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
         <div className="flex-1 flex items-center justify-center">
           <Loader2 className="w-10 h-10 text-[#a78bfa] animate-spin" />
         </div>
-        <Footer onNavigate={onNavigate || (() => {})} />
+        <Footer mobile onNavigate={onNavigate || (() => {})} />
       </div>
     );
   }
@@ -319,7 +319,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
     return (
       <div className="h-full overflow-y-auto bg-black flex flex-col">
         <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">{t("ott.noVideos")}</div>
-        <Footer onNavigate={onNavigate || (() => {})} />
+        <Footer mobile onNavigate={onNavigate || (() => {})} />
       </div>
     );
   }
@@ -381,7 +381,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
         )}
       </div>
 
-      <Footer onNavigate={onNavigate || (() => {})} />
+      <Footer mobile onNavigate={onNavigate || (() => {})} />
     </div>
   );
 }

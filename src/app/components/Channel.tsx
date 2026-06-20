@@ -269,7 +269,7 @@ export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCre
           </motion.div>
         </AnimatePresence>
       </div>
-      <Footer onNavigate={onNavigate || (() => {})} />
+      <Footer mobile onNavigate={onNavigate || (() => {})} />
     </div>
   );
 }
