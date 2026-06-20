@@ -231,7 +231,11 @@ export function Footer({ onNavigate, mobile = false }: FooterProps) {
 
           {/* 카피라이트 */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 pt-3 border-t border-white/5">
-            <p className="text-xs text-gray-400">
+            {/* 데스크탑: 카피라이트 / 모바일: 개발·운영 표기 */}
+            <p className="hidden md:block text-xs text-gray-300 font-medium">
+              © {new Date().getFullYear()} CREAITE. All rights reserved.
+            </p>
+            <p className="md:hidden text-xs text-gray-400">
               <span className="text-gray-500">{isKo ? "🛠 개발·운영" : "🛠 Dev & Ops"}</span>
               <span className="text-gray-600 mx-1.5">—</span>
               크레비즈 소프트웨어 컴퍼니 <span className="text-gray-600">(CREBIZ Software Company)</span>
