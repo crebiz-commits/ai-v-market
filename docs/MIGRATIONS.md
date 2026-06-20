@@ -21,6 +21,7 @@
 - advertiser_self_service_phase5_20260614.sql
 - advertiser_update_ad_media_coalesce_20260615.sql
 - banners_bugreports_20260611.sql
+- event_banners_rls_20260620.sql
 - billing_charge_rpcs_20260612.sql
 - billing_cron_20260612.sql
 - billing_subscriptions_20260612.sql
