@@ -12,6 +12,7 @@
 - ad_overlay_duration_pricing_20260615.sql
 - ad_surface_exclusive_20260615.sql
 - ads_public_view_20260620.sql
+- ads_drop_public_read_20260620.sql
 - get_home_feed_safe_columns_20260620.sql
 - advertiser_edit_approved_rereview_20260615.sql
 - advertiser_my_ads_add_video_url_20260615.sql
