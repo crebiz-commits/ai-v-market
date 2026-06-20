@@ -139,6 +139,7 @@
 - storage_delete_policies.sql
 - storage_rls_audit.sql
 - videos_extended_columns.sql
+- videos_select_rls_20260620.sql
 - videos_license_columns.sql
 
 ## 시드(콘텐츠)
