@@ -203,12 +203,12 @@ export function Footer({ onNavigate }: FooterProps) {
             </p>
           </div>
 
-          {/* 계열사 + 개발·운영 — 크레비즈 그룹 */}
+          {/* 크레비즈 그룹 안내 — 부가 정보(법정 사업자 표시사항은 좌측 블록이 정본) */}
           <div className="text-xs leading-relaxed space-y-1.5 lg:text-right lg:max-w-[46%]">
             <p className="text-gray-400">
-              <span className="text-gray-500">{isKo ? "🛠 개발·운영" : "🛠 Dev & Ops"}</span>
-              <span className="text-gray-600 mx-1.5">—</span>
-              크레비즈 소프트웨어 컴퍼니 <span className="text-gray-500">(CREBIZ Software Company)</span>
+              <span className="text-gray-300 font-semibold">크레비즈 그룹</span> <span className="text-gray-600">(CREBIZ Group)</span>
+              <span className="text-gray-600 mx-1.5">·</span>
+              <span className="text-gray-500">{isKo ? "그룹 본사" : "Group HQ"}</span> ㈜크레비즈
             </p>
             <p className="text-gray-500">
               <span className="text-gray-400 font-semibold">{isKo ? "계열사" : "Affiliates"}</span>
