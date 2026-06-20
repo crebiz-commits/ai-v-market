@@ -226,6 +226,11 @@ export function Footer({ onNavigate, mobile = false }: FooterProps) {
               <span className="text-gray-700 mx-1">·</span>
               크레비즈 소프트웨어 컴퍼니 <span className="text-gray-600">(CREBIZ Software Company)</span>
             </p>
+            <p className="text-gray-500">
+              <span className="text-gray-500">{isKo ? "🛠 개발·운영" : "🛠 Dev & Ops"}</span>
+              <span className="text-gray-600 mx-1.5">—</span>
+              크레비즈 소프트웨어 컴퍼니 <span className="text-gray-600">(CREBIZ Software Company)</span>
+            </p>
           </div>
           </div>
 
@@ -235,17 +240,10 @@ export function Footer({ onNavigate, mobile = false }: FooterProps) {
             <p className="hidden md:block text-xs text-gray-300 font-medium">
               © {new Date().getFullYear()} CREAITE. All rights reserved.
             </p>
-            {/* 우측: 개발·운영 + 태그라인 */}
-            <div className="space-y-1 md:text-right">
-              <p className="text-xs text-gray-400">
-                <span className="text-gray-500">{isKo ? "🛠 개발·운영" : "🛠 Dev & Ops"}</span>
-                <span className="text-gray-600 mx-1.5">—</span>
-                크레비즈 소프트웨어 컴퍼니 <span className="text-gray-600">(CREBIZ Software Company)</span>
-              </p>
-              <p className="text-xs font-bold bg-gradient-to-r from-[#6366f1] via-[#ec4899] to-[#06b6d4] bg-clip-text text-transparent">
-                {t("footer.tagline")}
-              </p>
-            </div>
+            {/* 우측: 태그라인 (독립) */}
+            <p className="text-xs font-bold bg-gradient-to-r from-[#6366f1] via-[#ec4899] to-[#06b6d4] bg-clip-text text-transparent md:text-right">
+              {t("footer.tagline")}
+            </p>
           </div>
         </div>
       </div>
