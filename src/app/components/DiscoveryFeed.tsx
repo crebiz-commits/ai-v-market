@@ -358,15 +358,36 @@ const MovieSection = memo(({
   // 지연 마운트: 섹션이 뷰포트 ±1화면 근처일 때만 플레이어 생성.
   // (비가상화 피드라 모든 섹션이 동시에 플레이어를 만들면 수십 개 누적 → 메모리 폭발/Aw Snap 크래시)
   const [inView, setInView] = useState(false);
+  // getBoundingClientRect 기반 지연 마운트 — 스크롤 컨테이너 내부에서도 신뢰성 있게 동작.
+  // (이전 IntersectionObserver(root:null) 가 이 피드의 내부 스크롤 레이아웃에선 항상 false 로
+  //  보고해 플레이어가 아예 생성되지 않던 문제 수정. 화면 ±1화면 이내면 마운트, 멀어지면 언마운트=메모리 회수.)
   useEffect(() => {
     const el = sectionRef.current;
     if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => setInView(entries[0]?.isIntersecting ?? false),
-      { rootMargin: "100% 0px" },  // 화면 1개 위/아래까지 미리 마운트
-    );
-    io.observe(el);
-    return () => io.disconnect();
+    const scroller = el.closest('.mobile-feed-container') as HTMLElement | null;
+    let raf = 0;
+    const check = () => {
+      raf = 0;
+      const r = el.getBoundingClientRect();
+      const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+      // 레이아웃 전/숨김(0 크기)·vh 미확정이면 판정 보류(false 로 덮지 않음 → 재시도가 잡음)
+      if ((r.width === 0 && r.height === 0) || vh === 0) return;
+      setInView(r.top < vh * 2 && r.bottom > -vh);   // ±1화면
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(check); };
+    check();
+    // 초기 레이아웃 안정까지 재시도 (dvh/flex 계산 지연 대비)
+    const t1 = setTimeout(check, 120);
+    const t2 = setTimeout(check, 500);
+    const target: any = scroller || window;
+    target.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      clearTimeout(t1); clearTimeout(t2);
+      if (raf) cancelAnimationFrame(raf);
+      target.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
   }, []);
 
   // Effect 1: 플레이어 생성/삭제 — inView && 소스 있을 때만. (isActive 제외 유지)
@@ -458,7 +479,7 @@ const MovieSection = memo(({
         playerRef.current = null;
       }
     };
-  }, [video.id, video.videoUrl]); // ← isActive 없음
+  }, [video.id, video.videoUrl, inView]); // inView 포함: false→true 시 플레이어 생성 / true→false 시 dispose(메모리 회수)
 
   // Effect 2: 활성/비활성 전환
   // playerReady를 deps에 포함 → isActive=true일 때 플레이어가 아직 준비 안 됐으면
@@ -482,15 +503,21 @@ const MovieSection = memo(({
 
     player.currentTime(video.highlightStart || 0);
     player.muted(isMuted);
-    const playPromise = player.play();
-    if (playPromise) {
-      playPromise.catch(() => {
+    // highlightStart 가 큰(예: 90초) 영상은 아직 버퍼 안 된 지점으로 시크하느라
+    // play() 가 "interrupted by seek" 로 거부돼 멈추는 경우가 있음 →
+    // 즉시 한 번 시도 + 시크/버퍼 완료(seeked·canplay) 시 재생 재시도로 보강.
+    const tryPlay = () => {
+      if (!player || player.isDisposed()) return;
+      player.play()?.catch(() => {
         if (!player.isDisposed()) {
           player.muted(true);
           player.play()?.catch(() => {});
         }
       });
-    }
+    };
+    tryPlay();
+    player.one('seeked', tryPlay);
+    player.one('canplay', tryPlay);
   }, [isActive, playerReady]);
 
   // Effect 3: 뮤트 상태 반영
