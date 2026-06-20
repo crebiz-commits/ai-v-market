@@ -244,19 +244,22 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
     }
     async function loadAll() {
       try {
+        // 각 RPC를 안전 래핑(실패 시 null) → 일부 RPC가 네트워크 실패해도 나머지로 채움(OTT 전체가 비는 것 방지).
+        const rpcData = (name: string, args: any): Promise<any[] | null> =>
+          Promise.resolve(supabase.rpc(name, args)).then((r: any) => r?.data ?? null).catch(() => null);
         // 3단 워터폴 → 단일 Promise.all (서로 독립이므로 왕복 3회→1회)
-        const [{ data: trd }, formatData, rows] = await Promise.all([
-          supabase.rpc("get_trending_videos", { p_tier: "ott", p_hours: 168, p_limit: 10 }),
+        const [trd, formatData, rows] = await Promise.all([
+          rpcData("get_trending_videos", { p_tier: "ott", p_hours: 168, p_limit: 10 }),
           Promise.all(
             OTT_FORMAT_DEFS.map((f) =>
-              supabase.rpc("get_videos_by_category", { p_category: f.category, p_tier: "ott", p_limit: 50 }),
+              rpcData("get_videos_by_category", { p_category: f.category, p_tier: "ott", p_limit: 50 }),
             ),
           ),
           Promise.all(
-            GENRES.map(async (g) => {
-              const { data } = await supabase.rpc("get_videos_by_genre", { p_genre: g, p_tier: "ott", p_limit: 50 });
-              return { category: g, videos: data || [] } as GenreRow;
-            }),
+            GENRES.map(async (g) => ({
+              category: g,
+              videos: (await rpcData("get_videos_by_genre", { p_genre: g, p_tier: "ott", p_limit: 50 })) || [],
+            } as GenreRow)),
           ),
         ]);
 
@@ -269,7 +272,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
         const nextFormatRows = OTT_FORMAT_DEFS.map((f, i) => ({
           category: f.category,
           position: f.position,
-          videos: merge(((formatData[i] as any)?.data || []) as CarouselVideo[], { category: f.category }),
+          videos: merge((formatData[i] || []) as CarouselVideo[], { category: f.category }),
         })).filter((r) => r.videos.length > 0);
 
         const mergedRows = rows.map((r) => ({ ...r, videos: merge(r.videos, { category: r.category }) }));
@@ -382,10 +385,6 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
     </div>
   );
 }
-
-// 히어로에 등록된 실제 영상이 없을 때 당분간 보여줄 샘플 미리보기 영상 (영상 등록 시 자동 대체)
-// Tears of Steel — 블렌더 재단 오픈무비(CC) SF 시네마틱·드라마틱(로봇·미래도시, HLS 스트리밍)
-const FALLBACK_HERO_VIDEO = "https://test-streams.mux.dev/tos_ismc/main.m3u8";
 
 // ────────────────────────────────────────────────────────────────────────────
 // 풀블리드 단일 히어로 (영상 자동재생 — 음소거·하이라이트 구간 반복, 소리 토글)
