@@ -151,10 +151,13 @@ const cinemaCache: Record<string, CinemaSnapshot> = {};
 
 export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigate, onViewCreator, onSignInClick }: CinemaProps) {
   const { t } = useTranslation();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const showcase = shouldShowShowcase(profile?.is_admin);
+  // 캐시 키에 user id 포함 — 개인화 추천(get_recommended_videos)이 사용자 간 공유되지 않게.
+  // (user 없으면 'anon'. tier·showcase 만으로 키를 만들면 로그아웃/계정전환 시 이전 사용자 추천이 새어나감)
+  const cacheKey = `${user?.id ?? "anon"}:${tier}:${showcase}`;
   // 모듈 캐시에서 초기 hydrate — 탭 재방문 시 첫 렌더부터 데이터 표시(스피너 스킵)
-  const _initSnap = cinemaCache[`${tier}:${showcase}`];
+  const _initSnap = cinemaCache[cacheKey];
   const [loading, setLoading] = useState(!_initSnap);
   const [recommended, setRecommended] = useState<CarouselVideo[]>(_initSnap?.recommended ?? []);
   const [trending, setTrending] = useState<CarouselVideo[]>(_initSnap?.trending ?? []);
@@ -193,8 +196,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
 
   useEffect(() => {
     let cancelled = false;
-    const key = `${tier}:${showcase}`;
-    const snap = cinemaCache[key];
+    const snap = cinemaCache[cacheKey];
     if (snap) {
       // 캐시 즉시 반영(stale-while-revalidate) — 스피너 없이 직전 데이터 표시 후 아래서 백그라운드 갱신
       setRecommended(snap.recommended); setTrending(snap.trending); setNewReleases(snap.newReleases);
@@ -205,13 +207,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
     }
     async function loadAll() {
       try {
-        const [
-          { data: rec },
-          { data: trd },
-          { data: nrl },
-          { data: top },
-          ...restResults
-        ] = await Promise.all([
+        const settled = await Promise.allSettled([
           supabase.rpc("get_recommended_videos", { p_tier: tier, p_limit: 15 }),
           supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 24, p_limit: 10 }),
           supabase.rpc("get_new_releases", { p_tier: tier, p_days: 14, p_limit: 10 }),
@@ -226,6 +222,13 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           ),
         ]);
         if (cancelled) return;  // tier/showcase 전환 중 stale 응답 적용 방지
+        // Promise.allSettled: RPC 하나가 실패해도 나머지로 채움(실패분=빈 데이터) → 시네마 전체가 비는 것 방지.
+        const rpcData = (r: PromiseSettledResult<any>): any => (r.status === "fulfilled" ? (r.value?.data ?? null) : null);
+        const rec = rpcData(settled[0]);
+        const trd = rpcData(settled[1]);
+        const nrl = rpcData(settled[2]);
+        const top = rpcData(settled[3]);
+        const restResults = settled.slice(4).map((r) => ({ data: rpcData(r) }));
         const formatResults = restResults.slice(0, FORMAT_DEFS.length);
         const categoryResults = restResults.slice(FORMAT_DEFS.length);
 
@@ -274,7 +277,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
         })).filter((row) => row.videos.length > 0);
 
         // 모듈 캐시에 기록 → 다음 재방문 시 스피너 없이 즉시 표시
-        cinemaCache[key] = {
+        cinemaCache[cacheKey] = {
           recommended: nextRecommended, trending: nextTrending, newReleases: nextNewReleases,
           top10: nextTop10, formatRows: nextFormatRows, categoryRows: nextCategoryRows,
         };
@@ -295,7 +298,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
     }
     loadAll();
     return () => { cancelled = true; };
-  }, [tier, showcase]);
+  }, [tier, showcase, user?.id]);  // user 포함: 로그인/로그아웃·계정전환 시 개인화 추천 재조회
 
   const handleClick = (v: CarouselVideo) => onProductClick(toProduct(v));
   const handleAddToCart = onAddToCart
