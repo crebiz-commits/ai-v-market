@@ -908,14 +908,11 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
       setVideos([]);
       setActiveId(null);
       try {
-        // 홈 피드 광고: feed_display 타입만 (video_preroll은 재생 직전에만 노출)
-        const adResult = await supabase.from("ads")
+        // 홈 피드 광고: ads_public 뷰에서 조회 — 승인·활성·노출기간 필터를 뷰가 강제하고
+        // 민감컬럼(budget_krw/spent_krw/owner_id 등)은 비노출. 여기선 노출형식(feed_display)만 거름.
+        const adResult = await supabase.from("ads_public")
           .select("id,title,advertiser,image_url,video_url,thumbnail_url,link_url,cta_text,interval_count,ad_type")
-          .eq("is_active", true)
-          .eq("status", "approved") // 승인된 광고만 — 미승인(draft/pending/rejected) 광고 피드 노출 차단. status는 NOT NULL DEFAULT 'approved'(레거시 하우스 광고 무중단)
-          .or("ad_type.eq.feed_display,ad_type.is.null")
-          .or("starts_at.is.null,starts_at.lte." + new Date().toISOString())
-          .or("ends_at.is.null,ends_at.gte." + new Date().toISOString());
+          .or("ad_type.eq.feed_display,ad_type.is.null");
         if (!cancelled && adResult.data && adResult.data.length > 0) setAds(adResult.data as Ad[]);
 
         if (!cancelled && user) {

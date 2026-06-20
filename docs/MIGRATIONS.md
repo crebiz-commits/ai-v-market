@@ -11,6 +11,8 @@
 - ad_images_advertiser_upload_20260615.sql
 - ad_overlay_duration_pricing_20260615.sql
 - ad_surface_exclusive_20260615.sql
+- ads_public_view_20260620.sql
+- get_home_feed_safe_columns_20260620.sql
 - advertiser_edit_approved_rereview_20260615.sql
 - advertiser_my_ads_add_video_url_20260615.sql
 - advertiser_self_service_phase1_20260614.sql
