@@ -26,7 +26,8 @@ export function Footer({ onNavigate, mobile = false }: FooterProps) {
       className={`${mobile ? "block" : "hidden md:block"} border-t border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl mt-auto`}
     >
       <div className="max-w-[1800px] mx-auto px-5 md:px-10 py-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-6">
+        {/* 4단 링크 메뉴 — 모바일에선 숨김(햄버거 메뉴에 동일 내용). 데스크탑만 노출 */}
+        <div className="hidden md:grid grid-cols-2 md:grid-cols-4 gap-8 mb-6">
           {/* 비즈니스 */}
           <div>
             <h3 className="text-xs font-black text-white uppercase tracking-widest mb-3">{t("footer.business")}</h3>
@@ -179,8 +180,8 @@ export function Footer({ onNavigate, mobile = false }: FooterProps) {
         <div className="border-t border-white/5 pt-6 space-y-4">
           {/* 사업자 정보(좌) + 계열사·개발운영(우) */}
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-          {/* 사업자 정보 — 전자상거래법 §13 표시 의무 */}
-          <div className="text-xs text-gray-400 leading-relaxed space-y-1">
+          {/* 사업자 정보 — 전자상거래법 §13 표시 의무. 모바일에선 숨김(햄버거 메뉴에 있음) */}
+          <div className="hidden md:block text-xs text-gray-400 leading-relaxed space-y-1">
             <p>
               <span className="text-gray-500">{t("footer.businessInfo.businessName")}</span> 크레비즈
               <span className="text-gray-600 mx-1.5">·</span>
