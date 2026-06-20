@@ -200,7 +200,7 @@ export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCre
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-[#0a0a0a]">
+    <div className="h-full overflow-y-auto bg-[#0a0a0a] flex flex-col">
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">
         {/* 헤더 */}
         <motion.div

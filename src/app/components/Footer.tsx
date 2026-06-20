@@ -25,7 +25,7 @@ export function Footer({ onNavigate, mobile = false }: FooterProps) {
       transition={{ duration: 0.6, delay: 0.4 }}
       className={`${mobile ? "block" : "hidden md:block"} border-t border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl mt-auto`}
     >
-      <div className="max-w-[1800px] mx-auto px-5 md:px-10 py-8">
+      <div className="max-w-[1800px] mx-auto px-5 md:px-10 py-6 md:py-8">
         {/* 4단 링크 메뉴 — 모바일에선 숨김(햄버거 메뉴에 동일 내용). 데스크탑만 노출 */}
         <div className="hidden md:grid grid-cols-2 md:grid-cols-4 gap-8 mb-6">
           {/* 비즈니스 */}
