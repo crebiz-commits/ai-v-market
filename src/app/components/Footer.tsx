@@ -175,6 +175,8 @@ export function Footer({ onNavigate }: FooterProps) {
         </div>
 
         <div className="border-t border-white/5 pt-6 space-y-4">
+          {/* 사업자 정보(좌) + 계열사·개발운영(우) */}
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           {/* 사업자 정보 — 전자상거래법 §13 표시 의무 */}
           <div className="text-xs text-gray-400 leading-relaxed space-y-1">
             <p>
@@ -201,12 +203,35 @@ export function Footer({ onNavigate }: FooterProps) {
             </p>
           </div>
 
+          {/* 계열사 + 개발·운영 — 크레비즈 그룹 */}
+          <div className="text-xs leading-relaxed space-y-1.5 lg:text-right lg:max-w-[46%]">
+            <p className="text-gray-400">
+              <span className="text-gray-500">{isKo ? "🛠 개발·운영" : "🛠 Dev & Ops"}</span>
+              <span className="text-gray-600 mx-1.5">—</span>
+              크레비즈 소프트웨어 컴퍼니 <span className="text-gray-500">(CREBIZ Software Company)</span>
+            </p>
+            <p className="text-gray-500">
+              <span className="text-gray-400 font-semibold">{isKo ? "계열사" : "Affiliates"}</span>
+              <span className="text-gray-600 mx-1.5">|</span>
+              크레비즈 로지스틱스 <span className="text-gray-600">(CREBIZ Logistics)</span>
+              <span className="text-gray-700 mx-1">·</span>
+              크리에잇 <span className="text-gray-600">(CREAITE)</span>
+              <span className="text-gray-700 mx-1">·</span>
+              크레비즈 인베스트먼트 <span className="text-gray-600">(CREBIZ Investment)</span>
+              <span className="text-gray-700 mx-1">·</span>
+              크레비즈 트레이드 <span className="text-gray-600">(CREBIZ Trade)</span>
+              <span className="text-gray-700 mx-1">·</span>
+              크레비즈 소프트웨어 컴퍼니 <span className="text-gray-600">(CREBIZ Software Company)</span>
+            </p>
+          </div>
+          </div>
+
           {/* 카피라이트 */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 pt-3 border-t border-white/5">
             <p className="text-xs text-gray-300 font-medium">
               © {new Date().getFullYear()} CREAITE. All rights reserved.
             </p>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs font-bold bg-gradient-to-r from-[#6366f1] via-[#ec4899] to-[#06b6d4] bg-clip-text text-transparent">
               {t("footer.tagline")}
             </p>
           </div>
