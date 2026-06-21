@@ -212,6 +212,25 @@ app.post("/videos/create-upload", async (c) => {
       return c.json({ error: `인증에 실패했습니다: ${authError?.message || 'Unknown error'}` }, 401);
     }
 
+    // 남용 방지(#6): 비관리자는 시간당 create-upload 30회 제한 (빈 Bunny 영상 무한 생성 차단).
+    // 관리자(시드 콘텐츠 대량 업로드)는 예외. KV 기반 best-effort 윈도우.
+    {
+      const { data: _rlProf } = await supabase.from('profiles').select('is_admin').eq('id', user.id).maybeSingle();
+      if (!_rlProf?.is_admin) {
+        const rlKey = `ratelimit:create-upload:${user.id}`;
+        const rl: any = await kv.get(rlKey);
+        const nowMs = Date.now();
+        if (rl && (nowMs - rl.windowStart) < 3600_000) {
+          if (rl.count >= 30) {
+            return c.json({ error: "업로드 요청이 너무 많습니다. 1시간 후 다시 시도해 주세요." }, 429);
+          }
+          await kv.set(rlKey, { windowStart: rl.windowStart, count: rl.count + 1 });
+        } else {
+          await kv.set(rlKey, { windowStart: nowMs, count: 1 });
+        }
+      }
+    }
+
     const { title } = await c.req.json();
 
     const libraryId = Deno.env.get('BUNNY_LIBRARY_ID');
@@ -566,6 +585,22 @@ app.post("/videos/save-metadata", async (c) => {
 
     const supabaseAdmin = getSupabaseClient(true); // Service role for DB operations
 
+    // 소유권/권한 검증 (#3·#4-b): 이 videoId 가 호출자 소유(create-upload 로 생성했거나 기존 본인 영상)이거나
+    // 관리자여야 메타 저장 허용. 없으면 타인 videoId 로 메타 덮어쓰기·소유권 탈취 가능.
+    const { data: _prof } = await supabaseAdmin.from('profiles').select('is_admin').eq('id', user.id).maybeSingle();
+    const isAdmin = !!_prof?.is_admin;
+    if (!isAdmin) {
+      const ownerKv: any = await kv.get(`video:${videoId}`);
+      let ownerId: string | undefined = ownerKv?.userId;
+      if (!ownerId) {
+        const { data: _vid } = await supabaseAdmin.from('videos').select('creator_id').eq('id', videoId).maybeSingle();
+        ownerId = (_vid as any)?.creator_id ?? undefined;
+      }
+      if (!ownerId || ownerId !== user.id) {
+        return c.json({ error: "이 영상에 대한 권한이 없습니다." }, 403);
+      }
+    }
+
     // 1. KV 스토어에 메타데이터 저장 (하위 호환성 유지)
     const key = `video:${videoId}`;
     const videoData = {
@@ -624,11 +659,11 @@ app.post("/videos/save-metadata", async (c) => {
         subtitle_url: metadata.subtitleUrl || null,
         // 공개 설정
         visibility: ['public', 'unlisted', 'private'].includes(metadata.visibility) ? metadata.visibility : 'public',
-        // 라이선스/출처 (어드민 시드 콘텐츠용 — 일반 업로드는 기본 'original')
-        license_type: ['original', 'cc0', 'cc-by', 'cc-by-sa', 'public-domain'].includes(metadata.licenseType) ? metadata.licenseType : 'original',
-        license_source_url: metadata.licenseSourceUrl || '',
-        attribution: metadata.attribution || '',
-        original_creator: metadata.originalCreator || '',
+        // 라이선스/출처 (어드민 시드 콘텐츠용) — 비관리자는 서버에서 기본값 강제(#4-b). 클라 게이트만 믿지 않음.
+        license_type: (isAdmin && ['original', 'cc0', 'cc-by', 'cc-by-sa', 'public-domain'].includes(metadata.licenseType)) ? metadata.licenseType : 'original',
+        license_source_url: isAdmin ? (metadata.licenseSourceUrl || '') : '',
+        attribution: isAdmin ? (metadata.attribution || '') : '',
+        original_creator: isAdmin ? (metadata.originalCreator || '') : '',
         // 하이라이트 구간
         highlight_start: highlightStartNum,
         highlight_end: highlightEndNum,
