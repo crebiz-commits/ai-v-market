@@ -30,6 +30,7 @@
 - collab_notify_privacy_20260614.sql
 - comment_filter_word_boundary_hardening_20260614.sql
 - community_upgrade_20260610.sql
+- community_security_20260621.sql
 - fix_ad_images_storage_rls_20260611.sql
 - fixes_audit_20260611.sql
 - high_fixes_20260614.sql
