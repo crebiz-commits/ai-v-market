@@ -20,7 +20,7 @@ const RATING_STYLES: Record<string, { labelKey: string; bg: string; text: string
   "19": { labelKey: "ageBadge.age19", bg: "bg-red-600", text: "text-white" },
 };
 
-export function AgeBadge({ rating, size = "sm", showAll = false }: AgeBadgeProps) {
+export function AgeBadge({ rating, size = "sm", showAll = true }: AgeBadgeProps) {
   const { t } = useTranslation();
   const r = rating || "all";
   if (!showAll && r === "all") return null;
