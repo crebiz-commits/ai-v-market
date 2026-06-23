@@ -56,7 +56,7 @@ const SUPABASE_URL = ENV.SUPABASE_URL || "https://tvbpiuwmvrccfnplhwer.supabase.
 const ANON_KEY = ENV.SUPABASE_ANON_KEY || "";
 const FN_BASE = `${SUPABASE_URL}/functions/v1/server`;
 const VIDEOS_DIR = path.resolve(ROOT, ENV.VIDEOS_DIR || "videos");
-const BUNNY_HOSTNAME = ENV.BUNNY_HOSTNAME || ""; // 없으면 vz-<libraryId>.b-cdn.net 폴백
+const BUNNY_HOSTNAME = ENV.BUNNY_HOSTNAME || "vz-6e85411f-96a.b-cdn.net"; // 실제 풀존 호스트(라이브러리 615810). vz-<libraryId> 폴백은 틀린 호스트라 금지
 const DEFAULT_AI_TOOL = ENV.DEFAULT_AI_TOOL || "Seedance 2.0";
 
 const VALID_CATEGORIES = ["영화", "드라마", "애니메이션", "다큐멘터리", "뮤직비디오", "기타"];
