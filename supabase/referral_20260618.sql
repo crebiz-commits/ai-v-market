@@ -98,6 +98,7 @@ BEGIN
     NEW.subscription_started_at := OLD.subscription_started_at;
     NEW.subscription_expires_at := OLD.subscription_expires_at;
     NEW.payout_info := OLD.payout_info;
+    NEW.is_admin := OLD.is_admin;   -- C1 권한상승 차단 (이 줄 누락이 회귀였음 → fix_protect_is_admin_20260624.sql 로 복구)
     -- 레퍼럴 컬럼도 사용자 직접 변경 금지 (연결은 claim_referral RPC로만)
     NEW.referral_code := OLD.referral_code;
     NEW.referred_by := OLD.referred_by;
