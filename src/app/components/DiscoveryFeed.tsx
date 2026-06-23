@@ -1681,6 +1681,10 @@ function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onCommen
             </span>
           )}
         </div>
+        {/* 연령 등급 뱃지 (우상단) */}
+        <div className="absolute top-3 right-3 z-10">
+          <AgeBadge rating={(video as any).age_rating} size="xs" />
+        </div>
         {/* 호버 시 하단 그라디언트 */}
         <div className={`absolute inset-0 bg-gradient-to-t from-black/60 to-transparent transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`} />
       </div>
