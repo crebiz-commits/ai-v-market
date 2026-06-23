@@ -12,6 +12,7 @@ import { useSettings } from "../contexts/SettingsContext";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { SubscriptionModal, type PaywallReason } from "./SubscriptionModal";
 import { CreatorAvatar } from "./CreatorAvatar";
+import { CollapsiblePrompt } from "./CollapsiblePrompt";
 import { trackVideoView } from "../utils/viewTracking";
 import { usePayment } from "../hooks/usePayment";
 import { Loader2 } from "lucide-react";
@@ -1914,12 +1915,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                   )}
                 </div>
                 {product.prompt && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">{t("productDetail.aiProduction.prompt")}</p>
-                    <p className="text-xs font-mono bg-background/50 p-2 rounded leading-relaxed text-foreground/80 whitespace-pre-wrap">
-                      {product.prompt}
-                    </p>
-                  </div>
+                  <CollapsiblePrompt label={t("productDetail.aiProduction.prompt")} text={product.prompt} />
                 )}
                 {product.seed && (
                   <div>
