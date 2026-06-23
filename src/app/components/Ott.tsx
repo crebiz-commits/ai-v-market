@@ -22,6 +22,8 @@ import { isNegotiationOnly } from "../utils/licensePricing";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { useAgeRatings } from "../hooks/useAgeRatings";
 import { useSeriesCounts } from "../hooks/useSeriesCounts";
+import { BETA_MODE, BETA_ROW_TARGET } from "../config/beta";
+import { BetaCard } from "./BetaCard";
 
 interface Product {
   id: string;
@@ -180,6 +182,9 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
     return { rating, isAgeLocked: !isMyVideo && shouldBlur(rating, ageVerified) };
   };
 
+  // BETA_MODE: 업로드 페이지로 이동 (베타 카드/CTA). BETA_MODE 꺼지면 undefined → 베타 UI 미표시.
+  const goUpload = BETA_MODE ? () => onNavigate?.("upload") : undefined;
+
   // 시간대 무드 편성 — 접속 시각에 따라 카테고리 행 순서 재배치 ("기타"는 항상 맨 뒤)
   const band = useMemo(() => currentBand(), []);
   const orderedRows = useMemo(
@@ -268,12 +273,14 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
 
         if (cancelled) return;  // showcase 전환 중 stale 응답 적용 방지
 
+        // BETA_MODE면 빈 카테고리도 노출(베타 8칸) → filter 우회. 끄면 기존대로 빈 행 숨김.
+        const keepRow = (len: number) => BETA_MODE || len > 0;
         const nextTrending = merge((trd || []) as CarouselVideo[]);
         const nextFormatRows = OTT_FORMAT_DEFS.map((f, i) => ({
           category: f.category,
           position: f.position,
           videos: merge((formatData[i] || []) as CarouselVideo[], { category: f.category }),
-        })).filter((r) => r.videos.length > 0);
+        })).filter((r) => keepRow(r.videos.length));
 
         const mergedRows = rows.map((r) => ({ ...r, videos: merge(r.videos, { category: r.category }) }));
         if (showcase && mergedRows.length < 5) {
@@ -285,7 +292,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
             if (mergedRows.length >= 5) break;
           }
         }
-        const nextGenreRows = mergedRows.filter((r) => r.videos.length > 0);
+        const nextGenreRows = mergedRows.filter((r) => keepRow(r.videos.length));
 
         // 모듈 캐시에 기록 → 다음 재방문 시 즉시 표시
         ottCache[key] = { trending: nextTrending, formatRows: nextFormatRows, genreRows: nextGenreRows };
@@ -374,6 +381,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
             onClick={(v) => onProductClick(toProduct(v))}
             ageGuard={ageGuard}
             seriesCounts={seriesCounts}
+            onUpload={goUpload}
           />
         ))}
         {orderedRows.length === 0 && formatRows.length === 0 && (
@@ -537,6 +545,7 @@ function CategoryRow({
   onClick,
   ageGuard,
   seriesCounts,
+  onUpload,
 }: {
   category: string;
   videos: CarouselVideo[];
@@ -545,12 +554,23 @@ function CategoryRow({
   onClick: (v: CarouselVideo) => void;
   ageGuard: AgeGuard;
   seriesCounts?: Record<string, number>;
+  onUpload?: () => void;   // BETA_MODE: 넘기면 베타 카드로 8칸 채움 + 우측 CTA
 }) {
   const { t } = useTranslation();
   const style = getGenreStyle(category);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(false);
-  const doubled = [...videos, ...videos]; // 무한 루프용 2벌 복제
+
+  // BETA_MODE: 복제(doubled) "전" 원본 배열에 베타 카드를 섞어 8칸까지 채운다(복제로 2배 방지).
+  //   item: 실제 영상 { kind: "video" } 또는 베타 카드 { kind: "beta" }.
+  const betaActive = BETA_MODE && !!onUpload;
+  const betaFill = betaActive ? Math.max(0, BETA_ROW_TARGET - videos.length) : 0;
+  type RowItem = { kind: "video"; v: CarouselVideo } | { kind: "beta"; i: number };
+  const baseItems: RowItem[] = [
+    ...videos.map((v) => ({ kind: "video", v } as RowItem)),
+    ...Array.from({ length: betaFill }).map((_, i) => ({ kind: "beta", i } as RowItem)),
+  ];
+  const doubled = [...baseItems, ...baseItems]; // 무한 루프용 2벌 복제 (베타 카드 포함분 기준)
 
   // 기본 자동 흐름 (방향: dir) — hover 시 일시정지. scrollWidth/2 지점에서 되감아 끊김 없음.
   // scrollLeft 는 정수 반올림되므로 소수 속도를 누적해 1px 이상 모일 때만 적용 (수동 스크롤과도 호환).
@@ -579,7 +599,8 @@ function CategoryRow({
     return () => cancelAnimationFrame(raf);
   }, [dir, videos.length]);
 
-  if (videos.length === 0) return null;
+  // BETA_MODE면 빈 카테고리도 베타 카드로 채워 노출. 끄면 기존대로 빈 행 숨김.
+  if (videos.length === 0 && !betaActive) return null;
 
   const labelOnLeft = dir === "right"; // 라벨/시작 위치 (행마다 좌우 교차)
   const scroll = (d: "left" | "right") => {
@@ -599,7 +620,12 @@ function CategoryRow({
         ref={scrollRef}
         className={`flex gap-3 overflow-x-auto scrollbar-hide ${labelOnLeft ? "pl-12 md:pl-28 md:pr-14" : "pr-12 md:pr-28 md:pl-14"}`}
       >
-        {doubled.map((v, i) => {
+        {doubled.map((item, i) => {
+            // BETA_MODE: 베타 선점 카드 (영상 부족분). OTT variant로 동일 크기 렌더.
+            if (item.kind === "beta") {
+              return <BetaCard key={`beta-${item.i}-${i}`} onUpload={onUpload!} variant="ott" />;
+            }
+            const v = item.v;
             const g = ageGuard(v);
             return (
               <button
@@ -700,6 +726,16 @@ function CategoryRow({
       >
         <ChevronRight className="w-7 h-7 text-white" />
       </button>
+
+      {/* BETA_MODE: 라벨 패널 반대쪽 상단 빈 공간에 등록 CTA (마퀴 위, 라벨과 겹치지 않게) */}
+      {betaActive && (
+        <button
+          onClick={onUpload}
+          className={`absolute top-2 z-30 inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-white/15 bg-black/40 backdrop-blur-sm text-white/60 text-[11px] md:text-xs font-semibold hover:bg-white/10 hover:text-white/90 transition-colors ${labelOnLeft ? "right-3 md:right-16" : "left-3 md:left-16"}`}
+        >
+          <Plus className="w-3 h-3" /> 영상 등록하기
+        </button>
+      )}
 
       {/* 반투명 브랜드 카테고리 패널 — 모바일: 가장자리 / 데스크탑: 화살표 옆(안쪽).
           highlighted(=지금 시간 추천)면 따뜻한 시그니처 그라데이션으로 강조 */}

@@ -29,6 +29,7 @@ import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { getGenreLabel } from "../i18n/categoryLabels";
+import { BETA_MODE } from "../config/beta";
 
 // ShowcaseVideo → CarouselVideo 변환
 function showcaseToCarousel(s: ShowcaseVideo): CarouselVideo {
@@ -264,17 +265,19 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
         // 이달의 BEST(30일 트렌딩): 실제 조회 영상 앞 + 인기순 보충
         const nextTop10 = merge(fillPopular((top || []) as CarouselVideo[], 10));
         // 형식 카테고리 행 (애니메이션·다큐멘터리·뮤직비디오) — 영상 있는 것만
+        // BETA_MODE면 빈 카테고리도 노출(베타 8칸 채움) → filter 우회. 끄면 기존대로 빈 행 숨김.
+        const keepRow = (len: number) => BETA_MODE || len > 0;
         const nextFormatRows = FORMAT_DEFS.map((f, i) => ({
           category: f.category,
           title: f.title,
           position: f.position,
           videos: merge(((formatResults[i] as any)?.data || []) as CarouselVideo[], { category: f.category }),
-        })).filter((r) => r.videos.length > 0);
-        // 장르별 영상 행 — 업로드 장르 순서(SF·액션·로맨스…). 영상 1개 이상 있는 장르만 표시.
+        })).filter((r) => keepRow(r.videos.length));
+        // 장르별 영상 행 — 업로드 장르 순서(SF·액션·로맨스…). 영상 1개 이상 있는 장르만 표시(BETA면 전부).
         const nextCategoryRows: CategoryRow[] = GENRES.map((g, i) => ({
           category: g,
           videos: merge((categoryResults[i] as any)?.data || [], { category: g }),
-        })).filter((row) => row.videos.length > 0);
+        })).filter((row) => keepRow(row.videos.length));
 
         // 모듈 캐시에 기록 → 다음 재방문 시 스피너 없이 즉시 표시
         cinemaCache[cacheKey] = {
@@ -301,6 +304,8 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
   }, [tier, showcase, user?.id]);  // user 포함: 로그인/로그아웃·계정전환 시 개인화 추천 재조회
 
   const handleClick = (v: CarouselVideo) => onProductClick(toProduct(v));
+  // BETA_MODE: 업로드 페이지로 이동 (베타 카드/CTA 클릭). BETA_MODE 꺼지면 undefined → 베타 UI 미표시.
+  const goUpload = BETA_MODE ? () => onNavigate?.("upload") : undefined;
   const handleAddToCart = onAddToCart
     ? (v: CarouselVideo) => onAddToCart(toProduct(v))
     : undefined;
@@ -419,6 +424,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
               onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
               ageRatings={ageRatings} seriesCounts={seriesCounts}
+              onUpload={goUpload}
             />
           ))}
 
@@ -431,6 +437,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
               onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
               ageRatings={ageRatings} seriesCounts={seriesCounts}
+              onUpload={goUpload}
             />
           ))}
 
@@ -443,6 +450,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
               onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
               ageRatings={ageRatings} seriesCounts={seriesCounts}
+              onUpload={goUpload}
             />
           ))}
 
@@ -455,6 +463,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
               onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
               ageRatings={ageRatings} seriesCounts={seriesCounts}
+              onUpload={goUpload}
             />
           ))}
 

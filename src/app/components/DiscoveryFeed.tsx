@@ -23,6 +23,8 @@ import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { useBackButton } from "../hooks/useBackButton";
 import { isNegotiationOnly } from "../utils/licensePricing";
 import { toast } from "sonner";
+import { BETA_MODE } from "../config/beta";
+import { Sparkles, Plus } from "lucide-react";
 
 interface Ad {
   id: string;
@@ -101,6 +103,7 @@ interface DiscoveryFeedProps {
   onSignInClick?: () => void;
   onViewCreator?: (creatorId: string) => void;
   onOpenSearch?: (query?: string) => void;   // 데스크탑 홈 검색 진입 → SearchPage (검색어 전달)
+  onNavigate?: (tab: string) => void;         // BETA_MODE 띠배너 "+ 등록하기" → 업로드 페이지
 }
 
 // 홈 칩 필터 — get_home_feed 의 p_filter 와 1:1. (전체 외엔 CREAITE 고유 분류)
@@ -745,7 +748,7 @@ const FEED_PAGE_SIZE = 12;
 type HomeFeedSnapshot = { videos: Video[]; offset: number; hasMore: boolean; commentCounts: Record<string, number>; ads: Ad[] };
 const homeFeedCache: Record<string, HomeFeedSnapshot> = {};
 
-export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOpenSearch }: DiscoveryFeedProps) {
+export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOpenSearch, onNavigate }: DiscoveryFeedProps) {
   const { i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
   // 댓글 패널 단일 마운트용 — 홈피드 모바일/데스크탑 분기(1024px=lg)와 일치.
@@ -1174,6 +1177,24 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
 
   return (
     <div className="discovery-feed-wrapper h-full w-full bg-[#0a0a0a] overflow-hidden flex flex-col">
+      {/* BETA_MODE: 홈피드 상단 베타 띠배너 (홈은 카테고리 없으니 배너만). 끄면 미표시 */}
+      {BETA_MODE && (
+        <div className="shrink-0 flex items-center gap-2 md:gap-3 px-3 md:px-6 py-2 bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#ec4899]">
+          <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/20 text-white text-[9px] md:text-[11px] font-black shrink-0">
+            <Sparkles className="w-3 h-3" /> BETA
+          </span>
+          <p className="flex-1 min-w-0 text-white text-[11px] md:text-sm font-bold truncate">
+            CREAITE 베타 · 지금 등록하고 카테고리를 선점하세요
+          </p>
+          <button
+            onClick={() => onNavigate?.("upload")}
+            className="shrink-0 inline-flex items-center gap-1 px-2.5 md:px-3.5 py-1 md:py-1.5 rounded-full bg-white text-[#6d28d9] text-[11px] md:text-sm font-black hover:bg-white/90 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" /> 등록하기
+          </button>
+        </div>
+      )}
+
       {/* SEO + Google OAuth 브랜딩 인증용 약관 링크 (시각적 노출 X, 봇 인식 O)
           DiscoveryFeed 가 첫 화면이고 푸터가 없어서 약관 링크가 노출 안 됨 → 추가 */}
       <nav aria-label="법적 고지" className="sr-only">

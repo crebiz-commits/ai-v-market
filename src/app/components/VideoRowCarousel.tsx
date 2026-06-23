@@ -11,6 +11,8 @@
 // ════════════════════════════════════════════════════════════════════════════
 import { useRef } from "react";
 import { ChevronLeft, ChevronRight, Play, Crown, Lock, Plus, ThumbsUp, Layers } from "lucide-react";
+import { BETA_MODE, BETA_ROW_TARGET } from "../config/beta";
+import { BetaCard } from "./BetaCard";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -59,6 +61,8 @@ interface Props {
   ageRatings?: Record<string, string>;
   // 시리즈 배지: 영상 id → 시리즈 회차수 (부모가 useSeriesCounts로 일괄 조회). >1 이면 "시리즈 · N화" 표시
   seriesCounts?: Record<string, number>;
+  // BETA_MODE 전용: 업로드 페이지 이동 콜백. 넘기면 행을 베타 카드로 8칸까지 채우고 우측 CTA 표시.
+  onUpload?: () => void;
 }
 
 function fmtDuration(s?: number | null) {
@@ -290,6 +294,7 @@ export function VideoRowCarousel({
   emptyMessage,
   ageRatings,
   seriesCounts,
+  onUpload,
 }: Props) {
   const { t } = useTranslation();
   const { user, profile } = useAuth();
@@ -299,6 +304,10 @@ export function VideoRowCarousel({
   const ageVerified = profile?.age_verified ?? false;
   const scrollRef = useRef<HTMLDivElement>(null);
   const emptyText = emptyMessage ?? t("videoRow.empty");
+
+  // BETA_MODE: 업로드 콜백이 있으면 베타 선점 카드로 8칸까지 채우고 우측 CTA 노출.
+  const betaActive = BETA_MODE && !!onUpload;
+  const betaFillCount = betaActive ? Math.max(0, BETA_ROW_TARGET - videos.length) : 0;
 
   const scroll = (direction: "left" | "right") => {
     const el = scrollRef.current;
@@ -310,7 +319,8 @@ export function VideoRowCarousel({
     });
   };
 
-  if (videos.length === 0) {
+  // BETA_MODE면 빈 행도 베타 카드로 채워 노출 → 아래 정식 렌더로 폴스루.
+  if (videos.length === 0 && !betaActive) {
     return (
       <div className="mb-6">
         <div className="px-4 md:px-6 mb-2 h-7 flex items-end gap-2 overflow-hidden">
@@ -331,6 +341,15 @@ export function VideoRowCarousel({
       <div className="px-4 md:px-6 mb-2 h-7 flex items-end gap-2 overflow-hidden">
         <h2 className="text-base md:text-xl font-bold">{title}</h2>
         {subtitle && <p className="text-xs md:text-sm text-muted-foreground">{subtitle}</p>}
+        {/* BETA_MODE: 제목 행 우측 빈 공간에 등록 CTA */}
+        {betaActive && (
+          <button
+            onClick={onUpload}
+            className="ml-auto flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-white/15 bg-white/[0.04] text-white/55 text-[11px] md:text-xs font-semibold hover:bg-white/10 hover:text-white/90 transition-colors"
+          >
+            <Plus className="w-3 h-3" /> 영상 등록하기
+          </button>
+        )}
       </div>
 
       {/* 캐러셀 컨테이너 */}
@@ -371,6 +390,10 @@ export function VideoRowCarousel({
               />
             );
           })}
+          {/* BETA_MODE: 부족분을 베타 선점 카드로 채워 총 BETA_ROW_TARGET 칸 */}
+          {betaFillCount > 0 && Array.from({ length: betaFillCount }).map((_, i) => (
+            <BetaCard key={`beta-${i}`} onUpload={onUpload!} variant="carousel" />
+          ))}
         </div>
 
         {/* 우측 화살표 (데스크톱) */}
