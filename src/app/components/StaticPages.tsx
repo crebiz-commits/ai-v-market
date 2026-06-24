@@ -532,7 +532,7 @@ export function BugReportPage({ onBack, onNavigate, onSignInClick }: BugReportPa
   const [steps, setSteps] = useState("");
   const [pageUrl, setPageUrl] = useState("");
   const [contact, setContact] = useState("");
-  const [images, setImages] = useState<string[]>([]);   // 업로드 완료된 스크린샷 URL
+  const [images, setImages] = useState<{ path: string; preview: string }[]>([]);   // 업로드된 스크린샷: path(저장)+preview(로컬 미리보기)
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -551,7 +551,7 @@ export function BugReportPage({ onBack, onNavigate, onSignInClick }: BugReportPa
     const picked = Array.from(files).slice(0, remaining);
     setUploading(true);
     try {
-      const urls: string[] = [];
+      const items: { path: string; preview: string }[] = [];
       for (const file of picked) {
         if (!file.type.startsWith("image/")) continue;
         if (file.size > 5 * 1024 * 1024) {
@@ -562,10 +562,10 @@ export function BugReportPage({ onBack, onNavigate, onSignInClick }: BugReportPa
         const path = `${user.id}/${Date.now()}-${Math.floor(Math.random() * 1e6)}.${ext}`;
         const { error } = await supabase.storage.from("bug-screenshots").upload(path, file, { contentType: file.type, upsert: false });
         if (error) { console.warn("[BugReport] 업로드 실패:", error.message); continue; }
-        const { data } = supabase.storage.from("bug-screenshots").getPublicUrl(path);
-        urls.push(data.publicUrl);
+        // 비공개 버킷 → 공개 URL 대신 경로 저장(어드민이 서명 URL 로 열람). 미리보기는 로컬 blob.
+        items.push({ path, preview: URL.createObjectURL(file) });
       }
-      if (urls.length) setImages((prev) => [...prev, ...urls]);
+      if (items.length) setImages((prev) => [...prev, ...items]);
       else toast.error(isKo ? "업로드에 실패했어요." : "Upload failed.");
     } finally {
       setUploading(false);
@@ -588,7 +588,7 @@ export function BugReportPage({ onBack, onNavigate, onSignInClick }: BugReportPa
         description: description.trim(),
         steps: steps.trim() || null,
         page_url: pageUrl.trim() || null,
-        image_urls: images.length ? images : null,
+        image_urls: images.length ? images.map((i) => i.path) : null,
       });
       if (error) throw error;
       setDone(true);
@@ -686,12 +686,12 @@ export function BugReportPage({ onBack, onNavigate, onSignInClick }: BugReportPa
               {isKo ? `스크린샷 첨부 (선택, 최대 ${MAX_IMAGES}장)` : `Screenshots (optional, up to ${MAX_IMAGES})`}
             </label>
             <div className="flex flex-wrap gap-2">
-              {images.map((url, i) => (
-                <div key={url} className="relative w-20 h-20 rounded-lg overflow-hidden border border-white/10">
-                  <img src={url} alt={`screenshot ${i + 1}`} className="w-full h-full object-cover" />
+              {images.map((img, i) => (
+                <div key={img.path} className="relative w-20 h-20 rounded-lg overflow-hidden border border-white/10">
+                  <img src={img.preview} alt={`screenshot ${i + 1}`} className="w-full h-full object-cover" />
                   <button
                     type="button"
-                    onClick={() => setImages((prev) => prev.filter((u) => u !== url))}
+                    onClick={() => setImages((prev) => prev.filter((u) => u.path !== img.path))}
                     className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 flex items-center justify-center text-white hover:bg-red-500/80"
                     aria-label="remove"
                   >

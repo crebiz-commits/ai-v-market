@@ -33,6 +33,32 @@ const STATUS: { key: BugReport["status"]; label: string; cls: string }[] = [
 ];
 const statusMeta = (s: string) => STATUS.find((x) => x.key === s) || STATUS[0];
 
+// bug-screenshots 는 비공개 버킷(2026-06-25) → 저장값(경로 또는 구 공개URL)에서 경로를 뽑아 서명 URL 로 표시.
+function toStoragePath(stored: string): string {
+  const marker = "/bug-screenshots/";
+  const i = stored.indexOf(marker);
+  return i >= 0 ? stored.slice(i + marker.length) : stored;
+}
+
+function BugShot({ stored, idx }: { stored: string; idx: number }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    supabase.storage
+      .from("bug-screenshots")
+      .createSignedUrl(toStoragePath(stored), 3600)
+      .then(({ data }) => { if (alive && data?.signedUrl) setUrl(data.signedUrl); });
+    return () => { alive = false; };
+  }, [stored]);
+  if (!url) return <div className="w-20 h-20 rounded-lg border border-border bg-white/5 animate-pulse" />;
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer"
+      className="block w-20 h-20 rounded-lg overflow-hidden border border-border hover:border-[#6366f1]/60 transition-colors">
+      <img src={url} alt={`첨부 ${idx + 1}`} className="w-full h-full object-cover" />
+    </a>
+  );
+}
+
 function fmt(iso: string) {
   const d = new Date(iso);
   const p = (n: number) => String(n).padStart(2, "0");
@@ -141,10 +167,7 @@ export function AdminBugReports() {
                 {it.image_urls && it.image_urls.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {it.image_urls.map((url, i) => (
-                      <a key={url} href={url} target="_blank" rel="noopener noreferrer"
-                        className="block w-20 h-20 rounded-lg overflow-hidden border border-border hover:border-[#6366f1]/60 transition-colors">
-                        <img src={url} alt={`첨부 ${i + 1}`} className="w-full h-full object-cover" />
-                      </a>
+                      <BugShot key={url} stored={url} idx={i} />
                     ))}
                   </div>
                 )}

@@ -29,6 +29,7 @@
 - billing_subscriptions_20260612.sql
 - broadcast_email_20260616.sql
 - bug_screenshots_20260611.sql
+- bug_screenshots_private_20260625.sql
 - collab_notify_privacy_20260614.sql
 - comment_filter_word_boundary_hardening_20260614.sql
 - community_upgrade_20260610.sql
