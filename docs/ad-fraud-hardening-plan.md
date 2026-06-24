@@ -32,6 +32,14 @@
 - `home_security_20260620.sql`: `increment_ad_clicks`에도 동일 dedup 추가(#1).
 - → **남은 건 "키 회전/스크립트 위조" 차단 = 위 Edge 설계.**
 
+## 광고주 셀프서비스 감사 추가 확인 (2026-06-24)
+위 설계로 함께 처리할 구체 항목(광고주 감사에서 재확인):
+- **A. `track_video_ad_event`(VAST 영상광고 프리롤 과금)에 dedup이 아예 없음** — `phase8_5_ad_budget_accounting.sql:58-99`. Edge `/vast-track`(`index.ts:957-984`)이 `(ad_id,source_video_id,exp)` 서명만 검증 → exp 만료 전 동일 URL 반복 GET 시 매번 과금. `p_viewer_user_id=null`이라 뷰어 dedup도 불가. **increment_* 보다 더 무방비(중)** → Edge 일괄 정리 시 dedup + 짧은 exp 필수.
+- **C/D. 비로그인 viewer_key 위조 + `increment_*`/`record_ad_impression` anon 직접 호출** — 위 §2·§3 설계로 커버(로그인은 auth.uid()로 이미 안전).
+- **#5. `advertiser_create_ad` 생성 한도 없음** — 로그인 사용자가 draft 광고 무제한 생성 가능(노출/과금은 승인+예산 필요라 피해는 DB 누적 한정). per-user 광고 수 상한 또는 시간당 생성 제한 추가 권장(낮음).
+
+> ✅ 광고주 감사에서 **이미 안전 확인된 것**(여기 미포함): IDOR(본인 광고만 수정/제출/활성화/통계), 심사 우회 차단(create=draft/budget=0 고정, set_active=approved만, admin_review_ad=assert_admin), ads RLS+ads_public 뷰(민감컬럼 비노출), 이미지 업로드 본인폴더만. **#B(타인 광고 예산 충전)는 `start_payment_ad_owner_20260624.sql`로 즉시 수정 완료.**
+
 ## 트리거 / 결정 (2026-06-20 사용자 확정)
 **광고 시스템을 정비할 때 함께 처리한다.** (단독으로 지금 급히 하지 않음 — 자체광고 OFF·과금 전이라 실손해 0.)
 구체 시점: 광고 결제(토스) 승인이 가까워지거나, 자체광고 `HOME_FEED_SELF_ADS=true` 전환 전,
