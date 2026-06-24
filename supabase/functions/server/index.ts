@@ -1392,8 +1392,37 @@ app.post('/send-email', async (c) => {
       new_video_from_followed: { type: 'system',   body: '팔로우한 채널의 새 영상',          link: '/' },
     };
     const inapp = INAPP[type] || { type: 'system', body: '탭하여 확인하세요', link: '/' };
-    const inappTitle = String(subject || '').replace(/^\[CREAITE\]\s*/, '').slice(0, 200);
-    const inappLink = (typeof clientLink === 'string' && clientLink) ? clientLink.slice(0, 500) : inapp.link;
+
+    // H1-2(2026-06-25): actor 타입(타 사용자에게 가는 알림)은 클라 subject/html/link 를 신뢰하지 않음 →
+    //   서버 템플릿으로 고정(신뢰 도메인 mail.creaite.net 피싱 차단). self(본인)·admin(신뢰) 타입만 클라 콘텐츠 사용.
+    const isActor = !SELF_TYPES.includes(type) && !ADMIN_TYPES.includes(type);
+    const ACTOR_SUBJECT: Record<string, string> = {
+      comment_reply:           'CREAITE — 새 답글이 달렸어요',
+      new_follower:            'CREAITE — 새 팔로워가 생겼어요',
+      new_video_from_followed: 'CREAITE — 팔로우한 채널의 새 영상',
+    };
+    const escEmail = (s: any) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const buildSafeEmail = (titleText: string, bodyText: string, ctaPath: string) => {
+      const url = `https://www.creaite.net${ctaPath.startsWith('/') ? ctaPath : '/' + ctaPath}`;
+      return `<!doctype html><html><body style="margin:0;background:#0a0a0a;font-family:-apple-system,Segoe UI,Roboto,sans-serif;">
+        <div style="max-width:560px;margin:0 auto;padding:32px 24px;color:#e5e7eb;">
+          <div style="font-weight:900;font-size:20px;color:#a78bfa;margin-bottom:24px;">CREAITE</div>
+          <h1 style="font-size:20px;color:#fff;margin:0 0 16px;">${escEmail(titleText)}</h1>
+          <div style="font-size:14px;line-height:1.7;color:#d1d5db;">${escEmail(bodyText)}</div>
+          <div style="margin:24px 0;"><a href="${escEmail(url)}" style="display:inline-block;background:linear-gradient(90deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;font-weight:700;padding:12px 24px;border-radius:10px;">확인하기</a></div>
+          <hr style="border:none;border-top:1px solid #262626;margin:28px 0;">
+          <div style="font-size:11px;color:#6b7280;line-height:1.6;">이 메일은 CREAITE 활동 알림입니다. <a href="https://www.creaite.net/?tab=mypage&section=settings" style="color:#a78bfa;">알림 설정</a>에서 끌 수 있어요.</div>
+        </div></body></html>`;
+    };
+    // actor=서버 고정값, self·admin=클라값
+    const emailSubject = isActor ? (ACTOR_SUBJECT[type] || 'CREAITE 알림') : subject;
+    const emailHtml    = isActor ? buildSafeEmail(emailSubject, inapp.body, inapp.link) : html;
+    const inappTitle = isActor
+      ? (ACTOR_SUBJECT[type] || 'CREAITE 알림')
+      : String(subject || '').replace(/^\[CREAITE\]\s*/, '').slice(0, 200);
+    const inappLink = isActor
+      ? inapp.link
+      : ((typeof clientLink === 'string' && clientLink) ? clientLink.slice(0, 500) : inapp.link);
     try {
       await supabase.from('notifications').insert({
         user_id,
@@ -1442,8 +1471,8 @@ app.post('/send-email', async (c) => {
         from: `CREAITE <${fromEmail}>`,
         to: [to],
         reply_to: replyTo,
-        subject,
-        html,
+        subject: emailSubject,
+        html: emailHtml,
       }),
     });
 
