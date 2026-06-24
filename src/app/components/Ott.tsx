@@ -335,7 +335,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
     <div
       ref={scrollRef}
       onScroll={(e) => onHeroScroll?.((e.currentTarget.scrollTop || 0) > 80)}
-      className="h-full overflow-y-auto bg-black pb-12"
+      className={`h-full overflow-y-auto bg-black pb-12 ${heroes.length === 0 ? "pt-20 md:pt-24" : ""}`}
     >
       {/* ━━━ 풀블리드 단일 히어로 (영상 자동재생) ━━━ */}
       {heroes.length > 0 && (
