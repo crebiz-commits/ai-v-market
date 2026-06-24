@@ -23,6 +23,7 @@
 - advertiser_update_ad_media_coalesce_20260615.sql
 - banners_bugreports_20260611.sql
 - event_banners_rls_20260620.sql
+- block_suspended_writes_20260625.sql
 - billing_charge_rpcs_20260612.sql
 - billing_cron_20260612.sql
 - billing_subscriptions_20260612.sql

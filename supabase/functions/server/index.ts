@@ -212,10 +212,14 @@ app.post("/videos/create-upload", async (c) => {
       return c.json({ error: `인증에 실패했습니다: ${authError?.message || 'Unknown error'}` }, 401);
     }
 
-    // 남용 방지(#6): 비관리자는 시간당 create-upload 30회 제한 (빈 Bunny 영상 무한 생성 차단).
+    // 정지 계정 차단 + 남용 방지(#6): 비관리자는 시간당 create-upload 30회 제한 (빈 Bunny 영상 무한 생성 차단).
     // 관리자(시드 콘텐츠 대량 업로드)는 예외. KV 기반 best-effort 윈도우.
     {
-      const { data: _rlProf } = await supabase.from('profiles').select('is_admin').eq('id', user.id).maybeSingle();
+      const { data: _rlProf } = await supabase.from('profiles').select('is_admin, is_suspended').eq('id', user.id).maybeSingle();
+      // 정지된 계정은 업로드 불가 (모더레이션 — DB 트리거가 못 막는 service_role 경로라 여기서 차단)
+      if (_rlProf?.is_suspended) {
+        return c.json({ error: "정지된 계정은 업로드할 수 없습니다. 고객센터로 문의해 주세요." }, 403);
+      }
       if (!_rlProf?.is_admin) {
         const rlKey = `ratelimit:create-upload:${user.id}`;
         const rl: any = await kv.get(rlKey);
