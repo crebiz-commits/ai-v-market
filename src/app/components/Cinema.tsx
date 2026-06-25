@@ -10,7 +10,7 @@
 //   - 카테고리별 (고정 순서: 영화·드라마·애니메이션·다큐멘터리·뮤직비디오·기타)
 // ════════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { GENRES, genreEmoji } from "../data/genres";  // 장르 단일 출처 (업로드/시네마/OTT 공유)
 import { Loader2, Film } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
@@ -303,12 +303,23 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
     return () => { cancelled = true; };
   }, [tier, showcase, user?.id]);  // user 포함: 로그인/로그아웃·계정전환 시 개인화 추천 재조회
 
-  const handleClick = (v: CarouselVideo) => onProductClick(toProduct(v));
+  // 핸들러 안정화(useCallback/useMemo) — 매 렌더 새 참조로 전 카드가 리렌더되던 것 방지(VideoCard memo와 결합)
+  const handleClick = useCallback((v: CarouselVideo) => onProductClick(toProduct(v)), [onProductClick]);
   // BETA_MODE: 업로드 페이지로 이동 (베타 카드/CTA 클릭). BETA_MODE 꺼지면 undefined → 베타 UI 미표시.
-  const goUpload = BETA_MODE ? () => onNavigate?.("upload") : undefined;
-  const handleAddToCart = onAddToCart
-    ? (v: CarouselVideo) => onAddToCart(toProduct(v))
-    : undefined;
+  const goUpload = useMemo(() => (BETA_MODE ? () => onNavigate?.("upload") : undefined), [onNavigate]);
+  const handleAddToCart = useMemo(
+    () => (onAddToCart ? (v: CarouselVideo) => onAddToCart(toProduct(v)) : undefined),
+    [onAddToCart]
+  );
+
+  // CoverFlow 히어로 영상(추천+트렌딩+신규+Top10 중복제거 상위 11) — useMemo 로 매 렌더 재계산·새 배열 prop 방지
+  const heroVideos = useMemo(() => {
+    const seen = new Set<string>();
+    return [...recommended, ...trending, ...newReleases, ...top10]
+      .filter((v) => { if (seen.has(v.id)) return false; seen.add(v.id); return true; })
+      .slice(0, 11);
+  }, [recommended, trending, newReleases, top10]);
+  const coverFlowVideos = useMemo(() => heroVideos.map(toCoverFlowVideo), [heroVideos]);
 
   if (loading) {
     return (
@@ -341,35 +352,20 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
       </div>
 
       <div className="mt-4">
-          {/* 🎡 CoverFlow — 원통형 캐러셀 (CREAITE만의 시그니처 UI) */}
-          {(() => {
-            // 추천(get_recommended_videos) 기준 — 추천이 1순위로 채워지고(p_limit 15),
-            // 부족할 때만 트렌딩/신규/월간BEST로 메움. 중복 제거 후 상위 11개.
-            const seen = new Set<string>();
-            const heroVideos = [...recommended, ...trending, ...newReleases, ...top10]
-              .filter((v) => {
-                if (seen.has(v.id)) return false;
-                seen.add(v.id);
-                return true;
-              })
-              .slice(0, 11);
-
-            if (heroVideos.length === 0) return null;
-
-            return (
-              <div className="mb-8 mt-2 md:-mb-10 lg:-mb-20">
-                {/* 다른 섹션과 동일한 한 줄 헤더(고정 h-7 + 설명 인라인) */}
-                <div className="px-4 md:px-6 mb-2 h-7 flex items-end gap-2 overflow-hidden">
-                  <h2 className="text-base md:text-xl font-bold">{t("cinema.coverflowTitle")}</h2>
-                  <p className="text-xs md:text-sm text-muted-foreground">{t("cinema.coverflowSubtitle")}</p>
-                </div>
-                <CoverFlow
-                  videos={heroVideos.map(toCoverFlowVideo)}
-                  onVideoClick={(v: any) => handleClick(v as CarouselVideo)}
-                />
+          {/* 🎡 CoverFlow — 원통형 캐러셀 (CREAITE만의 시그니처 UI). heroVideos/coverFlowVideos 는 위에서 useMemo */}
+          {heroVideos.length > 0 && (
+            <div className="mb-8 mt-2 md:-mb-10 lg:-mb-20">
+              {/* 다른 섹션과 동일한 한 줄 헤더(고정 h-7 + 설명 인라인) */}
+              <div className="px-4 md:px-6 mb-2 h-7 flex items-end gap-2 overflow-hidden">
+                <h2 className="text-base md:text-xl font-bold">{t("cinema.coverflowTitle")}</h2>
+                <p className="text-xs md:text-sm text-muted-foreground">{t("cinema.coverflowSubtitle")}</p>
               </div>
-            );
-          })()}
+              <CoverFlow
+                videos={coverFlowVideos}
+                onVideoClick={(v: any) => handleClick(v as CarouselVideo)}
+              />
+            </div>
+          )}
 
           {/* 추천 (For You) — relative z-10 으로 CoverFlow reflection 위에 표시 */}
           <div className="relative z-10 bg-background">

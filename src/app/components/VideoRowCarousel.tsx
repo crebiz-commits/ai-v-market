@@ -9,7 +9,7 @@
 //     showProgress={true}  // 이어 보기 행은 진행률 바 표시
 //   />
 // ════════════════════════════════════════════════════════════════════════════
-import { useRef } from "react";
+import { useRef, memo } from "react";
 import { ChevronLeft, ChevronRight, Play, Crown, Lock, Plus, ThumbsUp, Layers } from "lucide-react";
 import { BETA_MODE, BETA_ROW_TARGET } from "../config/beta";
 import { BetaCard } from "./BetaCard";
@@ -93,9 +93,11 @@ interface VideoCardProps {
   seriesCount?: number;
 }
 
-function VideoCard({ video, idx, onVideoClick, onAddToCart, showProgress, showRank, rating, isAgeLocked, isOttBadge, seriesCount }: VideoCardProps) {
+// memo: 부모 리렌더(연령/시리즈 카운트 갱신 등) 시 prop 동일하면 카드 재렌더 스킵 — 대량 카드 리렌더 폭풍 방지
+const VideoCard = memo(function VideoCard({ video, idx, onVideoClick, onAddToCart, showProgress, showRank, rating, isAgeLocked, isOttBadge, seriesCount }: VideoCardProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const likingRef = useRef(false);  // 더블클릭 경합 방지(insert/delete 교차로 좋아요 상태 반전 막음)
 
   // 좋아요 토글 — supabase video_likes 직접 처리 (ProductDetail 패턴 재사용)
   const handleLikeClick = async (e: React.MouseEvent) => {
@@ -105,6 +107,8 @@ function VideoCard({ video, idx, onVideoClick, onAddToCart, showProgress, showRa
       toast.info(t("video.signInRequired", "로그인 후 이용해주세요"));
       return;
     }
+    if (likingRef.current) return;
+    likingRef.current = true;
     try {
       const { error } = await supabase
         .from("video_likes")
@@ -126,6 +130,8 @@ function VideoCard({ video, idx, onVideoClick, onAddToCart, showProgress, showRa
     } catch (err: any) {
       console.error("[VideoCard] like toggle error:", err);
       toast.error(t("video.likeFailed", "좋아요 처리 실패"));
+    } finally {
+      likingRef.current = false;
     }
   };
 
@@ -281,7 +287,7 @@ function VideoCard({ video, idx, onVideoClick, onAddToCart, showProgress, showRa
       </div>
     </motion.button>
   );
-}
+});
 
 export function VideoRowCarousel({
   title,
