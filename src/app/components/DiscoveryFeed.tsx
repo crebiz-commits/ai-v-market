@@ -1585,7 +1585,7 @@ const DesktopAdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: s
   }, [ad.id, onImpression]);
 
   const handleClick = async () => {
-    try { await supabase.rpc("increment_ad_clicks", { ad_id: ad.id }); } catch {}
+    try { await supabase.rpc("increment_ad_clicks", { ad_id: ad.id, p_viewer_key: getViewerSessionKey() }); } catch {}
     openAdLinkSafe(ad.link_url);
   };
 
