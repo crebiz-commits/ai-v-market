@@ -309,7 +309,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
           "ai_model_version, prompt, seed, resolution, tags, " +
           "sponsor_brand, sponsor_logo_url, sponsor_disclosure, sponsor_link_url, " +
           "license_type, license_source_url, attribution, original_creator, " +
-          "likes, views, series_id, season_number, episode_number"
+          "likes, views, series_id, season_number, episode_number, created_at"
         )
         .eq("id", product.id)
         .maybeSingle();

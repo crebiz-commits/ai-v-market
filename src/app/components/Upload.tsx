@@ -654,6 +654,15 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
       toast.error(t("upload.toast.ageRatingRequired", "시청 등급을 선택해주세요."));
       return false;
     }
+    // JSX required 였으나 step "다음"이 type=button 이라 미발동 → 빈 값 저장되던 것 검증 추가
+    if (!formData.aiTool) {
+      toast.error(t("upload.toast.aiToolRequired", "사용한 AI 도구를 선택해주세요."));
+      return false;
+    }
+    if (!formData.resolution) {
+      toast.error(t("upload.toast.resolutionRequired", "해상도를 선택해주세요."));
+      return false;
+    }
     return true;
   };
 
@@ -674,6 +683,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
 
   // 실제 업로드 수행 (미리보기 모달의 "확인하고 업로드" 버튼이 호출)
   const performUpload = async () => {
+    if (isUploading) return;   // 중복 제출 방지(빠른 더블클릭 시 영상 2개 생성 차단)
     setShowPreview(false);
 
     if (!user || !accessToken) {

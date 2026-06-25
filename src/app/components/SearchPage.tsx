@@ -270,6 +270,12 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
     }
   }, [category, aiTool, durationIdx, sort]);
 
+  // 활성 필터 여부 — 아래 useEffect 들보다 먼저 선언(선언순서 역전 TDZ 취약점 제거)
+  const hasActiveFilter = useMemo(
+    () => category !== "전체" || aiTool !== "전체" || durationIdx !== 0,
+    [category, aiTool, durationIdx]
+  );
+
   // 필터/정렬 변경 시 자동 재검색 (이미 검색을 했었던 경우만)
   useEffect(() => {
     if (submittedQuery !== "" || hasActiveFilter) {
@@ -283,11 +289,6 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
     if (initialQuery && initialQuery.trim()) runSearch(initialQuery.trim());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const hasActiveFilter = useMemo(
-    () => category !== "전체" || aiTool !== "전체" || durationIdx !== 0,
-    [category, aiTool, durationIdx]
-  );
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -326,9 +327,15 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
     });
   };
 
-  // Phase 24: 차단 사용자 결과는 표시에서 제외
-  const visibleVideos = videos.filter((v) => !v.creator_id || !isBlocked(v.creator_id));
-  const visibleCreators = creators.filter((c) => !isBlocked(c.creator_id));
+  // Phase 24: 차단 사용자 결과는 표시에서 제외 (useMemo — 타이핑마다 전체 결과 재필터 방지)
+  const visibleVideos = useMemo(
+    () => videos.filter((v) => !v.creator_id || !isBlocked(v.creator_id)),
+    [videos, isBlocked]
+  );
+  const visibleCreators = useMemo(
+    () => creators.filter((c) => !isBlocked(c.creator_id)),
+    [creators, isBlocked]
+  );
 
   // Phase 26 보강: 카드용 age_rating 일괄 조회
   const allVideoIds = useMemo(
