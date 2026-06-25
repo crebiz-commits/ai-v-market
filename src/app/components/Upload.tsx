@@ -156,6 +156,8 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
   const [highlight, setHighlight] = useState<{ start: number; end: number }>({ start: 0, end: 30 });
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const fileObjectUrlRef = useRef<string | null>(null);
+  const uploadAbortRef = useRef<AbortController | null>(null);  // 업로드 중 언마운트/취소 시 TUS 전송 중단
+  useEffect(() => () => uploadAbortRef.current?.abort(), []);
 
   // 미리보기 모달 (게시 전 확인)
   const [showPreview, setShowPreview] = useState(false);
@@ -629,7 +631,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
 
       setUploadProgress(Math.round((loaded / total) * 100));
       setUploadStats({ loaded, total, speed: smoothedSpeed, eta });
-    });
+    }, uploadAbortRef.current?.signal);
     console.log('Upload complete to Bunny.net');
   };
 
@@ -663,6 +665,11 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
       toast.error(t("upload.toast.resolutionRequired", "해상도를 선택해주세요."));
       return false;
     }
+    // duration 은 자동측정되지만 자유 입력이라 잘못된 형식 저장 방지(예: 3:45 또는 1:03:45)
+    if (!/^\d{1,3}:\d{2}(:\d{2})?$/.test((formData.duration || "").trim())) {
+      toast.error(t("upload.toast.durationInvalid", "재생 시간 형식이 올바르지 않습니다 (예: 3:45)."));
+      return false;
+    }
     return true;
   };
 
@@ -684,6 +691,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
   // 실제 업로드 수행 (미리보기 모달의 "확인하고 업로드" 버튼이 호출)
   const performUpload = async () => {
     if (isUploading) return;   // 중복 제출 방지(빠른 더블클릭 시 영상 2개 생성 차단)
+    uploadAbortRef.current = new AbortController();
     setShowPreview(false);
 
     if (!user || !accessToken) {
@@ -842,23 +850,30 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
       const saveUrl = `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/videos/save-metadata`;
       console.log('Saving metadata to:', saveUrl);
       
-      const saveResponse = await fetch(
-        saveUrl,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${currentToken}`,
-            'apikey': supabaseAnonKey
-          },
-          body: JSON.stringify(metadata),
-        }
-      );
+      // 고아 영상 방지: TUS 는 성공했는데 save-metadata 가 일시 실패(네트워크/5xx)하면
+      // Bunny 엔 영상이 있고 DB 엔 없음 → 최대 3회 재시도(4xx 검증오류는 즉시 중단).
+      let saveResponse: Response | null = null;
+      let saveErr: any = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          saveResponse = await fetch(saveUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${currentToken}`,
+              'apikey': supabaseAnonKey,
+            },
+            body: JSON.stringify(metadata),
+          });
+          if (saveResponse.ok || saveResponse.status < 500) break;  // 성공 또는 4xx(재시도 무의미)
+        } catch (e) { saveErr = e; }   // 네트워크 오류 → 재시도
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 800 * attempt));
+      }
 
-      if (!saveResponse.ok) {
-        const errorData = await saveResponse.json().catch(() => ({}));
-        console.error('Metadata saving failed:', errorData);
-        throw new Error(errorData.error || t("upload.toast.saveError", { status: saveResponse.status }));
+      if (!saveResponse || !saveResponse.ok) {
+        const errorData = saveResponse ? await saveResponse.json().catch(() => ({})) : {};
+        console.error('Metadata saving failed:', errorData, saveErr);
+        throw new Error(errorData.error || saveErr?.message || t("upload.toast.saveError", { status: saveResponse?.status ?? 0 }));
       }
 
       console.log('Metadata saved successfully via Edge Function');

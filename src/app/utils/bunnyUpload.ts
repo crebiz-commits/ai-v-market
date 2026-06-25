@@ -22,8 +22,10 @@ export interface BunnyTusAuth {
 export async function tusUploadToBunny(
   file: File | Blob,
   auth: BunnyTusAuth,
-  onProgress?: (loaded: number, total: number) => void
+  onProgress?: (loaded: number, total: number) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
+  if (signal?.aborted) throw new Error("업로드가 취소됐습니다.");
   const authHeaders: Record<string, string> = {
     AuthorizationSignature: auth.tusSignature,
     AuthorizationExpire: String(auth.tusExpire),
@@ -40,6 +42,7 @@ export async function tusUploadToBunny(
       "Upload-Length": String(file.size),
       "Upload-Metadata": `filetype ${btoa((file as File).type || "video/mp4")}`,
     },
+    signal,
   });
   if (createRes.status !== 201) {
     const text = await createRes.text().catch(() => "");
@@ -69,6 +72,12 @@ export async function tusUploadToBunny(
 
     xhr.addEventListener("error", () => reject(new Error("네트워크 에러로 업로드가 중단됐습니다.")));
     xhr.addEventListener("abort", () => reject(new Error("업로드가 취소됐습니다.")));
+
+    // 언마운트/취소 신호 시 전송 중단 (대용량 백그라운드 전송 방지)
+    if (signal) {
+      if (signal.aborted) { xhr.abort(); return; }
+      signal.addEventListener("abort", () => xhr.abort(), { once: true });
+    }
 
     xhr.open("PATCH", uploadUrl);
     for (const [k, v] of Object.entries(authHeaders)) xhr.setRequestHeader(k, v);
