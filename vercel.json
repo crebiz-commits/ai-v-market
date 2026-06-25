@@ -22,9 +22,9 @@
   ],
   "redirects": [
     {
-      "source": "/:path*",
+      "source": "/((?!\\.well-known/assetlinks\\.json).*)",
       "has": [{ "type": "host", "value": "creaite.net" }],
-      "destination": "https://www.creaite.net/:path*",
+      "destination": "https://www.creaite.net/$1",
       "permanent": true
     },
     {
