@@ -50,6 +50,7 @@
 - phase_security_hardening_20260531.sql
 - phase_web_push_20260531.sql
 - purge_deletions_cron_20260614.sql
+- reaudit_hardening_20260625.sql
 - referral_20260618.sql
 - refund_cancel_billing_20260614.sql
 - start_payment_ad_owner_20260624.sql

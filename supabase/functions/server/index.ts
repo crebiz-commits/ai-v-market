@@ -444,6 +444,22 @@ app.post("/generate-promo", async (c) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
     if (authError || !user) return c.json({ error: "유효하지 않은 토큰입니다." }, 401);
 
+    // 비용 어뷰징 방지: 비관리자는 시간당 20회 (Anthropic 무제한 호출 차단). create-upload 동일 패턴.
+    {
+      const { data: _gpProf } = await supabase.from('profiles').select('is_admin').eq('id', user.id).maybeSingle();
+      if (!_gpProf?.is_admin) {
+        const rlKey = `ratelimit:generate-promo:${user.id}`;
+        const rl: any = await kv.get(rlKey);
+        const nowMs = Date.now();
+        if (rl && (nowMs - rl.windowStart) < 3600_000) {
+          if (rl.count >= 20) return c.json({ error: "AI 홍보문 생성 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." }, 429);
+          await kv.set(rlKey, { windowStart: rl.windowStart, count: rl.count + 1 });
+        } else {
+          await kv.set(rlKey, { windowStart: nowMs, count: 1 });
+        }
+      }
+    }
+
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
     if (!apiKey) return c.json({ error: "AI 홍보문건 기능이 아직 설정되지 않았습니다. (ANTHROPIC_API_KEY 미설정)" }, 503);
 
@@ -869,14 +885,18 @@ async function handleVastTag(c: any, sourceVideoId: string) {
       sig: vastSig,
     });
 
+    // VAST XML 인젝션 방지: CDATA 탈출(]]>) 무력화 + 클릭링크 http(s) 제한 (광고주 셀프서비스 입력)
+    const cd = (v: any) => String(v ?? '').replace(/]]>/g, ']]]]><![CDATA[>');
+    const safeLink = /^https?:\/\//i.test(String(ad.link_url || '')) ? ad.link_url : '#';
+
     // VAST 2.0 XML 생성
     const vastXml = `<?xml version="1.0" encoding="UTF-8"?>
 <VAST version="2.0">
   <Ad id="${ad.id}">
     <InLine>
       <AdSystem>CREAITE House Ads</AdSystem>
-      <AdTitle><![CDATA[${ad.title || 'Advertisement'}]]></AdTitle>
-      <Description><![CDATA[${ad.advertiser || ''}]]></Description>
+      <AdTitle><![CDATA[${cd(ad.title || 'Advertisement')}]]></AdTitle>
+      <Description><![CDATA[${cd(ad.advertiser || '')}]]></Description>
       <Impression><![CDATA[${trackBase}?${trackParams}&event=impression]]></Impression>
       <Creatives>
         <Creative id="${ad.id}-creative">
@@ -891,16 +911,16 @@ async function handleVastTag(c: any, sourceVideoId: string) {
               <Tracking event="skip"><![CDATA[${trackBase}?${trackParams}&event=skip]]></Tracking>
             </TrackingEvents>
             <VideoClicks>
-              <ClickThrough><![CDATA[${ad.link_url || '#'}]]></ClickThrough>
+              <ClickThrough><![CDATA[${cd(safeLink)}]]></ClickThrough>
               <ClickTracking><![CDATA[${trackBase}?${trackParams}&event=click]]></ClickTracking>
             </VideoClicks>
             <MediaFiles>
               ${ad.video_url && ad.video_url.includes('/playlist.m3u8') ? `
               <MediaFile delivery="progressive" type="video/mp4" width="1280" height="720">
-                <![CDATA[${ad.video_url.replace('/playlist.m3u8', '/play_720p.mp4')}]]>
+                <![CDATA[${cd(ad.video_url.replace('/playlist.m3u8', '/play_720p.mp4'))}]]>
               </MediaFile>` : ''}
               <MediaFile delivery="streaming" type="application/x-mpegURL" width="1920" height="1080">
-                <![CDATA[${ad.video_url}]]>
+                <![CDATA[${cd(ad.video_url)}]]>
               </MediaFile>
             </MediaFiles>
           </Linear>
