@@ -31,6 +31,7 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
   const { t } = useTranslation();
   const { user } = useAuth();
   const restScrollRef = useRef<HTMLDivElement>(null);
+  const likingRef = useRef<Set<string>>(new Set());  // 영상별 좋아요 in-flight 가드(더블클릭 경합 방지)
 
   // 좋아요 토글 (2~10위 카드용)
   const handleLikeClick = async (e: React.MouseEvent, v: CarouselVideo) => {
@@ -40,6 +41,8 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
       toast.info(t("video.signInRequired", "로그인 후 이용해주세요"));
       return;
     }
+    if (likingRef.current.has(v.id)) return;
+    likingRef.current.add(v.id);
     try {
       const { error } = await supabase
         .from("video_likes")
@@ -60,6 +63,8 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
     } catch (err: any) {
       console.error("[TrendingHeroSection] like toggle error:", err);
       toast.error(t("video.likeFailed", "좋아요 처리 실패"));
+    } finally {
+      likingRef.current.delete(v.id);
     }
   };
 

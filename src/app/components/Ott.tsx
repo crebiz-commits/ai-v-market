@@ -145,6 +145,9 @@ type OttSnapshot = {
   genreRows: GenreRow[];
 };
 const ottCache: Record<string, OttSnapshot> = {};
+// 히어로 영상 소스 캐시(heroId → src) — 20초 회전마다 같은 영상 video_url 재조회 방지
+type HeroSrc = { url: string; start: number; end: number; clipUrl?: string; previewUrl?: string };
+const heroSrcCache = new Map<string, HeroSrc>();
 
 export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }: OttProps) {
   const { t } = useTranslation();
@@ -208,6 +211,8 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
   useEffect(() => {
     setHeroSrc(null);
     if (!heroId || heroId.startsWith("demo-") || heroId.startsWith("showcase")) return;
+    const cached = heroSrcCache.get(heroId);
+    if (cached) { setHeroSrc(cached); return; }   // 회전 캐시 hit → 재조회 없음
     let cancelled = false;
     (async () => {
       const { data } = await supabase
@@ -224,7 +229,9 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
         const previewUrl = /\/[^/]+\.m3u8$/i.test(data.video_url)
           ? data.video_url.replace(/\/[^/]+$/, "/preview.webp")
           : undefined;
-        setHeroSrc({ url: data.video_url, start: hStart, end: hEnd, clipUrl: data.hero_clip_url || undefined, previewUrl });
+        const srcObj: HeroSrc = { url: data.video_url, start: hStart, end: hEnd, clipUrl: data.hero_clip_url || undefined, previewUrl };
+        heroSrcCache.set(heroId, srcObj);
+        setHeroSrc(srcObj);
       }
     })();
     return () => { cancelled = true; };
@@ -438,6 +445,18 @@ function HeroBillboard({
   useEffect(() => {
     if (videoRef.current) videoRef.current.muted = muted;
   }, [muted, videoReady]);
+
+  // 화면 밖이면 히어로 영상 정지(배터리·데이터 절약), 재진입 시 재생 — 아래로 스크롤 시 계속 재생되던 것 개선
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !useVideo) return;
+    const io = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) v.play?.().catch(() => {}); else v.pause?.(); },
+      { threshold: 0.1 }
+    );
+    io.observe(v);
+    return () => io.disconnect();
+  }, [useVideo, playUrl]);
 
   return (
     <section className="relative w-full h-[90vh] md:h-[84vh]">
