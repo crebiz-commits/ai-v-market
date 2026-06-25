@@ -47,6 +47,7 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
   const containerRef = useRef<HTMLDivElement>(null);
   const autoRotateTimeoutRef = useRef<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const visibleRef = useRef(true);   // 화면 밖/탭숨김이면 자동회전 setState 스킵(상시 60fps 리렌더 방지)
   const dragStartPosRef = useRef({ x: 0, y: 0 });
   const hasDraggedRef = useRef(false);
   
@@ -68,6 +69,15 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
     if (typeof window !== 'undefined' && window.matchMedia) {
       setIsHoverDevice(window.matchMedia('(hover: hover)').matches);
     }
+  }, []);
+
+  // CoverFlow 가 화면 밖이면 자동회전 리렌더 중지(배터리·CPU). 탭숨김은 animate 가 document.hidden 으로 검사.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => { visibleRef.current = e.isIntersecting; }, { threshold: 0.05 });
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
 
   // rotation 값을 기준으로 실제 중앙에 있는 인덱스 계산
@@ -322,7 +332,7 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
   useEffect(() => {
     const animate = () => {
       if (isAutoRotating) {
-        setRotation((prev) => {
+        if (visibleRef.current && !document.hidden) setRotation((prev) => {
           const newRotation = prev - 0.12; // 매 프레임마다 회전 속도 (2026-06-11: 0.05→0.12 빠르게)
           // currentIndex 업데이트
           const normalizedRotation = ((-newRotation % 360) + 360) % 360;

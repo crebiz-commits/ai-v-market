@@ -963,6 +963,9 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     return () => { cancelled = true; };
   }, [product.id, iframeBlocked, isPremium, subscriptionTier]);
 
+  // preroll 광고가 잡히면 이미 세팅된 bumper 는 취소 — 둘 다 시작 직후 풀스크린이라 동시노출 방지
+  useEffect(() => { if (prerollAd) setBumperAd(null); }, [prerollAd]);
+
   // ── Phase 16: 연속 재생 (영상 종료 → 다음 영상 카운트다운) ──
   const [nextVideo, setNextVideo] = useState<{ id: string; title: string; thumbnail?: string | null; creator?: string | null; duration?: string | null; views?: number | null } | null>(null);
   const [showNextOverlay, setShowNextOverlay] = useState(false);
