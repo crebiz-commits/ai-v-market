@@ -153,6 +153,8 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
   const [videos, setVideos] = useState<VideoResult[]>([]);
   const [creators, setCreators] = useState<CreatorResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(false);        // 검색결과 더보기 가능 여부(마지막 페이지가 60개면)
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // 자동완성 / 기록 / 인기
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -167,6 +169,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchSeqRef = useRef(0);   // race 가드: 늦게 도착한 이전 검색이 최신 결과 덮어쓰기 방지
+  const suggestSeqRef = useRef(0);  // 자동완성 race 가드
 
   // 옵션 라벨은 언어에 따라 변환 (값은 그대로 유지)
   const durationLabels = useMemo(() => [
@@ -199,8 +202,10 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
       setSuggestions([]);
       return;
     }
+    const seq = ++suggestSeqRef.current;
     debounceRef.current = setTimeout(async () => {
       const { data } = await supabase.rpc("get_search_suggestions", { p_query: query.trim(), p_limit: 8 });
+      if (seq !== suggestSeqRef.current) return;   // 늦게 도착한 이전 입력의 제안 폐기
       if (Array.isArray(data)) setSuggestions(data as Suggestion[]);
     }, DEBOUNCE_MS);
     return () => {
@@ -242,6 +247,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
         console.error("[SearchPage] search_videos error:", videosRes.error);
         toast.error(t("searchPage.searchFailed"));
         setVideos([]);
+        setHasMore(false);
       } else {
         let realVideos = (videosRes.data ?? []) as VideoResult[];
         // Showcase: 검색어로 mock도 필터링해서 추가
@@ -257,6 +263,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
           realVideos = merged;
         }
         setVideos(realVideos);
+        setHasMore(((videosRes.data as any[] | null)?.length ?? 0) >= 60);  // RPC 원본이 60개면 다음 페이지 가능
       }
 
       if (creatorsRes.error) {
@@ -269,6 +276,30 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
       if (seq === searchSeqRef.current) setLoading(false);
     }
   }, [category, aiTool, durationIdx, sort]);
+
+  // 검색결과 더보기 — 현재 필터/정렬 유지하며 다음 60개 이어붙임(중복 id 제외)
+  const loadMoreResults = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const dur = DURATION_OPTIONS[durationIdx];
+    const rpcParams: Record<string, any> = { p_query: submittedQuery, p_sort: sort, p_limit: 60, p_offset: videos.length };
+    if (category !== "전체") rpcParams.p_category = category;
+    if (aiTool !== "전체") rpcParams.p_ai_tool = aiTool;
+    if (dur.min !== null) rpcParams.p_min_duration = dur.min;
+    if (dur.max !== null) rpcParams.p_max_duration = dur.max;
+    try {
+      const { data, error } = await supabase.rpc("search_videos", rpcParams);
+      if (!error && Array.isArray(data)) {
+        setVideos((prev) => {
+          const seen = new Set(prev.map((v) => v.id));
+          return [...prev, ...(data as VideoResult[]).filter((v) => !seen.has(v.id))];
+        });
+        setHasMore((data as any[]).length >= 60);
+      }
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, submittedQuery, sort, durationIdx, category, aiTool, videos.length]);
 
   // 활성 필터 여부 — 아래 useEffect 들보다 먼저 선언(선언순서 역전 TDZ 취약점 제거)
   const hasActiveFilter = useMemo(
@@ -576,6 +607,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
           visibleVideos.length === 0 ? (
             <EmptyResult query={submittedQuery} />
           ) : (
+            <>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
               {visibleVideos.map((v) => {
                 const rating = ageRatings[v.id];
@@ -592,6 +624,18 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
                 );
               })}
             </div>
+            {hasMore && (
+              <div className="flex justify-center mt-6">
+                <button
+                  onClick={loadMoreResults}
+                  disabled={loadingMore}
+                  className="px-6 py-2.5 rounded-xl text-sm font-bold bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 disabled:opacity-50 transition-colors"
+                >
+                  {loadingMore ? t("searchPage.loadingMore", "불러오는 중…") : t("searchPage.loadMore", "더 보기")}
+                </button>
+              </div>
+            )}
+            </>
           )
         ) : (
           // creators

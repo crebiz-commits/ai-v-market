@@ -128,10 +128,14 @@ AS $$
     WHERE q.lq <> ''
       AND lower(COALESCE(p.display_name, v.creator)) LIKE '%' || q.lq || '%'
   )
-  SELECT DISTINCT ON (lower(suggestion))
-    suggestion, source
-  FROM matches
-  ORDER BY lower(suggestion), rank
+  -- 동일 suggestion 은 최선 rank 1개만 남긴 뒤(내부), rank 순으로 정렬해 LIMIT
+  -- (기존엔 가나다순으로 잘려 prefix 매칭이 상위에 안 오던 버그 — 2026-06-25)
+  SELECT suggestion, source FROM (
+    SELECT DISTINCT ON (lower(suggestion)) suggestion, source, rank
+    FROM matches
+    ORDER BY lower(suggestion), rank
+  ) d
+  ORDER BY d.rank, d.suggestion
   LIMIT GREATEST(p_limit, 1);
 $$;
 
