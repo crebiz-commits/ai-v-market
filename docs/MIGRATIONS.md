@@ -38,6 +38,7 @@
 - fix_ad_images_storage_rls_20260611.sql
 - fixes_audit_20260611.sql
 - fix_protect_is_admin_20260624.sql
+- fix_revenue_period_guard_20260625.sql
 - high_fixes_20260614.sql
 - home_feed_chip_filter_20260611.sql
 - home_feed_count_20260611.sql
