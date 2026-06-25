@@ -17,8 +17,9 @@
 --   적용: Supabase SQL Editor → Run. ⚠️⚠️ 최우선 즉시 적용.
 -- ════════════════════════════════════════════════════════════════════════════
 
--- 1) 테이블 단위 SELECT 회수 (전 컬럼 노출의 주원인)
+-- 1) 테이블 단위 SELECT 회수 (전 컬럼 노출의 주원인) — anon/authenticated + PUBLIC 모두
 REVOKE SELECT ON public.profiles FROM anon, authenticated;
+REVOKE SELECT ON public.profiles FROM PUBLIC;
 
 -- 1-b) 방어적: 혹시 컬럼 단위로도 부여됐을 경우까지 민감 컬럼 명시 회수 (없으면 no-op)
 REVOKE SELECT (
