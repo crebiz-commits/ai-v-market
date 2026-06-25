@@ -130,6 +130,23 @@ export const GENRE_STYLES: Record<string, GenreStyle> = {
     emoji: "🚀",
     Icon: Orbit,
   },
+  // 2026-06-25: 자연·풍경/추상 누락 → DEFAULT(기타) 라벨·아이콘으로 표시되고 맨뒤 정렬되던 버그 수정
+  "nature": {
+    key: "nature",
+    labelKey: "genre.nature",
+    subtitleKey: "genreSubtitle.other",
+    gradient: "from-emerald-700 via-green-700 to-teal-900",
+    emoji: "🌄",
+    Icon: Globe,
+  },
+  "abstract": {
+    key: "abstract",
+    labelKey: "genre.abstract",
+    subtitleKey: "genreSubtitle.other",
+    gradient: "from-fuchsia-700 via-pink-700 to-rose-900",
+    emoji: "🌀",
+    Icon: Palette,
+  },
 };
 
 /** 알 수 없는 장르 fallback */
@@ -160,6 +177,8 @@ const KOREAN_GENRE_TO_KEY: Record<string, string> = {
   "AI뮤직비디오": "music",
   "판타지": "fantasy",
   "SF": "sci-fi",
+  "자연·풍경": "nature",
+  "추상": "abstract",
 };
 
 export function getGenreStyle(category: string | null | undefined): GenreStyle {

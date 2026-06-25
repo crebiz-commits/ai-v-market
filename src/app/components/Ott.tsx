@@ -559,7 +559,8 @@ function CategoryRow({
   const { t } = useTranslation();
   const style = getGenreStyle(category);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const pausedRef = useRef(false);
+  const pausedRef = useRef(false);     // hover 일시정지
+  const visibleRef = useRef(true);     // 화면 밖이면 마퀴 reflow 스킵(성능) — pausedRef 와 별개
 
   // BETA_MODE: 복제(doubled) "전" 원본 배열에 베타 카드를 섞어 8칸까지 채운다(복제로 2배 방지).
   //   item: 실제 영상 { kind: "video" } 또는 베타 카드 { kind: "beta" }.
@@ -582,7 +583,7 @@ function CategoryRow({
     let acc = 0;
     const SPEED = 0.25; // px/frame (느린 흐름)
     const step = () => {
-      if (!pausedRef.current && el.scrollWidth > el.clientWidth + 4) {
+      if (!pausedRef.current && visibleRef.current && el.scrollWidth > el.clientWidth + 4) {
         acc += SPEED;
         if (acc >= 1) {
           const inc = Math.floor(acc);
@@ -598,6 +599,18 @@ function CategoryRow({
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
   }, [dir, videos.length]);
+
+  // 화면 밖 행은 마퀴 흐름(reflow) 스킵 — 행이 10+개라 전부 60fps reflow 하면 비용 큼. 보이는 동작은 불변.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => { visibleRef.current = entry.isIntersecting; },
+      { rootMargin: "200px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   // BETA_MODE면 빈 카테고리도 베타 카드로 채워 노출. 끄면 기존대로 빈 행 숨김.
   if (videos.length === 0 && !betaActive) return null;
