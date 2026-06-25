@@ -7,7 +7,7 @@
 //   → module-level 캐시를 single source of truth 로 두고, 매 렌더마다
 //     현재 videoIds 의 등급을 캐시에서 동기 구성해 반환 (한 번 채워지면 유지됨).
 //     fetch 완료 시에만 force 리렌더.
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../utils/supabaseClient";
 
 type RatingMap = Record<string, string>;
@@ -21,7 +21,7 @@ export function getCachedAgeRating(videoId: string): string {
 
 export function useAgeRatings(videoIds: string[]): RatingMap {
   const key = videoIds.join(",");
-  const [, force] = useState(0);
+  const [version, force] = useState(0);
 
   useEffect(() => {
     // 캐시 miss인 id만 fetch
@@ -50,8 +50,11 @@ export function useAgeRatings(videoIds: string[]): RatingMap {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  // 매 렌더 — 현재 videoIds 의 등급을 캐시에서 구성 (한 번 채워진 값은 사라지지 않음)
-  const map: RatingMap = {};
-  for (const id of videoIds) if (id && cache[id]) map[id] = cache[id];
-  return map;
+  // 캐시에서 구성한 맵을 useMemo 로 안정화 — 매 렌더 새 객체면 소비처(memo 카드/행) 리렌더 유발
+  return useMemo(() => {
+    const map: RatingMap = {};
+    for (const id of videoIds) if (id && cache[id]) map[id] = cache[id];
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, version]);
 }

@@ -5,7 +5,7 @@
 //      가로형 카드 + 제목/정보 카드 안. 마우스 올리면 정지. (쿠팡플레이 하단 스타일)
 //   ↳ 연령 게이트(블러/잠금) + 쇼케이스 합성 유지.
 // ════════════════════════════════════════════════════════════════════════════
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, memo } from "react";
 import { Play, Info, Plus, Lock, Loader2, Volume2, VolumeX, Clock, ChevronLeft, ChevronRight, Heart, Eye, Layers } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -179,14 +179,18 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
   const ageRatings = useAgeRatings(allVideoIds);
   const seriesCounts = useSeriesCounts(allVideoIds);
 
-  const ageGuard: AgeGuard = (v) => {
+  const ageGuard = useCallback<AgeGuard>((v) => {
     const rating = ageRatings[v.id];
     const isMyVideo = !!user?.id && !!v.creator_id && user.id === v.creator_id;
     return { rating, isAgeLocked: !isMyVideo && shouldBlur(rating, ageVerified) };
-  };
+  }, [ageRatings, user?.id, ageVerified]);
 
   // BETA_MODE: 업로드 페이지로 이동 (베타 카드/CTA). BETA_MODE 꺼지면 undefined → 베타 UI 미표시.
-  const goUpload = BETA_MODE ? () => onNavigate?.("upload") : undefined;
+  const goUpload = useMemo(() => (BETA_MODE ? () => onNavigate?.("upload") : undefined), [onNavigate]);
+  // 핸들러 안정화 — 매 렌더 새 참조로 memo 자식(CategoryRow/HeroBillboard)이 리렌더되던 것 방지
+  const handleClick = useCallback((v: CarouselVideo) => onProductClick(toProduct(v)), [onProductClick]);
+  const handlePlay = useCallback((v: CarouselVideo) => (onPlayProduct ?? onProductClick)(toProduct(v)), [onPlayProduct, onProductClick]);
+  const toggleHeroMute = useCallback(() => setHeroMuted((m) => !m), []);
 
   // 시간대 무드 편성 — 접속 시각에 따라 카테고리 행 순서 재배치 ("기타"는 항상 맨 뒤)
   const band = useMemo(() => currentBand(), []);
@@ -351,9 +355,9 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
           src={heroSrc}
           ageGuard={ageGuard}
           muted={heroMuted}
-          onToggleMute={() => setHeroMuted((m) => !m)}
-          onClick={(v) => onProductClick(toProduct(v))}
-          onPlay={(v) => (onPlayProduct ?? onProductClick)(toProduct(v))}
+          onToggleMute={toggleHeroMute}
+          onClick={handleClick}
+          onPlay={handlePlay}
         />
       )}
 
@@ -385,7 +389,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
             videos={row.videos}
             dir={i % 2 === 0 ? "right" : "left"}
             highlighted={row.isFormat || band.order.includes(getGenreStyle(row.category).key)}
-            onClick={(v) => onProductClick(toProduct(v))}
+            onClick={handleClick}
             ageGuard={ageGuard}
             seriesCounts={seriesCounts}
             onUpload={goUpload}
@@ -406,7 +410,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
 //  · 헤더 영역까지 꽉 차는 배경. video.js 로 HLS 재생.
 //  · 실제 video_url 이 없으면 당분간 샘플 미리보기 영상을 전체 반복 재생 (폴백).
 // ────────────────────────────────────────────────────────────────────────────
-function HeroBillboard({
+const HeroBillboard = memo(function HeroBillboard({
   video,
   src,
   ageGuard,
@@ -550,13 +554,13 @@ function HeroBillboard({
       )}
     </section>
   );
-}
+});
 
 // ────────────────────────────────────────────────────────────────────────────
 // 카테고리 행 — 기본 자동 흐름(좌/우) + 데스크탑 화살표로 그 방향 추가 진행.
 //  · 마우스 올리면 자동 흐름 일시정지(클릭/화살표 조작 편하게). 항목 2벌 복제로 무한 루프.
 // ────────────────────────────────────────────────────────────────────────────
-function CategoryRow({
+const CategoryRow = memo(function CategoryRow({
   category,
   videos,
   dir,
@@ -784,4 +788,4 @@ function CategoryRow({
       </div>
     </section>
   );
-}
+});
