@@ -26,6 +26,7 @@ import { ShareModal } from "./ShareModal";
 import { NextVideoOverlay } from "./NextVideoOverlay";
 import { AddToPlaylistModal } from "./AddToPlaylistModal";
 import { supabase, supabaseAnonKey } from "../utils/supabaseClient";
+import { openExternal } from "../utils/openExternal";
 import { useTranslation } from "react-i18next";
 import { getCategoryLabel } from "../i18n/categoryLabels";
 import { AdOverlayBanner } from "./AdOverlayBanner";
@@ -936,7 +937,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
 
   const handleSponsorClick = () => {
     if (!product.sponsorLinkUrl) return;
-    window.open(product.sponsorLinkUrl, "_blank", "noopener,noreferrer");
+    openExternal(product.sponsorLinkUrl);
   };
 
   // ── Phase 28: Bumper 광고 (영상 시작 직후 6초, 구독자 tier별 SKIP 차등) ──

@@ -12,6 +12,7 @@ import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import type Player from "video.js/dist/types/player";
 import { recordAdClick, recordAdImpression, type AdRpcResult, type AdFormat } from "../utils/adFetch";
+import { openExternal } from "../utils/openExternal";
 
 interface AdMidrollPlayerProps {
   ad: AdRpcResult;
@@ -144,7 +145,7 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
   const handleClick = async () => {
     if (!ad.link_url) return;
     await recordAdClick(ad.ad_id, videoId, format);
-    window.open(ad.link_url, "_blank", "noopener,noreferrer");
+    openExternal(ad.link_url);
   };
 
   const handleToggleMute = (e: React.MouseEvent) => {

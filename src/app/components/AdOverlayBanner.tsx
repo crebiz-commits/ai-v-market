@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, ExternalLink } from "lucide-react";
 import { recordAdClick, type AdRpcResult } from "../utils/adFetch";
+import { openExternal } from "../utils/openExternal";
 
 interface AdOverlayBannerProps {
   ad: AdRpcResult;
@@ -36,7 +37,7 @@ export function AdOverlayBanner({ ad, videoId, onDismiss }: AdOverlayBannerProps
   const handleClick = async () => {
     if (!ad.link_url) return;
     await recordAdClick(ad.ad_id, videoId, "overlay");
-    window.open(ad.link_url, "_blank", "noopener,noreferrer");
+    openExternal(ad.link_url);
   };
 
   return (
