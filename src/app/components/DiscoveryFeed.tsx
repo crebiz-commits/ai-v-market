@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, memo, useCallback } from "react";
+import { useState, useRef, useEffect, memo, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageCircle, MessageSquare, Send, ChevronRight, ChevronLeft, ExternalLink, Maximize2, Search } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -521,6 +521,14 @@ const MovieSection = memo(({
     tryPlay();
     player.one('seeked', tryPlay);
     player.one('canplay', tryPlay);
+    // cleanup: 비활성/언마운트 시 미발화 리스너 해제 — 빠른 스크롤 시 늦게 도착한 seeked/canplay 가
+    //   이미 비활성된 영상을 재생/소리내는 것 방지(B4)
+    return () => {
+      if (player && !player.isDisposed()) {
+        player.off('seeked', tryPlay);
+        player.off('canplay', tryPlay);
+      }
+    };
   }, [isActive, playerReady]);
 
   // Effect 3: 뮤트 상태 반영
@@ -818,10 +826,14 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     visibility: "public",
     age_rating: "all" as any,
   });
-  // Phase 24: 차단 사용자 영상은 피드에서 제외
-  const visibleVideos = videos.filter((v) => !v.creatorId || !isBlocked(v.creatorId));
+  // Phase 24: 차단 사용자 영상은 피드에서 제외 (useMemo — 사소한 state 변경 시 전배열 재계산 방지)
+  const visibleVideos = useMemo(
+    () => videos.filter((v) => !v.creatorId || !isBlocked(v.creatorId)),
+    [videos, isBlocked]
+  );
   // Phase 6.6 — 영상별 크리에이터 아바타 매핑
-  const creatorInfo = useCreatorInfo(visibleVideos.map((v) => v.creatorId));
+  const creatorIds = useMemo(() => visibleVideos.map((v) => v.creatorId), [visibleVideos]);
+  const creatorInfo = useCreatorInfo(creatorIds);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 모바일 뒤로가기로 전체화면 / 댓글 패널 닫기
@@ -886,7 +898,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
         if (ids.length > 0) {
           const { data: countData } = await supabase.from("comments")
             .select("video_id").in("video_id", ids).is("parent_id", null);
-          if (countData) {
+          if (countData && reqChip === chipRef.current) {   // B2: 댓글수 병합도 칩 변경 시 폐기(stale 방지)
             const counts: Record<string, number> = {};
             countData.forEach((c: any) => { counts[c.video_id] = (counts[c.video_id] || 0) + 1; });
             setCommentCounts((prev) => ({ ...prev, ...counts }));
@@ -1018,8 +1030,9 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
 
   // 영상 목록에 광고를 interval_count마다 삽입하여 피드 아이템 배열 생성
   // Phase 24: 차단 사용자 영상은 visibleVideos 기준으로 제외
-  const feedItems = (() => {
-    const interval = (ads[0]?.interval_count) || 4;
+  const feedItems = useMemo<FeedItem[]>(() => {
+    // 자체광고 ON 이면 광고주 설정 주기(interval_count), OFF 면 외부광고 고정 주기(자체광고 데이터와 분리)
+    const interval = HOME_FEED_SELF_ADS ? ((ads[0]?.interval_count) || 4) : 5;
     const result: FeedItem[] = [];
     let adSlot = 0;
     visibleVideos.forEach((v, i) => {
@@ -1036,7 +1049,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
       }
     });
     return result;
-  })();
+  }, [visibleVideos, ads]);
 
   // 데스크탑 그리드 광고 삽입: 영상 6개마다 1개.
   // 핵심: 그리드상 광고 간격 = 영상6 + 광고1 = "7칸 주기"(광고가 들어가며 뒤 영상이 한 칸씩 밀림).
@@ -1044,7 +1057,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   //   (interval=7이면 주기 8 = 4의 배수라 4열에서 매번 오른쪽 끝에 박힘 → 6이어야 함)
   // 자체광고 먼저(반복 없이) → 소진되면 애드핏(ExternalAdSlot) 폴백
   const DESKTOP_AD_INTERVAL = 6;
-  const desktopItems: DesktopItem[] = (() => {
+  const desktopItems = useMemo<DesktopItem[]>(() => {
     const out: DesktopItem[] = [];
     let adSlot = 0;
     // Phase 24: 차단 사용자 영상 제외 — 모바일(feedItems)과 동일하게 visibleVideos 기준
@@ -1062,7 +1075,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
       }
     });
     return out;
-  })();
+  }, [visibleVideos, ads]);
 
   // 스크롤 스냅 완료 후 상단 영상 감지 및 활성화
   useEffect(() => {
@@ -1115,7 +1128,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   }, [videos, loading]); // loading 포함: setVideos와 setLoading(false)가 다른 배치로 커밋돼
                          // loading=false 시점에 container가 생기므로 재실행 필요
 
-  const toggleLike = async (videoId: string, currentlyLiked: boolean) => {
+  const toggleLike = useCallback(async (videoId: string, currentlyLiked: boolean) => {
     if (handleShowcaseClick(videoId)) return;
     if (!user) {
       if (onSignInClick) onSignInClick();
@@ -1150,7 +1163,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
         v.id === videoId ? { ...v, likes: v.likes + (currentlyLiked ? 1 : -1) } : v
       ));
     }
-  };
+  }, [user, onSignInClick]);
 
   const handleShare = useCallback(async (video: Video) => {
     if (handleShowcaseClick(video.id)) return;
