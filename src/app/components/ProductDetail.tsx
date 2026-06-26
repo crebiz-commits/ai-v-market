@@ -1230,7 +1230,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
             <iframe
               ref={iframeRef}
               src={bunnyEmbedUrl}
-              loading="lazy"
+              loading="eager"
               onLoad={startPreviewCutoffWatch}
               className="absolute inset-0 w-full h-full"
               style={{ border: 0 }}
