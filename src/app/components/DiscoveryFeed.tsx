@@ -237,7 +237,11 @@ const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, 
   };
 
   return (
-    <div className="absolute right-2 bottom-[60px] z-40 flex flex-col gap-2.5 items-center pointer-events-auto">
+    <div className="absolute right-2 bottom-[52px] z-40 flex flex-col gap-2.5 items-center pointer-events-auto">
+      {/* 연령 등급 배지 — 액션 버튼 위(우측 상단). 기존엔 크리에이터 행에 있어 19+가 제목·안내문을 가렸음 */}
+      {(video as any).age_rating && (
+        <AgeBadge rating={(video as any).age_rating} size="xs" />
+      )}
       {/* 좋아요 — ripple + glow */}
       <motion.button
         whileTap={{ scale: 0.85 }}
@@ -672,7 +676,6 @@ const MovieSection = memo(({
             {video.creatorId && (
               <FollowButton creatorId={video.creatorId} onSignInClick={onSignInClick} size="sm" />
             )}
-            <AgeBadge rating={(video as any).age_rating} size="xs" />
           </div>
           <h3 className="text-sm font-bold text-white leading-tight line-clamp-1 mb-2 pr-16">{video.title}</h3>
 
