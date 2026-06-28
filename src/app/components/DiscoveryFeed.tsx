@@ -280,8 +280,8 @@ const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, 
   };
 
   return (
-    <div className="absolute right-2 bottom-[52px] z-40 flex flex-col gap-2.5 items-center pointer-events-auto">
-      {/* 연령 등급 배지 — 액션 버튼 위(우측 상단). 기존엔 크리에이터 행에 있어 19+가 제목·안내문을 가렸음 */}
+    <div className="absolute right-3 bottom-[52px] z-40 flex flex-col gap-2 items-center pointer-events-auto">
+      {/* 연령 등급 배지 — 액션 버튼 위(우측). right-3 + 아이콘 축소로 우측 끝 잘림 방지 */}
       {(video as any).age_rating && (
         <AgeBadge rating={(video as any).age_rating} size="xs" />
       )}
@@ -299,19 +299,19 @@ const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, 
               animate={{ scale: 2.2, opacity: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.6 }}
-              className="absolute top-0 left-0 right-0 mx-auto w-10 h-10 rounded-full bg-red-500 pointer-events-none"
+              className="absolute top-0 left-0 right-0 mx-auto w-9 h-9 rounded-full bg-red-500 pointer-events-none"
             />
           )}
         </AnimatePresence>
         <div
-          className={`relative w-10 h-10 rounded-full backdrop-blur-xl flex items-center justify-center border-2 transition-all ${
+          className={`relative w-9 h-9 rounded-full backdrop-blur-xl flex items-center justify-center border-2 transition-all ${
             isLiked
               ? "bg-red-500/30 border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.6)]"
               : "bg-white/10 border-white/30"
           }`}
         >
           <Heart
-            className={`w-[18px] h-[18px] ${isLiked ? "fill-red-400 text-red-400" : "text-white"}`}
+            className={`w-4 h-4 ${isLiked ? "fill-red-400 text-red-400" : "text-white"}`}
             strokeWidth={1.8}
           />
         </div>
@@ -329,8 +329,8 @@ const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, 
         className="flex flex-col items-center"
         aria-label={t("common.comment")}
       >
-        <div className="w-10 h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.4)]">
-          <MessageCircle className="w-[18px] h-[18px] text-white" strokeWidth={1.8} />
+        <div className="w-9 h-9 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.4)]">
+          <MessageCircle className="w-4 h-4 text-white" strokeWidth={1.8} />
         </div>
         <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">
           {commentCount > 0 ? commentCount.toLocaleString() : t("common.comment")}
@@ -345,8 +345,8 @@ const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, 
         className="flex flex-col items-center"
         aria-label={t("common.share")}
       >
-        <div className="w-10 h-10 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.4)]">
-          <Send className="w-[18px] h-[18px] text-white -rotate-12" strokeWidth={1.8} />
+        <div className="w-9 h-9 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.4)]">
+          <Send className="w-4 h-4 text-white -rotate-12" strokeWidth={1.8} />
         </div>
         <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">{t("common.share")}</span>
       </motion.button>
