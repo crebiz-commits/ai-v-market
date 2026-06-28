@@ -969,7 +969,8 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                 </div>
               )}
               {/* 외부 광고(AdSense/애드핏) — 비프리미엄만, 미설정 시 운영에선 null (활성화 시 노출) */}
-              {!isPremium && <ExternalAdSlot index={0} className="rounded-lg mb-1" />}
+              {/* AdFit 정책: 광고 외곽 라운딩·변형 금지 → rounded 제거(직각). */}
+              {!isPremium && <ExternalAdSlot index={0} className="mb-1" />}
               <AnimatePresence initial={false}>
                 {visiblePosts.map((post) => (
                   <motion.div
