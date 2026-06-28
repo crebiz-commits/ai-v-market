@@ -7,7 +7,7 @@
 //   - video.js dispose() 가 src/listener/buffer 모두 자동 해제
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { ExternalLink, SkipForward, Volume2, VolumeX } from "lucide-react";
+import { ExternalLink, SkipForward, Volume2, VolumeX, Loader2 } from "lucide-react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import type Player from "video.js/dist/types/player";
@@ -30,6 +30,7 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
 
   const [elapsed, setElapsed] = useState(0);
   const [muted, setMuted] = useState(true);
+  const [loading, setLoading] = useState(true);  // 첫 'playing' 전 로딩 스피너
   const skipAfter = ad.skip_after_seconds;
   const canSkip = skipAfter != null && elapsed >= skipAfter;
 
@@ -48,10 +49,12 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
       onCompleteRef.current(opts);
     };
 
+    setLoading(true);
     const videoEl = document.createElement("video");
     videoEl.className = "video-js vjs-fill";
     videoEl.setAttribute("playsinline", "");
     videoEl.setAttribute("webkit-playsinline", "");
+    if (ad.thumbnail_url) videoEl.poster = ad.thumbnail_url;  // 로딩 중 검은화면 대신 썸네일
     container.appendChild(videoEl);
 
     const isHls = ad.video_url.includes(".m3u8");
@@ -77,6 +80,9 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
       setElapsed(t);
     });
 
+    // 실제 재생 시작 → 로딩 스피너 제거
+    player.on("playing", () => setLoading(false));
+
     player.on("ended", () => {
       if (!playerRef.current || playerRef.current.isDisposed()) return;
       const dur = Math.floor(player.duration() || 0);
@@ -93,32 +99,22 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
       safeComplete({ skipped: false });
     });
 
-    // muted autoplay 로 시작 → 성공하면 즉시 unmute 시도
-    // (Chrome autoplay 정책: 페이지에 사용자 인터랙션이 있었으면 unmuted autoplay 허용)
-    // 실패하면 muted 유지 → 사용자가 우상단 음소거 토글 버튼으로 켤 수 있음
+    // 음소거 자동재생만 사용(가장 안정). 소리는 사용자가 우상단 버튼으로 켬.
+    //   ⚠️ 기존엔 자동 unmute 후 재생을 재시도했는데, 브라우저 autoplay 정책이
+    //   unmute 재생을 차단하면 영상이 멈춰 "검은 화면"이 되는 간헐 버그(3~4회 중 1회) 유발 → 제거.
     player.ready(() => {
       if (!playerRef.current || playerRef.current.isDisposed()) return;
-      const p = player.play();
-      if (!p) return;
-      p.then(() => {
-        const cur = playerRef.current;
-        if (!cur || cur.isDisposed()) return;
-        cur.muted(false);
-        const p2 = cur.play();
-        if (p2) {
-          p2.then(() => {
-            setMuted(false);
-          }).catch(() => {
-            if (!playerRef.current || playerRef.current.isDisposed()) return;
-            playerRef.current.muted(true);
-            setMuted(true);
-            playerRef.current.play()?.catch(() => {});
-          });
-        } else {
-          setMuted(false);
-        }
-      }).catch(() => { /* muted autoplay 자체 실패는 극히 드묾 */ });
+      playerRef.current.play()?.catch(() => {});
     });
+
+    // 워치독: 4초 내 재생이 시작되지 않으면(간헐 autoplay 스톨) load+play 1회 재시도
+    const watchdogId = window.setTimeout(() => {
+      const p = playerRef.current;
+      if (!p || p.isDisposed() || completedRef.current) return;
+      if ((p.currentTime() || 0) === 0) {
+        try { p.load(); p.play()?.catch(() => {}); } catch { /* 무시 */ }
+      }
+    }, 4000);
 
     const maxDur = ad.duration_seconds || 30;
     const timeoutId = window.setTimeout(() => {
@@ -128,6 +124,7 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
 
     return () => {
       window.clearTimeout(timeoutId);
+      window.clearTimeout(watchdogId);
       if (playerRef.current && !playerRef.current.isDisposed()) {
         playerRef.current.dispose();
       }
@@ -181,6 +178,13 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
         </button>
       ) : (
         <div className="text-white">광고 로딩 실패</div>
+      )}
+
+      {/* 로딩 스피너 — 첫 재생 전까지(검은 화면 대신) */}
+      {ad.video_url && loading && (
+        <div className="absolute inset-0 z-[5] flex items-center justify-center pointer-events-none">
+          <Loader2 className="w-9 h-9 text-white/70 animate-spin" />
+        </div>
       )}
 
       <div className="absolute top-3 left-3 flex items-center gap-2 z-10 pointer-events-none">
