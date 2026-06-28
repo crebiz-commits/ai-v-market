@@ -2,12 +2,13 @@
 // Phase 12 — 통합 검색 페이지
 // 영상/크리에이터 검색 + 자동완성 + 필터 + 정렬 + 인기 검색어 + 검색 기록
 // ════════════════════════════════════════════════════════════════════════════
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from "react";
 import { Search, X, Loader2, TrendingUp, Clock, Filter, ChevronDown, Eye, Heart, Play, Users, ArrowLeft, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { Footer } from "./Footer";
+import { ExternalAdSlot, EXTERNAL_ADS_ACTIVE } from "./ExternalAdSlot";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { useAgeRatings } from "../hooks/useAgeRatings";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
@@ -609,11 +610,11 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
           ) : (
             <>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-              {visibleVideos.map((v) => {
+              {visibleVideos.map((v, i) => {
                 const rating = ageRatings[v.id];
                 const isMyVideo = !!user?.id && !!v.creator_id && user.id === v.creator_id;
                 const isAgeLocked = !isMyVideo && shouldBlur(rating, ageVerified);
-                return (
+                const card = (
                   <VideoCard
                     key={v.id}
                     video={v}
@@ -622,6 +623,18 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
                     isAgeLocked={isAgeLocked}
                   />
                 );
+                // 결과 8개마다 노출광고 1개(전체 폭). 광고 비활성 시 미삽입(빈칸 방지), 마지막 뒤엔 안 넣음.
+                if (EXTERNAL_ADS_ACTIVE && (i + 1) % 8 === 0 && i + 1 < visibleVideos.length) {
+                  return (
+                    <Fragment key={`row-${v.id}`}>
+                      {card}
+                      <div className="col-span-full flex justify-center py-2">
+                        <ExternalAdSlot index={Math.floor(i / 8)} />
+                      </div>
+                    </Fragment>
+                  );
+                }
+                return card;
               })}
             </div>
             {hasMore && (

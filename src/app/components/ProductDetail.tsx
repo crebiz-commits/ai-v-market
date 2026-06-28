@@ -31,6 +31,7 @@ import { useTranslation } from "react-i18next";
 import { getCategoryLabel } from "../i18n/categoryLabels";
 import { AdOverlayBanner } from "./AdOverlayBanner";
 import { AdMidrollPlayer } from "./AdMidrollPlayer";
+import { ExternalAdSlot, EXTERNAL_ADS_ACTIVE } from "./ExternalAdSlot";
 import { fetchAdForVideo, recordAdImpression, type AdRpcResult } from "../utils/adFetch";
 import { isNegotiationOnly, licenseInquiryMailto } from "../utils/licensePricing";
 
@@ -1958,6 +1959,14 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
 
             {/* 구매 액션은 라이선스 박스 안으로 통합됨 (Phase 31.4) */}
           </div>
+
+          {/* 노출광고(애드핏/애드센스) — 정보 영역과 추천영상 사이. 프리미엄 포함 전체 노출, 비활성 시 미삽입.
+              (프리미엄 광고제거는 영상 재생 광고(프리롤/미드롤)에만 적용) */}
+          {EXTERNAL_ADS_ACTIVE && (
+            <div className="border-t border-white/5 mt-4 pt-3 flex justify-center">
+              <ExternalAdSlot index={1} />
+            </div>
+          )}
 
           {/* Phase 32 — 함께 시청된 콘텐츠 가로 캐러셀 */}
           {similarVideos.length > 0 && (
