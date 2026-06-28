@@ -128,6 +128,57 @@ function openAdLinkSafe(rawUrl: string | null | undefined) {
 }
 
 // 📢 Ad Card Component
+// 광고 영상 미니 플레이어 — video.js 로 HLS(.m3u8)/mp4 재생.
+// 일반 <video> 는 안드로이드 크롬/앱에서 Bunny HLS(.m3u8)를 못 틀어 광고가 포스터에 멈춤 → video.js 필수.
+// 오프스크린 마운트 시 autoplay 가 막히므로 IntersectionObserver 로 화면 진입 시 재생을 강제한다.
+const AdVideoPlayer = memo(({ src, poster }: { src: string; poster?: string | null }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<any>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !src) return;
+    const videoEl = document.createElement("video");
+    videoEl.className = "video-js w-full h-full";
+    videoEl.setAttribute("playsinline", "");
+    if (poster) videoEl.poster = poster;
+    container.appendChild(videoEl);
+
+    const player = videojs(videoEl, {
+      autoplay: true, controls: false, loop: true, muted: true,
+      fill: true, responsive: true, playsinline: true, preload: "metadata",
+      crossOrigin: "anonymous",
+      sources: [{ src, type: src.includes(".m3u8") ? "application/x-mpegURL" : "video/mp4" }],
+    });
+    player.muted(true);
+    playerRef.current = player;
+
+    const io = new IntersectionObserver(
+      ([e]) => {
+        const p = playerRef.current;
+        if (!p || p.isDisposed()) return;
+        if (e.isIntersecting) p.play()?.catch(() => {});
+        else p.pause();
+      },
+      { threshold: 0.4 },
+    );
+    io.observe(container);
+
+    return () => {
+      io.disconnect();
+      if (playerRef.current) { playerRef.current.dispose(); playerRef.current = null; }
+    };
+  }, [src, poster]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="absolute inset-0 w-full h-full [&_.video-js]:w-full [&_.video-js]:h-full [&_.vjs-tech]:object-cover"
+    />
+  );
+});
+AdVideoPlayer.displayName = "AdVideoPlayer";
+
 const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) => void }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const impressionTracked = useRef(false);
@@ -169,16 +220,8 @@ const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) 
           className="absolute inset-0 w-full h-full object-cover"
         />
       ) : ad.video_url ? (
-        // 영상 광고: 자동 재생 + 무한 루프 + 음소거 (TikTok 스타일)
-        <video
-          src={ad.video_url}
-          poster={ad.thumbnail_url || undefined}
-          className="absolute inset-0 w-full h-full object-cover"
-          autoPlay
-          loop
-          muted
-          playsInline
-        />
+        // 영상 광고: video.js 로 HLS(.m3u8)/mp4 재생 (일반 <video>는 안드로이드/앱서 HLS 불가 → 멈춤)
+        <AdVideoPlayer src={ad.video_url} poster={ad.thumbnail_url} />
       ) : ad.thumbnail_url ? (
         <img
           src={ad.thumbnail_url}
@@ -1602,7 +1645,7 @@ const DesktopAdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: s
         {ad.image_url ? (
           <img src={ad.image_url} alt={ad.title} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
         ) : ad.video_url ? (
-          <video src={ad.video_url} poster={ad.thumbnail_url || undefined} className="absolute inset-0 w-full h-full object-cover" autoPlay loop muted playsInline />
+          <AdVideoPlayer src={ad.video_url} poster={ad.thumbnail_url} />
         ) : ad.thumbnail_url ? (
           <img src={ad.thumbnail_url} alt={ad.title} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
         ) : (
