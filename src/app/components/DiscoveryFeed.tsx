@@ -1242,7 +1242,15 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
           <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/20 text-white text-[9px] md:text-[11px] font-black shrink-0">
             <Sparkles className="w-3 h-3" /> BETA
           </span>
-          <p className="flex-1 min-w-0 text-white text-[11px] md:text-sm font-bold truncate">
+          {/* 모바일: 마퀴(흐르는 텍스트)로 전체 노출 — truncate 로 잘리던 문구 해결. 2벌 복제 → -50% 무한루프 */}
+          <div className="md:hidden flex-1 min-w-0 overflow-hidden">
+            <div className="flex w-max banner-marquee" style={{ animationDuration: "14s" }}>
+              <span className="text-white text-[11px] font-bold whitespace-nowrap pr-10">CREAITE 베타 · 지금 등록하고 카테고리를 선점하세요</span>
+              <span aria-hidden="true" className="text-white text-[11px] font-bold whitespace-nowrap pr-10">CREAITE 베타 · 지금 등록하고 카테고리를 선점하세요</span>
+            </div>
+          </div>
+          {/* 데스크탑: 공간 충분 → 정적 표시 */}
+          <p className="hidden md:block flex-1 min-w-0 text-white text-sm font-bold truncate">
             CREAITE 베타 · 지금 등록하고 카테고리를 선점하세요
           </p>
           <button
