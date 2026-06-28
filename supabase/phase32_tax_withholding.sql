@@ -114,6 +114,14 @@ BEGIN
     updated_at = now()
   WHERE id = p_distribution_id
     AND payout_status = 'pending';
+
+  -- 감사로그 (정산 지급 — 금전 처리 책임추적, 2026-06-28 B4)
+  IF FOUND THEN
+    INSERT INTO public.admin_logs (admin_id, action, target_type, target_id, details)
+    VALUES (auth.uid(), 'revenue_payout', 'revenue_distribution', p_distribution_id::text,
+            jsonb_build_object('creator_id', v_creator_id, 'total', v_total,
+                               'withholding', v_withholding, 'net', v_net, 'tax_type', v_tax_type));
+  END IF;
 END;
 $$;
 

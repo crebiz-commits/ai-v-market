@@ -255,6 +255,10 @@ BEGIN
     UPDATE public.reports
     SET status = 'dismissed', reviewed_by = v_admin_id, reviewed_at = now(), admin_note = p_admin_note
     WHERE id = p_report_id;
+    -- 감사로그 (악성신고 반려, 2026-06-28 B4)
+    INSERT INTO public.admin_logs (admin_id, action, target_type, target_id, details)
+    VALUES (v_admin_id, 'report_dismiss', v_report.target_type, v_report.target_id,
+            jsonb_build_object('report_id', p_report_id, 'note', p_admin_note));
     RETURN;
   END IF;
 
@@ -264,6 +268,13 @@ BEGIN
   WHERE target_type = v_report.target_type
     AND target_id = v_report.target_id
     AND status = 'pending';
+
+  -- 감사로그 (신고 처리 — 콘텐츠 숨김/복원·사용자 정지 책임추적, 2026-06-28 B4)
+  INSERT INTO public.admin_logs (admin_id, action, target_type, target_id, details)
+  VALUES (v_admin_id,
+          CASE WHEN p_action = 'remove' THEN 'report_remove' ELSE 'report_keep' END,
+          v_report.target_type, v_report.target_id,
+          jsonb_build_object('report_id', p_report_id, 'action', p_action, 'note', p_admin_note));
 END;
 $$;
 
