@@ -934,12 +934,14 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   // 크리에이터 여부 — 영상 1개 이상 업로드한 사용자만 판매(크리에이터) 탭 노출
   const isCreator = myProducts.length > 0;
 
-  // 구독 등급 표시용 메타
-  const tierMeta = {
+  // 구독 등급 표시용 메타. 'basic'은 예약 티어(판매 경로 없음).
+  // 알 수 없는 tier 값이 와도 free 로 폴백 → tierMeta.icon 크래시 방지.
+  const tierMetaMap = {
     free: { label: 'FREE', color: 'from-gray-500 to-gray-600', icon: User, desc: t("mypage.subscription.freeDesc") },
     basic: { label: 'BASIC', color: 'from-[#6366f1] to-[#8b5cf6]', icon: Sparkles, desc: t("mypage.subscription.basicDesc") },
     premium: { label: 'PREMIUM', color: 'from-amber-500 to-orange-500', icon: Crown, desc: t("mypage.subscription.premiumDesc") },
-  }[subscriptionTier];
+  };
+  const tierMeta = tierMetaMap[subscriptionTier] ?? tierMetaMap.free;
   const TierIcon = tierMeta.icon;
 
   // 사용자가 비크리에이터인데 sales 탭이 활성화돼 있으면 profile로 리다이렉트

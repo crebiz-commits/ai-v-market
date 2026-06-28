@@ -11,6 +11,8 @@ interface User {
   created_at?: string;
 }
 
+// 'basic'은 예약된 중간 티어(광고 노출 + 5초 스킵). 현재 판매 경로 없음 — free/premium 2단 운영.
+// 광고 스킵 로직(ProductDetail)은 이미 구현돼 있어, 향후 구독 상품만 열면 활성화됨.
 type SubscriptionTier = 'free' | 'basic' | 'premium';
 
 interface Profile {
