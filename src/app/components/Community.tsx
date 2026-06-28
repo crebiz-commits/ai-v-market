@@ -353,7 +353,6 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
   const { user, isAuthenticated, profile } = useAuth();
-  const isPremium = profile?.subscription_tier === "premium"; // 프리미엄=광고 없음
   const localeTag = isKo ? "ko-KR" : "en-US";
   const [activeTab, setActiveTab] = useState("posts");
   // 외부에서 특정 탭으로 진입 (예: 시네마 콘테스트 공모전 배너 → 챌린지 탭)
@@ -968,9 +967,10 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                   <p>{isKo ? "이 카테고리의 글이 아직 없어요." : "No posts in this category yet."}</p>
                 </div>
               )}
-              {/* 외부 광고(AdSense/애드핏) — 비프리미엄만, 미설정 시 운영에선 null (활성화 시 노출) */}
-              {/* AdFit 정책: 광고 외곽 라운딩·변형 금지 → rounded 제거(직각). */}
-              {!isPremium && <ExternalAdSlot index={0} className="mb-1" />}
+              {/* 외부 노출광고(애드핏/애드센스) — 프리미엄 포함 전체 노출(미설정 시 운영에선 null).
+                  ※ 프리미엄의 "광고 제거"는 영상 재생 광고(프리롤/미드롤)에만 적용 — ProductDetail.tsx.
+                  AdFit 정책: 광고 외곽 라운딩·변형 금지 → rounded 제거(직각). */}
+              <ExternalAdSlot index={0} className="mb-1" />
               <AnimatePresence initial={false}>
                 {visiblePosts.map((post) => (
                   <motion.div
