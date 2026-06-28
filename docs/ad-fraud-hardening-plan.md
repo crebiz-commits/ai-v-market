@@ -1,5 +1,10 @@
 # 🛡️ 광고 노출/클릭 사기 방어 강화 계획 (#2 — 홈피드 감사 잔여)
 
+> **✅ 구현됨 2026-06-28** — 설계대로 Edge 기반 전환 완료. DB: `ad_fraud_hardening_edge_20260628.sql`
+> (IP다양성 가드 `ad_event_guard` + 집계 RPC anon 회수 + VAST `track_video_ad_event` dedup + `advertiser_create_ad` 생성한도).
+> Edge: `POST /server/ad-event`(신뢰 IP+auth.uid 식별) + VAST exp 6h→30분. 프론트: `src/app/utils/adEvent.ts`(DiscoveryFeed·adFetch 재배선).
+> **적용 필요:** SQL Run + `supabase functions deploy server --no-verify-jwt`. (배포 전까지는 raw RPC anon 회수로 집계 일시중단 가능 — 자체광고 OFF라 무영향.)
+>
 > 작성 2026-06-20. **광고 결제(토스) 라이브 전 반드시 처리.** 지금은 자체광고 OFF·과금 전이라 실손해 0.
 > 관련: [`launch-checklist.md`](launch-checklist.md), 홈피드 감사(#1·#5는 처리됨), `supabase/ad_charge_dedup_phase3_20260614.sql`.
 

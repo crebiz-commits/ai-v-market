@@ -814,6 +814,66 @@ app.get("/videos/my-videos", async (c) => {
 });
 
 // ============================================
+// 광고 이벤트 집계 (ad-fraud 방어 — Edge 경유)
+// ============================================
+// 클라가 raw RPC(increment_ad_*, record_ad_*) 대신 이 엔드포인트 호출.
+// 신뢰 IP + 로그인 식별(auth.uid) + IP 다양성 레이트리밋 후 service_role 로 집계 RPC 실행.
+// (raw RPC 는 ad_fraud_hardening_edge_20260628.sql 로 anon 회수됨 → 클라 직접호출 불가)
+app.post("/ad-event", async (c: any) => {
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const { ad_id, type, video_id, format, position_seconds, completed, skipped, viewer_key } = body || {};
+    if (!ad_id || !type) return c.json({ error: "ad_id, type required" }, 400);
+    const VALID = ["feed_impression", "feed_click", "video_impression", "video_click"];
+    if (!VALID.includes(type)) return c.json({ error: "invalid type" }, 400);
+
+    const supabaseAdmin = getSupabaseClient(true);
+
+    // 식별키: 로그인 = auth.uid(위조 불가) → 'u:'+uid, 익명 = 클라 세션키 → 'a:'+key
+    let key: string | null = null;
+    const token = c.req.header("Authorization")?.split(" ")[1];
+    if (token) {
+      try {
+        const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+        if (user) key = "u:" + user.id;
+      } catch { /* 익명 폴백 */ }
+    }
+    if (!key) {
+      const sk = String(viewer_key || "").trim();
+      if (sk) key = "a:" + sk;
+    }
+    if (!key) return c.json({ status: "nokey" });  // 식별 불가 → 집계 skip(과금 안전)
+
+    const ip = (c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "").split(",")[0].trim() || null;
+
+    // IP 다양성 레이트리밋(익명 키회전 차단). 로그인('u:')은 통과. 가드 오류는 fail-open.
+    try {
+      const { data: ok } = await supabaseAdmin.rpc("ad_event_guard", { p_ad_id: ad_id, p_viewer_key: key, p_ip: ip });
+      if (ok === false) return c.json({ status: "ratelimited" });
+    } catch (e) { console.error("ad_event_guard 에러:", e); }
+
+    // 기존 과금 RPC를 service_role 로 호출(식별키를 p_viewer_key 로 전달 → 내부 dedup/과금 정합)
+    if (type === "feed_impression") {
+      await supabaseAdmin.rpc("increment_ad_impressions", { ad_id, p_viewer_key: key, p_video_id: video_id || null });
+    } else if (type === "feed_click") {
+      await supabaseAdmin.rpc("increment_ad_clicks", { ad_id, p_viewer_key: key });
+    } else if (type === "video_impression") {
+      await supabaseAdmin.rpc("record_ad_impression", {
+        p_ad_id: ad_id, p_video_id: video_id, p_format: format || "preroll",
+        p_position_seconds: position_seconds ?? null, p_completed: completed ?? false,
+        p_skipped: skipped ?? false, p_viewer_key: key,
+      });
+    } else if (type === "video_click") {
+      await supabaseAdmin.rpc("record_ad_click", { p_ad_id: ad_id, p_video_id: video_id, p_format: format || "preroll" });
+    }
+    return c.json({ status: "ok" });
+  } catch (e: any) {
+    console.error("ad-event 에러:", e);
+    return c.json({ error: "ad-event 처리 오류" }, 500);
+  }
+});
+
+// ============================================
 // 비디오 광고 (House Ads MVP — Phase 2)
 // ============================================
 
@@ -886,7 +946,7 @@ async function handleVastTag(c: any, sourceVideoId: string) {
     // → Mixed Content 차단으로 IMA SDK가 VAST 거부하던 문제 수정
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const trackBase = `${supabaseUrl}/functions/v1/server/vast-track`;
-    const vastExp = Math.floor(Date.now() / 1000) + 6 * 3600; // 6시간 유효
+    const vastExp = Math.floor(Date.now() / 1000) + 30 * 60; // 30분 유효(반복 GET 재과금 창 단축, ad-fraud)
     const vastSig = await vastSign(ad.id, sourceVideoId || '', vastExp);
     const trackParams = new URLSearchParams({
       ad_id: ad.id,

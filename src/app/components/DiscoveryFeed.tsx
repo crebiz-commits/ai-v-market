@@ -6,7 +6,7 @@ import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
-import { getViewerSessionKey } from "../utils/sessionKey";
+import { sendAdEvent } from "../utils/adEvent";
 import { useAuth } from "../contexts/AuthContext";
 import { CommentPanel } from "./CommentPanel";
 import { ShareModal } from "./ShareModal";
@@ -201,7 +201,7 @@ const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) 
 
   const handleClick = async () => {
     try {
-      try { await supabase.rpc("increment_ad_clicks", { ad_id: ad.id, p_viewer_key: getViewerSessionKey() }); } catch {}
+      try { await sendAdEvent("feed_click", ad.id); } catch {}
     } catch {}
     openAdLinkSafe(ad.link_url);
   };
@@ -1071,7 +1071,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
 
   // 노출 트래킹 — 세션키 전달(서버 dedup: 광고·뷰어·1시간 1회 과금)
   const handleAdImpression = useCallback(async (adId: string) => {
-    try { await supabase.rpc("increment_ad_impressions", { ad_id: adId, p_viewer_key: getViewerSessionKey() }); } catch {}
+    try { await sendAdEvent("feed_impression", adId); } catch {}
   }, []);
 
   // 영상 목록에 광고를 interval_count마다 삽입하여 피드 아이템 배열 생성
@@ -1631,7 +1631,7 @@ const DesktopAdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: s
   }, [ad.id, onImpression]);
 
   const handleClick = async () => {
-    try { await supabase.rpc("increment_ad_clicks", { ad_id: ad.id, p_viewer_key: getViewerSessionKey() }); } catch {}
+    try { await sendAdEvent("feed_click", ad.id); } catch {}
     openAdLinkSafe(ad.link_url);
   };
 

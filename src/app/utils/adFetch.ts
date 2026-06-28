@@ -2,7 +2,7 @@
 // AdminDashboard에 등록된 광고 중 ads.format / target_tiers / target_categories /
 // min_video_duration_sec / 활성 상태 / 예산 잔액으로 필터링한 1개를 RPC로 받음.
 import { supabase } from "./supabaseClient";
-import { getViewerSessionKey } from "./sessionKey";
+import { sendAdEvent } from "./adEvent";
 
 export type AdFormat = "feed" | "preroll" | "midroll" | "overlay" | "postroll" | "bumper";
 
@@ -63,30 +63,17 @@ export async function recordAdImpression(
   opts?: { positionSeconds?: number; completed?: boolean; skipped?: boolean },
 ) {
   if (!adId || !videoId) return;
-  try {
-    await supabase.rpc("record_ad_impression", {
-      p_ad_id: adId,
-      p_video_id: videoId,
-      p_format: format,
-      p_position_seconds: opts?.positionSeconds ?? null,
-      p_completed: opts?.completed ?? false,
-      p_skipped: opts?.skipped ?? false,
-      p_viewer_key: getViewerSessionKey(),   // 예산광고 dedup·과금 정합용
-    });
-  } catch (err) {
-    console.warn(`[ad ${format}] impression error:`, err);
-  }
+  // Edge /ad-event 경유(신뢰 IP + 로그인 식별 + IP다양성). raw RPC 는 anon 회수됨.
+  await sendAdEvent("video_impression", adId, {
+    videoId,
+    format,
+    positionSeconds: opts?.positionSeconds ?? null,
+    completed: opts?.completed ?? false,
+    skipped: opts?.skipped ?? false,
+  });
 }
 
 export async function recordAdClick(adId: string, videoId: string, format: AdFormat) {
   if (!adId || !videoId) return;
-  try {
-    await supabase.rpc("record_ad_click", {
-      p_ad_id: adId,
-      p_video_id: videoId,
-      p_format: format,
-    });
-  } catch (err) {
-    console.warn(`[ad ${format}] click error:`, err);
-  }
+  await sendAdEvent("video_click", adId, { videoId, format });
 }
