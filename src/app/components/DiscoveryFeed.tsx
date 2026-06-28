@@ -1262,6 +1262,26 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
         </div>
       )}
 
+      {/* 모바일 칩 필터 바 — 데스크탑은 헤더에 칩이 있으나 모바일엔 진입점이 없던 것 보강(B1, 2026-06-28).
+          상단 상시 노출, 가로 스크롤. setChip 은 데스크탑과 동일 state 공유. */}
+      <div className="md:hidden shrink-0 bg-[#0a0a0a] border-b border-white/5">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar px-3 py-2">
+          {HOME_CHIPS.map((c) => (
+            <button
+              key={c.key}
+              onClick={() => setChip(c.key)}
+              className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-colors border ${
+                chip === c.key
+                  ? "bg-white text-black border-white"
+                  : "bg-white/5 text-white/60 border-white/10"
+              }`}
+            >
+              {isKo ? c.ko : c.en}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* SEO + Google OAuth 브랜딩 인증용 약관 링크 (시각적 노출 X, 봇 인식 O)
           DiscoveryFeed 가 첫 화면이고 푸터가 없어서 약관 링크가 노출 안 됨 → 추가 */}
       <nav aria-label="법적 고지" className="sr-only">
