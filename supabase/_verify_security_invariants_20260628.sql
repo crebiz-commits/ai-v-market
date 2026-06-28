@@ -90,7 +90,9 @@ SELECT * FROM (
     'FAIL시 get_home_feed_safe_columns_20260620.sql 재적용(SETOF v_home_feed_public 여야)'
 
   UNION ALL
-  -- 7) admin_* / get_admin_* SECURITY DEFINER 함수가 모두 권한게이트(assert_admin/is_admin)를 가지는가
+  -- 7) admin_* / get_admin_* SECURITY DEFINER 함수가 모두 보호되는가
+  --    보호 = 본문 assert_admin/is_admin 게이트 OR EXECUTE 권한 회수(service_role 전용).
+  --    anon/authenticated 가 실행 가능한데 본문 게이트도 없는 함수만 FAIL.
   SELECT 7,
     'admin_* 함수 권한게이트 누락 0건',
     CASE WHEN count(*) = 0 THEN '✅ PASS' ELSE '🔴 FAIL: '||count(*)||'개' END,
@@ -100,6 +102,9 @@ SELECT * FROM (
     AND (p.proname LIKE 'admin\_%' ESCAPE '\' OR p.proname LIKE 'get\_admin\_%' ESCAPE '\')
     AND pg_get_functiondef(p.oid) NOT LIKE '%assert_admin%'
     AND pg_get_functiondef(p.oid) NOT LIKE '%is_admin%'
+    -- service_role 전용(anon/authenticated 실행 불가)이면 안전 → 제외
+    AND (has_function_privilege('anon', p.oid, 'EXECUTE')
+         OR has_function_privilege('authenticated', p.oid, 'EXECUTE'))
 
   UNION ALL
   -- 8) 인가 SSOT 함수 존재
