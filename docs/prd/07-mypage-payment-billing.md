@@ -267,3 +267,483 @@
 - **basic 티어**: tierMeta에 정의되어 있으나 현재 요금제는 free/premium 2단(`SubscriptionPage.tsx`). basic 활성 경로 미구현.
 - **search_path 누락**: phase17/phase18 RPC 일부에 `SET search_path` 미지정(타 마이그레이션은 명시) — 하드닝 보강 후보.
 - **2026-06-16 교훈**(MEMORY): 외부·지역 사실(수수료·세율·정책)은 단정 금지, 최신값 검증 우선.
+
+---
+
+## 와이어프레임 (텍스트 목업)
+
+### 마이페이지 — 프로필 탭 (`MyPage.tsx:1329-1456`)
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  [배너 이미지]                                        [프로필 편집]│
+│   (●아바타)  홍길동  creator@creaite.net   [CREATOR]            │
+├──────────────────────────────────────────────────────────────┤
+│  ┌── 구독 상태 ─────────────────────────────────────────────┐ │
+│  │ [PREMIUM] 프리미엄 회원                                    │ │
+│  │ 다음 결제일: 2026-07-25  (만료까지 27일)                   │ │
+│  │ ⚠ 만료 임박 (D-7 이내일 때 강조)                          │ │
+│  │                                    [ 구독 연장/관리 → ]   │ │
+│  └──────────────────────────────────────────────────────────┘ │
+│  ┌── 계정 정보 ───────────┐  ┌── 빠른 링크 ─────────────────┐ │
+│  │ 이메일  creator@…       │  │ ▸ 멤버십 관리                │ │
+│  │ 이름    홍길동          │  │ ▸ 고객센터                   │ │
+│  │ 유형    [CREATOR]       │  │ ▸ 설정                       │ │
+│  └────────────────────────┘  └──────────────────────────────┘ │
+│  ┌── 정산 계좌 (크리에이터 전용) ───────────────────────────┐ │
+│  │ 국민은행  123456-**-****  홍길동                          │ │
+│  │                                  [ 등록/변경 → 모달 ]    │ │
+│  └──────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────┘
+탭: [프로필][구매내역][판매][댓글관리][시청기록][플레이리스트][설정]
+```
+
+### 정산 계좌 모달 (`PayoutInfoModal.tsx`)
+
+```
+┌──────────── 정산 계좌 등록 ─────────────┐
+│  은행        [ 국민은행        ▼ ]      │  ← 22종 드롭다운
+│  계좌번호    [ 12345678901      ]       │  ← 숫자 6자리 이상
+│  예금주      [ 홍길동           ]       │
+│  ──────────────────────────────────────│
+│  ⓘ 정산은 매월 15일, 최소 ₩10,000부터  │
+│              [ 취소 ]   [ 저장 ]        │  ← 조건 미충족 시 비활성
+└─────────────────────────────────────────┘
+```
+
+### 세금 정보 섹션 (`TaxInfoSection.tsx`, 설정 탭)
+
+```
+┌──────────── 세금 정보 ────────────────────────────┐
+│ 세금 유형                                          │
+│  (◉) 비사업자 (원천징수 3.3%)                      │
+│  ( ) 간이과세 사업자                               │
+│  ( ) 일반과세 사업자                               │
+│  ( ) 법인 사업자                                   │
+│ ─ 사업자 선택 시 펼침 ────────────────────────────│
+│  사업자등록번호 [ 123-45-67890 ]  ← 숫자 10자리    │
+│  상호           [ (주)크레비즈   ]                 │
+│  세금계산서 이메일 [ tax@…        ]                │
+│ ──────────────────────────────────────────────────│
+│  [✓ 등록 완료]  동의일 2026-06-01    [ 저장 ]      │
+└────────────────────────────────────────────────────┘
+```
+
+### 결제 내역 섹션 (`MyPaymentsSection.tsx`, 설정 탭)
+
+```
+┌──────────── 결제 내역 ─────────────────────────────────────┐
+│ 2026-06-20  프리미엄 구독   ₩4,900  [완료]    [환불 요청]   │ ← ≤7일
+│ 2026-06-10  라이선스 구매   ₩50,000 [완료]    (7일 초과,    │
+│                                                버튼 없음)   │
+│ 2026-06-18  광고 예산 충전  ₩30,000 [검토 중] 사유: 단순변심│ ← refund_requested
+│ 2026-05-30  프리미엄 구독   ₩4,900  [환불됨]                │
+│ 2026-05-12  라이선스 구매   ₩20,000 [실패]   사유: 한도초과 │
+└────────────────────────────────────────────────────────────┘
+배지색: 완료=초록 대기=노랑 실패=빨강 환불됨=회색 검토중=주황
+```
+
+### 레퍼럴 / 시청기록 / 플레이리스트 / 차단 (설정 및 전용 탭)
+
+```
+[설정 탭]                          [시청기록 탭]
+┌── 레퍼럴 카드 ──────────┐        ┌──────────────────────────┐
+│ 내 추천코드  CR-AB12      │        │ 영상A  2026-06-24  [삭제] │
+│ 가입 3명 · 적립 ₩X        │        │ 영상B  2026-06-23  [삭제] │
+│ [코드 복사] [공유]        │        │            [ 전체 삭제 ] │
+└──────────────────────────┘        └──────────────────────────┘
+[플레이리스트 탭]                   [차단 관리 (설정 탭)]
+┌──────────────────────────┐        ┌──────────────────────────┐
+│ 📌 나중에 볼 영상 (삭제X)  │        │ user_xyz       [차단해제] │
+│ 내 모음집 1     [삭제]     │        │ user_abc       [차단해제] │
+│  └ 영상 목록 [개별 제거]   │        └──────────────────────────┘
+└──────────────────────────┘
+```
+
+### 구독 페이지 (`SubscriptionPage.tsx`)
+
+```
+┌──────────────── 멤버십 ────────────────┐
+│ ┌── FREE ──────┐   ┌── PREMIUM ──────┐ │
+│ │ ₩0           │   │ ₩4,900 / 월     │ │
+│ │ • 광고 시청   │   │ • 광고 없음      │ │
+│ │ • 기본 화질   │   │ • 시네마/OTT 무제한│ │
+│ │              │   │ • 고화질         │ │
+│ │  [현재 등급]  │   │ [✓] 자동결제 동의 │ │  ← 미동의 시 버튼 비활성
+│ │              │   │ [ 구독하기 ]     │ │
+│ └──────────────┘   └─────────────────┘ │
+│ ── 현재 자동결제 상태 (프리미엄 회원) ──│
+│  카드  국민카드 ****1234                 │
+│  자동결제  [ ON ●——○ OFF ]  토글        │
+│  다음 결제  2026-07-25                   │
+│  문의: support@creaite.net               │
+└──────────────────────────────────────────┘
+```
+
+### 결제 결과 화면 (`PaymentResult.tsx` / `BillingResult.tsx`)
+
+```
+[단건 결제 ?payment=success]        [실패 ?payment=fail]
+┌──────────────────────────┐        ┌──────────────────────────┐
+│   ⏳ 결제 확인 중…         │        │   ❌ 결제 실패            │
+│   (toss-confirm 호출)      │        │   사유: 카드 한도 초과    │
+│        ↓                   │        │   [ 다시 시도 ] [ 홈 ]   │
+│   ✅ 결제 완료!            │        └──────────────────────────┘
+│   프리미엄 활성화 (30일)   │
+│   영수증 메일 발송됨        │        [자동결제 카드등록 ?billing=success]
+│   [ 마이페이지 ] [ 홈 ]   │        │ ⏳ 카드 등록 처리 중…     │
+└──────────────────────────┘        │ (billing-auth-confirm,    │
+                                     │  authKey URL 즉시 제거)   │
+                                     │ ✅ 자동결제 등록 완료     │
+```
+
+---
+
+## 시퀀스 다이어그램
+
+### 단건 결제 (start_payment → 토스 → toss-confirm → confirm_payment, 멱등)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 사용자
+    participant C as Client (usePayment.ts)
+    participant DB as Supabase RPC
+    participant T as 토스 SDK/API
+    participant E as Edge toss-confirm
+    U->>C: 결제 클릭 (구독/라이선스/광고)
+    C->>DB: start_payment(type, amount, target_id)
+    Note over DB: 서버측 금액검증<br/>pending 행 + order_id 발급
+    DB-->>C: order_id
+    C->>T: requestPayment(카드, {amount, orderId, successUrl, failUrl})
+    T-->>U: 토스 결제창
+    U->>T: 카드 인증/승인
+    T-->>C: redirect ?payment=success&paymentKey&orderId&amount
+    C->>E: POST /toss-confirm {orderId, paymentKey, amount}
+    E->>DB: payments 조회 (amount,status)
+    alt 금액 불일치
+        E-->>C: 400 변조 차단
+    else status=completed (멱등)
+        E-->>C: alreadyProcessed:true
+    else status≠pending
+        E-->>C: 400 잘못된 상태
+    else 정상 pending
+        E->>T: POST /v1/payments/confirm
+        alt 토스 실패
+            E->>DB: fail_payment(order_id, code, reason)
+            E-->>C: 400 실패
+        else 토스 성공
+            E->>DB: confirm_payment(...)
+            Note over DB: completed 갱신 + 권한부여<br/>(구독 +30일 GREATEST / orders / ad budget)
+            alt DB 갱신 실패
+                E-->>C: 500 "승인됐으나 DB실패, 고객센터"
+            else 성공
+                E-->>C: 200 success
+                C-->>U: 완료 화면 + 영수증 메일
+            end
+        end
+    end
+```
+
+### 자동결제 설정 (billing-auth-confirm: 빌링키 + 첫 결제)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 사용자
+    participant C as Client (usePayment.ts)
+    participant T as 토스 SDK/API
+    participant E as Edge billing-auth-confirm
+    participant DB as Supabase RPC
+    U->>C: 구독하기 (자동결제 동의 체크)
+    C->>T: requestBillingAuth(카드, {customerKey:user.id, successUrl:?billing=success, failUrl})
+    T-->>U: 카드 등록창
+    U->>T: 카드 등록
+    T-->>C: redirect ?billing=success&authKey&customerKey
+    Note over C: BillingResult: authKey URL 즉시 제거<br/>processedRef 가드 (이중청구 방지)
+    C->>E: POST /billing-auth-confirm {authKey, customerKey} (Bearer)
+    E->>E: 토큰 인증 + customerKey==user.id 검증
+    E->>DB: 최근 청구 조회 (3분 멱등성 창)
+    alt 3분 이내 청구 존재
+        E-->>C: 재청구 차단
+    else
+        E->>T: authKey → billingKey 발급
+        E->>DB: 금액 정책 조회 (subscription_price_krw)
+        E->>T: 빌링키로 첫 결제
+        E->>DB: billing_apply_charge(...)
+        Note over DB: 구독 +30일 + billing_subscriptions upsert<br/>(card_last4, next_charge_at, fail_count=0)
+        E-->>C: 200 자동결제 등록 완료
+        C-->>U: 완료 화면
+    end
+```
+
+### 정기 청구 (billing-run cron)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Cron as pg_cron (billing-run-daily 02:00 UTC)
+    participant E as Edge billing-run
+    participant DB as Supabase RPC
+    participant T as 토스 빌링 API
+    Cron->>E: POST /billing-run (헤더 x-cron-secret)
+    E->>E: 시크릿 검증
+    E->>DB: billing_claim_due(limit=200, due_before=now+1day)
+    Note over DB: FOR UPDATE SKIP LOCKED<br/>charging_at 갱신(원자 claim)<br/>15분 staleness 복구
+    DB-->>E: 대상 목록 [{user_id, billing_key, customer_key, amount}]
+    loop 각 대상
+        E->>T: POST /v1/billing/{billingKey} (orderId 생성)
+        alt 청구 성공
+            E->>DB: billing_apply_charge(...) → 구독 +30일
+        else 청구 실패
+            E->>DB: billing_mark_failed(user_id, reason)
+            Note over DB: fail_count+1, 3회↑ status=failed<br/>+ auto_renew=false
+        end
+    end
+    E-->>Cron: {charged, failed, total}
+```
+
+### 환불 (request_refund → admin Edge → admin_refund_payment)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 사용자
+    participant Cs as Client (MyPaymentsSection)
+    participant DB as Supabase RPC
+    participant A as 관리자
+    participant Ca as Admin Client
+    participant E as Edge refund-payment
+    participant T as 토스 cancel API
+    U->>Cs: 환불 요청 (사유 ≥2자)
+    Cs->>Cs: 7일 초과 선차단 (approved_at?? created_at)
+    Cs->>DB: request_refund(payment_id, reason)
+    Note over DB: 소유검증, completed만, 7일 검증<br/>status→refund_requested
+    DB-->>U: 검토 중 배지
+    A->>Ca: 어드민 화면에서 환불 승인
+    Ca->>E: POST /refund-payment (Bearer 어드민)
+    E->>E: profiles.is_admin 확인
+    E->>T: payment_key로 토스 cancel
+    alt 토스 cancel 성공
+        E->>DB: admin_refund_payment(payment_id, note)
+        Note over DB: status→refunded, 권한 회수<br/>(구독→free+billing auto_renew=false)<br/>admin_logs 기록, 정산겹침 경고
+        E-->>A: 200 (+ 정산겹침 경고)
+    else 토스만 성공 / DB 실패
+        E-->>A: toss_canceled:true + 운영팀 알림
+    end
+```
+
+### 정산 계좌 등록 (update_my_payout_info)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 크리에이터
+    participant M as PayoutInfoModal
+    participant DB as Supabase RPC
+    participant MP as MyPage
+    U->>M: 은행/계좌번호/예금주 입력
+    M->>M: 제출조건 검증 (은행+6자리+예금주)
+    M->>DB: update_my_payout_info(bank, account, holder)
+    Note over DB: SECURITY DEFINER로 protect 트리거 우회<br/>profiles.payout_info JSONB 저장
+    DB-->>M: 성공 JSONB
+    M->>MP: onSaved()
+    MP->>DB: get_my_payout_info()
+    DB-->>MP: payout_info
+    MP-->>U: 정산계좌 카드 갱신
+```
+
+---
+
+## API / RPC / Edge 레퍼런스
+
+### 본인 조회/수정 RPC (GRANT authenticated, auth.uid() 기준)
+
+| 이름 | 인자 | 반환 | 권한 | file:line |
+|---|---|---|---|---|
+| `get_my_payout_info` | (없음) | `JSONB` (payout_info) | authenticated, DEFINER | `phase_security_hardening_20260531.sql:30-39` |
+| `update_my_payout_info` | `p_bank_name TEXT, p_account_number TEXT, p_account_holder TEXT` | `JSONB` | authenticated, DEFINER (protect 우회) | `phase_payout_info.sql:20-68` |
+| `get_my_tax_info` | (없음) | `TABLE(tax_type, business_number, business_name, tax_invoice_email, tax_consent_at)` | authenticated | `phase32_tax_withholding.sql:125-152` |
+| `update_my_tax_info` | `p_tax_type TEXT, p_business_number TEXT=NULL, p_business_name TEXT=NULL, p_tax_invoice_email TEXT=NULL` | `VOID` | authenticated | `phase32_tax_withholding.sql:157-195` |
+| `get_my_payments` | `p_limit INTEGER=50, p_offset INTEGER=0` | `TABLE(id, order_id, payment_type, target_id, amount, method, status, approved_at, created_at, failure_reason, refund_reason, refund_requested_at)` | authenticated | `phase_user_payment_history.sql:48-97` |
+| `request_refund` | `p_payment_id BIGINT, p_reason TEXT` | `VOID` | authenticated (소유+7일 검증) | `phase_user_payment_history.sql:117-176` |
+| `get_my_billing` | (없음) | `TABLE(card_company, card_last4, auto_renew, status, amount, next_charge_at)` | authenticated (billing_key 제외) | `billing_subscriptions_20260612.sql:36-51` |
+| `set_my_auto_renew` | `p_on BOOLEAN` | `void` | authenticated | `billing_subscriptions_20260612.sql:54-65` |
+
+### 결제 코어 RPC
+
+| 이름 | 인자 | 반환 | 권한 | file:line |
+|---|---|---|---|---|
+| `start_payment` | `p_payment_type TEXT, p_amount INTEGER, p_target_id TEXT=NULL` | `TEXT` (order_id) | authenticated, DEFINER, 서버 금액검증 | `start_payment_ad_owner_20260624.sql:15-67` |
+| `confirm_payment` | `p_order_id TEXT, p_payment_key TEXT, p_method TEXT, p_approved_at TIMESTAMPTZ, p_raw_response JSONB` | `VOID` | DEFINER (멱등, pending→completed) | `phase9_payments.sql:143-223` |
+| `fail_payment` | `p_order_id TEXT, p_failure_code TEXT, p_failure_reason TEXT` | `VOID` | DEFINER (pending만 갱신) | `phase9_payments.sql:231-249` |
+| `admin_refund_payment` | `p_payment_id BIGINT, p_admin_note TEXT=NULL` | `TEXT` (정산겹침 경고) | assert_admin() | `refund_cancel_billing_20260614.sql:9-93` |
+| `admin_get_all_payments` | `p_status='all', p_payment_type='all', p_limit=100, p_offset=0` | `TABLE(...)` | assert_admin, STABLE | `phase_admin_payments_refund_reason.sql:22-77` |
+| `mark_revenue_paid` | `p_distribution_id BIGINT` | `VOID` | 내부 assert_admin (3.3% 원천징수) | `phase32_tax_withholding.sql:64-118` |
+
+### 빌링 코어 RPC (service_role 한정 — Edge 전용)
+
+| 이름 | 인자 | 반환 | 권한 | file:line |
+|---|---|---|---|---|
+| `billing_claim_due` | `p_limit=200, p_due_before=now()` | `TABLE(user_id, billing_key, customer_key, amount)` | service_role (REVOKE public/anon/authenticated), FOR UPDATE SKIP LOCKED | `billing_claim_due_20260616.sql:14-33` |
+| `billing_apply_charge` | `p_user_id, p_billing_key, p_customer_key, p_card_company, p_card_last4, p_amount, p_order_id, p_payment_key, p_approved_at, p_raw` | `void` | service_role (멱등, 구독 +30일) | `billing_charge_rpcs_20260612.sql:8-68` |
+| `billing_mark_failed` | `p_user_id, p_reason` | `void` | service_role (fail_count+1, 3회↑ 중단) | `billing_charge_rpcs_20260612.sql:71-92` |
+
+### Edge Function (`supabase/functions/server/index.ts`)
+
+| 엔드포인트 | 인자(body/header) | 반환 | 권한 | file:line |
+|---|---|---|---|---|
+| `POST /toss-confirm` | `{orderId, paymentKey, amount}` | `{success, message, alreadyProcessed?}` / 4xx·5xx | anon apikey (+선택 Bearer), service_role 처리 | `server/index.ts:1046-1157` |
+| `POST /billing-auth-confirm` | `{authKey, customerKey}`, Bearer | `{success}` / 4xx·5xx | Bearer 필수, customerKey==user.id, 3분 멱등 | `server/index.ts:1163-1246` |
+| `POST /billing-run` | header `x-cron-secret` | `{charged, failed, total}` | cron 시크릿 (BILLING_CRON_SECRET) | `server/index.ts:1252-1302` |
+| `POST /refund-payment` | (어드민 body), Bearer | `{success, ...정산겹침/toss_canceled}` | Bearer + profiles.is_admin | `server/index.ts:1833-1937` |
+
+### 클라이언트 훅 / 호출부
+
+| 함수 | 역할 | file:line |
+|---|---|---|
+| `usePayment.startTossPayment` | start_payment → 토스 requestPayment | `usePayment.ts:29-61` |
+| `usePayment.startAutoBilling` / `startBillingAuth` | requestBillingAuth (빌링키 등록) | `usePayment.ts:64-78, 139-142` |
+| `PaymentResult` | toss-confirm 호출 + 영수증 메일 | `PaymentResult.tsx:102-129` |
+| `BillingResult` | billing-auth-confirm 호출 + 멱등 가드 | `BillingResult.tsx:28-55` |
+
+---
+
+## 테스트 케이스
+
+### 프로필 편집
+
+```gherkin
+Feature: 프로필 편집
+  Scenario: 이름·소개·아바타 저장
+    Given 로그인한 사용자가 프로필 편집 모달을 연다
+    When 이름과 소개를 수정하고 2MB 이하 아바타를 업로드한 뒤 저장한다
+    Then auth.updateUser({data:{name}})와 profiles upsert가 호출되고
+    And 아바타 URL에 캐시버스터 ?t= 가 붙어 즉시 반영된다
+
+  Scenario: 이메일 변경은 이메일 계정만 가능
+    Given OAuth(구글) 로그인 사용자
+    When 프로필 편집을 연다
+    Then 이메일 변경 필드가 노출되지 않는다 (identities provider!='email')
+
+  Scenario: 비밀번호 6자 미만 거부
+    When 비밀번호를 "12345"로 입력한다
+    Then 6자 이상·일치 검증에 막혀 저장되지 않는다
+```
+
+### 정산 계좌
+
+```gherkin
+Feature: 정산 계좌 등록
+  Scenario: 정상 저장
+    Given 크리에이터(영상 1개 이상)
+    When 은행 선택 + 계좌번호 11자리 + 예금주 입력 후 저장
+    Then update_my_payout_info가 호출되고 정산계좌 카드가 갱신된다
+
+  Scenario Outline: 입력 검증 거부
+    When <필드>를 <값>으로 두고 제출을 시도한다
+    Then 저장 버튼이 비활성이거나 RPC가 거부한다
+    Examples:
+      | 필드     | 값        |
+      | 계좌번호 | 12345 (5자리) |
+      | 은행     | (미선택)  |
+      | 예금주   | (빈값)    |
+```
+
+### 결제 (단건)
+
+```gherkin
+Feature: 단건 결제
+  Scenario: 구독 결제 성공
+    Given start_payment로 pending payment와 order_id가 생성됨
+    When 토스 승인 후 toss-confirm이 호출된다
+    Then 금액검증 통과 → 토스 confirm → confirm_payment 실행
+    And subscription_expires_at = GREATEST(기존만료, now()) + 30일 로 누적된다
+    And subscription_receipt 영수증 메일이 발송된다
+
+  Scenario: 결제 실패 리다이렉트
+    Given ?payment=fail 로 진입
+    When fail_payment가 호출된다
+    Then 해당 order_id의 status가 failed로 기록된다 (pending만 갱신)
+```
+
+### 구독 / 자동결제
+
+```gherkin
+Feature: 구독 및 자동결제
+  Scenario: 자동결제 등록 (빌링키 발급)
+    Given 자동결제 동의 체크박스를 선택함
+    When requestBillingAuth 후 billing-auth-confirm이 호출된다
+    Then authKey로 billingKey 발급 → 첫 결제 → billing_apply_charge
+    And get_my_billing은 카드사·끝4자리만 반환하고 billing_key는 절대 노출하지 않는다
+
+  Scenario: 자동결제 OFF
+    Given 프리미엄 + 자동결제 ON 사용자
+    When set_my_auto_renew(false)를 호출한다
+    Then 다음 결제일부터 청구되지 않고 현재 구독은 만료일까지 유지된다
+
+  Scenario: 정기 청구 (cron)
+    Given 만료 1일 전인 활성 구독
+    When billing-run이 실행된다
+    Then billing_claim_due로 claim → 토스 빌링 청구 → 구독 +30일 누적
+```
+
+### 환불
+
+```gherkin
+Feature: 환불
+  Scenario: 7일 이내 환불 요청
+    Given completed 상태이고 결제 후 5일 경과한 결제
+    When 사유 2자 이상으로 환불을 요청한다
+    Then status가 refund_requested로 바뀌고 "검토 중" 배지가 뜬다
+
+  Scenario: 관리자 환불 승인
+    Given refund_requested 결제
+    When 관리자가 refund-payment Edge를 호출한다
+    Then 토스 cancel 후 admin_refund_payment로 status→refunded
+    And 구독은 free로 강등되고 billing auto_renew=false로 cron 재청구가 차단된다
+```
+
+### 엣지 케이스
+
+```gherkin
+Feature: 엣지 케이스
+  Scenario: 중복 확정 (새로고침 포함)
+    Given 이미 completed된 order_id
+    When toss-confirm이 다시 호출된다
+    Then alreadyProcessed:true로 통과하고 confirm_payment는 no-op (이중 권한부여 없음)
+
+  Scenario: 동시 청구 방지
+    Given billing-run cron이 동시에 두 번 실행됨
+    When 같은 대상을 claim하려 한다
+    Then FOR UPDATE SKIP LOCKED + charging_at 창으로 한 번만 청구된다
+
+  Scenario: DB 갱신 실패 (토스만 성공)
+    Given 토스 confirm은 성공했으나 confirm_payment RPC가 실패
+    Then 500과 함께 "승인됐으나 DB 처리 실패, 고객센터 문의" 안내가 반환된다
+
+  Scenario: 청약철회 7일 초과
+    Given 결제 후 8일 경과한 completed 결제
+    When 환불을 요청한다
+    Then 클라이언트 선차단 또는 request_refund가 7일 초과로 거부한다
+
+  Scenario: 정산 최소액
+    Given 누적 정산액이 ₩10,000 미만
+    Then 화면 가이드에 최소 정산액 ₩10,000이 표기된다
+    # 비고: SQL 정산 RPC의 최소액 강제 임계는 본 범위 미확인 (이월 항목)
+
+  Scenario: 빌링 연속 3회 실패
+    Given 자동결제 청구가 2회 연속 실패한 구독
+    When 3번째 청구도 실패한다
+    Then billing_mark_failed로 status=failed + auto_renew=false 처리되고 사용자에게 알림
+```
+
+### 수용 기준 (요약)
+
+- [ ] 모든 본인 한정 RPC가 auth.uid() 기준으로만 데이터를 반환/수정한다.
+- [ ] 구독 만료일은 항상 GREATEST로 누적되어 남은 기간이 깎이지 않는다.
+- [ ] 어떤 클라이언트 경로로도 billing_key/customer_key가 노출되지 않는다.
+- [ ] 동일 order_id 재확정 시 이중 청구·이중 권한부여가 없다.
+- [ ] 7일 초과 결제는 환불이 차단된다.
+- [ ] 비관리자 토큰의 refund-payment 호출은 403이다.
+- [ ] 비사업자 정산 확정 시 3.3% 원천징수가 기록된다.

@@ -228,3 +228,444 @@ profiles RLS SELECT는 `USING(true)`(행 전체 공개)이나, **컬럼 수준 G
 - [ ] 정지 계정 쓰기 차단 트리거 8개 부착 확인(`block_suspended_writes_20260625.sql` 검증쿼리).
 - [ ] **광고 결제 토스 라이브 전**: ad-fraud Edge 재설계 완료(§9 1·2행).
 - [ ] 신규/재구축 적용 순서: fix_protect_is_admin / fix_profiles_column_exposure 가 마지막.
+
+---
+
+## 아키텍처 다이어그램
+
+> 시스템 구성도 + 데이터 흐름. 인가 SSOT는 서버(DB DEFINER + Edge)이며 클라이언트 게이트는 비신뢰(§2.2). 모든 시크릿은 Edge env에만 존재(§6).
+
+```mermaid
+flowchart TB
+    subgraph Client["클라이언트 (비신뢰 게이트)"]
+        Web["React + Vite + TS<br/>Vercel www.creaite.net"]
+        IMA["Google IMA SDK<br/>(VAST 광고)"]
+    end
+
+    subgraph Supabase["Supabase (project tvbpiuwmvrccfnplhwer)"]
+        direction TB
+        PG[("Postgres<br/>RLS + SECURITY DEFINER RPC<br/>search_path 고정")]
+        Edge["Edge Functions (Deno/Hono)<br/>server --no-verify-jwt<br/>라우트별 자체 인증"]
+        Storage["Storage"]
+        Realtime["Realtime"]
+    end
+
+    subgraph External["외부 서비스 (시크릿은 Edge env 전용)"]
+        Bunny["Bunny Stream<br/>TUS 업로드 + Embed Token Auth<br/>TTL 페이월 강제"]
+        Toss["Toss Payments<br/>일회성 confirm + 빌링키"]
+        Resend["Resend<br/>mail.creaite.net"]
+        Anthropic["Anthropic<br/>claude-haiku-4-5 홍보문"]
+        Vision["Google Vision<br/>SafeSearch 모더레이션"]
+        WebPush["Web Push (VAPID)"]
+    end
+
+    Web -->|"anon/authenticated JWT<br/>RLS+컬럼 GRANT 화이트리스트"| PG
+    Web -->|"start_payment / verify_my_age 등<br/>DEFINER RPC"| PG
+    Web -->|"업로드 presign / toss-confirm /<br/>save-metadata / billing"| Edge
+    IMA -->|"credentials:'include'<br/>vast-tag / vast-track 무인증 픽셀"| Edge
+
+    Edge -->|"service_role (RLS 우회)<br/>confirm_payment / billing_apply_charge /<br/>update_video_moderation"| PG
+    Edge -->|"presigned TUS + SHA256 서명<br/>Embed Token (TTL 150s / 4h)"| Bunny
+    Edge -->|"/toss-confirm DB금액 대조<br/>/billing-run x-cron-secret"| Toss
+    Edge -->|"이메일 8종"| Resend
+    Edge -->|"홍보문 생성"| Anthropic
+    Edge -->|"SafeSearch 점수 → update_video_moderation"| Vision
+    Edge -->|"만료 구독 자동정리"| WebPush
+
+    Bunny -.->|"HLS 재생 (토큰 검증)"| Web
+    Realtime -.->|"실시간 구독"| Web
+    Storage -.-> Web
+```
+
+---
+
+## 시퀀스 다이어그램
+
+### (a) 신고 → 자동숨김 → 정지 스테이트머신 (§1.4)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as 사용자(reporter)
+    participant RPC as create_report() DEFINER
+    participant DB as reports / 대상테이블
+    actor A as 어드민
+    participant MR as moderate_report() assert_admin
+
+    U->>RPC: 신고 (target_type, reason)
+    RPC->>RPC: 로그인 검사 + 본인신고 차단
+    RPC->>DB: INSERT report (status=pending)
+    RPC->>DB: 같은 대상 pending COUNT
+    alt COUNT >= auto_hide_threshold(3) AND target ∈ {video,comment,community_post}
+        RPC->>DB: is_hidden = TRUE (자동 숨김)
+    else target = user
+        RPC-->>U: 자동정지 안 함 (어드민 수동)
+    end
+    Note over A,MR: 어드민 검토 단계
+    A->>MR: moderate_report(report_id, action)
+    alt action = keep
+        MR->>DB: 복원 + 같은대상 pending → reviewed_kept
+    else action = remove
+        MR->>DB: 숨김 (user면 is_suspended=true) + reviewed_removed
+    else action = dismiss
+        MR->>DB: 단건만 dismissed
+    end
+```
+
+### (b) 권한 판정 — assert_admin / is_admin (§2.2)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Caller as 호출자(클라/RLS)
+    participant RLS as RLS 정책
+    participant ISA as is_admin() SQL DEFINER
+    participant RPCBody as 어드민 RPC 본문
+    participant ASA as assert_admin() plpgsql DEFINER
+    participant P as profiles.is_admin
+
+    rect rgb(235,245,255)
+    Note over RLS,ISA: RLS 내부 경로
+    Caller->>RLS: SELECT/ALL
+    RLS->>ISA: is_admin()
+    ISA->>P: 캡슐화 조회 (컬럼 권한 불필요)
+    ISA-->>RLS: true/false
+    end
+
+    rect rgb(255,240,235)
+    Note over RPCBody,ASA: RPC 가드 경로
+    Caller->>RPCBody: 어드민 RPC 호출
+    RPCBody->>ASA: assert_admin()
+    ASA->>P: 조회
+    alt 미인증 또는 비어드민
+        ASA-->>RPCBody: EXCEPTION (중단)
+    else 어드민
+        ASA-->>RPCBody: 통과 → 본문 실행
+    end
+    end
+```
+
+### (c) 결제 무결성 — 토스 일회성 confirm (§4.1)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as 사용자
+    participant SP as start_payment() DEFINER
+    participant DB as payments (order_id UNIQUE)
+    participant TW as 토스 결제창
+    participant Edge as Edge /toss-confirm (service_role)
+    participant TossAPI as 토스 confirm API
+    participant CP as confirm_payment() RPC
+
+    U->>SP: start_payment(type, amount, target)
+    SP->>DB: INSERT pending (order_id 발급)
+    U->>TW: 결제 진행
+    TW-->>Edge: paymentKey, orderId, amount
+    Edge->>DB: order_id 조회 → DB금액과 대조
+    alt 금액 불일치
+        Edge-->>U: 위변조 차단 (거부)
+    else 이미 completed
+        Edge-->>U: alreadyProcessed (멱등)
+    else 정상
+        Edge->>TossAPI: confirm
+        TossAPI-->>Edge: 승인
+        Edge->>CP: confirm_payment
+        CP->>DB: completed면 즉시 RETURN (멱등)
+        CP->>DB: 권한부여 (subscription +30일 / orders / ads.budget)
+    end
+```
+
+### (d) 마이그레이션 적용 / 검증 (§8)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Dev as 운영자
+    participant SQLE as Supabase SQL Editor / Mgmt API
+    participant DB as Postgres
+    participant V as 검증 쿼리
+
+    Dev->>SQLE: 마이그레이션 SQL (멱등)
+    SQLE->>DB: 적용 (IF NOT EXISTS / OR REPLACE / ON CONFLICT)
+    Note over DB: 공유 트리거·GRANT은 나중분이 앞을 덮음
+    Dev->>SQLE: fix_protect_is_admin / fix_profiles_column_exposure (마지막)
+    Dev->>V: pg_get_functiondef(protect_subscription_columns) → is_admin 줄 실측
+    Dev->>V: role_column_grants(profiles) → 7개만
+    Dev->>V: search_path 미설정 DEFINER 0행
+    Dev->>SQLE: NOTIFY pgrst, 'reload schema'
+    V-->>Dev: 통과 → 출시 체크리스트 매핑(§10)
+```
+
+---
+
+## 데이터 모델 ERD
+
+> §5 테이블 요약 기반. PK/FK·ON DELETE 동작은 §5 표 및 근거 파일과 일치. (id→auth.users 관계는 외부 auth 스키마라 본 ERD에서 USERS 가상 엔티티로 표기.)
+
+```mermaid
+erDiagram
+    USERS ||--|| PROFILES : "id (CASCADE)"
+    USERS ||--o{ VIDEOS : "creator_id"
+    USERS ||--o{ ORDERS : "buyer_id / seller_id (SET NULL)"
+    USERS ||--o{ PAYMENTS : "user_id (SET NULL, 원장보존)"
+    USERS ||--|| BILLING_SUBSCRIPTIONS : "user_id (CASCADE)"
+    USERS ||--o{ REPORTS : "reporter_id (SET NULL)"
+    USERS ||--o{ REVENUE_DISTRIBUTIONS : "creator_id (SET NULL)"
+    USERS ||--o{ COMMUNITY_POSTS : "author_id"
+    USERS ||--o{ COMMENTS : "author_id"
+    USERS ||--o{ CREATOR_FOLLOWERS : "follower_id / creator_id"
+    USERS ||--o{ NOTIFICATIONS : "user_id"
+
+    VIDEOS ||--o{ ORDERS : "video_id (CASCADE)"
+    VIDEOS ||--o{ COMMENTS : "video_id"
+    VIDEOS ||--o{ REPORTS : "target_id (video)"
+    VIDEOS ||--o{ ADS : "matched (get_ad_for_video)"
+    ORDERS ||--o| PAYMENTS : "license 결제"
+    COMMENTS ||--o{ REPORTS : "target_id (comment)"
+    COMMUNITY_POSTS ||--o{ COMMENTS : "post_id"
+    COMMUNITY_POSTS ||--o{ REPORTS : "target_id (community_post)"
+
+    PROFILES {
+        uuid id PK "=auth.users"
+        text display_name "GRANT 화이트리스트"
+        text subscription_tier "free/basic/premium"
+        jsonb payout_info "RPC 전용"
+        bool is_admin "service_role/postgres만"
+        bool is_suspended
+        date birthdate "비노출"
+        bool age_verified
+        text referral_code
+    }
+    VIDEOS {
+        text id PK "Bunny guid"
+        uuid creator_id FK
+        text visibility "public/unlisted/private"
+        bool is_hidden
+        text age_rating "all/13/15/19"
+        text moderation_status
+        bool show_on_home_cinema_ott
+        int duration_seconds
+    }
+    ORDERS {
+        uuid id PK
+        uuid buyer_id FK
+        uuid seller_id FK
+        text video_id FK
+        text license_type
+        int amount
+        text status
+    }
+    PAYMENTS {
+        text order_id UK "멱등 키"
+        uuid user_id FK
+        text payment_type "subscription/license/ad_budget"
+        int amount
+        text status
+        jsonb raw_response
+    }
+    BILLING_SUBSCRIPTIONS {
+        uuid user_id PK
+        text billing_key "비밀-RLS0+REVOKE"
+        text customer_key
+        text status
+        timestamptz next_charge_at
+        int fail_count
+    }
+    REPORTS {
+        uuid id PK
+        uuid reporter_id FK
+        text target_type "video/comment/user/community_post"
+        text target_id
+        text reason
+        text status
+    }
+    REVENUE_DISTRIBUTIONS {
+        uuid id PK
+        uuid creator_id FK
+        text period
+        int sale_ad_subscription_revenue
+        text payout_status
+        numeric tax_withholding
+    }
+    COMMUNITY_POSTS {
+        uuid id PK
+        uuid author_id FK
+        text content
+        bool is_hidden
+    }
+    COMMENTS {
+        uuid id PK
+        uuid author_id FK
+        text video_id FK
+        uuid post_id FK
+        text content
+    }
+    CREATOR_FOLLOWERS {
+        uuid follower_id FK
+        uuid creator_id FK
+    }
+    NOTIFICATIONS {
+        uuid id PK
+        uuid user_id FK
+        text type
+        bool read
+    }
+    ADS {
+        uuid id PK
+        text advertiser
+        text format
+        int budget_krw
+        int spent_krw
+        bool is_active
+    }
+```
+
+---
+
+## 테스트 케이스 (보안·정책)
+
+> Gherkin. 각 시나리오 끝의 `→ 체크리스트` 는 §10 출시 전 보안 체크리스트 항목 매핑. 회귀방지 시나리오는 §3 금지선(protect 8컬럼 / profiles GRANT) 직결.
+
+```gherkin
+Feature: RLS — 타인 데이터 차단
+
+  Scenario: 비구독자 anon이 비공개/숨김 영상 직접 SELECT 차단 (§3.3)
+    Given anon 역할로 PostgREST 접근
+    When visibility='private' 또는 is_hidden=true 영상을 SELECT
+    Then 행이 반환되지 않는다
+    And 공개(public/unlisted, is_hidden=false) 또는 본인(creator_id=auth.uid) 또는 is_admin()만 보인다
+    # → 체크리스트: videos SELECT RLS = 공개/본인/관리자
+
+  Scenario: IDOR — 타인 정산내역 조회 차단 (§2.2)
+    Given 사용자 A 로그인
+    When get_my_revenue_history(p_creator_id=B의 id) 호출
+    Then 파라미터 무시하고 항상 auth.uid()(=A) 기준만 반환
+    # → 체크리스트: (IDOR 방지 DEFINER RPC)
+
+  Scenario: billing_key 클라 노출 차단 (§4.2)
+    Given authenticated 사용자
+    When billing_subscriptions 테이블 직접 SELECT
+    Then 정책 0개 + 테이블 REVOKE로 0행/거부
+    And get_my_billing()은 billing_key 제외 컬럼만 반환
+    # → 체크리스트: billing_subscriptions 테이블 권한 REVOKE 확인
+
+Feature: 권한상승 차단 (회귀방지 — protect 8컬럼 SSOT §3.1)
+
+  Scenario: 일반 사용자 self is_admin 승격 차단
+    Given authenticated 사용자(비어드민)
+    When UPDATE profiles SET is_admin=true WHERE id=auth.uid()
+    Then protect_subscription_columns 트리거가 OLD 값으로 되돌림
+    And is_admin은 false 유지
+    # → 체크리스트: protect_subscription_columns 본문에 8컬럼 전부(특히 is_admin)
+
+  Scenario: 보호 8컬럼 전체 되돌림
+    Given authenticated 사용자
+    When subscription_tier/subscription_*/payout_info/is_admin/referral_* 직접 UPDATE
+    Then 8컬럼 모두 OLD로 복원 (service_role/지정 RPC 경로만 허용)
+    # → 체크리스트: pg_get_functiondef로 8컬럼 실측
+
+  Scenario Outline: 회귀 가드 — 트리거 재정의 후 is_admin 줄 존재
+    Given <migration>이 protect_subscription_columns를 덮은 직후
+    When pg_get_functiondef('public.protect_subscription_columns()'::regprocedure) 검사
+    Then 본문에 is_admin 보호 줄이 존재해야 한다
+    And fix_protect_is_admin_20260624.sql가 마지막에 적용되었다
+    Examples:
+      | migration |
+      | referral_20260618.sql |
+      | (임의의 공유 트리거 재정의 마이그레이션) |
+    # → 체크리스트: 신규/재구축 적용 순서 = fix_protect_is_admin 마지막
+
+Feature: profiles PII 비노출 (회귀방지 — GRANT 화이트리스트 §3.2)
+
+  Scenario: 안전 7컬럼만 GRANT
+    Given anon/authenticated 역할
+    When role_column_grants에서 profiles GRANT 컬럼 조회
+    Then 정확히 7개(id, display_name, avatar_url, banner_url, bio, subscription_tier, created_at)
+    And birthdate/email/payout_info/is_admin/business_*/tax_*/referral_* 등 PII는 비노출
+    # → 체크리스트: profiles 컬럼 GRANT = 안전 7개만
+
+  Scenario: 금지선 — 테이블 전체 GRANT 금지
+    Given 마이그레이션 작성자
+    When GRANT SELECT ON public.profiles TO anon/authenticated (컬럼 미지정) 실행 시도
+    Then 이는 전 컬럼 PII 유출이므로 금지선 위반
+    And 본인 민감값은 get_my_profile()/get_my_payout_info() DEFINER RPC로만 접근
+    # → 체크리스트: profiles 컬럼 GRANT = 안전 7개만 (전체 GRANT 금지)
+
+Feature: 정지 사용자 쓰기 강제 차단 (§1.5)
+
+  Scenario: 정지 계정 쓰기 트리거 차단
+    Given profiles.is_suspended=true 사용자
+    When comments/community_posts/collab_posts 작성·수정 또는
+         creator_followers/post_likes/comment_likes/video_likes/reports 생성
+    Then tg_block_suspended 트리거가 차단
+    And service_role(auth.uid()=NULL)은 미차단(시스템 동작 보존)
+
+  Scenario: 정지 계정 영상 업로드 차단 (트리거 미적용 경로 보강)
+    Given is_suspended=true 사용자
+    When create-upload Edge 호출
+    Then Edge에서 403 반환 (save-metadata는 service_role라 트리거 우회되므로)
+    # → 체크리스트: 정지 계정 쓰기 차단 트리거 8개 부착 확인
+
+Feature: 연령 게이트 19+ (§1.2)
+
+  Scenario: 미인증 사용자의 19+ 재생 차단
+    Given age_verified=false 사용자
+    When age_rating='19' 영상 접근
+    Then 게이트로 차단 (verify_my_age로 만19세+ 인증 필요)
+
+  Scenario: 생일 자가입력 인증
+    Given 사용자가 verify_my_age(p_birthdate) 호출
+    When 만 19세 이상
+    Then age_verified=true, age_verified_at 기록
+    But MVP는 자가입력만 — 실명/통신사 인증 미구현(부채 §9)
+
+Feature: 신고 자동숨김 임계값 (§1.4)
+
+  Scenario: 임계값 도달 시 자동 숨김
+    Given 같은 video에 pending 신고 2건 존재 (threshold=3)
+    When 서로 다른 사용자가 3번째 신고
+    Then is_hidden=true로 자동 숨김
+    And target_type=user는 자동정지하지 않음(어드민 수동)
+    # → 체크리스트: 신고/모더레이션 정책 동작
+
+Feature: 결제 멱등성 (§4.1, §4.2)
+
+  Scenario: 동일 order_id 이중 confirm 방지
+    Given payments.order_id UNIQUE
+    And 해당 결제가 이미 completed
+    When confirm_payment 재호출
+    Then 즉시 RETURN (권한 이중부여 없음)
+    And Edge는 alreadyProcessed 반환
+
+  Scenario: 빌링 이중청구 방지
+    Given billing_apply_charge가 같은 order_id로 재호출
+    When 이미 completed
+    Then RETURN (구독 이중 +30일 차단)
+    And billing_claim_due가 FOR UPDATE SKIP LOCKED로 원자적 claim
+    # → 체크리스트: payments/billing 멱등
+
+Feature: 결제 위변조 차단 (§4.1)
+
+  Scenario: 결제 금액 위변조 차단
+    Given start_payment로 생성된 pending 금액
+    When 토스 콜백 amount가 DB 금액과 불일치
+    Then Edge /toss-confirm이 거부 (DB 대조)
+
+Feature: update_video_moderation 위변조 차단 (§1.3)
+
+  Scenario: 모더레이션 점수 직접 조작 차단
+    Given authenticated 사용자
+    When update_video_moderation 직접 호출 시도
+    Then EXECUTE 권한 없음 (authenticated REVOKE, service_role 전용)
+    # → 체크리스트: update_video_moderation service_role 전용
+
+Feature: 회계 원장 보존 (§4.3)
+
+  Scenario: 계정 삭제 시 원장 익명화 보존
+    Given payments/orders/revenue_distributions에 사용자 FK 참조
+    When 해당 계정 삭제
+    Then FK ON DELETE SET NULL로 원장 행은 보존(익명화)
+    And CASCADE로 소실되지 않음(전자상거래법 보존의무)
+    # → 체크리스트: payments/revenue/orders FK = ON DELETE SET NULL
+```

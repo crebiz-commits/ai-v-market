@@ -265,3 +265,501 @@ CREAITE의 콘텐츠 탐색–시청–수익화 핵심 경로를 담당하는 3
 - **3분 미만 판매불가 규칙**: 본 영역 코드에서 강제 게이트 미확인 — 업로드/등록 단계 규칙으로 추정. 적용 위치 확인 필요(템플릿 명시 항목, 본 명세 §6 ※표시).
 - **상세 메타 직접 select RLS 의존**: 비공개 영상 보호가 `videos` 테이블 RLS에 의존 — 정책 명시 검증 권장(§9).
 - **검색 매칭 방식**: ilike 부분일치(한국어 적합, sql L12)로 형태소/오타 보정·동의어 미지원.
+
+---
+
+## 13. 와이어프레임 (텍스트 목업)
+
+> ASCII 목업. 실제 컴포넌트(`SearchPage.tsx`, `ProductDetail.tsx`) 구조를 단순화한 표현이며, 좌표가 아닌 영역·상태를 나타낸다.
+
+### 13.1 검색 — 자동완성 드롭다운 (입력 ≥2자, L420–506)
+
+```
++--------------------------------------------------------------+
+| [<-]  [ 우주 강아|지                    ] [X]   [ 필터 ⚙ ]   |  sticky 헤더
++--------------------------------------------------------------+
+| ┌──────────────────────────────────────────────────────┐    |
+| │ 🔎 우주 강아지 모험                                    │    |  suggestion(title prefix)
+| │ 🔎 강아지 일상 브이로그                                │    |  suggestion(title 포함)
+| │ 🔎 강아지크리에이터            [크리에이터]            │    |  source='creator' → 배지
+| │ 🔎 우주 다큐멘터리                                     │    |
+| └──────────────────────────────────────────────────────┘    |  ≤8개 (p_limit=8)
++--------------------------------------------------------------+
+```
+
+### 13.2 검색 — 입력 비었을 때 (기록 + 인기, L420–506, <2자)
+
+```
++--------------------------------------------------------------+
+| [<-]  [                                  ] [ ] [ 필터 ⚙ ]    |
++--------------------------------------------------------------+
+| ┌── 최근 검색 ───────────────────────  [전체 삭제] ──────┐  |
+| │  🕘 우주 강아지                                  [×]    │  |  history (개별 X)
+| │  🕘 사이버펑크 도시                              [×]    │  |
+| └────────────────────────────────────────────────────────┘  |
+| ┌── 인기 검색어 ──────────────────────────────────────────┐  |
+| │  1  AI 영화          (1,204)                            │  |  popular(순위·hit_count)
+| │  2  뮤직비디오        (   980)                          │  |
+| │  3  브이로그          (   742)                          │  |
+| └────────────────────────────────────────────────────────┘  |
++--------------------------------------------------------------+
+```
+
+### 13.3 검색 — 결과 (탭 + 정렬 + 필터칩 + 그리드 + 더보기)
+
+```
++--------------------------------------------------------------+
+| [<-]  [ 우주 강아지                       ] [X] [ 필터 ⚙ ]   |
++--------------------------------------------------------------+
+| 필터 패널 (필터 토글 시, L524–557)                          |
+|  카테고리: (전체)(영화)(뮤비)(브이로그)...   ← FilterChips  |
+|  AI 도구 : (전체)(Sora)(Runway)(Higgsfield)...             |
+|  길이    : (전체)(~1분)(1~5분)(5~10분)(10분+)              |
++--------------------------------------------------------------+
+|  [ 영상 (37) ]  [ 크리에이터 (4) ]      정렬:[ 관련도 ▼ ]   |  탭+정렬(L560–595)
++--------------------------------------------------------------+
+|  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐               |
+|  │ 썸네일 │ │ 썸네일 │ │ 썸네일 │ │ 썸네일 │   VideoCard   |  2/3/4열 반응형
+|  │ 03:21  │ │ 12:40  │ │ 🔒19+  │ │ 01:05  │               |
+|  │ 제목.. │ │ 제목.. │ │ ▓▓▓▓▓  │ │ 제목.. │               |  19+ 블러+잠금
+|  └────────┘ └────────┘ └────────┘ └────────┘               |
+|        ...  (60개 단위)  ...                                 |
+|              [  더 보기  ]                                   |  hasMore일 때만(L627)
++--------------------------------------------------------------+
+```
+
+### 13.4 검색 — 빈 결과 / 초기 상태
+
+```
+초기(showInitialState, L378)             영상 결과 0건(EmptyResult, L607)
++----------------------------+           +----------------------------+
+|     🔥 인기 검색어 Top5    |           |          (   )             |
+|   1. AI 영화               |           |   검색 결과가 없습니다     |
+|   2. 뮤직비디오            |           |   다른 키워드로 검색해보세요|
+|   3. 브이로그              |           +----------------------------+
+|   4. 사이버펑크            |
+|   5. 다큐멘터리            |           크리에이터 0건(EmptyResult, subject=크리에이터)
++----------------------------+           +----------------------------+
+                                         |  일치하는 크리에이터 없음  |
+                                         +----------------------------+
+```
+
+### 13.5 영상상세 — 플레이어 + 메타 + 라이선스 + 댓글 + 관련
+
+```
++======================== 영상 상세 ===========================+
+| ┌──────────────────────── 플레이어 ───────────────────────┐ |
+| │  [ Bunny iframe 재생 영역 (aspect-video) ]              │ |  L1193–1390
+| │                                          [길이 12:40]   │ |  길이 배지(L1352)
+| │                          ┌─────────────────────────┐    │ |
+| │                          │ ⏱ 미리보기 1분 · [닫기×]│    │ |  미리보기 배지(L1374)
+| │                          └─────────────────────────┘    │ |
+| └──────────────────────────────────────────────────────────┘ |
+|  제목 (12세) 12:40  · 조회 1.2만 · ♥ 340   [OTT]             |  메타(L1396)
+|  ┌ 아바타 크리에이터명  [팔로우]                            |  크리에이터(L1430)
+|  ┌──────────────── 비구독자 CTA ────────────────┐           |
+|  │   구독하고 전체 보기  →                       │           |  L1470 (비구독자)
+|  └────────────────────────────────────────────────┘         |
+|   (♥좋아요) (💬댓글) (↗공유) (🔖저장) (🚩신고)              |  5원형(L1487)
+|  ── 줄거리 ───────────────────────────  사이드 메타         |  L1562
+|  ── 시리즈 회차 / 챕터 / 자막 안내 ──                       |  L1597/1647/1674
+| ┌──────────────── 라이선스 카드 ─────────────────┐          |  L1682–1831
+| │  All-in-One 라이선스          ₩ 1,200,000        │          |
+| │  ✓ 상업적 이용  ✓ 무기한  ✓ 수정 허용  ... (9특전)│         |
+| │  [ 장바구니 ]     [ 바로 구매 ]                   │          |  isLicensable
+| │  * 다운로드·시청 시작 시 청약철회 제한(전상법17조)│         |  L1797
+| └──────────────────────────────────────────────────┘        |
+|   #태그 #태그   · 시네마 크레딧 · AI 제작 상세 · 출처        |  L1836~1957
+| ┌──── 함께 시청된 콘텐츠 (캐러셀) ────┐                      |  L1963
+| │ [▢][▢][▢][▢] →                      │                      |
+| └──────────────────────────────────────┘                    |
++--------------------- 댓글 패널(사이드/시트) -----------------+  L1979/2001
+```
+
+비판매(₩0) 라이선스 카드:
+```
+┌──────────────── 라이선스 카드(비활성) ───────────────┐
+│  이 영상은 라이선스를 판매하지 않습니다 (회색)        │  L1817–1830
+└────────────────────────────────────────────────────────┘
+```
+
+### 13.6 프리롤 광고 (1분+ & 비프리미엄, L689–730)
+
+```
++================== 플레이어 (본편 pause) ====================+
+|                                                            |
+|         [  프리롤 광고 mp4 (720p) 재생 중  ]               |
+|                                                            |
+|   Basic: 5초 후 →  [ 건너뛰기 ▷ ]    (Free: skip 불가)     |  L710
+|                                            [스폰서]        |
++------------------------------------------------------------+
+          (광고 종료 → 본편 자동 재생, bumper 취소 L967)
+```
+
+---
+
+## 14. 시퀀스 다이어그램
+
+### 14.1 검색 (debounce 자동완성 / submit / 더 보기)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as 사용자
+    participant SP as SearchPage.tsx
+    participant RPC as Supabase RPC
+
+    Note over SP: 입력 자동완성 (debounce + race)
+    U->>SP: query 타이핑
+    alt 입력 < 2자
+        SP->>SP: suggestions=[] 즉시 (L201–204)
+    else 입력 ≥ 2자
+        SP->>SP: 250ms debounce (DEBOUNCE_MS, L43)
+        SP->>RPC: get_search_suggestions(p_query, 8)
+        RPC-->>SP: [{suggestion, source}]
+        SP->>SP: seq 검증 후 setSuggestions (L208)
+    end
+
+    Note over SP: 검색 실행 runSearch (L216–278)
+    U->>SP: Enter / 추천 클릭
+    SP->>SP: searchSeqRef++, submittedQuery 설정, 드롭다운 닫기
+    SP-)RPC: log_search_query(trimmed) (백그라운드, 실패 무시)
+    SP->>SP: saveHistory(trimmed)
+    par 병렬 (Promise.all, L237–242)
+        SP->>RPC: search_videos(p_query, 필터, p_sort, 60, 0)
+        RPC-->>SP: videos[ ≤60 ]
+    and
+        SP->>RPC: search_creators(p_query, 20)
+        RPC-->>SP: creators[ ]
+    end
+    SP->>SP: seq 검증 (stale 폐기, L244)
+    SP->>SP: setVideos/setCreators, hasMore=len≥60 (L266)
+    SP-->>U: 결과 그리드 렌더
+
+    Note over SP: 더 보기 loadMoreResults (L281–302)
+    U->>SP: "더 보기" 클릭
+    SP->>RPC: search_videos(..., offset=videos.length)
+    RPC-->>SP: 다음 ≤60개
+    SP->>SP: 중복 id 제외 append, hasMore 갱신
+    SP-->>U: 추가 카드 렌더
+```
+
+### 14.2 상세 재생 (토큰 발급 → iframe → 미리보기 컷오프 → 광고)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as 사용자
+    participant PD as ProductDetail.tsx
+    participant ED as Edge /video-play-token
+    participant DB as Supabase (service role)
+    participant BUNNY as Bunny iframe
+    participant AD as adFetch / 광고 RPC
+
+    Note over PD: 토큰 발급 (L650–680)
+    PD->>PD: product.id 변경 → tokenReady=false 리셋
+    PD->>ED: POST {videoId}, Authorization: Bearer <token|anon>
+    ED->>DB: fullAccess 판정 (프리미엄/소유자/구매자/admin, L319–342)
+    DB-->>ED: 판정 결과
+    ED-->>PD: {token, expires, fullAccess}  (TTL: full 4h / 비구독 150s, L345)
+    PD->>PD: playToken/playFullAccess 반영, tokenReady=true (실패해도 true, L675)
+
+    Note over PD,BUNNY: 임베드 + 재생
+    PD->>BUNNY: iframe src (autoplay&muted + token&expires) (L682–684)
+    BUNNY-->>U: 재생 시작
+    BUNNY->>PD: onLoad → startPreviewCutoffWatch (L546)
+
+    Note over PD,BUNNY: 미리보기 컷오프 (비구독자, L466–519)
+    BUNNY-->>PD: postMessage timeupdate (seconds)
+    alt seconds ≥ previewSeconds & !fullAccess
+        PD->>PD: cinemaCutoffTriggered=true
+        PD-->>U: 페이월(구독) 모달 (L504–512)
+    else 백스톱
+        PD->>PD: (previewSeconds+2)s 월클록 타이머 (L550)
+    end
+
+    Note over PD,AD: 광고 (비프리미엄)
+    alt 1분+ 영상 진입 시
+        PD->>AD: pick_random_video_preroll(source_id) (L705)
+        AD-->>PD: 프리롤 광고(m3u8→720p mp4 치환)
+        PD-->>U: 프리롤 재생 (Basic 5s skip / Free 불가, L710)
+    end
+    Note over PD,AD: overlay 30% / midroll 50%(10분+) / postroll 종료 후
+    PD->>AD: record_ad_impression(viewer_key) (L840)
+```
+
+### 14.3 라이선스 구매 (start_payment → 토스 → confirm → 다운로드)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as 구매자
+    participant PD as ProductDetail.tsx
+    participant UP as usePayment.ts
+    participant RPC as Supabase RPC
+    participant TOSS as TossPayments SDK
+    participant PR as PaymentResult.tsx
+    participant CF as Edge toss-confirm
+    participant MP as MyPage.tsx
+
+    U->>PD: "바로 구매" (handleBuyNow, L1104)
+    alt 미인증
+        PD-->>U: 로그인 유도 (onSignInClick)
+    else price <= 0
+        PD-->>U: "라이선스 미판매" 토스트
+    else price >= 10,000,000 (협의)
+        PD-->>U: licenseInquiryMailto 메일 창 (L1113)
+    else 직접 결제
+        PD->>UP: startLicensePurchase(videoId, title, price) (L104)
+        UP->>RPC: start_payment (pending 주문 생성)
+        RPC-->>UP: {orderId}
+        UP->>TOSS: requestPayment("카드", {orderId, successUrl, failUrl})
+        TOSS-->>U: 토스 결제창 (이후 코드 미실행)
+    end
+
+    Note over PR,CF: 결제 후 리다이렉트
+    TOSS-->>PR: /?payment=success&orderId&paymentKey&amount
+    PR->>CF: toss-confirm {orderId, paymentKey, amount} (L81)
+    CF-->>PR: 결제 확정 (orders.status=completed)
+    alt 실패/취소
+        TOSS-->>PR: /?payment=fail
+        PR->>RPC: fail_payment (L51)
+    end
+
+    Note over MP: 다운로드 (handleDownloadPurchase, L573)
+    U->>MP: 다운로드 클릭
+    MP->>RPC: log_download(p_order_id, p_user_agent)
+    RPC->>RPC: 권한검증(buyer_id=uid & completed, L85–89)
+    RPC-->>MP: {video_id, download_count}
+    MP->>MP: Bunny 1080p→240p HEAD로 존재 mp4 선택 (L589)
+    MP-->>U: window.open(mp4Url, _blank) (L599)
+```
+
+---
+
+## 15. API / RPC / Edge 레퍼런스
+
+### 15.1 검색 RPC (`supabase/phase12_search_enhancements.sql`)
+
+| 이름 | 인자 | 반환 | 권한 | 위치(file:line) |
+|---|---|---|---|---|
+| `search_videos` | `p_query=''`, `p_category=NULL`, `p_ai_tool=NULL`, `p_min_duration/p_max_duration=NULL`, `p_max_price=NULL`, `p_sort='relevance'`, `p_limit=30`, `p_offset=0` | `id,title,thumbnail,video_url,creator,creator_id,creator_display_name,creator_avatar,category,tags,ai_tool,duration,duration_seconds,views_count,likes,price_standard,created_at,match_score` | `SECURITY DEFINER STABLE` (anon/authenticated). `v_available_videos` 뷰로 숨김/비공개 제외 | `phase12_search_enhancements.sql:145-250` |
+| `search_creators` | `p_query`, `p_limit=20` | `creator_id,display_name,avatar_url,bio,video_count,follower_count` | `SECURITY DEFINER`. `is_suspended=false`만, 빈 쿼리 시 결과 없음 | `phase12_search_enhancements.sql:255-286` |
+| `get_search_suggestions` | `p_query`, `p_limit=8` | `suggestion,source('title'\|'creator')` | `SECURITY DEFINER`. DISTINCT ON 최선 rank, prefix 상위 | `phase12_search_enhancements.sql:97-140` |
+| `get_popular_searches` | `p_limit=10`, `p_days=7` | `query,hit_count` | `SECURITY DEFINER`. `search_logs` 최근 N일 집계 | `phase12_search_enhancements.sql:72-92` |
+| `log_search_query` | `p_query` | (void) | `SECURITY DEFINER`. 2–100자만 `auth.uid()`와 INSERT | `phase12_search_enhancements.sql:49-64` |
+
+호출 위치(클라이언트):
+- `get_search_suggestions` — `SearchPage.tsx:199-214` (debounce 250ms, suggestSeqRef race 가드)
+- `search_videos` + `search_creators` — `SearchPage.tsx:237-242` (Promise.all), 더보기 `SearchPage.tsx:281-302`
+- `log_search_query` — `SearchPage.tsx:226` (백그라운드, 실패 무시)
+- `get_popular_searches` — 인기/초기상태 렌더 (`SearchPage.tsx:780-808`)
+
+### 15.2 재생 토큰 Edge (`supabase/functions/server/index.ts`)
+
+| 이름 | 인자 | 반환 | 권한 | 위치(file:line) |
+|---|---|---|---|---|
+| `POST /video-play-token` | body `{videoId}`, header `Authorization: Bearer <token>`(선택) | `{token, expires, fullAccess}` | 공개 엔드포인트(no-verify-jwt). `fullAccess` 판정만 service role DB 조회 | `index.ts:311-353` |
+
+판정·TTL 세부:
+- `BUNNY_TOKEN_AUTH_KEY` 미설정 → `{token:null, expires:null, fullAccess:false}` (`index.ts:317`)
+- fullAccess = 프리미엄/admin(`:328-331`) ∨ 소유자(`:333-335`) ∨ 라이선스 구매자(`:337-339`)
+- TTL = fullAccess 4시간 / 비구독 150초 (`:345`), `token=sha256Hex(securityKey+videoId+expires)` (`:346-347`)
+- 클라 발급 호출: `ProductDetail.tsx:650-680`, 매핑 `:670-671`
+
+### 15.3 결제 / 다운로드 RPC·Edge
+
+| 이름 | 인자 | 반환 | 권한 | 위치(file:line) |
+|---|---|---|---|---|
+| `start_payment` (RPC) | (주문 파라미터: paymentType, orderName, targetId, amount 등) | `{orderId}` (pending 주문) | `authenticated` | 호출 `usePayment.ts:36-45`, 라이선스 래퍼 `usePayment.ts:104-119` |
+| `requestPayment` (TossPayments SDK) | `"카드", {orderId, orderName, successUrl=/?payment=success, failUrl=/?payment=fail}` | (리다이렉트) | 클라이언트 SDK | `usePayment.ts:48-60` |
+| `POST toss-confirm` (Edge) | `{orderId, paymentKey, amount}` | 결제 확정(orders.status=completed) | 결제 성공 리다이렉트 처리 | 호출 `PaymentResult.tsx:21, 81-88` |
+| `fail_payment` (RPC) | (orderId 등) | 주문 실패 처리 | 실패/취소 리다이렉트 | `PaymentResult.tsx:51` |
+| `log_download` (RPC) | `p_order_id uuid`, `p_user_agent text=NULL` | `video_id text, download_count integer` | `SECURITY DEFINER`, `GRANT ... TO authenticated`. 내부 권한검증(buyer_id=uid & completed) | `phase29_download_logs.sql:63-106`, 호출 `MyPage.tsx:573-607` |
+
+진입 분기(`ProductDetail.handleBuyNow`, `:1104-1137`):
+- 미인증→`onSignInClick`(`:1105-1108`) / `price<=0`→토스트(`:1109-1112`) / `isNegotiationOnly`→메일(`:1113-1117`) / 직접결제→`startLicensePurchase`(`:1121-1127`)
+
+### 15.4 상세 광고 RPC (`src/app/utils/adFetch.ts` 외)
+
+| 이름 | 인자 | 반환 | 권한 | 위치(file:line) |
+|---|---|---|---|---|
+| `get_ad_for_video` (RPC) | `p_video_id`, `p_format` | 광고 1개 | 1분 TTL 모듈 캐시(null도 캐시) | `adFetch.ts:30-57` (캐시 `:26-51`) |
+| `record_ad_impression` (RPC) | position/completed/skipped + `p_viewer_key`(session key) | (void) | viewer_key dedup | `adFetch.ts:59-79` |
+| `record_ad_click` (RPC) | (ad/viewer 식별자) | (void) | — | `adFetch.ts:81-92` |
+| `pick_random_video_preroll` (RPC) | `p_source_video_id` | 프리롤 광고 영상 | 1분+ & 비프리미엄에서 호출 | `ProductDetail.tsx:705` |
+
+### 15.5 가격 / 라이선스 (`src/app/utils/licensePricing.ts`)
+
+| 이름 | 인자 | 반환 | 위치(file:line) |
+|---|---|---|---|
+| `LICENSE_DIRECT_MAX` | (상수) | `10_000_000` (직접결제 상한, 미만) | `licensePricing.ts:9` |
+| `isNegotiationOnly(price)` | `price` | `price >= 10,000,000` → true | `licensePricing.ts:12-14` |
+| `licenseInquiryMailto(title, price)` | `title, price` | `support@creaite.net` 사전입력 메일 링크 | `licensePricing.ts:17-25` |
+
+---
+
+## 16. 테스트 케이스 (Gherkin)
+
+### 16.1 검색
+
+```gherkin
+Feature: 통합 검색
+
+  Scenario: 자동완성 정상 표시
+    Given 사용자가 검색 페이지에 있다
+    When 검색창에 "우주"를 입력한다
+    And 250ms가 지난다
+    Then get_search_suggestions(p_query="우주", p_limit=8)가 1회 호출된다
+    And 제목 prefix가 상단, 크리에이터 항목엔 "크리에이터" 배지가 표시된다
+    And 제안은 최대 8개까지 노출된다
+
+  Scenario: 입력 비었을 때 기록 + 인기
+    Given 사용자가 과거에 "사이버펑크"를 검색한 적이 있다
+    When 검색창을 비운다
+    Then 최근 검색에 "사이버펑크"가 [×] 버튼과 함께 표시된다
+    And 인기 검색어가 순위·hit_count와 함께 표시된다
+    When "전체 삭제"를 누른다
+    Then 최근 검색 목록이 사라진다
+
+  Scenario: 필터 + 정렬 적용 시 자동 재검색
+    Given 검색어 "강아지"로 결과가 표시되어 있다
+    When 카테고리="브이로그", 길이="1~5분", 정렬="최신"을 선택한다
+    Then runSearch가 p_category/p_min_duration/p_max_duration/p_sort="latest"로 재호출된다
+    And 조건에 맞는 결과만 표시된다
+
+  Scenario: 더 보기 페이지네이션
+    Given 검색 결과가 60개로 hasMore=true 이다
+    When "더 보기"를 누른다
+    Then search_videos가 p_offset=60으로 호출된다
+    And 중복 id 없이 다음 묶음이 append 된다
+    And 반환 개수가 60 미만이면 "더 보기" 버튼이 사라진다
+```
+
+### 16.2 재생 / 페이월
+
+```gherkin
+Feature: 영상 재생 페이월
+
+  Scenario: 비구독자 1분 미리보기 컷오프
+    Given 비구독자가 길이 12:40 영상에 진입했다 (fullAccess=false)
+    When 재생 시간이 previewSeconds(기본 60초)에 도달한다
+    Then cinemaCutoffTriggered=true 가 되고 구독 페이월 모달이 표시된다
+
+  Scenario: 시킹 점프도 차단
+    Given 비구독자가 미리보기 영상을 보고 있다
+    When 슬라이더를 5분 지점으로 점프한다
+    Then 영상 시간 기준 컷오프가 즉시 발동해 차단된다
+
+  Scenario: 풀액세스 면제
+    Given 프리미엄 구독자(또는 소유자/구매자/admin)가 진입했다
+    When 서버가 fullAccess=true를 반환한다
+    Then 컷오프 없이 전체 영상을 시청한다
+    And 토큰 TTL은 4시간으로 발급된다
+
+  Scenario Outline: 광고 티어 정책
+    Given <tier> 사용자가 1분+ 영상을 본다
+    When 프리롤 광고가 재생된다
+    Then <skip> 동작이 적용된다
+    Examples:
+      | tier    | skip                |
+      | premium | 광고 없음           |
+      | basic   | 5초 후 건너뛰기 가능 |
+      | free    | 건너뛰기 불가       |
+
+  Scenario: 토큰 발급 지연 중 UI
+    Given 토큰 Edge가 콜드스타트로 응답이 지연된다 (tokenReady=false)
+    Then 차단 화면이 아닌 썸네일 + 로딩 스피너가 표시된다
+    When 발급이 완료된다
+    Then iframe이 로드되어 자동 재생된다
+
+  Scenario: 토큰 TTL 만료 시 재발급 게이트
+    Given 비구독자 토큰 TTL이 150초로 발급되었다
+    When 미리보기(1분)를 충분히 커버하지만 그 이후 장편 우회를 시도한다
+    Then 토큰 만료로 URL 추출 재생이 차단된다 (Token Auth 활성 시)
+```
+
+### 16.3 구매 / 다운로드
+
+```gherkin
+Feature: 라이선스 구매와 다운로드
+
+  Scenario: 즉시 구매 정상 흐름
+    Given 로그인한 사용자가 가격 ₩1,200,000 라이선스 영상에 있다
+    When "바로 구매"를 누른다
+    Then start_payment가 pending 주문과 orderId를 생성한다
+    And 토스 결제창(requestPayment "카드")이 열린다
+    When 결제가 성공해 /?payment=success 로 리다이렉트된다
+    Then PaymentResult가 toss-confirm을 호출해 주문을 completed로 확정한다
+
+  Scenario: 결제 완료 주문만 다운로드 가능
+    Given 사용자가 결제 완료(completed) 주문을 보유한다
+    When MyPage에서 다운로드를 누른다
+    Then log_download(p_order_id, navigator.userAgent)가 권한검증을 통과한다
+    And video_id와 download_count가 반환되고 로그가 적재된다
+    And 실제 존재하는 최고 해상도 mp4가 새 탭으로 열린다
+
+  Scenario: 미완료/타인 주문 다운로드 거부
+    Given 사용자가 status!=completed 이거나 타인 소유 주문을 지목한다
+    When log_download를 호출한다
+    Then 권한검증 실패로 예외가 발생하고 다운로드되지 않는다
+
+  Scenario: ₩0 영상 / 협의 판매 분기
+    Given 영상 가격이 ₩0 이다
+    Then 라이선스 카드가 회색 비활성으로 표시되고 구매가 불가하다
+    Given 영상 가격이 ₩10,000,000 이상이다
+    When "바로 구매"를 누른다
+    Then isNegotiationOnly=true 로 licenseInquiryMailto 메일 창이 열린다
+```
+
+### 16.4 엣지 케이스
+
+```gherkin
+Feature: 엣지 케이스
+
+  Scenario: 빈 쿼리 검색
+    When 빈 검색어로 runSearch('')를 실행한다
+    Then search_creators는 호출되지 않고 creators=[] 이다
+    And search_videos는 match_score=0으로 (필터만 적용된) 전체를 반환한다
+
+  Scenario: 검색 race condition
+    Given 사용자가 "우" → "우주" → "우주강" 으로 빠르게 연속 입력한다
+    When 이전 요청이 최신 요청보다 늦게 도착한다
+    Then seq 가드(searchSeqRef/suggestSeqRef)로 stale 응답이 폐기된다
+    And 화면에는 최신 입력 결과만 표시된다
+
+  Scenario: 토큰 발급 실패 폴백
+    Given 토큰 Edge 호출이 예외로 실패한다
+    Then token=null 로 두고 tokenReady=true 로 마무리된다
+    And 토큰 없이 재생을 시도한다 (Token Auth 미활성 단계)
+
+  Scenario: 광고 동시 노출 방지
+    Given preroll 광고가 잡혔다
+    Then bumper가 취소된다
+    Given midroll이 표시 중이다
+    Then overlay 배너와 스폰서 배지가 숨겨진다
+    Given 영상이 전환되는 중이다
+    Then cancelled 가드로 stale 광고가 차단된다
+
+  Scenario: 협의 전용 가격 직접결제 차단
+    Given 가격이 ₩10,000,000 이상이다
+    When 직접 결제를 시도한다
+    Then 토스 결제창이 아니라 협의 메일 창으로 분기된다
+
+  Scenario: 다운로드 mp4 없음
+    Given 모든 해상도 HEAD 요청이 실패한다
+    Then "인코딩 처리 중" 에러가 표시되고 새 탭이 열리지 않는다
+```
+
+### 16.5 수용 기준 (요약)
+
+- [ ] 자동완성: ≥2자·250ms·seq 가드(stale 미덮어쓰기)·≤8개·creator 배지.
+- [ ] 빈 입력: 최근검색(개별/전체삭제) + 인기검색어(순위·hit_count).
+- [ ] 필터/정렬 변경 시 자동 재검색, 더보기 60개 단위·중복 없음·<60이면 버튼 소멸.
+- [ ] 숨김/비공개/정지 사용자 결과 미노출.
+- [ ] 비구독자 정확히 1분(또는 previewSeconds) + 시킹 점프 차단 + 페이월.
+- [ ] 풀액세스(프리미엄/소유자/구매자/admin) 컷오프 면제, 토큰 4h.
+- [ ] 토큰 지연 중 썸네일+스피너, 발급 후 자동 재생.
+- [ ] 광고 Free skip불가 / Basic 5s / Premium 없음, preroll·bumper 동시노출 금지.
+- [ ] 즉시구매 start_payment(orderId)→토스→toss-confirm 확정.
+- [ ] completed 주문만 log_download 통과, mp4 새 탭, ₩0 비활성·₩1,000만+ 협의 분기.

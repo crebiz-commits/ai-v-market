@@ -303,3 +303,457 @@ MyPage 판매 탭 최상단에 배치되는 본인 채널 KPI/추세/Top/retenti
 - **드래프트 디바운스 부재**: 드래프트는 리렌더 단위로 즉시 localStorage 직렬화(명시적 setTimeout 디바운스 아님). 대용량 폼에서 빈번한 저장 발생 가능(`Upload.tsx:243-257`).
 - **모더레이션 = 썸네일 단일 프레임**: Google Vision SafeSearch가 썸네일 1장만 검사(`index.ts:1731-1743`). 영상 본문 프레임 샘플링은 미구현 → 우회 여지.
 - **자막 하드섭 안내만**: 번인 자막은 끌 수 없음 — UI 경고로만 안내(`Upload.tsx:1714-1716`), 강제 검출은 없음.
+
+---
+
+## 와이어프레임 (텍스트 목업)
+
+> ASCII 목업은 레이아웃 의도를 보여주기 위한 것이며, 실제 클래스/색은 `Upload.tsx`·`CreatorDashboard.tsx` 참조.
+
+### W-1. 업로드 위저드 — Step 1 (파일 선택 + 썸네일/하이라이트) (`Upload.tsx:1126-1342`)
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  영상 업로드                                          [ X ]     │
+│  ●━━━━━━━━━━○────────────○   1/3  파일 선택               │  ← 진행바 3스텝 (:1099-1123)
+├──────────────────────────────────────────────────────────────┤
+│                                                                │
+│   ┌────────────────────────────────────────────────────┐     │
+│   │            ⬆  영상을 드래그하거나 클릭             │     │  ← 드롭존
+│   │        mp4 / mov / avi · 최대 5GB · 30초 이상       │     │    (:1128-1166)
+│   └────────────────────────────────────────────────────┘     │
+│                                                                │
+│   썸네일 선택                                                   │  ← 자동 3프레임
+│   ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐                       │    (10/50/90%)
+│   │[시작]│ │[중간]│ │ [끝] │ │ + 업 │                       │    + 커스텀
+│   │  ●   │ │      │ │      │ │ 로드 │                       │    (:1168-1237)
+│   └──────┘ └──────┘ └──────┘ └──────┘                       │
+│                                                                │
+│   하이라이트 구간 (5~30초)                                     │  ← dual-thumb
+│   ┌────────────────────────────────────────────────────┐     │    슬라이더
+│   │  ▶ 미리보기 비디오                                  │     │    (:1239-1325)
+│   │  ├──[█████]────────────────────┤  00:03 ~ 00:18    │     │
+│   └────────────────────────────────────────────────────┘     │
+│                                              [ 다음 ▶ ]        │  ← 파일없으면 disabled
+└──────────────────────────────────────────────────────────────┘    (:1333-1340)
+```
+
+비로그인 진입 시 (Step 1 대신 로그인 벽, `Upload.tsx:475-549`):
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│         크리에이터 수익, 이렇게 나눕니다                       │
+│   ┌────────────┐  ┌────────────┐  ┌────────────┐             │
+│   │  판매 80%  │  │ 구독 50~60%│  │  광고 50%  │             │
+│   └────────────┘  └────────────┘  └────────────┘             │
+│   [ Google 로 시작 ]  [ Kakao 로 시작 ]  [ Apple 로 시작 ]    │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### W-2. 업로드 위저드 — Step 2 (콘텐츠 정보) (`Upload.tsx:1344-1917`)
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  ○━━━━━━━━━━●━━━━━━━━━━○   2/3  정보 입력                 │
+├──────────────────────────────────────────────────────────────┤
+│  제목 *            [_______________________________]  12/60   │
+│  설명             [_______________________________]  0/500    │
+│  카테고리 * [▼ 선택  ]    장르 * [▼ 선택  ]                   │
+│  시리즈     [단일] [기존▼] [+ 새로 만들기]                    │
+│  시청등급 * ( 전체 ) ( 13+ ) ( 15+ ) ( 19+ )                  │
+│  AI 도구 * [▼     ]   해상도 * [▼   ]   재생시간 * [3:45]     │
+│  ▸ AI 제작 증빙 (프롬프트 / 시드)                  [접힘]     │  ← details
+│  ▸ 시네마 메타데이터 (감독·각본·음악·출연·자막)    [접힘]     │    (:1538-1853)
+│  ▸ 협찬 · 후원                                     [접힘]     │
+│  태그  [#AI] [#영화] [+ 추가]                       (최대10)   │
+│                                  [ ◀ 이전 ]  [ 다음 ▶ ]       │
+└──────────────────────────────────────────────────────────────┘
+   * = 필수 7개 (validateStep2, :640-674) — 첫 누락에서 toast 후 차단
+```
+
+### W-3. 업로드 위저드 — Step 3 (가격/공개) + 진행률 + 완료 (`Upload.tsx:1919-2097`)
+
+```
+┌──────────────────── 정상 (3분 이상) ─────────────────────┐
+│  ○━━━━━○━━━━━●  3/3  가격·공개                          │
+│  공개 설정  (●) 공개   ( ) 일부공개   ( ) 비공개           │
+│  판매 가격  ₩ [   5,000   ]   (₩1,000만+ → 1:1 협의판매)  │
+│  [✓] 저작권·초상권을 보유하거나 권리를 확보했습니다       │
+│                           [ ◀ 이전 ]  [ 게시하기 ]        │
+└────────────────────────────────────────────────────────────┘
+
+┌──────────────── 3분 미만 (판매 잠금, :2000-2022) ─────────┐
+│  🔒 3분 미만 영상은 라이선스 판매 불가                     │
+│     무료 광고형으로만 노출됩니다.                          │
+└────────────────────────────────────────────────────────────┘
+
+┌──────────────── 업로드 진행 중 (:1921-1957) ──────────────┐
+│              ◜ 67% ◝                                        │
+│   ┌──────────────┬──────────────┬──────────────┐          │
+│   │  진행 2.0/3GB │  속도 8 MB/s │  남은 02:10  │          │
+│   └──────────────┴──────────────┴──────────────┘          │
+└────────────────────────────────────────────────────────────┘
+
+┌──────────────── 완료 화면 (:1004-1039) ───────────────────┐
+│                  ✔  업로드 완료!                           │
+│        [ 계속 업로드 ]   [ 내 상품 보기 ]                  │
+└────────────────────────────────────────────────────────────┘
+```
+
+### W-4. 크리에이터 대시보드 (KPI + 차트 + Top + retention) (`CreatorDashboard.tsx:181-423`)
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  누적 KPI (:184-189)                                           │
+│  ┌─────────┐┌─────────┐┌─────────┐┌─────────┐               │
+│  │💲 총수익││👁 총조회││♥ 총좋아││📈 RPM   │               │
+│  │₩1.2M    ││ 340K    ││ 12.5K   ││₩3,400   │               │
+│  └─────────┘└─────────┘└─────────┘└─────────┘               │
+│  시청자 인사이트 (기간 기준, audience 있을 때만, :192-221)     │
+│  ┌─────────┐┌─────────┐┌─────────┐┌─────────┐               │
+│  │% 시청률 ││✓ 완주율 ││👥 유니크││⏱ 평균시청│               │
+│  │ 62%     ││ 41%     ││ 8.1K    ││ 1m 12s  │               │
+│  └─────────┘└─────────┘└─────────┘└─────────┘               │
+│  ┌────────────────────────────────────────────────────┐     │
+│  │ 📅 다음 정산  7월 1일 · ₩240,000 pending           │     │  ← pending>0만 (:224)
+│  └────────────────────────────────────────────────────┘     │
+│  일별 추세                          [7일] [14일] [●30일]      │  ← 기간 토글 (:239-258)
+│  ┌──────────── 일별 수익 LineChart (:260-285) ────────┐     │
+│  │  ₩ ╱╲      ╱╲╱                                      │     │
+│  └────────────────────────────────────────────────────┘     │
+│  ┌──── 조회수+좋아요 콤보 (:287-313) ─────────────────┐     │
+│  │  — views   --- likes                                │     │
+│  └────────────────────────────────────────────────────┘     │
+│  ┌──── 팔로워 (누적 — / 신규 ---) (:315-340) ─────────┐     │
+│  └────────────────────────────────────────────────────┘     │
+│  ┌──── 길이 구간별 평균 시청률 BarChart (:342-374) ───┐     │  ← retention>0만
+│  │  <1분 ▇▇▇  1~5분 ▇▇▇▇▇  5~10분 ▇▇▇  10분+ ▇▇    │     │
+│  └────────────────────────────────────────────────────┘     │
+│  ┌──── Top 영상  [●조회] [좋아요] [완주율] (:376-422) ┐     │
+│  │ 1 [▣] 제목A      👁340K ♥12K %62                   │     │
+│  │ 2 [▣] 제목B      👁210K ♥ 8K %58                   │     │
+│  │ (데이터 없으면: "데이터 없음" :400-401)             │     │
+│  └────────────────────────────────────────────────────┘     │
+└──────────────────────────────────────────────────────────────┘
+  로딩 중: 전체 스피너 (:154-160) / 기간 토글 시: 차트별 부분 스피너 (chartLoading)
+```
+
+---
+
+## 시퀀스 다이어그램
+
+### S-1. 업로드 파이프라인 (`performUpload`, `Upload.tsx:692-942`)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as 크리에이터
+    participant UI as Upload.tsx
+    participant Auth as supabase.auth
+    participant Edge as server Edge (Hono)
+    participant Bunny as Bunny TUS
+    participant ST as Supabase Storage
+    participant DB as videos / KV
+
+    U->>UI: 게시하기 클릭
+    UI->>UI: isUploading 가드 (중복 차단, :693)<br/>AbortController 생성 (:694)
+    UI->>Auth: getSession() 토큰 최신화 (:714-720)
+    Auth-->>UI: access_token
+
+    UI->>Edge: POST /videos/create-upload { title } (:733-757)
+    Edge->>Edge: 인증 + 정지/rate-limit (:215-236)
+    Edge->>Bunny: POST /library/{id}/videos (빈 영상)
+    Bunny-->>Edge: { guid }
+    Edge->>DB: KV video:{guid} status='creating' (:282-288)
+    Edge-->>UI: { videoId, libraryId, tusSignature, tusExpire } (:294-300)
+
+    rect rgb(235,240,255)
+    note over UI,Bunny: TUS 업로드 (tusUploadToBunny, bunnyUpload.ts:22-89)
+    UI->>Bunny: POST /tusupload (Upload-Length + 서명) (:36-55)
+    Bunny-->>UI: 201 + Location
+    UI->>Bunny: PATCH (단일, Upload-Offset:0) 파일 본문 (:57-88)
+    Bunny-->>UI: 204 (진행률 콜백 → %/속도/ETA)
+    end
+
+    opt 썸네일 (실패 무해, :768-778)
+        UI->>Edge: POST /videos/:id/thumbnail (1280x720 JPEG)
+        Edge->>Bunny: 썸네일 설정 (실패 시 Bunny 자동썸네일 폴백)
+    end
+    opt 자막 .vtt (실패 무해, :780-793)
+        UI->>ST: upsert video-subtitles/{uid}/{vid}/subtitle.vtt
+    end
+
+    rect rgb(255,245,235)
+    note over UI,DB: save-metadata 재시도 (최대 3회, :795-877)
+    UI->>Edge: POST /videos/save-metadata { metadata }
+    Edge->>Edge: 인증 + 소유권 검증 (:608-622)
+    Edge->>DB: videos upsert + KV (:624-709)
+    alt 성공 또는 4xx
+        Edge-->>UI: 즉시 종료 (4xx는 재시도 안 함)
+    else 5xx / 네트워크
+        Edge-->>UI: 800ms×attempt 백오프 재시도 (:857-871)
+    end
+    end
+
+    UI->>UI: uploadComplete=true, 드래프트 삭제 (:879-881, :260-264)
+    opt 시리즈 연결 (:883-914)
+        UI->>DB: create_series → set_video_series RPC
+    end
+    UI-)Edge: POST /moderate-video { video_id } (fire-and-forget, :916-935)
+    Edge->>Edge: Vision SafeSearch → update_video_moderation (:1731-1804)
+```
+
+### S-2. 대시보드 로드 (병렬 RPC) (`CreatorDashboard.tsx:146-152`)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant UI as CreatorDashboard.tsx
+    participant DB as Supabase RPC (SECURITY DEFINER, auth.uid 고정)
+
+    note over UI: 마운트 / days·topMetric 변경 시 (:152)
+    UI->>UI: setLoading(true)
+
+    par fetchSummary (:80-93)
+        UI->>DB: get_creator_dashboard_summary()
+        DB-->>UI: { total_revenue, total_views, total_likes, rpm,<br/>pending_payout, next_settlement_date }
+    and fetchCharts — Promise.all 6개 (:97-104)
+        UI->>DB: get_creator_daily_revenue(p_days)
+        UI->>DB: get_creator_daily_engagement(p_days)
+        UI->>DB: get_creator_daily_followers(p_days)
+        UI->>DB: get_creator_audience_stats(p_days)
+        UI->>DB: get_creator_retention_by_duration(p_days)
+        UI->>DB: get_creator_top_videos(p_metric,p_days,p_limit=5)
+        DB-->>UI: 각 배열 (Array.isArray 가드 후 setState, :105-142)
+    end
+
+    UI->>UI: setLoading(false) → KPI/차트 렌더
+    note over UI: RPC 오류 시 빈 상태 유지 (IDOR 불가: 인자 없이 auth.uid 집계)
+```
+
+---
+
+## API / RPC / Edge 레퍼런스
+
+### A-1. Edge Function (Hono, `supabase/functions/server/index.ts`)
+
+| 엔드포인트 | 요청 | 응답 | 권한/검증 | file:line |
+|---|---|---|---|---|
+| `POST /videos/create-upload` | `{ title }` | `{ videoId, libraryId, title, tusSignature, tusExpire }` | 인증 필수, 정지 403, 비관리자 시간당 30회 rate limit | `:197-305` (정지 `:220`, RL `:223-235`, 응답 `:294-300`) |
+| `POST /videos/save-metadata` | `{ metadata }` (§A-3) | `{ success:true, videoId, message }` | 인증 필수, KV/`creator_id` 소유권 검증, 비관리자 license_type='original' 강제 | `:582-722` (소유권 `:608-622`, license `:683-686`, 응답 `:713-717`) |
+| `POST /moderate-video` | `{ video_id }` | `{ status, score }` 등 | 인증 필수, 소유자/어드민만 | `:1679-1816` (가드 `:1707-1711`, Vision `:1731-1743`, RPC `:1794-1804`) |
+| `POST /videos/:videoId/thumbnail` | 이미지 본문 (JPEG) | 성공/실패 | 소유권 KV→creator_id→admin | `:358-433` (가드 `:377-394`) |
+| `POST /videos/:videoId/transcribe` | 자막 요청 | 자막/실패 | 소유권 동일 가드 | `:502-` (가드 `:517-534`) |
+
+서명: `tusSignature = SHA256(libraryId + apiKey + tusExpire + videoId)` (`:292`), `tusExpire = now + 6h` (`:291`).
+
+### A-2. 클라 업로더 / RPC
+
+| 함수 | 시그니처 | 동작 | file:line |
+|---|---|---|---|
+| `tusUploadToBunny` | `(file, auth, onProgress?, signal?) => Promise<void>` | ① POST /tusupload → Location ② 단일 PATCH(offset 0) XHR 진행률, abort 지원 | `bunnyUpload.ts:22-89` |
+| `BunnyTusAuth` (헤더) | `{ videoId, libraryId, tusSignature, tusExpire }` | `AuthorizationSignature/AuthorizationExpire/VideoId/LibraryId` 헤더로 전송 | `bunnyUpload.ts:15-34` |
+
+### A-3. 대시보드 RPC (인자 / 반환 / 권한 / file:line)
+
+모든 RPC: `SECURITY DEFINER` + `SET search_path`, 인자 없이 `auth.uid()`로 본인 데이터만 집계(IDOR 불가).
+
+**Phase 21** (`supabase/phase21_creator_dashboard.sql`):
+
+| RPC | 인자 | 반환 | 권한 | file:line |
+|---|---|---|---|---|
+| `get_creator_dashboard_summary()` | 없음 | `total_revenue, total_views, total_likes, rpm, pending_payout, next_settlement_date` | `v_uid:=auth.uid()`, NULL이면 예외 | `:18-93` (uid `:33`, 가드 `:44-46`) |
+| `get_creator_daily_revenue(p_days int=30)` | 일수 | `day, revenue` (0인 날 포함) | `WHERE seller_id=auth.uid()` | `:101-131` (`:122`) |
+| `get_creator_daily_engagement(p_days int=30)` | 일수 | `day, views, likes` | `creator_id=auth.uid()` | `:136-180` (`:158`,`:168`) |
+
+**Phase 20** (`supabase/phase20_creator_analytics.sql`):
+
+| RPC | 인자 | 반환 | 권한 | file:line |
+|---|---|---|---|---|
+| `get_creator_audience_stats(p_days=30)` | 일수 | `avg_watch_ratio, completion_rate, unique_viewers, total_views, avg_watch_seconds` | `v_uid:=auth.uid()`, NULL 예외 | `:19-54` (`:33`,`:36-38`) |
+| `get_creator_top_videos(p_metric='views', p_days=30, p_limit=5)` | 지표/일수/개수 | `id, title, thumbnail, duration, views_count, likes_count, avg_watch_ratio` | `WHERE v.creator_id=v_uid`, `is_hidden=false` | `:62-120` (`:82`,`:103`,`:104`) |
+| `get_creator_daily_followers(p_days=30)` | 일수 | `day, gained, total` (누적 윈도우합) | `creator_id=auth.uid()` | `:128-168` (`:150`,`:157`) |
+| `get_creator_retention_by_duration(p_days=30)` | 일수 | `bucket, bucket_order, avg_watch_ratio, view_count` | `WHERE vv.creator_id=v_uid` | `:176-227` (`:189`,`:213`) |
+
+**IDOR 보안 RPC** (`supabase/high_fixes_20260614.sql`, 같은 통계 계열):
+
+| RPC | 인자 | 반환 | 권한 가드 | file:line |
+|---|---|---|---|---|
+| `get_creator_view_stats(p_creator_id=auth.uid(), p_since=now()-30d)` | 크리에이터/시작시각 | 조회 통계 | `WHERE creator_id=p_creator_id AND (p_creator_id=auth.uid() OR is_admin())` | `:107-120` |
+| `get_creator_ad_stats(p_creator_id=auth.uid())` | 크리에이터 | 광고 노출/클릭 집계 | 동일 IDOR 가드 + `source_video_id IN (본인 videos)` | `:122-134` |
+| `get_creator_ad_stats_by_video(...)` | 크리에이터 | 영상별 광고 통계 | 동일 가드 | `:136-148` |
+
+클라 호출: `CreatorDashboard.tsx:81`(summary), `:97-104`(6개 Promise.all). 인자 키 `p_days/p_metric/p_limit` 정확히 일치, 반환은 `Number(...) || 0` 방어 매핑(`:84-141`).
+
+### A-4. save-metadata 메타 필드 매핑 (클라 → DB 컬럼)
+
+클라 `metadata`(`Upload.tsx:802-848`) → 서버 upsert(`index.ts:643-695`):
+
+| 클라 필드 | 서버 컬럼 | 비고 |
+|---|---|---|
+| `videoId` | `id` (`:644`) | Bunny guid |
+| `title`(없으면 파일명, `:804`) | `title` (`:645`) | |
+| `description` | `description` (`:646`) | |
+| — | `creator` (`:647`) | user_metadata.name 또는 이메일 앞부분 |
+| — | `creator_id` (`:648`) | 인증된 user.id 강제(위조 불가) |
+| `thumbnailUrl`(`:806`) | `thumbnail` (`:649`) | |
+| `hlsUrl`(`:807`) | `video_url` (`:650`) | `.../playlist.m3u8` |
+| `duration` | `duration` (`:651`) | |
+| `tags`(challenge 자동부착 `:810-812`) | `tags` (split→배열, `:654`) | |
+| `standardPrice`(콤마 제거 `:814`) | `price_standard`/`price_commercial`/`price_exclusive` (`:657-659`) | commercial/exclusive는 stale, standard 동일값 |
+| `aiTool`, `aiModelVersion` | `ai_tool`(`:660`), `ai_model_version`(`:669`) | |
+| `category`, `genre` | `category`(`:661`), `genre`(`:662`) | |
+| `age_rating`(`:819`) | `age_rating`(기본 'all', `:663`) | Phase 31.1 필수 |
+| `prompt`, `seed` | `prompt`(`:664`), `seed`(`:670`) | |
+| `resolution` | `resolution`(`:666`) | |
+| `director`/`writer`/`composer`/`cast`/`productionYear`/`language`/`subtitleLanguage` | `director`/`writer`/`composer`/`cast_credits`/`production_year`/`language`/`subtitle_language` (`:672-678`) | productionYear→int(`:637`) |
+| `subtitleUrl` | `subtitle_url`(`:679`) | |
+| `visibility` | `visibility`(화이트리스트 검증, `:681`) | |
+| `licenseType`/`licenseSourceUrl`/`attribution`/`originalCreator` | `license_type`/`license_source_url`/`attribution`/`original_creator` (`:683-686`) | 비관리자는 'original'/빈값 강제 |
+| `highlightStart`/`highlightEnd` | `highlight_start`/`highlight_end`(parseFloat 기본0/15, `:638-639`,`:688-689`) | |
+| `sponsorBrand`/`sponsorLogoUrl`/`sponsorDisclosure`/`sponsorLinkUrl` | `sponsor_brand`/`sponsor_logo_url`/`sponsor_disclosure`/`sponsor_link_url` (`:691-694`) | Phase 28 |
+| — | `views:"0"`, `likes:0`, `status`(기본 'ready', `:652-653`,`:665`) | |
+
+---
+
+## 테스트 케이스
+
+### TC-업로드 (정상·검증·진행률·재시도·취소)
+
+```gherkin
+Feature: 영상 업로드 위저드
+
+  Scenario: 정상 업로드 (3분 이상)
+    Given 로그인한 크리에이터가 4분짜리 mp4를 선택한다
+    And 해상도·재생시간·하이라이트·썸네일 3프레임이 자동 세팅됐다  # :354-439
+    When Step 2 필수 7개를 채우고 가격 ₩5,000, 공개 설정 후 게시한다
+    Then create-upload → TUS → save-metadata가 순서대로 성공한다
+    And 완료 화면(✔)과 성공 토스트가 표시된다                      # :1004-1039
+    And 드래프트가 삭제된다                                        # :260-264
+
+  Scenario: 30초 미만 차단
+    Given 크리에이터가 20초짜리 영상을 선택한다
+    When 파일이 드롭존에 들어간다
+    Then 거부 토스트가 뜨고 selectedFile이 초기화된다              # :358-369
+
+  Scenario Outline: Step 2 필수 검증
+    Given <필드>를 비운 채로 "다음"을 누른다
+    Then 이동이 막히고 toast가 뜬다                                # validateStep2 :640-674
+    Examples:
+      | 필드 |
+      | 제목 |
+      | 카테고리 |
+      | 장르 |
+      | 시청등급 |
+      | AI도구 |
+      | 해상도 |
+      | 재생시간 |
+
+  Scenario: 3분 미만 판매 잠금
+    Given 90초짜리 영상으로 Step 3에 도달한다
+    Then 가격 입력칸 대신 "라이선스 판매 불가" 안내가 뜬다          # :2000-2022
+
+  Scenario: 진행률 표시
+    When TUS PATCH가 진행 중이다
+    Then %, 진행/속도/남은시간 3분할 카드가 갱신된다                # :1921-1957
+    And 속도는 지수이동평균(신규70/기존30)으로 평활화된다           # :621-630
+
+  Scenario: save-metadata 재시도 (5xx)
+    Given TUS 업로드는 성공했다
+    When save-metadata가 500을 3번 반환한다
+    Then 800ms×attempt 백오프로 최대 3회 재시도한다                # :857-871
+
+  Scenario: save-metadata 4xx 즉시 실패
+    When save-metadata가 400을 반환한다
+    Then 재시도 없이 즉시 실패 처리한다                            # :857-871
+
+  Scenario: 업로드 중 취소/이탈
+    Given TUS PATCH가 진행 중이다
+    When 사용자가 탭을 떠나 컴포넌트가 언마운트된다
+    Then uploadAbortRef가 abort되어 XHR 전송이 중단된다           # :160, bunnyUpload.ts:77-79
+```
+
+### TC-대시보드 (표시)
+
+```gherkin
+Feature: 크리에이터 대시보드
+
+  Scenario: KPI 및 차트 표시
+    Given 본인 영상·주문·시청 데이터가 있다
+    When 대시보드를 연다
+    Then 누적 KPI 4종 + 시청자 4종이 표시된다                      # :184-221
+    And 일별 수익/조회수·좋아요/팔로워/retention/Top이 렌더된다     # :260-422
+
+  Scenario: 기간 토글
+    When 7/14/30일 버튼을 누른다
+    Then 모든 차트가 재조회된다(fetchCharts useEffect 의존성)      # :152, :243-256
+
+  Scenario: Top 지표 토글
+    When views/likes/watch_ratio 버튼을 누른다
+    Then get_creator_top_videos가 p_metric으로 재조회된다          # :384-398, :103
+
+  Scenario: 정산 안내 조건부 노출
+    Given pending_payout = 0
+    Then 다음 정산 안내 카드가 숨겨진다                            # :224
+```
+
+### TC-엣지 (고아영상·중복제출·측정실패·정지차단)
+
+```gherkin
+Feature: 업로드/대시보드 엣지 케이스
+
+  Scenario: 고아 영상 방지
+    Given TUS는 성공하고 save-metadata가 네트워크 오류다
+    Then 최대 3회 재시도로 DB 누락(Bunny엔 있고 DB엔 없음)을 줄인다 # :853-877
+
+  Scenario: 중복 제출(더블클릭)
+    Given 업로드가 이미 진행 중(isUploading=true)이다
+    When 게시 버튼을 다시 누른다
+    Then 즉시 return되어 영상이 1개만 생성된다                     # :693
+
+  Scenario: 메타데이터 측정 실패
+    Given video.onerror가 발생한다(손상 파일)
+    Then 경고 토스트만 뜨고 폼은 계속 진행 가능하다                # :445-449
+
+  Scenario: 프레임 캡처 실패
+    Given 특정 타임스탬프 캡처가 5초 내 안 끝난다
+    Then console.warn 후 계속, 0개여도 Bunny 자동썸네일로 폴백     # :422-430
+
+  Scenario: 정지 계정 차단
+    Given is_suspended=true인 계정
+    When create-upload를 호출한다
+    Then 403을 받고 업로드가 차단된다                              # index.ts:220-222
+
+  Scenario: rate limit 초과
+    Given 비관리자가 1시간 내 30회 create-upload를 호출했다
+    When 31번째를 호출한다
+    Then 429를 받는다                                              # index.ts:223-235
+
+  Scenario: license_type 위조 차단
+    Given 비관리자가 license_type='exclusive'를 보낸다
+    Then 서버가 'original'로 덮어써 저장한다                       # index.ts:683-686
+
+  Scenario: 모더레이션 측정 실패
+    Given moderate-video 호출이 실패한다
+    Then fire-and-forget .catch로 흡수되어 완료 화면은 정상 표시   # :916-935
+
+  Scenario: 대시보드 IDOR 차단
+    Given 공격자가 타인 데이터를 조회하려 한다
+    Then RPC는 인자 없이 auth.uid()로만 집계해 타인 통계 미노출     # phase20/21.sql
+    And creator_id 인자를 받는 통계는 (uid OR is_admin) 가드        # high_fixes_20260614.sql:118,132,145
+
+  Scenario: 대시보드 RPC 오류
+    Given 한 RPC가 오류를 반환한다
+    Then Array.isArray 가드로 setState를 건너뛰고 빈 상태 유지      # :105-142
+```
+
+### 수용 기준 (요약)
+
+- [ ] 정상 업로드: create-upload→TUS→save-metadata 성공 후 완료 화면.
+- [ ] 30초 미만 거부, 3분 미만 판매 잠금.
+- [ ] Step 2 필수 7개 검증 게이트.
+- [ ] 진행률 %/속도/ETA 표시, 취소 시 TUS abort.
+- [ ] save-metadata 5xx 최대 3회 재시도, 4xx 즉시 실패.
+- [ ] 더블클릭 1개 생성, 정지 403, rate limit 429, license_type 'original' 강제.
+- [ ] 대시보드 KPI 4+4, 기간/Top 토글 재조회, pending=0 정산 숨김.
+- [ ] IDOR 불가(auth.uid 고정 + admin 가드), RPC 오류 시 빈 상태.

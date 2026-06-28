@@ -251,3 +251,458 @@ DB row(뷰 컬럼) → `Video` 인터페이스. 주요 매핑:
 - **모바일 칩 UI 부재**: 칩 바는 데스크탑 sticky 헤더에만 렌더(`DiscoveryFeed.tsx:1267`-`1338`). 모바일에서 칩 전환 UI는 미노출(코드상 `chip`은 변경 가능하나 트리거 없음) → 모바일 칩 필터 진입점 추가 검토.
 - **데스크탑 자동재생**: 호버 기반(터치 데스크탑/키보드 사용자 비호버 시 미리보기 없음, `...:1635`).
 - **댓글 수 정합**: 작성 시 +1 낙관 증가(`...:1484`), 삭제 반영은 없음(증분만) → 새로고침 전까지 과대 가능.
+
+---
+
+## 13. 와이어프레임 (텍스트 목업)
+
+> 실제 CSS/구조 근거: 모바일 세로 스냅(`DiscoveryFeed.tsx:1219`-`1262`), 데스크탑 그리드(`...:1264`-`1383`), 칩 바(`...:1290`-`1315`), 연령 게이트(`...:627`-`639`), 광고 슬롯(`...:1033`-`1078`).
+
+### 13.1 모바일 세로 피드 카드 (1화면 2영상, snap-y mandatory)
+
+```
+┌─────────────────────────────┐  ← 컨테이너 높이 calc(100dvh - 136px)
+│  [BETA] 크리에이터 등록 →     │     (.mobile-feed-container, snap-y)
+├─────────────────────────────┤
+│ ▓▓▓▓▓ MovieSection #1 ▓▓▓▓▓ │  ← 섹션 높이 calc(50% - 1.5px)
+│ ▓ (video.js, muted, loop)  ▓ │     snap-start, data-video-id=#1
+│ ▓                          ▓ │     → 상단 = activeId → 자동재생
+│ ▓  [12]                    ▓ │  ← AgeBadge(좌상단, 잠금무관 항상)
+│ ▓                  ❤  1.2k  ▓ │
+│ ▓                  💬   34  ▓ │  ← ActionButtons(우측 세로)
+│ ▓                  ↗ 공유   ▓ │
+│ ▓                  +팔로우  ▓ │
+│ ▓ @creator · 제목           ▓ │
+│ ▓ 🎬 상업용 다운로드 ₩30,000 ▓│  ← price>0: 가격 / price=0: 무료시청
+│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │
+├─────────────────────────────┤  ← snap 경계(1.5px gap)
+│ ░░░░░ MovieSection #2 ░░░░░ │  ← inView=±1화면 → 마운트, 비활성=정지+mute
+│ ░  (썸네일 lazy, 정지)      ░ │
+│ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │
+└─────────────────────────────┘
+                ↓ 스크롤
+┌─────────────────────────────┐
+│  연령 잠금 카드 예시         │
+│  🔲🔲🔲 (blur) 🔒 19+ 🔲🔲🔲 │  ← shouldBlur(age_rating, ageVerified)
+│   탭 → ProductDetail(실게이트)│     본인 영상(isMyVideo)은 제외
+└─────────────────────────────┘
+                ↓ (i+1)%5==0 위치
+┌─────────────────────────────┐
+│  📢 광고 슬롯 (AdCard/extad) │  ← self-ad OFF → 외부광고, 둘 다 없으면 슬롯 생략
+│     data-video-id 없음       │     → activeId=null → 모든 영상 정지
+└─────────────────────────────┘
+   ...
+┌─────────────────────────────┐
+│   ⟳ (loadingMore 스피너)     │  ← .feed-load-sentinel (rootMargin 800px)
+│        END OF FEED           │  ← hasMore=false
+└─────────────────────────────┘
+```
+
+### 13.2 데스크탑 그리드 (sticky 헤더 + 반응형 그리드)
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ DISCOVERY FILMS                              [🔍 검색바      ] │  ← sticky 헤더
+│ ◀ [전체][🔥인기][✨최신][🆓무료시청][💎소장가능][🎬시네마급] ▶ │  ← 칩 바(넘치면 ◀▶)
+│                                                  VIDEOS: 1,234 │  ← get_home_feed_count 배지
+├──────────────────────────────────────────────────────────────┤
+│  grid-cols-1 / md:2 / xl:3 / 2xl:4                            │
+│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐                │
+│  │ card 1 │ │ card 2 │ │ card 3 │ │ card 4 │  ← 호버 시에만 재생 │
+│  │ [12]   │ │        │ │ 시리즈 │ │        │                │
+│  │@cr ❤34 │ │@cr     │ │@cr     │ │@cr     │                │
+│  │₩30,000 │ │ 무료   │ │ 협의   │ │₩5,000  │                │
+│  └────────┘ └────────┘ └────────┘ └────────┘                │
+│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────────────────┐    │
+│  │ card 5 │ │ card 6 │ │ card 7 │ │ 📢 DesktopAdCard    │    │  ← 6영상마다 1광고
+│  └────────┘ └────────┘ └────────┘ │  (300×250 / extad) │    │     주기 7=2/3/4열 서로소
+│                                    └────────────────────┘    │     → 대각선 회전
+│                          ...                                  │
+│                  ⟳ loadingMore / "End of Feed"                │  ← .feed-load-sentinel
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 13.3 칩 필터 바 (데스크탑 sticky 헤더 전용)
+
+```
+컨테이너 좌측 끝(scrollLeft<=0): 좌화살표 숨김
+┌──────────────────────────────────────────────────────────────┐
+│   [전체*][🔥 인기][✨ 최신][🆓 무료시청][💎 소장가능][🎬 ..▶ │  ← 우측 넘침 → ▶ 표시
+└──────────────────────────────────────────────────────────────┘
+   * = chip state 활성(기본 "all"). 클릭 → setChip → 초기 effect 재로드
+   화살표 표시 판정: scrollLeft / clientWidth / scrollWidth (리사이즈·스크롤 시 갱신)
+   (모바일 레이아웃엔 칩 바 미렌더 → § 12 이월)
+```
+
+### 13.4 온보딩 게이트(연령) 오버레이
+
+```
+┌─────────────────────────────┐
+│ ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ │  ← 카드 전체 blur
+│ ▒▒▒▒▒▒▒    🔒     ▒▒▒▒▒▒▒▒▒ │
+│ ▒▒▒▒▒  19+ 인증 필요  ▒▒▒▒▒ │  ← shouldBlur(age_rating, ageVerified)==true
+│ ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ │
+│ [12]                        │  ← AgeBadge는 blur 위에 항상 노출
+└─────────────────────────────┘
+   탭 → onVideoClick → ProductDetail(실제 게이트 판정)
+   예외: isMyVideo==true → blur 안 함(본인 영상)
+```
+
+### 13.5 광고 슬롯 배치 규칙
+
+```
+모바일(interval=5, self-ads OFF):
+  [V][V][V][V][AD][V][V][V][V][AD]...   ← (i+1)%5==0
+  AD 우선순위: self-ad(ON일 때) → extad(외부) → 없으면 슬롯 생략
+
+데스크탑(DESKTOP_AD_INTERVAL=6, 주기 7):
+  열4 기준:  [V][V][V][V]
+             [V][V][AD][V]   ← 7주기가 4열과 서로소 → AD 위치 대각 회전
+             [V][V][V][V]
+             [AD][V][V][V]
+```
+
+---
+
+## 14. 시퀀스 다이어그램
+
+### 14.1 초기 로드 (캐시 → 광고 → 좋아요 → RPC 첫 페이지)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 사용자/탭
+    participant DF as DiscoveryFeed
+    participant C as homeFeedCache(모듈)
+    participant SB as Supabase
+    participant RPC as get_home_feed
+
+    U->>DF: 마운트 / user.id·chip 변경
+    DF->>DF: cacheKey = `${user?.id ?? "anon"}:${chip}` (920)
+    DF->>C: get(cacheKey)
+    alt 캐시 히트 (921-941)
+        C-->>DF: {videos, ads, commentCounts, offset, hasMore, activeId}
+        DF->>DF: 즉시 복원, loading=false (스피너 없음)
+        DF->>SB: (백그라운드) video_likes 조회 → 좋아요 상태 보정
+    else 캐시 미스 (942-972)
+        DF->>DF: state 리셋(offset 0, hasMore true, videos [])
+        DF->>SB: from("ads_public").or(feed_display/null) (955-958)
+        SB-->>DF: 승인·활성 광고 행
+        opt 로그인 시
+            DF->>SB: from("video_likes").select(video_id) (사용자 좋아요)
+            SB-->>DF: liked Set
+        end
+        DF->>RPC: loadMore() → rpc(p_limit:12, p_offset:0, p_filter:chip) (876-880)
+        RPC-->>DF: rows[]
+        DF->>DF: mapVideoRow → id dedup 누적, activeId=첫영상 (891-895)
+        DF->>SB: comments count(parent_id is null) — 신규 id만 (897-906)
+        SB-->>DF: commentCounts 병합
+        DF->>DF: loading=false
+    end
+    note over DF: cancelled 플래그로 언마운트/재실행 시 stale setState 차단 (919,973)
+```
+
+### 14.2 무한 스크롤
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant IO as Sentinel IO(rootMargin 800px)
+    participant DF as DiscoveryFeed.loadMore
+    participant RPC as get_home_feed
+
+    IO->>DF: sentinel 진입 → loadMore() (1014-1024)
+    DF->>DF: 가드 fetchingRef / hasMoreRef (868)
+    alt 이미 fetch중 or hasMore=false
+        DF-->>IO: return (무시)
+    else 진행
+        DF->>DF: reqChip = chipRef.current 스냅샷 (871)
+        DF->>RPC: rpc(p_limit:12, p_offset:from, p_filter:reqChip) (876-880)
+        RPC-->>DF: rows[]
+        alt reqChip !== chipRef.current (883)
+            DF->>DF: 결과 폐기(칩 전환 race)
+        else 유효
+            DF->>DF: offsetRef = from + rows.length (885)
+            DF->>DF: rows < 12 → hasMore=false (886)
+            DF->>DF: mapVideoRow → seen Set dedup 누적 (891-894)
+            DF->>DF: 신규 id 댓글 수 병합(칩 변경 시 폐기) (897-906)
+        end
+    end
+```
+
+### 14.3 자동재생 마운트 / dispose (MovieSection)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as Scroll(.mobile-feed-container)
+    participant MS as MovieSection
+    participant VJS as video.js
+
+    S->>MS: passive scroll + rAF throttle (380)
+    MS->>MS: getBoundingClientRect() 판정 (364-378)
+    note over MS: 크기 0/vh 미확정이면 보류(false로 안 덮음) (377)
+    alt r.top < vh*2 && r.bottom > -vh (inView true)
+        MS->>MS: Effect1: inView && container && videoUrl (399)
+        MS->>VJS: document.createElement(video) append (405-409)
+        MS->>VJS: videojs(autoplay:false, muted:true, loop, fill, HLS) (411-425)
+        opt error code 2/4
+            VJS-->>MS: error → 1.5s 후 src 재설정 재생, 최대 2회 (439-464)
+        end
+        MS->>VJS: timeupdate → highlightStart~End 루프 (466-476)
+    else inView false
+        MS->>VJS: cleanup dispose() → 메모리 회수 (478-485)
+    end
+    note over MS: deps [video.id, video.videoUrl, inView]
+```
+
+### 14.4 활성/비활성 전환 (Effect 2)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant DF as DiscoveryFeed(활성감지)
+    participant MS as MovieSection.Effect2
+    participant VJS as video.js
+
+    DF->>DF: scrollTop/sectionHeight 반올림 → 상단 섹션 (1080-1106)
+    alt 광고 카드(data-video-id 없음)
+        DF->>DF: activeId=null → 모든 영상 정지
+    else 영상 섹션
+        DF->>DF: activeId = data-video-id
+    end
+    note over DF: scrollend + scroll 디바운스 350ms (1109-1118)
+    DF->>MS: isActive 전파
+    alt isActive=false (491-500)
+        MS->>VJS: pause + currentTime(highlightStart) (전체화면 중 예외)
+    else isActive=true && playerReady (512-523)
+        MS->>VJS: play()
+        opt play() 거부
+            MS->>VJS: muted 강제 재시도 + seeked/canplay 보강
+        end
+    end
+    MS->>VJS: cleanup: 미발화 seeked/canplay 해제 (524-531)
+```
+
+### 14.5 칩 전환
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 사용자
+    participant DF as DiscoveryFeed
+    participant E as 초기 effect
+    participant RPC as get_home_feed
+
+    U->>DF: 칩 클릭 → setChip(key)
+    DF->>DF: chipRef.current = key
+    DF->>E: chip 변경 → 초기 effect 재실행 (916-974)
+    E->>E: cacheKey = `${uid}:${chip}` 새 키
+    alt 새 칩 캐시 히트
+        E->>DF: 즉시 복원
+    else 미스
+        E->>E: state 리셋 → loadMore() 첫 페이지
+        E->>RPC: rpc(p_filter:newChip)
+        RPC-->>E: rows[]
+    end
+    note over DF: 진행 중이던 이전 칩 응답은<br/>reqChip !== chipRef.current 로 폐기 (883,901)
+```
+
+### 14.6 좋아요 낙관적 업데이트 + 롤백
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 사용자
+    participant DF as toggleLike (1131-1166)
+    participant SB as video_likes
+
+    U->>DF: 좋아요 탭
+    alt 비로그인
+        DF->>U: onSignInClick (로그인 유도)
+    else 로그인
+        DF->>DF: 낙관적: likedVideos Set 토글 + likes 카운트 ±1 (1138)
+        alt 새로 좋아요
+            DF->>SB: insert(video_id, user_id) (1148-1153)
+        else 좋아요 해제
+            DF->>SB: delete where video_id & user_id
+        end
+        alt 실패
+            SB-->>DF: error
+            DF->>DF: 롤백: Set/카운트 원복 (1165)
+        else 성공
+            SB-->>DF: ok (낙관 유지)
+        end
+    end
+```
+
+---
+
+## 15. API / RPC 레퍼런스
+
+### 15.1 RPC / 뷰 조회 표
+
+| 호출 | 인자 | 반환 | 권한 | 정의 위치(file:line) | 호출부(file:line) |
+|---|---|---|---|---|---|
+| `get_home_feed` | `p_limit int=12`, `p_offset int=0`, `p_filter text='all'` | `SETOF v_home_feed_public` | `SECURITY DEFINER`, `GRANT EXECUTE → anon, authenticated` | `get_home_feed_safe_columns_20260620.sql:42`-`48`, `:159` | `DiscoveryFeed.tsx:876`-`880` |
+| `get_home_feed_count` | `p_filter text='all'` | `integer`(피드 총 건수) | `GRANT EXECUTE → anon, authenticated`(현행 칩 버전) | `home_feed_chip_filter_20260611.sql:131`-`139` | `DiscoveryFeed.tsx:1007` |
+| `ads_public` 조회 | `.select(...).or("ad_type.eq.feed_display,ad_type.is.null")` | 승인·활성·기간내 광고 행(민감컬럼 제외) | 안전 뷰(budget/spent/owner 비노출, base `ads` 공개 SELECT 제거) | `ads_public_view_20260620.sql:20`-`37` | `DiscoveryFeed.tsx:955`-`958` |
+| `increment_ad_impressions` | `ad_id`, `p_viewer_key` | `void`(impressions+1, spent_krw += CEIL(CPM/1000)) | `SECURITY DEFINER` dedup(광고,뷰어,1시간 1회) | `ad_charge_dedup_phase3_20260614.sql:22`-`48` | `DiscoveryFeed.tsx:141`(AdCard), `1567`-`1585`(DesktopAdCard) |
+| `increment_ad_clicks` | `ad_id`, `p_viewer_key` | `void`(clicks+1, dedup) | `SECURITY DEFINER` dedup, 구 1-파라미터 함수 DROP | `home_security_20260620.sql:50`-`70` | `DiscoveryFeed.tsx:153`, `1587`-`1590` |
+| `video_likes` insert/delete | `video_id`, `user_id`(insert) | 행 | RLS: 본인 행만 select/insert/delete | `home_security_20260620.sql:24`-`33` | `DiscoveryFeed.tsx:1148`-`1153` |
+| `comments` count | `.eq(video_id).is(parent_id, null)` | count | comments SELECT RLS(숨김은 작성자/관리자/소유자) | `home_security_20260620.sql:90`-`100` | `DiscoveryFeed.tsx:897`-`906` |
+
+비고:
+- `p_viewer_key`는 `getViewerSessionKey()`(localStorage). RPC 내부에서 `COALESCE(auth.uid(), 세션키)` + `date_trunc('hour')` 버킷으로 dedup(`DiscoveryFeed.tsx:153`, `1028`; `ad_charge_dedup_phase3_20260614.sql:22`-`48`).
+- `get_home_feed`의 `all` 필터는 `auth.uid()` 이력 유무로 개인화/폴백 분기(§ 5.2, `get_home_feed_safe_columns_20260620.sql:85`-`155`).
+
+### 15.2 `mapVideoRow` 필드 매핑 표 — `DiscoveryFeed.tsx:714`-`749`
+
+| `Video` 필드 | DB 뷰 컬럼 | 기본/변환 | 줄 |
+|---|---|---|---|
+| `id` | `id` | 그대로 | 716 |
+| `thumbnail` | `thumbnail` | 그대로 | 717 |
+| `title` | `title` | 그대로 | 718 |
+| `creator` | `creator` | `\|\| "AI Creator"` | 719 |
+| `creatorId` | `creator_id` | `\|\| undefined` | 720 |
+| `likes` | `likes` | `\|\| 0` | 721 |
+| `price` | `price_standard` | `\|\| 0` | 722 |
+| `duration` | `duration` | `\|\| "0:00"` | 723 |
+| `durationSeconds` | `duration_seconds` | `\|\| 0`(페이월 게이트용) | 724 |
+| `resolution` | `resolution` | `\|\| undefined` | 725 |
+| `tool` | `ai_tool` | `\|\| "AI Tool"` | 726 |
+| `category` | `category` | `\|\| undefined` | 727 |
+| `genre` | `genre` | `\|\| undefined` | 728 |
+| `videoUrl` | `video_url` | `\|\| ""` | 729 |
+| `age_rating` | `age_rating` | `\|\| "all"` | 730 |
+| `description` | `description` | `\|\| undefined` | 731 |
+| `tags` | `tags` | 배열이면 그대로 / 문자열이면 콤마 분리 trim filter | 732 |
+| `priceStandard` | `price_standard` | `\|\| 0` | 733 |
+| `aiModelVersion` | `ai_model_version` | `\|\| undefined`(AI 증빙) | 734 |
+| `prompt` | `prompt` | `\|\| undefined`(AI 증빙) | 735 |
+| `seed` | `seed` | `\|\| undefined`(AI 증빙) | 736 |
+| `director` | `director` | `\|\| undefined` | 737 |
+| `writer` | `writer` | `\|\| undefined` | 738 |
+| `composer` | `composer` | `\|\| undefined` | 739 |
+| `castCredits` | `cast_credits` | `\|\| undefined` | 740 |
+| `productionYear` | `production_year` | `\|\| undefined` | 741 |
+| `language` | `language` | `\|\| undefined` | 742 |
+| `subtitleLanguage` | `subtitle_language` | `\|\| undefined` | 743 |
+| `visibility` | `visibility` | `\|\| "public"` | 744 |
+| `highlightStart` | `highlight_start` | `\|\| 0` | 745 |
+| `highlightEnd` | `highlight_end` | `\|\| (highlightStart+30)` | 746 |
+| `seriesId` | `series_id` | `\|\| undefined` | 747 |
+
+---
+
+## 16. 테스트 케이스 (Gherkin)
+
+> 각 시나리오 끝에 매핑되는 § 11 수용 기준을 표기한다.
+
+### 16.1 정상 경로
+
+```gherkin
+Feature: 홈 피드 정상 동작
+
+  Scenario: 무한 스크롤로 다음 페이지 로드
+    Given 로그인 사용자가 "전체" 칩의 홈 피드를 본다
+    And 첫 페이지 12개 영상이 로드되어 있다
+    When sentinel(.feed-load-sentinel)이 화면 800px 이내로 들어온다
+    Then loadMore가 get_home_feed(p_limit:12, p_offset:12, p_filter:"all")을 호출한다
+    And 새 12개가 id 기준 중복 없이 누적된다
+    And offsetRef가 24로 갱신된다
+    # 수용기준: §11 "무한스크롤: 12개 단위 로드 ... 중복 영상 없음"
+
+  Scenario: 상단 영상만 자동재생
+    Given 모바일 세로 피드에서 영상 #1이 상단에 스냅되어 있다
+    When 활성 감지가 scrollTop/sectionHeight로 #1을 활성으로 산출한다
+    Then #1만 play() 되고 나머지 섹션은 pause + mute 된다
+    And #1의 재생은 highlightStart~highlightEnd 구간을 루프한다
+    # 수용기준: §11 "상단 영상만 활성·자동재생, 나머지 정지/뮤트"
+
+  Scenario: 좋아요 낙관적 업데이트
+    Given 로그인 사용자가 영상 #1을 본다
+    When 좋아요 버튼을 탭한다
+    Then likedVideos Set과 likes 카운트가 즉시 +1 반영된다
+    And video_likes에 (video_id, user_id) insert가 발생한다
+    # 수용기준: §11 "좋아요 낙관적 업데이트 + 실패 롤백"
+
+  Scenario: 칩 전환으로 필터 변경
+    Given 사용자가 "전체" 칩을 보고 있다
+    When "🆓 무료시청" 칩을 클릭한다
+    Then chip state가 "free"로 바뀌고 초기 effect가 재실행된다
+    And get_home_feed(p_filter:"free")로 price_standard=0 영상만 로드된다
+    # 수용기준: §11 "칩 6종 각각 올바른 필터/정렬"
+
+  Scenario: 광고 슬롯 주기 삽입
+    Given 모바일 피드에 self-ads가 OFF이고 외부광고 데이터가 있다
+    When 피드가 렌더링된다
+    Then (i+1)%5==0 위치마다 광고 슬롯이 삽입된다
+    And 광고 카드가 50% 보이면 increment_ad_impressions가 1회 호출된다
+    # 수용기준: §11 "광고: 모바일 5칸/데스크탑 6칸 주기 삽입" + "노출/클릭 dedup"
+```
+
+### 16.2 엣지 케이스
+
+```gherkin
+Feature: 홈 피드 엣지 케이스
+
+  Scenario: 칩 전환 race — 이전 칩 응답 폐기
+    Given "전체" 칩 loadMore 요청이 in-flight 이다 (reqChip="all")
+    When 응답 도착 전에 사용자가 "🔥 인기" 칩으로 바꾼다 (chipRef.current="popular")
+    And "전체" 응답이 뒤늦게 도착한다
+    Then reqChip("all") !== chipRef.current("popular") 이므로 결과가 폐기된다
+    And 댓글 수 병합도 동일하게 폐기된다
+    # 수용기준: §11 "칩 전환 직후 이전 칩 응답이 섞이지 않음"
+
+  Scenario: 페이지 경계 중복 영상 dedup
+    Given 두 페이지의 경계에 동일 id 영상이 반환될 수 있다
+    When 새 페이지가 누적된다
+    Then seen Set으로 이미 있는 id는 제외되어 중복 없이 병합된다
+    And DB 정렬은 마지막 id 타이브레이커로 페이지 경계가 안정적이다
+    # 수용기준: §11 "중복 영상 없음"
+
+  Scenario: 빈 피드
+    Given get_home_feed가 0건을 반환한다
+    When 로딩이 끝난다 (videos.length === 0)
+    Then "표시할 영상이 없습니다." 가 표시된다
+    And 광고 데이터가 없으면 빈 광고 슬롯이 만들어지지 않는다
+    # 수용기준: §11 "광고 데이터 없으면 빈 슬롯 없음"
+
+  Scenario: 자동재생 실패(네트워크/소스)
+    Given 영상 src error code가 2(NETWORK) 또는 4(SRC_NOT_SUPPORTED) 이다
+    When 자동재생이 시도된다
+    Then 1.5초 후 src 재설정 + 재생을 최대 2회 재시도한다
+    And 2회 실패 시 "영상 처리 중..." 오버레이 + 스피너가 표시된다
+
+  Scenario: play() 정책 거부
+    Given 브라우저 자동재생 정책이 play()를 거부한다
+    When 활성 섹션이 재생을 시도한다
+    Then muted를 강제하고 재시도하며 seeked/canplay 이벤트로 보강한다
+
+  Scenario: 캐시 오염 방지
+    Given 초기 로딩(loading=true)이 진행 중이다
+    When 캐시 저장 시점이 도달한다
+    Then loading 중에는 homeFeedCache에 기록하지 않는다
+    And 캐시 키는 `${user.id}:${chip}` 로 사용자/필터가 격리된다
+    And 캐시 복원 후 좋아요 상태는 백그라운드 재조회로 보정된다
+    # 수용기준: §11 "탭 복귀 시 모듈 캐시로 스피너 없이 직전 상태 복원"
+
+  Scenario: 광고 카드가 활성 위치일 때
+    Given 모바일에서 광고 카드(data-video-id 없음)가 상단에 스냅된다
+    When 활성 감지가 실행된다
+    Then activeId=null 이 되어 모든 영상이 정지된다
+    # 수용기준: §11 "광고 카드 활성 시 모든 영상 정지"
+
+  Scenario: 위조/잘못된 광고 링크 차단
+    Given 광고 link_url이 "javascript:alert(1)" 이다
+    When 광고 카드를 클릭한다
+    Then openAdLinkSafe가 http(s) 스킴이 아니므로 창을 열지 않는다
+    # 수용기준: §11 "외부 광고 링크는 http(s)만 새 탭(noopener) 오픈"
+
+  Scenario: 늦게 도착한 이벤트로 비활성 영상 재생 방지
+    Given 사용자가 빠르게 스크롤해 #1이 비활성/언마운트 되었다
+    When #1의 seeked/canplay 이벤트가 뒤늦게 발화한다
+    Then cleanup으로 리스너가 해제되어 비활성 영상이 소리내지 않는다
+    # 수용기준: §11 "±1화면 밖 섹션은 플레이어 dispose"
+```

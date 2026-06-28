@@ -1,8 +1,9 @@
 # CREAITE PRD — 영역별 심화 명세 (Deep Specs)
 
 > 마스터 PRD([`../PRD-CREAITE.md`](../PRD-CREAITE.md))의 각 기능 영역을 **코드 기준(file:line)** 으로 깊게 확장한 상세 명세 모음입니다.
-> 각 문서는 공통 템플릿(개요·사용자스토리·화면&상태·동작흐름·데이터/RPC 계약·비즈니스 규칙·엣지케이스·권한/보안·분석·수용기준·이월) 구조를 따릅니다.
-> **갱신 규칙:** 해당 영역 코드 변경 시 같은 문서를 함께 수정.
+> 각 문서는 공통 템플릿(개요·사용자스토리·화면&상태·동작흐름·데이터/RPC 계약·비즈니스 규칙·엣지케이스·권한/보안·분석·수용기준·이월) + **보강 4종(와이어프레임 ASCII·시퀀스 다이어그램 mermaid·API/RPC 레퍼런스·테스트 케이스 Gherkin)** 구조를 따릅니다.
+> **영문판(English):** 각 문서의 영어 번역본은 [`en/`](en/) 하위에 `*.en.md` 로 제공.
+> **갱신 규칙:** 해당 영역 코드 변경 시 한글 문서 + 영문판을 함께 수정.
 
 ## 목차
 | # | 문서 | 범위 |
@@ -16,6 +17,15 @@
 | 07 | [마이페이지·결제·구독](07-mypage-payment-billing.md) | 프로필/정산계좌/세금/결제내역·토스 단건/빌링/환불·시청기록/플레이리스트/차단 |
 | 08 | [광고·광고주·관리자](08-ads-advertiser-admin.md) | 자체/외부광고·광고주 셀프서비스(상태머신)·관리자 패널 전 기능 |
 | 09 | [정책·보안·데이터모델·기술](09-policy-security-data-tech.md) | 콘텐츠정책/모더레이션·보안 SSOT/금지선·데이터모델·아키텍처·출시 보안 체크리스트 |
+
+### 영문판 (English specs)
+[01](en/01-auth-onboarding.en.md) · [02](en/02-home-feed.en.md) · [03](en/03-cinema-ott.en.md) · [04](en/04-search-detail-licensing.en.md) · [05](en/05-upload-creator-dashboard.en.md) · [06](en/06-community-channel-notifications.en.md) · [07](en/07-mypage-payment-billing.en.md) · [08](en/08-ads-advertiser-admin.en.md) · [09](en/09-policy-security-data-tech.en.md)
+
+### 각 문서 보강 섹션
+- **와이어프레임** — 주요 화면/상태 ASCII 목업
+- **시퀀스 다이어그램** — 핵심 흐름 mermaid `sequenceDiagram`(09는 flowchart·erDiagram 포함)
+- **API/RPC/Edge 레퍼런스** — 이름·인자·반환·권한·file:line 표
+- **테스트 케이스** — Gherkin(Given/When/Then) + 수용기준 매핑
 
 ## 작성 기준
 - **as-built**: 추측 없이 실제 소스/마이그레이션을 읽고 `file:line` 근거로 기술.

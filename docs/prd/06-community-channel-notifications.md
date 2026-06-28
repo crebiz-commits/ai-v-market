@@ -283,3 +283,533 @@ CREAITE 의 소셜 레이어. 세 축으로 구성된다.
 - **알림 타입 enum 분산** — `notifications.type` CHECK 에 `collab` 추가(`collab_space.sql:93-95`)됐으나 프론트 `Notification` 타입 정의(`NotificationPanel.tsx:9-17`)에는 union 에 `collab` 미포함(아이콘/배경 맵에는 있음). 표시는 되지만 타입 정의 불일치 정리 필요.
 - **미인증 샘플 알림** — 로그인 전 벨에 가짜 샘플 노출(`NotificationPanel.tsx:20-72`); 실데이터와 혼동 방지 위해 id `s` 접두로 클릭 무효화(`:166`).
 - **i18n 혼용** — 카테고리 키는 한글 상수("팁","챌린지" 등)를 그대로 DB CHECK·필터에 사용(`features_tables.sql:105`, `Community.tsx:312`). 다국어 라벨은 별도 키 맵(`:314-322`)으로만 처리.
+
+---
+
+## 와이어프레임 (텍스트 목업)
+
+> 실제 컴포넌트 구조 기준의 ASCII 목업. 좌표·픽셀이 아니라 정보 위계/상태를 표현한다.
+
+### 커뮤니티 — 게시글 피드 (`posts` 탭, `Community.tsx:910-`)
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│  커뮤니티                                          [+ 글쓰기]   │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │ [게시글] [챌린지] [협업]            ← 탭 (:879-908)        │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│  카테고리:  (전체) (팁) (프롬프트) (비교) (질문) (자랑) ...     │  ← :915-936
+│  정렬:      [최신 ▼]  최신 | 인기 | 댓글                       │  ← :937-953
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │ 📌 공지  [공지 배지]            ← isNotice 항상 최상단 :849│  │
+│  │ (아바타) 관리자 · 3시간 전                                 │  │
+│  │ [공지] 6월 챌린지 안내                                     │  │
+│  │ 본문 미리보기 (line-clamp-3) ...                           │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │ (아바타) 홍길동 · 1시간 전           [프롬프트] 카테고리   │  │
+│  │ 제목 텍스트                                                │  │
+│  │ 본문 미리보기 (line-clamp-3) ...                           │  │
+│  │ ┌── 프롬프트 미리보기 (line-clamp-2) ──┐                  │  │
+│  │ │ "cinematic, slow dolly-in ..."        │                  │  │
+│  │ └───────────────────────────────────────┘                  │  │
+│  │ [▶ 임베드 영상 썸네일]            ← writeVideoId :986-1038 │  │
+│  │ ♥ 12   💬 4   🔖   ⚐ 신고                                 │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│  ┌─ [외부 광고 슬롯] ExternalAdSlot (비프리미엄만 :973) ─────┐  │
+│  └─────────────────────────────────────────────────────────┘  │
+└───────────────────────────────────────────────────────────────┘
+```
+
+### 커뮤니티 — 글쓰기/수정 모달 (`showWriteModal`, `Community.tsx:389,755-807`)
+
+```
+┌──────────────── 글쓰기 / 수정 ────────────────[X]┐
+│ 카테고리: [팁 ▼]                                   │  ← writeCategory
+│ 제목:    [______________________________]          │  ← writeTitle
+│ 본문:    [                              ]           │  ← writeContent
+│          [                              ]           │
+│ 프롬프트: [_____________________________] (선택)    │  ← writePrompt
+│ 영상 임베드: [내 영상 선택 ▼] myVideos (:410,424)   │  ← writeVideoId
+│ ┌ ⚠ 공지로 등록 (관리자 전용) ──────────┐          │  ← writeNotice, :768
+│ │ [ ] is_admin 일 때만 의미                │          │
+│ └──────────────────────────────────────┘          │
+│                          [취소]   [등록하기]        │
+│  ※ author_name/avatar 는 입력칸 없음 → 서버 강제     │
+└────────────────────────────────────────────────────┘
+```
+
+### 커뮤니티 — 챌린지 카드 + 상세 (`challenges` 탭, `CommunityChallengeDetail.tsx`)
+
+```
+┌──────────── 챌린지 카드 (:493-531) ────────────┐
+│ [히어로 배너]                                     │
+│ 6월 챌린지: "비 오는 도시"                         │
+│ 상태: ● 진행중 (ongoing | upcoming | ended :130) │
+│ 🏆 상금  · 👥 참여 23 · ⏳ D-7                    │
+│                              [참여하기 →]         │
+└──────────────────────────────────────────────────┘
+        │ 클릭 → 슬라이드 오버레이 (z-[60] :149)
+        ▼
+┌──────────── 챌린지 상세 ──────────────[X]┐
+│ [히어로]                                    │
+│ ┌상금┐ ┌참여자┐ ┌D-day┐   ← 3카드 :190-208│
+│ 설명 / 규칙 / 시상(하드코딩 :81-110)        │
+│ 참여작 갤러리:                              │
+│  videos.tags @> ['challenge:<tag>']         │  ← :58-64
+│  공개·좋아요순 12개                          │
+│  [썸] [썸] [썸] [썸] ...                     │
+│ ─────────────────────────────────────────  │
+│ [참여하기]  (sticky, upcoming이면 안내토스트)│  ← :134-141,322-337
+└─────────────────────────────────────────────┘
+```
+
+### 커뮤니티 — 협업 카드 + 비공개 문의 (`collab` 탭, `CollabInquiryModal.tsx`)
+
+```
+┌──────────── 협업 카드 ────────────┐
+│ [모집] 영상 편집자 구합니다         │  ← type: recruit|join|help|outsource
+│ (아바타) 김감독 · 2일 전            │
+│ 역할: 편집, 모션그래픽              │
+│ 보상: 협의 · 지원 5명               │  ← applicants_count
+│ 상태: ● open                       │
+│              [관심] [문의하기]      │
+└────────────────────────────────────┘
+   │ 문의하기 → 3-뷰 머신 (:65)
+   ▼
+detail ──► (작성자) list: 받은 문의 목록      ──► thread
+           ┌────────────────────────┐          ┌──────────────────────┐
+           │ 김편집 · 미읽음 2        │          │ ← 「영상 편집자」      │
+           │ 이모션 · 마감           │          │ [상대] 안녕하세요...   │
+           └────────────────────────┘          │ [나] 포트폴리오는...   │
+           (비작성자) detail:                    │ ......                │
+           [비공개 문의 시작]                    │ [_________] [전송]    │  ← input :73
+           (마감 글이면 비활성 :263)             │ realtime 구독 :84-97   │
+                                                └──────────────────────┘
+```
+
+### 커뮤니티 — 신고 모달 (`ReportModal.tsx`)
+
+```
+┌──────────── 신고하기 ────────────[X]┐
+│ 대상: community_post | video | comment | user  (:28)
+│ 사유 (REASON_KEYS :39-47):           │
+│  ( ) 스팸/광고      ( ) 부적절         │
+│  ( ) 저작권 침해    ( ) 폭력           │
+│  ( ) 괴롭힘         ( ) 허위정보       │
+│  (•) 기타                              │
+│ 상세설명 (선택, 최대 500자 :175):      │
+│  [______________________________]      │
+│                  [취소]   [신고 제출]   │
+│  ※ 미인증 → onSignInClick 후 닫힘 :64   │
+└────────────────────────────────────────┘
+```
+
+### 채널 — 구독/탐색/크리에이터 채널 (`Channel.tsx`)
+
+```
+┌──────────────────────── 채널 ────────────────────────┐
+│ [👥 구독]  [🧭 탐색]              ← activeTab :23,218  │
+├───────────────────────────────────────────────────────┤
+│ ▣ 구독 탭 (SubscribedTab :280)                        │
+│   get_my_following_videos (:125)                       │
+│   미인증 → 로그인 유도(:294) / 빈 상태(:322)           │
+│   ┌─────┐ ┌─────┐ ┌─────┐                            │
+│   │ 영상 │ │ 영상 │ │ 영상 │  ← 그리드 :337-385        │
+│   └─────┘ └─────┘ └─────┘                            │
+│                                                        │
+│ ▣ 탐색 탭 (ExploreTab :391)                           │
+│   get_popular_creators (:142)                          │
+│   ┌──────────────────────────────────────┐           │
+│   │ 🥇TOP3  (아바타) 김감독                │           │
+│   │ 팔로워 1.2K · 영상 34 · 조회 50K       │           │
+│   │ [썸][썸][썸]            [팔로우] (md)  │  ← FollowButton :72
+│   └──────────────────────────────────────┘           │
+│   클릭 → CreatorChannel 풀스크린 (:188-200)            │
+└───────────────────────────────────────────────────────┘
+
+FollowButton 상태(useFollows 캐시 :25): [팔로우] ⇄ [팔로잉] (스피너 로딩 :59)
+자기 자신이면 렌더 안 함(:30)
+```
+
+### 알림 — 벨 패널 (`NotificationPanel.tsx`)
+
+```
+            🔔(3)  ← 미읽음 배지 (App.tsx unread)
+            │ 클릭
+            ▼
+┌──────────────────── 알림 (w-80 :175) ────────────────────┐
+│ 알림                                  [모두 읽음] (:181)   │
+├───────────────────────────────────────────────────────────┤
+│ 💬 새 답글이 달렸습니다           ● 미읽음  ← comment      │
+│    "제목" · 5분 전                                          │
+│ ❤ 좋아요를 받았습니다                       ← like         │
+│ 👤 새 팔로워가 생겼습니다                    ← system       │
+│ 🤝 김편집님이 협업에 관심...                 ← collab       │
+│ 🏆 챌린지 결과 발표                          ← challenge    │
+│ 💰 정산이 완료되었습니다                     ← sale         │
+│   (타입별 아이콘/배경 :74-94)                              │
+│   클릭 → 읽음 처리 + link 이동 (handleClick :163-170)      │
+│   ※ 미인증이면 SAMPLE_KO 샘플, id 's' 접두는 이동 안 함     │
+└───────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 시퀀스 다이어그램
+
+> mermaid. 실제 함수/파일:라인 기준. 단순화를 위해 일부 분기 생략.
+
+### S1. 게시글 작성 (작성자명 서버 강제)
+
+```mermaid
+sequenceDiagram
+    participant U as 사용자
+    participant C as Community.tsx
+    participant DB as community_posts (RLS+Trigger)
+    U->>C: handleWritePost() (:755)
+    C->>C: is_notice = profile.is_admin && writeNotice (:768)
+    C->>DB: insert {title,content,category,video_id,prompt_text,is_notice,<br/>author_name(클라값), author_avatar(클라값)}
+    Note over DB: RLS INSERT: auth.uid()=user_id<br/>공지는 is_admin()만 (community_upgrade_20260610.sql:31-41)
+    DB->>DB: BEFORE INSERT tg_force_post_author()<br/>author_name := profiles.display_name (또는 'CREAITE')<br/>author_avatar := profiles.avatar_url<br/>(community_security_20260621.sql:11-24)
+    DB-->>C: 저장된 row (클라 위장값 폐기)
+    C->>U: 피드 갱신 / 모달 닫기
+```
+
+### S2. 신고 → 자동 숨김
+
+```mermaid
+sequenceDiagram
+    participant U as 사용자
+    participant R as ReportModal.tsx
+    participant F as create_report() (SECURITY DEFINER)
+    participant DB as reports / 대상 테이블
+    U->>R: 사유 선택 + 제출 (:63)
+    R->>F: rpc create_report(p_target_type,p_target_id,p_reason,p_description)
+    F->>F: auth.uid() 검증 (:64-66)
+    F->>DB: 1시간 신고수 >= 20 ? → 예외 (community_security_20260621.sql:68-72)
+    F->>DB: insert reports (중복=unique 23505)
+    F->>DB: count(pending) for target
+    alt pending >= auto_hide_threshold (기본 3)
+        F->>DB: UPDATE 대상 SET is_hidden=true (:99-113)
+        Note over DB: user 타입은 자동정지 안 함 (:170)
+    end
+    F-->>R: report_id (bigint)
+    R->>U: 완료 / "이미 신고함"(23505, :84-86)
+```
+
+### S3. 팔로우 + 새 영상 팬아웃 알림
+
+```mermaid
+sequenceDiagram
+    participant U as 사용자
+    participant H as useFollows.ts
+    participant DB as creator_followers
+    participant SN as sendNotification → /send-email
+    U->>H: toggleFollow() (:59)
+    H->>H: 자기팔로우 차단 (:65) + 낙관적 갱신
+    H->>DB: insert creator_followers (CHECK no_self_follow :21)
+    alt INSERT 성공(중복 아님)
+        H->>SN: sendNotification(type:'new_follower') (:88-105)
+        Note over SN: actor 타입 → 서버 고정 템플릿
+    else 23505 (이미 팔로우)
+        H->>H: 무시, 이메일 미발송 (:84)
+    end
+
+    Note over DB: --- 별개 이벤트: 팔로우 대상이 새 영상 업로드 ---
+    participant V as videos INSERT
+    participant T as tg_notify_followers_new_video
+    V->>T: 공개+미숨김 영상 INSERT (medium_fixes_db_20260614.sql:34)
+    T->>DB: 팔로워 조회 (자기 제외 :54,<br/>email_new_video_from_followed=true 만 :55)
+    T->>DB: notifications(type='system') 벌크 insert (벨만, 이메일/푸시 X)
+```
+
+### S4. Realtime 벨 수신
+
+```mermaid
+sequenceDiagram
+    participant DB as notifications (RLS+publication)
+    participant RT as Supabase Realtime
+    participant App as App.tsx
+    participant UI as 토스트/배지
+    App->>RT: channel(`notif-<userId>`).on(INSERT,<br/>filter user_id=eq.<userId>) (:591-595)
+    Note over DB,RT: RLS: 본인 알림만 SELECT →<br/>Realtime도 본인 것만 전달 (phase_notifications_realtime.sql:9-10)
+    DB->>RT: notifications INSERT (user_id=나)
+    RT->>App: payload.new (:596)
+    App->>UI: 미읽음 +1 (:598)
+    App->>UI: toast(title, body, "보기"→link) (:599-605)
+```
+
+### S5. 웹 푸시 구독
+
+```mermaid
+sequenceDiagram
+    participant U as 사용자
+    participant W as webPush.ts subscribeToPush (:60)
+    participant SW as ServiceWorker
+    participant RPC as save_push_subscription (:31)
+    U->>W: 알림 켜기
+    W->>U: Notification.requestPermission() (timeout :67)
+    W->>SW: serviceWorker.ready
+    W->>SW: pushManager.subscribe(VAPID) (:60-96)
+    SW-->>W: {endpoint, p256dh, auth}
+    W->>RPC: rpc save_push_subscription(endpoint,p256dh,auth,user_agent)
+    RPC->>RPC: auth.uid() 검증 (:43)
+    RPC->>RPC: INSERT ... ON CONFLICT(endpoint) DO UPDATE (:49-50)
+    RPC-->>W: void
+    Note over W,RPC: 미지원/iOS 비PWA → 명시적 에러 (webPush.ts:61)
+```
+
+### S6. 협업 지원 / 비공개 문의 스레드
+
+```mermaid
+sequenceDiagram
+    participant U as 사용자
+    participant M as CollabInquiryModal.tsx
+    participant A as apply_to_collab() / collab_thread_send()
+    participant DB as collab_* + notifications
+    rect rgb(240,240,255)
+    Note over U,DB: (A) 관심 지원
+    U->>A: rpc apply_to_collab(post_id, message) (collab_space.sql:100)
+    A->>A: 본인글/마감/미인증 예외 (:114-129)
+    A->>DB: insert collab_applications ON CONFLICT DO NOTHING
+    A->>DB: applicants_count++ + 작성자 notifications(type='collab') (:144-155)
+    A-->>U: 'ok' | 'already'
+    end
+    rect rgb(240,255,240)
+    Note over U,DB: (B) 비공개 스레드
+    U->>M: startInquiry → collab_inquire(post_id) get-or-create (:140)
+    M->>A: collab_thread_send(thread_id, body)<br/>(collab_notify_privacy_20260614.sql:12)
+    A->>A: 참여자 검증 (:26)
+    A->>DB: insert collab_messages + last_message(left 200) 갱신
+    A->>DB: 상대 notifications: 원문 비노출, 글 제목만 (:36-40)
+    DB-->>M: realtime collab_messages (filter thread_id=eq.<id> :84-97)
+    end
+```
+
+---
+
+## API / RPC 레퍼런스
+
+> 인자/반환/권한/근거(파일:라인). RLS는 §5.1 보강.
+
+### 테이블 RLS (핵심)
+
+| 테이블 | SELECT | INSERT | UPDATE/DELETE | file:line |
+|---|---|---|---|---|
+| `community_posts` | 숨김아님 OR 본인 OR admin | 본인(공지는 admin) | 본인 | `community_security_20260621.sql:35-41`, `community_upgrade_20260610.sql:30-41`, `features_tables.sql:128-129` |
+| `comments` | `is_hidden=false`(코드 필터) | 본인 | 본인 | `phase10_reports.sql:28-30`, `CommentPanel.tsx:116` |
+| `reports` | 본인 OR admin | RPC만 | RPC만(moderate) | `phase10_reports.sql:336-342` |
+| `creator_followers` | 전체 | 본인(`no_self_follow`) | DELETE 본인 | `creator_followers.sql:16-22,34-44` |
+| `notifications` | 본인 | 본인(타인은 DEFINER RPC) | 본인 | `features_tables.sql:85-95`, type+collab `collab_space.sql:93-95` |
+| `collab_threads` | 문의자 OR 글주인 | RPC만 | — | `collab_inquiries.sql:29-34` |
+| `collab_messages` | 스레드 참여자 | RPC만 | — | `collab_inquiries.sql:49-58` |
+| `push_subscriptions` | 본인 | RPC만 | RPC만 | `phase_web_push_20260531.sql:25-27` |
+
+### RPC
+
+| RPC | 인자 | 반환 | 권한 | file:line |
+|---|---|---|---|---|
+| `create_report` | `(p_target_type text, p_target_id text, p_reason text, p_description text=null)` | `bigint` (report_id) | DEFINER, authenticated. auth 필수, 1h 20건 제한, 본인 user 신고 차단, 자동숨김 | `community_security_20260621.sql:48-117` |
+| `moderate_report` | `(bigint, text 'keep'|'remove'|'dismiss', text? note)` | `void` | admin 전용 | `phase10_reports.sql:183-268` |
+| `apply_to_collab` | `(p_post_id uuid, p_message text=null)` | `text 'ok'|'already'` | DEFINER. auth 필수, 본인글/마감 예외, 작성자 알림 | `collab_space.sql:100-159` |
+| `collab_inquire` | `(p_post_id uuid)` | `uuid` (thread_id, get-or-create) | DEFINER. 본인글 예외 | `collab_inquiries.sql:62-76` |
+| `collab_thread_send` | `(p_thread_id uuid, p_body text)` | `TABLE(id uuid, created_at timestamptz)` | DEFINER. 참여자만. 원문 비노출 알림 | `collab_notify_privacy_20260614.sql:12-45` |
+| `collab_threads_for` | `(p_post_id uuid)` | `TABLE(thread_id,other_id,other_name,other_avatar,last_message,last_message_at,unread)` | DEFINER. 작성자=전체/문의자=본인 | `collab_inquiries.sql:115-137` |
+| `collab_thread_mark_read` | `(p_thread_id uuid)` | `void` | DEFINER. 참여자만 | `collab_inquiries.sql:140-152` |
+| `save_push_subscription` | `(p_endpoint text, p_p256dh text, p_auth text, p_user_agent text=null)` | `void` | DEFINER, authenticated. auth 필수, endpoint upsert | `phase_web_push_20260531.sql:31-53` |
+| `delete_push_subscription` | `(p_endpoint text)` | `void` | DEFINER, authenticated | `phase_web_push_20260531.sql:56-67` |
+| `should_send_notification` | `(p_user_id uuid, p_type text, p_channel 'email'|'push')` | `bool` | DEFINER, authenticated+service_role. 미지정 채널/컬럼=false | `phase34_notifications.sql:168-209` |
+| `log_notification` | `(p_user_id, p_type, p_channel, p_recipient, p_subject, p_status, p_resend_message_id?, p_error_message?)` | `uuid` (log_id) | DEFINER, authenticated+service_role | `phase34_notifications.sql:212-244` |
+| `get_my_following_videos` / `get_popular_creators` | `(int limit)` | `TABLE` | anon+authenticated GRANT | `creator_followers.sql:50-280` |
+
+### Edge Functions (`functions/server/index.ts`)
+
+| 엔드포인트 | 인자(body) | 반환 | 권한/동작 | file:line |
+|---|---|---|---|---|
+| `POST /send-email` | `{user_id, type, subject, html, link?}` (`to`는 무시) | `{success, skipped?, reason?}` | Bearer 토큰 검증. self/admin/actor 권한 분기. actor=서버 고정 템플릿. 수신자=user_id로 서버 조회. 벨 INSERT → should_send(email) 게이트 → Resend → log_notification | `index.ts:1361-1515` |
+| `POST /broadcast-email` | (어드민 대량 발송 페이로드) | `{...}` | 어드민 대상 일괄 이메일 | `index.ts:1542-` |
+| `POST /broadcast-push` | (어드민 대량 발송 페이로드) | `{...}` | 어드민 대상 일괄 웹푸시 | `index.ts:1611-` |
+
+### 클라이언트 헬퍼
+
+| 함수 | 인자 | 반환 | file:line |
+|---|---|---|---|
+| `sendNotification` | `{user_id, type, to?, subject, html, link?}` | `{success, skipped?, error?}` | `sendNotification.ts:48-81` (access token으로 `/send-email` 호출) |
+| `subscribeToPush` / `unsubscribeFromPush` | — | `Promise` | `webPush.ts:60-107` |
+| `useFollows().toggleFollow` | `(creatorId)` | `Promise` (낙관적) | `useFollows.ts:59-127` |
+
+---
+
+## 테스트 케이스
+
+> Gherkin (한글). 정상 + 엣지. 각 시나리오 끝에 수용 기준 매핑(§10).
+
+### 게시글
+
+```gherkin
+기능: 커뮤니티 게시글 CRUD
+
+  시나리오: 일반 사용자가 글을 작성한다
+    조건 로그인한 사용자가 글쓰기 모달을 연다
+    만약 제목/본문/카테고리를 입력하고 등록을 누르면
+    그러면 community_posts 에 본인 user_id 로 저장된다
+    그리고 피드 최신순 상단에 노출된다
+    # 수용: §10 게시글 작성/수정/삭제
+
+  시나리오: 작성자명 위장 차단 (엣지)
+    조건 클라이언트가 author_name="관리자" 를 함께 insert 한다
+    만약 저장이 완료되면
+    그러면 author_name 은 트리거가 덮어쓴 프로필 표시명이다
+    그리고 프로필명이 비어 있으면 'CREAITE' 로 저장된다
+    # community_security_20260621.sql:11-24 / 수용: author_name 위조 방지
+
+  시나리오: 공지 토글은 관리자만 (엣지)
+    조건 비관리자가 is_notice=true 로 insert 를 시도한다
+    그러면 RLS 가 거부한다(0행)
+    조건 관리자가 공지를 등록하면
+    그러면 정렬과 무관하게 피드 최상단에 고정된다
+    # 수용: 공지 토글/고정
+
+  시나리오: 글 삭제 시 댓글도 함께 제거된다
+    조건 본인 글에 댓글이 달려 있다
+    만약 delete_community_post(post_id) 를 호출하면
+    그러면 글과 댓글이 cascade 삭제된다
+    그리고 RPC 미적용 환경이면 단순 delete 로 폴백한다
+```
+
+### 댓글 / 좋아요 / 북마크
+
+```gherkin
+기능: 상호작용
+
+  시나리오: 답글 작성 시 원댓글 작성자에게 알림
+    조건 타인의 댓글에 답글을 단다
+    그러면 sendNotification(type:'comment_reply') 가 호출된다
+    그리고 link 는 글이면 ?tab=community&sub=posts&post=...
+    조건 본인 댓글에 답글을 달면
+    그러면 알림이 발송되지 않는다
+
+  시나리오: 중복 좋아요 (엣지)
+    조건 같은 글에 더블탭으로 좋아요를 두 번 보낸다
+    만약 upsert(ignoreDuplicates) 로 처리되면
+    그러면 post_likes 는 1행이고 likes_count 는 1만 증가한다
+    # Community.tsx:708 / 트리거 INSERT/DELETE만 반응
+
+  시나리오: 낙관적 갱신 실패 롤백 (엣지)
+    조건 좋아요 요청이 네트워크 오류로 실패한다
+    그러면 UI 가 이전 상태로 롤백된다
+
+  시나리오: 자동 필터 숨김 댓글 (엣지)
+    조건 댓글 작성 직후 is_hidden=true 가 된다
+    그러면 목록에 추가되지 않고 안내 문구가 표시된다
+```
+
+### 신고
+
+```gherkin
+기능: 신고 / 모더레이션
+
+  시나리오: 임계값 누적 시 자동 숨김
+    조건 같은 글에 서로 다른 3명이 신고한다(기본 threshold=3)
+    그러면 community_posts.is_hidden=true 로 자동 숨김된다
+    그리고 작성자/관리자 외에는 보이지 않는다
+
+  시나리오: 중복 신고 차단 (엣지)
+    조건 동일 사용자가 같은 대상을 다시 신고한다
+    그러면 unique index 23505 로 거부되고 "이미 신고함" 안내가 뜬다
+
+  시나리오: 신고 도배 차단 (엣지)
+    조건 한 사용자가 1시간에 20건을 이미 신고했다
+    만약 21번째 신고를 시도하면
+    그러면 "신고가 너무 많습니다" 예외가 발생한다
+
+  시나리오: 본인 신고 차단 (엣지)
+    조건 target_type='user' 이고 target_id 가 본인이다
+    그러면 예외가 발생한다
+```
+
+### 챌린지 / 협업
+
+```gherkin
+기능: 챌린지·협업
+
+  시나리오: 챌린지 참여작 노출
+    조건 challenge:<tag> 태그가 붙은 공개 영상이 존재한다
+    그러면 상세에서 좋아요순 최대 12개가 표시된다
+
+  시나리오: 예정(upcoming) 챌린지 참여 차단 (엣지)
+    조건 챌린지 상태가 upcoming 이다
+    만약 참여 버튼을 누르면
+    그러면 업로드로 이동하지 않고 안내 토스트만 뜬다
+
+  시나리오: 본인 협업 글 지원/문의 차단 (엣지)
+    조건 본인이 올린 협업 글이다
+    만약 apply_to_collab / collab_inquire 를 호출하면
+    그러면 예외가 발생한다
+
+  시나리오: 마감 협업 지원 차단 (엣지)
+    조건 협업 글 status='closed' 이다
+    그러면 지원/문의가 불가하고 UI 가 비활성화된다
+
+  시나리오: 협업 스레드 프라이버시
+    조건 문의자가 메시지를 전송한다
+    그러면 상대에게 알림이 가되 body 에는 글 제목만 노출된다
+    그리고 스레드는 작성자↔문의자 둘만 SELECT 된다
+    그리고 새 메시지가 realtime 으로 수신된다
+```
+
+### 팔로우 / 알림 / 푸시
+
+```gherkin
+기능: 팔로우·알림
+
+  시나리오: 자기 자신 팔로우 차단 (엣지)
+    조건 본인 채널에서 팔로우를 시도한다
+    그러면 클라 가드와 DB CHECK(no_self_follow) 가 모두 막는다
+    그리고 FollowButton 은 애초에 렌더되지 않는다
+
+  시나리오: 중복 팔로우 (엣지)
+    조건 이미 팔로우한 크리에이터를 다시 팔로우한다
+    그러면 23505 가 무시되고 새 팔로워 이메일이 중복 발송되지 않는다
+
+  시나리오: 새 팔로워 알림 1회
+    조건 처음으로 팔로우(INSERT 성공)한다
+    그러면 new_follower 이메일이 정확히 1회 발송된다
+
+  시나리오: realtime 벨 수신 (엣지)
+    조건 앱이 켜진 상태에서 본인 앞으로 notifications INSERT 가 발생한다
+    그러면 미읽음 배지 +1 + 토스트가 뜬다
+    그리고 타인 앞 알림은 RLS 로 수신되지 않는다
+
+  시나리오: 새 영상 팬아웃 opt-in (엣지)
+    조건 팔로워 중 email_new_video_from_followed=true 인 사람만 있다(기본 OFF)
+    만약 팔로우 대상이 공개 영상을 올리면
+    그러면 opt-in 한 팔로워에게만 벨 알림이 가고 자기 자신은 제외된다
+
+  시나리오: 알림 설정 OFF skip
+    조건 사용자가 해당 종류의 이메일을 OFF 했다
+    만약 /send-email 이 호출되면
+    그러면 should_send_notification 이 false → skip 되고 notification_log 에 남는다
+
+  시나리오: actor 이메일 서버 템플릿 (엣지)
+    조건 클라가 임의 html/subject/link 를 보낸다(actor 타입)
+    그러면 서버가 이를 무시하고 고정 템플릿으로 발송한다(피싱 차단)
+
+  시나리오: 웹 푸시 미지원 기기 (엣지)
+    조건 iOS 비PWA 또는 미지원 브라우저다
+    만약 subscribeToPush 를 호출하면
+    그러면 명시적 에러가 반환되고 무한 로딩되지 않는다(timeout)
+
+  시나리오: 푸시 클릭 네비게이션
+    조건 푸시 알림을 클릭한다
+    그러면 SW 가 postMessage(push-navigate) 로 SPA 가 해당 화면으로 이동한다
+```
+
+### 수용 기준 (요약)
+
+- 위 모든 정상 시나리오가 RLS/트리거/RPC 계약대로 통과한다.
+- 모든 엣지(위장·중복·도배·자기팔로우·realtime 권한·푸시 미지원)가 시스템 레벨(클라+DB 이중)으로 차단된다.
+- 모든 이메일/푸시는 should_send 게이트를 통과하고 결과가 notification_log 에 기록된다.
+- 타인에게 가는 알림 본문/이메일은 서버 고정 템플릿이며 사적 메시지 원문을 노출하지 않는다.
