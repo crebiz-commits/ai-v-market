@@ -126,6 +126,9 @@
 
 ## 7. 기능 명세 (영역별)
 
+> 📁 **각 영역의 심화 명세(화면 상태·RPC 계약·엣지케이스·수용기준)는 [`docs/prd/`](prd/README.md) 에 분리** — 아래는 요약. 깊은 스펙은 영역별 문서 참조:
+> [01 인증·온보딩](prd/01-auth-onboarding.md) · [02 홈피드](prd/02-home-feed.md) · [03 시네마·OTT](prd/03-cinema-ott.md) · [04 검색·상세·라이선스](prd/04-search-detail-licensing.md) · [05 업로드·크리에이터대시보드](prd/05-upload-creator-dashboard.md) · [06 커뮤니티·채널·알림](prd/06-community-channel-notifications.md) · [07 마이페이지·결제·구독](prd/07-mypage-payment-billing.md) · [08 광고·광고주·관리자](prd/08-ads-advertiser-admin.md) · [09 정책·보안·데이터·기술](prd/09-policy-security-data-tech.md)
+
 ### 7.1 인증 · 온보딩
 - **가입:** 이메일(`supabase.auth.signUp`, 확인 메일 필수) / 소셜(Google·Kakao OAuth). 가입 메타데이터는 `name`만 → `handle_new_user`가 `profiles`(id·display_name·avatar·referral_code) 생성. **권한 컬럼(is_admin/구독/payout)은 메타데이터에서 유입 불가.**
 - **로그인:** Edge `/auth/signin`(signInWithPassword) 또는 클라 직접. 세션은 AuthContext가 `onAuthStateChange`로 관리, 프로필은 `get_my_profile` RPC(본인·민감컬럼 포함).
