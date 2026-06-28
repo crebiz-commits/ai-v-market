@@ -148,8 +148,9 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
                       {fmtDuration(v.duration_seconds)}
                     </span>
                   ) : null}
-                  {/* hover 시 액션 버튼 오버레이 (마우스 디바이스만) */}
-                  <div className="flex absolute inset-x-0 top-0 p-2 items-center gap-1.5 bg-gradient-to-b from-black/95 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity">
+                  {/* hover 시 액션 버튼 오버레이 — hover 가능한 기기(마우스)에서만 렌더.
+                      터치 기기(폰/앱)에선 hidden: opacity-0 만으론 영역이 남아 탭을 가로채므로 display:none. */}
+                  <div className="hidden [@media(hover:hover)]:flex absolute inset-x-0 top-0 p-2 items-center gap-1.5 bg-gradient-to-b from-black/95 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity">
                     <span
                       role="button"
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); onVideoClick(v); }}

@@ -215,9 +215,11 @@ const VideoCard = memo(function VideoCard({ video, idx, onVideoClick, onAddToCar
           </div>
         )}
 
-        {/* hover 시 액션 버튼 오버레이 (마우스 디바이스만 — 모바일은 hover 없어 자동 숨김) */}
+        {/* hover 시 액션 버튼 오버레이 — hover 가능한 기기(마우스)에서만 렌더.
+            터치 기기(폰/앱)에선 hidden 처리: opacity-0 만으론 투명해도 영역이 남아 탭을 가로채
+            좋아요/장바구니가 오작동하므로 display:none 으로 완전히 제거 → 카드 탭=영상 상세. */}
         {!isAgeLocked && (
-          <div className="flex absolute inset-x-0 bottom-0 p-2 items-center gap-1.5 bg-gradient-to-t from-black/95 via-black/60 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity">
+          <div className="hidden [@media(hover:hover)]:flex absolute inset-x-0 bottom-0 p-2 items-center gap-1.5 bg-gradient-to-t from-black/95 via-black/60 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity">
             <span
               role="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onVideoClick(video); }}
