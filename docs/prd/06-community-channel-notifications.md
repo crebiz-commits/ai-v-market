@@ -209,7 +209,7 @@ CREAITE 의 소셜 레이어. 세 축으로 구성된다.
 6. **알림 opt-in** — 모든 발송은 `should_send_notification(channel)` 통과 필수(`phase34_notifications.sql:168-207`). 푸시는 전 종류 기본 OFF(`:31-38`), 새 영상/답글 이메일도 기본 OFF(`medium_fixes_db_20260614.sql:55`, `new_video_follower_notify_20260612.sql:11`).
 7. **정지자 쓰기 차단** — `profiles.is_suspended`(`phase10_reports.sql:38`). 어드민 remove 액션이 user 대상이면 정지(`:247-250`).
 8. **협업 자기 글 지원/문의 금지** — `apply_to_collab`(`collab_space.sql:124-126`), `collab_inquire`(`collab_inquiries.sql:69`).
-9. **마감 협업은 지원/문의 불가** — status='closed' 예외(`collab_space.sql:127-129`), UI 비활성(`CollabInquiryModal.tsx:263-264`).
+9. **마감 협업은 지원/문의 불가** — 지원 `apply_to_collab`(`collab_space.sql:127-129`)·문의 `collab_inquire`(`collab_inquire_closed_guard_20260628.sql`) 모두 status='closed' 시 DB 거부(2026-06-28 대칭화). UI 비활성 병행(`CollabInquiryModal.tsx:263-264`).
 10. **actor 이메일은 서버 템플릿 고정** — 타인에게 가는 알림은 클라 subject/html/link 무시, 서버 고정 템플릿 사용(피싱 차단, `functions/server/index.ts:1416-1445`).
 
 ---
@@ -280,7 +280,7 @@ CREAITE 의 소셜 레이어. 세 축으로 구성된다.
 - **챌린지 시상/심사 수동** — 시상 구조는 하드코딩 텍스트(`CommunityChallengeDetail.tsx:81-110`). 자동 정산·당첨자 표기 없음.
 - **협업 지원 vs 문의 이원화** — `collab_applications`(관심 기록, `apply_to_collab`)와 `collab_threads`(비공개 대화) 두 모델이 공존. 현재 UI 는 주로 문의 스레드를 사용(`CollabInquiryModal`).
 - **푸시 발송 FCM/web-push 후행** — 구독 저장·설정은 완비, 실제 발송 Edge `/send-push` 의 운영 활성화는 VAPID private key/배포 의존(`phase_web_push_20260531.sql:5-7`, `webPush.ts:13-17`).
-- **알림 타입 enum 분산** — `notifications.type` CHECK 에 `collab` 추가(`collab_space.sql:93-95`)됐으나 프론트 `Notification` 타입 정의(`NotificationPanel.tsx:9-17`)에는 union 에 `collab` 미포함(아이콘/배경 맵에는 있음). 표시는 되지만 타입 정의 불일치 정리 필요.
+- **(해결됨 2026-06-28) 알림 타입 enum 정합** — `notifications.type` CHECK 의 `collab`(`collab_space.sql:93-95`)이 프론트 `Notification` 타입 union(`NotificationPanel.tsx:11`)에도 반영됨. DB·프론트 union·아이콘/배경 맵 3자 일치.
 - **미인증 샘플 알림** — 로그인 전 벨에 가짜 샘플 노출(`NotificationPanel.tsx:20-72`); 실데이터와 혼동 방지 위해 id `s` 접두로 클릭 무효화(`:166`).
 - **i18n 혼용** — 카테고리 키는 한글 상수("팁","챌린지" 등)를 그대로 DB CHECK·필터에 사용(`features_tables.sql:105`, `Community.tsx:312`). 다국어 라벨은 별도 키 맵(`:314-322`)으로만 처리.
 

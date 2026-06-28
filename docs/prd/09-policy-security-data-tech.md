@@ -85,7 +85,7 @@
 
 ### 2.3 search_path 고정
 
-모든 SECURITY DEFINER 함수에 `SET search_path = public(, pg_temp)` — search_path hijacking 차단. 일괄 보강 마이그레이션이 pg_proc 스캔 후 미설정 함수에 ALTER 적용(`security_definer_search_path_fix.sql:26-66`). 신규 DEFINER 함수 작성 시 반드시 SET 포함.
+모든 SECURITY DEFINER 함수에 `SET search_path = public(, pg_temp)` — search_path hijacking 차단. 일괄 보강 마이그레이션이 pg_proc 스캔 후 미설정 함수에 ALTER 적용(`security_definer_search_path_fix.sql:26-66`). 신규 DEFINER 함수 작성 시 반드시 SET 포함. 핵심 인가 함수 `assert_admin()` 도 2026-06-28 인라인 `SET search_path = public, pg_temp` 추가(일괄 ALTER 의존 제거, `phase10_6_admin_management.sql`).
 
 ---
 

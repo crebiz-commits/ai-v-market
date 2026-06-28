@@ -19,6 +19,7 @@ CREATE OR REPLACE FUNCTION public.assert_admin()
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_is_admin BOOLEAN;

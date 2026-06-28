@@ -217,7 +217,7 @@ Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functio
 | `admin_search_users / admin_suspend_user / admin_unsuspend_user / admin_set_admin_role` | `assert_admin()`. 권한RPC는 본인 회수 차단 | phase10_6:41 / phase10_7:166,192,321 |
 | `admin_search_videos / admin_hide_video / admin_unhide_video / admin_delete_video / admin_get_hidden_content` | `assert_admin()` | phase10_6:158,263 / phase10_7:208,229,244 |
 | `admin_search_comments / admin_hide_comment / admin_unhide_comment / admin_delete_comment / admin_unhide_post` | `assert_admin()` | phase23_admin_comments.sql:21,104,125,145 / phase_security_hardening:111 |
-| `get_admin_dashboard_summary / get_daily_revenue / get_daily_user_growth / get_daily_views / get_top_videos / get_top_creators / get_ad_performance_summary / get_report_stats` | SECURITY DEFINER(명시 assert 없음, 어드민 콘솔 전용 화면에서만 호출) | phase10_5_admin_dashboard.sql:17,112,151,188,220,256,292,326 |
+| `get_admin_dashboard_summary / get_daily_revenue / get_daily_user_growth / get_daily_views / get_top_videos / get_top_creators / get_ad_performance_summary / get_report_stats` | **SECURITY DEFINER + `PERFORM assert_admin()`** (plpgsql 전환, 2026-06-24 강건화) | `admin_dashboard_assert_admin_20260624.sql:27,76,99,120,140,162,185,207` |
 | `get_pending_reports / moderate_report / create_report / get_my_reports` | moderate_report=is_admin 체크 / create_report·get_my는 사용자용 | phase10_reports.sql:110,183,276,311 |
 | `get_moderation_queue / resolve_moderation_flag / update_video_moderation` | 앞 둘 `assert_admin()`, 마지막은 service_role(Edge) | phase25_moderation.sql:50,100,153 |
 | `admin_broadcast_notification` / `admin_broadcast_email_targets` | 앞 `assert_admin()`, 뒤 service_role(PII) | phase10_7:15 / broadcast_email_20260616.sql:16 |
@@ -274,7 +274,7 @@ Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functio
 
 ## 8. 권한/보안
 
-- **전 관리 기능 게이트**: 거의 모든 `admin_*` RPC가 첫 줄 `PERFORM public.assert_admin();`(phase10_6:18 가드). 통계 조회 일부(`get_admin_dashboard_summary` 등)는 명시 assert 없이 SECURITY DEFINER로 어드민 콘솔 전용 화면에서만 호출 — 단, 클라이언트 노출 가능성 존재 → 9장 분석에서 강건화 후보.
+- **전 관리 기능 게이트**: 거의 모든 `admin_*` RPC가 첫 줄 `PERFORM public.assert_admin();`(phase10_6:18 가드). 통계 조회 8종(`get_admin_dashboard_summary` 등)도 2026-06-24 plpgsql 전환 + `assert_admin()` 선행으로 게이트됨(`admin_dashboard_assert_admin_20260624.sql`) — 비관리자 직접 호출 차단.
 - **RLS 정책**: `ads`는 "Admin full access"(is_admin) + "Advertiser can view own ads"(owner_id=auth.uid())만 유지, 공개 SELECT 정책 제거(ads_public_view:36-37). 광고주 직접 INSERT/UPDATE 정책 없음 → 모든 쓰기는 DEFINER RPC.
 - **ads_public 뷰**: 공개 노출은 안전 컬럼만(budget/spent/owner_id/review_note 제외). 피드는 base가 아닌 `ads_public` 조회(ads_public_view:20-30). 광고주 대시보드·프리롤은 RPC(DEFINER) 경유라 RLS 우회.
 - **이미지 본인 폴더**: `ad-images` 버킷 INSERT/UPDATE/DELETE는 `(storage.foldername(name))[1] = auth.uid()::text`(본인 폴더만, ad_images_advertiser_upload:8-20). 읽기는 공개(노출용).
@@ -327,7 +327,7 @@ Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functio
 - **영상광고 VAST 트래킹 dedup 미적용**: 클라이언트 RPC 경로(`record_ad_impression`/`increment_ad_*`)는 dedup이 있으나, **VAST 트래킹 픽셀(Edge service_role 경유)은 dedup 미적용**(`ad_charge_dedup_phase3:6-7` 주석). HMAC 서명으로 위조는 막지만, 동일 뷰어 반복 노출 과금 정합은 후속 보강 필요. (참조: `docs/ad-fraud-hardening-plan.md`)
 - **`advertiser_update_ad` 다중 정의**: phase1 → media_coalesce → rereview 순으로 같은 시그니처가 재정의됨. 배포 순서에 따라 정본 확정 필요(현재 의도 정본 = rereview, 재심사 전환 포함).
 - **외부 광고 화이트리스트**: 외부 광고는 코드상 카카오 애드핏 + Google AdSense 2종만 지원(`ExternalAdSlot.tsx:44`). 쿠팡 파트너스 등은 `AdminExternalAds` placeholder("준비 중 · 베타 후 통합", AdminLayout:111). 신규 네트워크는 env + `enabledNetworks()` 화이트리스트 확장 필요.
-- **통계 조회 RPC 게이트**: `get_admin_dashboard_summary` 계열은 명시 assert_admin 없이 SECURITY DEFINER만 의존(phase10_5). 어드민 콘솔 전용 화면에서만 호출되나, RPC 자체는 인증 사용자가 직접 호출 가능 → assert_admin 추가 강건화 후보.
+- **(해결됨 2026-06-24) 통계 조회 RPC 게이트**: `get_admin_dashboard_summary` 계열 8종이 plpgsql + `PERFORM assert_admin()` 선행으로 전환됨(`admin_dashboard_assert_admin_20260624.sql:27,76,99,120,140,162,185,207`). 비관리자 직접 호출 시 예외.
 - **예산 충전 토스 의존**: 예산 충전은 토스 `ad_budget` 결제에 의존 → 토스 가맹 심사 완료 전까지 충전 비활성/안내 처리(`AdvertiserDashboard.tsx:5` 주석 맥락, `CLAUDE.md` 출시 의존 순서).
 - **외부 스폰서십/크리에이터 콘텐츠 협찬**: `AdminSponsorships` placeholder(준비 중).
 

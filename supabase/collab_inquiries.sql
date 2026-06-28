@@ -61,12 +61,14 @@ CREATE POLICY collab_messages_select ON public.collab_messages
 -- 문의 시작 (문의자 = 나, get-or-create) → thread_id
 CREATE OR REPLACE FUNCTION public.collab_inquire(p_post_id uuid)
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE v_me uuid := auth.uid(); v_owner uuid; v_id uuid;
+DECLARE v_me uuid := auth.uid(); v_owner uuid; v_status text; v_id uuid;
 BEGIN
   IF v_me IS NULL THEN RAISE EXCEPTION 'authentication required'; END IF;
-  SELECT user_id INTO v_owner FROM public.collab_posts WHERE id = p_post_id;
+  SELECT user_id, status INTO v_owner, v_status FROM public.collab_posts WHERE id = p_post_id;
   IF v_owner IS NULL THEN RAISE EXCEPTION 'collab post not found'; END IF;
   IF v_owner = v_me THEN RAISE EXCEPTION 'cannot inquire your own post'; END IF;
+  -- 마감(closed) 협업은 신규 문의 불가 — apply_to_collab 과 대칭(UI 차단을 DB에서도 강제)
+  IF v_status = 'closed' THEN RAISE EXCEPTION 'this collab post is closed'; END IF;
   SELECT id INTO v_id FROM public.collab_threads WHERE post_id = p_post_id AND inquirer_id = v_me;
   IF v_id IS NULL THEN
     INSERT INTO public.collab_threads (post_id, inquirer_id) VALUES (p_post_id, v_me) RETURNING id INTO v_id;

@@ -139,7 +139,7 @@
 ### 5.3 `get_home_feed_count(p_filter)` — `home_feed_chip_filter_20260611.sql:131`
 - 현행 시그니처는 `(p_filter text DEFAULT 'all')`(`...:131`)로 프론트 호출 `rpc("get_home_feed_count", { p_filter: chip })`(`DiscoveryFeed.tsx:1007`)와 일치.
 - count WHERE: `show_on_home=true AND public(or null) AND not hidden AND (free→=0 / paid→>0 / cinema→ott)`(`...:133`-`139`).
-- 주의: `home_feed_count_20260611.sql`의 **무인자** 버전은 구버전이며, 칩 버전이 `DROP FUNCTION ... get_home_feed_count()` 후 이를 대체(`home_feed_chip_filter_20260611.sql:128`-`129`). 단 칩 count WHERE에는 시리즈 1화 필터가 빠져 있어, 무인자 버전(`home_feed_count_20260611.sql:19`, 시리즈 필터 포함)과 조건이 어긋남 → **이월 항목**(§ 12).
+- 주의: `home_feed_count_20260611.sql`의 **무인자** 버전은 구버전이며, 칩 버전이 `DROP FUNCTION ... get_home_feed_count()` 후 이를 대체(`home_feed_chip_filter_20260611.sql:128`-`129`). 단, **2026-06-28 칩 버전 count 에도 시리즈 1화 필터(`series_id IS NULL OR episode_number=1`)를 추가**해 `get_home_feed` 본체와 조건을 일치시킴(`home_feed_chip_filter_20260611.sql`, 배지 과대표시 해결).
 
 ### 5.4 페이지네이션 / dedup
 - 페이지 크기 `FEED_PAGE_SIZE = 12`(`DiscoveryFeed.tsx:752`). offset 누적은 **반환 행 수 기준**(`offsetRef = from + rows.length`, `...:885`) — 차단 영상 클라 필터로 인한 표시 수와 무관하게 DB 오프셋 정합.
@@ -247,7 +247,7 @@ DB row(뷰 컬럼) → `Video` 인터페이스. 주요 매핑:
 
 - **비가상화 피드**: DOM에 전 카드 유지 + 지연 마운트로 메모리만 방어. 향후 가상화(react-virtual 등) 전환 검토(`DiscoveryFeed.tsx:362`).
 - **자동재생 IO 미사용**: 지연 마운트는 `getBoundingClientRect`+scroll 리스너로 구현(IO root:null이 내부 스크롤에서 오작동했던 이력, `...:364`-`366`). 스크롤 컨테이너를 root로 지정한 IO 전환은 이월.
-- **count 조건 불일치**: 칩 버전 `get_home_feed_count`(`home_feed_chip_filter_20260611.sql:133`-`139`)에는 시리즈 1화 필터가 없어 `get_home_feed`(`get_home_feed_safe_columns_20260620.sql:59`) 및 무인자 count(`home_feed_count_20260611.sql:19`)와 조건이 어긋남 → 배지 수가 실제 피드 수보다 과대 표시될 수 있음(정합 패치 필요).
+- **(해결됨 2026-06-28) count 조건 일치**: 칩 버전 `get_home_feed_count` 에 시리즈 1화 필터를 추가해 `get_home_feed`(`get_home_feed_safe_columns_20260620.sql:59`)와 조건 일치 → 배지 과대표시 해소. (정본: `home_feed_chip_filter_20260611.sql`, count 전용으로 정리됨)
 - **모바일 칩 UI 부재**: 칩 바는 데스크탑 sticky 헤더에만 렌더(`DiscoveryFeed.tsx:1267`-`1338`). 모바일에서 칩 전환 UI는 미노출(코드상 `chip`은 변경 가능하나 트리거 없음) → 모바일 칩 필터 진입점 추가 검토.
 - **데스크탑 자동재생**: 호버 기반(터치 데스크탑/키보드 사용자 비호버 시 미리보기 없음, `...:1635`).
 - **댓글 수 정합**: 작성 시 +1 낙관 증가(`...:1484`), 삭제 반영은 없음(증분만) → 새로고침 전까지 과대 가능.

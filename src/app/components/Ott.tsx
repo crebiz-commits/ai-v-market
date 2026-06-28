@@ -117,11 +117,11 @@ const OTT_FORMAT_DEFS: { category: string; position: "top" | "bottom" }[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 interface ProgrammingBand { id: string; emoji: string; name: string; tagline: string; order: string[] }
 const PROGRAMMING_BANDS: ProgrammingBand[] = [
-  { id: "dawn",    emoji: "🌌", name: "잠 못 드는 새벽", tagline: "긴장감으로 깨어 있는 시간", order: ["horror", "thriller", "sci-fi", "fantasy"] },
-  { id: "morning", emoji: "🌅", name: "하루를 여는 아침", tagline: "잔잔하게 시작하는 한 편",   order: ["documentary", "drama", "animation", "music"] },
-  { id: "day",     emoji: "☀️", name: "활기찬 낮",       tagline: "가볍고 신나는 무드",       order: ["comedy", "action", "animation", "sci-fi"] },
-  { id: "evening", emoji: "🌆", name: "함께 보는 저녁",   tagline: "누군가와 나누는 시간",     order: ["drama", "romance", "comedy", "fantasy"] },
-  { id: "night",   emoji: "🌙", name: "몰입의 밤",        tagline: "깊이 빠져드는 한 편",     order: ["thriller", "romance", "sci-fi", "drama", "horror"] },
+  { id: "dawn",    emoji: "🌌", name: "잠 못 드는 새벽", tagline: "긴장감으로 깨어 있는 시간", order: ["horror", "thriller", "sci-fi", "fantasy", "abstract"] },
+  { id: "morning", emoji: "🌅", name: "하루를 여는 아침", tagline: "잔잔하게 시작하는 한 편",   order: ["nature", "documentary", "drama", "animation", "music"] },
+  { id: "day",     emoji: "☀️", name: "활기찬 낮",       tagline: "가볍고 신나는 무드",       order: ["comedy", "action", "animation", "sci-fi", "nature"] },
+  { id: "evening", emoji: "🌆", name: "함께 보는 저녁",   tagline: "누군가와 나누는 시간",     order: ["drama", "romance", "comedy", "fantasy", "nature"] },
+  { id: "night",   emoji: "🌙", name: "몰입의 밤",        tagline: "깊이 빠져드는 한 편",     order: ["thriller", "romance", "sci-fi", "drama", "horror", "abstract"] },
 ];
 function currentBand(): ProgrammingBand {
   const h = new Date().getHours();

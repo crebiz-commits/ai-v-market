@@ -638,6 +638,16 @@ app.post("/videos/save-metadata", async (c) => {
     const highlightStartNum = metadata.highlightStart != null ? parseFloat(metadata.highlightStart) : 0;
     const highlightEndNum = metadata.highlightEnd != null ? parseFloat(metadata.highlightEnd) : 15;
 
+    // 3분(180초) 미만은 판매 불가 — 클라 UI 게이트(Upload.tsx)뿐 아니라 서버에서도 강제(API 직접호출 우회 차단)
+    const parseDurationSec = (d: string): number => {
+      const parts = String(d || '').split(':').map((n) => parseInt(n, 10));
+      if (parts.length < 2 || parts.some((n) => Number.isNaN(n))) return 0;
+      return parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
+    };
+    const durationSec = parseDurationSec(metadata.duration);
+    const rawPrice = parseInt(metadata.standardPrice || "0");
+    const safePrice = (durationSec > 0 && durationSec < 180) ? 0 : rawPrice;
+
     const { error: dbError } = await supabaseAdmin
       .from('videos')
       .upsert({
@@ -654,9 +664,9 @@ app.post("/videos/save-metadata", async (c) => {
         tags: (metadata.tags || "").split(',').map((t: string) => t.trim()).filter((t: string) => t !== ""),
         // All-in-One 단일가: price_standard 만 사용. price_commercial/exclusive 는
         // stale 컬럼(어디서도 안 읽힘) — NOT NULL 안전을 위해 standard 와 동일값 유지. schema cleanup 시 DROP 예정.
-        price_standard: parseInt(metadata.standardPrice || "0"),
-        price_commercial: parseInt(metadata.standardPrice || "0"),
-        price_exclusive: parseInt(metadata.standardPrice || "0"),
+        price_standard: safePrice,
+        price_commercial: safePrice,
+        price_exclusive: safePrice,
         ai_tool: metadata.aiTool || '',
         category: metadata.category || '',
         genre: metadata.genre || '',

@@ -191,7 +191,7 @@
 - **만료 강등**: `reset_expired_subscriptions`(cron 03:00) premium→free(`payment_hardening_20260612.sql:58-69`). 환불 시도 즉시 강등.
 - **청약철회 7일**: `request_refund`가 `approved_at ?? created_at` 기준 7일 초과 차단(전자상거래법). 클라이언트도 선차단.
 - **원천징수 3.3%**: 비사업자(individual/미등록)는 정산 확정 시 `tax_withholding=FLOOR(total*0.033)`, 사업자(business_*)는 0(세금계산서 별도). `mark_revenue_paid`.
-- **정산 최소액**: 화면 가이드 표기 ₩10,000(`PAYOUT_MIN_KRW`, `MyPage.tsx:910`, 표기 `:1702`) — platform_settings `payout_minimum_krw` 기반. (SQL 정산 RPC에 강제 임계 로직은 미확인.)
+- **정산 최소액**: 화면 가이드 표기 ₩10,000(`PAYOUT_MIN_KRW`, `MyPage.tsx:910`, 표기 `:1702`) — platform_settings `payout_minimum_krw` 기반. **정산 RPC에서도 강제됨**: 누적액이 최소액 미만이면 `payout_status='deferred'`로 이월(`phase8_revenue_distributions.sql:251-253`).
 - **분배율**: 판매 80% / 광고 home50·cinema55·ott60(기본값, platform_settings로 변경, `MyPage.tsx:905-909`).
 - **협의 판매(라이선스)**: 가격은 영상별 price_standard/commercial/exclusive 중 하나여야 결제 성립(`start_payment` 검증).
 - **멱등성**: 단건=order_id UNIQUE + confirm_payment completed no-op + toss-confirm completed 통과. 빌링=order_id completed RETURN + billing-auth-confirm 3분창 + BillingResult `processedRef`/authKey 제거.
@@ -263,7 +263,7 @@
 - **PG 종속**: 빌링이 토스 기반. PG 변경(이니시스 등)은 빌링 재개발 비용 큼 → 토스 반려 시에만 검토(`CLAUDE.md`).
 - **앱(IAP) 회피**: 앱래퍼에서는 구독을 웹(creaite.net)으로 유도(`SubscriptionPage.tsx:56-61`). iOS는 베타 후.
 - **2FA 미구현**: 보안 섹션에 "준비 중" 버튼 비노출(`MyPage.tsx:2070`).
-- **정산 최소액 강제**: 화면 가이드(₩10,000)는 있으나 정산 RPC에 최소액 임계 차단 로직은 본 범위 SQL에서 미확인 — 운영/어드민 확정 단계 검증 필요.
+- **정산 최소액 강제 (확인됨 2026-06-28)**: 화면 가이드(₩10,000)뿐 아니라 정산 RPC도 강제 — 미달 시 `payout_status='deferred'`로 이월(`phase8_revenue_distributions.sql:251-253`), `v_payout_min`은 platform_settings 기반.
 - **basic 티어**: tierMeta에 정의되어 있으나 현재 요금제는 free/premium 2단(`SubscriptionPage.tsx`). basic 활성 경로 미구현.
 - **search_path 누락**: phase17/phase18 RPC 일부에 `SET search_path` 미지정(타 마이그레이션은 명시) — 하드닝 보강 후보.
 - **2026-06-16 교훈**(MEMORY): 외부·지역 사실(수수료·세율·정책)은 단정 금지, 최신값 검증 우선.
@@ -730,7 +730,7 @@ Feature: 엣지 케이스
   Scenario: 정산 최소액
     Given 누적 정산액이 ₩10,000 미만
     Then 화면 가이드에 최소 정산액 ₩10,000이 표기된다
-    # 비고: SQL 정산 RPC의 최소액 강제 임계는 본 범위 미확인 (이월 항목)
+    And 정산 RPC가 해당 분배를 payout_status='deferred'로 이월한다 (phase8_revenue_distributions.sql:251-253)
 
   Scenario: 빌링 연속 3회 실패
     Given 자동결제 청구가 2회 연속 실패한 구독
