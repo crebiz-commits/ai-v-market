@@ -39,6 +39,8 @@ interface CommentPanelProps {
   title?: string;
   onClose: () => void;
   onCommentPosted?: () => void;
+  /** 댓글/답글 삭제 성공 시 호출(제거된 개수 = 댓글 1 + 답글 N). 부모가 카운트 차감. */
+  onCommentDeleted?: (removed: number) => void;
   /**
    * 댓글 작성자 아바타/이름 클릭 시 호출. 채널 페이지로 이동.
    * 호출자가 ProductDetail/DiscoveryFeed 등에서 자체 닫고 채널 라우팅.
@@ -74,7 +76,7 @@ function Avatar({ name, src, size = 36 }: { name: string; src?: string; size?: n
   );
 }
 
-export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onCommentPosted, onViewCreator, mode = "sheet" }: CommentPanelProps) {
+export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onCommentPosted, onCommentDeleted, onViewCreator, mode = "sheet" }: CommentPanelProps) {
   const { t, i18n } = useTranslation();
   const isKo = i18n.language?.startsWith("ko");
   const { user, isAuthenticated, profile } = useAuth();
@@ -285,6 +287,8 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
     try {
       const { error } = await supabase.from("comments").delete().eq("id", commentId);
       if (error) throw error;
+      // 제거 개수: 답글이면 1, 최상위면 1 + (DB cascade 로 함께 삭제되는 답글 수)
+      let removed = 1;
       if (parentId) {
         setComments(prev => prev.map(c =>
           c.id === parentId
@@ -292,8 +296,11 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
             : c
         ));
       } else {
+        const target = comments.find(c => c.id === commentId);
+        removed = 1 + (target?.replies?.length || 0);
         setComments(prev => prev.filter(c => c.id !== commentId));
       }
+      onCommentDeleted?.(removed);
     } catch {
       toast.error(t("commentPanel.deleteFailed"));
     }

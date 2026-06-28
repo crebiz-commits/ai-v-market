@@ -1536,6 +1536,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
               title={commentVideo.title}
               onClose={() => setCommentVideo(null)}
               onCommentPosted={() => setCommentCounts(prev => ({ ...prev, [commentVideo.id]: (prev[commentVideo.id] || 0) + 1 }))}
+              onCommentDeleted={(n) => setCommentCounts(prev => ({ ...prev, [commentVideo.id]: Math.max(0, (prev[commentVideo.id] || 0) - n) }))}
               onViewCreator={(cid) => { setCommentVideo(null); onViewCreator?.(cid); }}
               mode="sheet"
             />
@@ -1575,6 +1576,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
                 videoCreatorId={commentVideo.creatorId}
                 title={commentVideo.title}
                 onClose={() => setCommentVideo(null)}
+                onCommentDeleted={(n) => setCommentCounts(prev => ({ ...prev, [commentVideo.id]: Math.max(0, (prev[commentVideo.id] || 0) - n) }))}
                 onCommentPosted={() => setCommentCounts(prev => ({ ...prev, [commentVideo.id]: (prev[commentVideo.id] || 0) + 1 }))}
                 mode="sheet"
               />
