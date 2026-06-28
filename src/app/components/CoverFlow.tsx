@@ -1,11 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, X, Play, Pause, Volume2, VolumeX, Maximize } from 'lucide-react';
-import videojs from 'video.js';
-import 'video.js/dist/video-js.css';
-import Player from 'video.js/dist/types/player';
+import { ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import { useCreatorInfo } from '../hooks/useCreatorInfo';
 import { CreatorAvatar } from './CreatorAvatar';
-import { useTranslation } from 'react-i18next';
 
 interface Video {
   id: string;
@@ -25,35 +21,29 @@ interface Video {
 interface CoverFlowProps {
   videos: Video[];
   hideControls?: boolean;
-  // 비디오 클릭 시 외부 핸들러 호출 (제공 시 내부 모달 대신 사용)
-  // 부모가 새로운 ProductDetail로 라우팅하도록 함
+  // 비디오 클릭 시 외부 핸들러 호출. 시네마 경로(유일 사용처)는 항상 주입 → ProductDetail 라우팅.
+  // (예전엔 미주입 시 내부 모달을 띄웠으나, 항상 주입돼 도달 불가였던 모달/플레이어/라이선스
+  //  UI 는 2026-06-28 데드코드로 제거. 내부 재생이 필요해지면 git 이력에서 복원.)
   onVideoClick?: (video: Video) => void;
 }
 
 export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps) {
-  const { t } = useTranslation();
   const [rotation, setRotation] = useState(0);
   const creatorInfo = useCreatorInfo(videos.map((v) => v.creatorId));
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [startRotation, setStartRotation] = useState(0);
   const [isAutoRotating, setIsAutoRotating] = useState(true);
-  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
-  const [selectedLicense, setSelectedLicense] = useState<'standard' | 'commercial' | 'exclusive'>('standard');
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const playerRef = useRef<Player | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const autoRotateTimeoutRef = useRef<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const visibleRef = useRef(true);   // 화면 밖/탭숨김이면 자동회전 setState 스킵(상시 60fps 리렌더 방지)
   const dragStartPosRef = useRef({ x: 0, y: 0 });
   const hasDraggedRef = useRef(false);
-  
+
   const isEmpty = videos.length === 0;
   const anglePerItem = isEmpty ? 0 : 360 / videos.length;
-  
+
   // 화면 크기별 비율 기반 반경 (좁은 화면 47% / 데스크탑 42%) + 600px cap
   const getRadius = () => {
     if (typeof window === 'undefined') return 250;
@@ -94,86 +84,10 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
     const handleResize = () => {
       setRadius(getRadius());
     };
-    
+
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  useEffect(() => {
-    // Make sure Video.js player is only initialized once per modal open
-    if (selectedVideo?.videoUrl && videoRef.current && !playerRef.current) {
-      console.log('Initializing video.js player for:', selectedVideo.videoUrl);
-      
-      const videoElement = videoRef.current;
-      const player = videojs(videoElement, {
-        autoplay: true,
-        controls: false,
-        loop: true,
-        muted: isMuted,
-        fluid: true,
-        responsive: true,
-        html5: {
-          vhs: {
-            withCredentials: false
-          }
-        },
-        crossOrigin: 'anonymous'
-      });
-
-      player.ready(() => {
-        console.log('Player is ready, setting source');
-        player.src({
-          src: selectedVideo.videoUrl!,
-          type: selectedVideo.videoUrl!.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
-        });
-      });
-
-      if (player) {
-        // 하이라이트 구간 반복 재생 로직 (Video.js)
-        player.on('timeupdate', () => {
-          const currentVideo = selectedVideo;
-          if (!player || !currentVideo) return;
-          
-          const start = currentVideo.highlightStart || 0;
-          const end = currentVideo.highlightEnd || (start + 15);
-          
-          const currentTime = player.currentTime();
-          if (typeof currentTime === 'number' && currentTime >= end) {
-            player.currentTime(start);
-          }
-        });
-      }
-
-      playerRef.current = player;
-    }
-
-      return () => {
-        const player = playerRef.current;
-        if (player) {
-          console.log('Disposing video.js player');
-          player.dispose();
-          playerRef.current = null;
-        }
-      };
-  }, [selectedVideo]);
-
-  // Sync volume/muted state with player
-  useEffect(() => {
-    if (playerRef.current) {
-      playerRef.current.muted(isMuted);
-    }
-  }, [isMuted]);
-
-  useEffect(() => {
-    const player = playerRef.current;
-    if (player) {
-      if (isPlaying) {
-        player.play()?.catch(e => console.log('Play failed', e));
-      } else {
-        player.pause();
-      }
-    }
-  }, [isPlaying]);
 
   const handlePrev = () => {
     setIsAutoRotating(false);
@@ -201,25 +115,19 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
 
   const handleCoverClick = (index: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     // 드래그한 경우 클릭 무시
     if (hasDraggedRef.current) {
       hasDraggedRef.current = false;
       return;
     }
-    
-    // 중앙에 있는 아이템을 클릭한 경우 — 외부 핸들러 우선
+
+    // 중앙 아이템 클릭 → 외부 핸들러(ProductDetail 라우팅)
     if (index === centerIndex) {
-      if (onVideoClick) {
-        onVideoClick(videos[index]);
-        return;
-      }
-      setSelectedVideo(videos[index]);
-      setIsAutoRotating(false);
-      setIsPlaying(true);
+      onVideoClick?.(videos[index]);
       return;
     }
-    
+
     // 그렇지 않으면 해당 아이템으로 회전
     setIsAutoRotating(false);
     const targetRotation = -index * anglePerItem;
@@ -244,7 +152,7 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
-    
+
     const diff = e.clientX - startX;
     const newRotation = startRotation + (diff / 2);
     setRotation(newRotation);
@@ -321,7 +229,7 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
     const angle = -index * anglePerItem + rotation;
     const x = radius * Math.sin(angle * Math.PI / 180);
     const z = radius * Math.cos(angle * Math.PI / 180);
-    
+
     return {
       transform: `translate3d(${x}px, 0, ${z}px) rotateY(${angle}deg)`,
       opacity: 1,
@@ -334,12 +242,6 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
       if (isAutoRotating) {
         if (visibleRef.current && !document.hidden) setRotation((prev) => {
           const newRotation = prev - 0.12; // 매 프레임마다 회전 속도 (2026-06-11: 0.05→0.12 빠르게)
-          // currentIndex 업데이트
-          const normalizedRotation = ((-newRotation % 360) + 360) % 360;
-          const newIndex = Math.round(normalizedRotation / anglePerItem) % videos.length;
-          if (newIndex !== centerIndex) {
-            // setCurrentIndex(newIndex);
-          }
           return newRotation;
         });
         animationFrameRef.current = requestAnimationFrame(animate);
@@ -356,48 +258,6 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
       }
     };
   }, [isAutoRotating, anglePerItem, centerIndex, videos.length]);
-
-  const handleVideoPlay = () => {
-    if (playerRef.current) {
-      playerRef.current.play()?.catch(() => {});
-      setIsPlaying(true);
-    }
-  };
-
-  const handleVideoPause = () => {
-    if (playerRef.current) {
-      playerRef.current.pause();
-      setIsPlaying(false);
-    }
-  };
-
-  const handleVideoMute = () => {
-    if (playerRef.current) {
-      playerRef.current.muted(true);
-      setIsMuted(true);
-    }
-  };
-
-  const handleVideoUnmute = () => {
-    if (playerRef.current) {
-      playerRef.current.muted(false);
-      setIsMuted(false);
-    }
-  };
-
-  const handleVideoMaximize = () => {
-    if (playerRef.current) {
-      playerRef.current.requestFullscreen();
-    }
-  };
-
-  // Calculate price based on selected license
-  const getPrice = () => {
-    const basePrice = selectedVideo?.price || 29000;
-    if (selectedLicense === 'standard') return basePrice;
-    if (selectedLicense === 'commercial') return basePrice * 3;
-    return basePrice * 8; // exclusive
-  };
 
   if (isEmpty) return null;
 
@@ -455,13 +315,7 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (onVideoClick) {
-                      onVideoClick(video);
-                      return;
-                    }
-                    setSelectedVideo(video);
-                    setIsAutoRotating(false);
-                    setIsPlaying(true);
+                    onVideoClick?.(video);
                   }}
                 >
                   <img
@@ -469,7 +323,7 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
                     alt={video.title}
                     className="w-full h-full object-cover"
                   />
-                  
+
 
                   {/* Play Button for center item — 글래스모피즘, 카드 정중앙 */}
                   {index === centerIndex && (
@@ -536,198 +390,6 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
           />
         ))}
       </div>
-
-      {/* Video Player Modal - 캐러셀 중앙에 위치 */}
-      {selectedVideo && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          {/* Video Player Container */}
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-black rounded-xl md:rounded-2xl shadow-2xl border border-white/20">
-            {/* Close Button */}
-            <button
-              onClick={() => {
-                setSelectedVideo(null);
-                setIsPlaying(false);
-                setIsAutoRotating(true);
-              }}
-              className="absolute top-2 right-2 md:top-4 md:right-4 z-10 w-8 h-8 md:w-10 md:h-10 rounded-full bg-black/50 backdrop-blur-sm border border-white/20 hover:bg-white/10 transition-all flex items-center justify-center"
-            >
-              <X className="w-4 h-4 md:w-5 md:h-5 text-white" />
-            </button>
-
-            {/* Video Element - 16:9 Aspect Ratio */}
-            <div className="aspect-video bg-black relative">
-              {selectedVideo.videoUrl ? (
-                <div data-vjs-player>
-                  <video
-                    ref={videoRef}
-                    className="video-js vjs-big-play-centered w-full h-full"
-                    playsInline
-                  />
-                </div>
-              ) : (
-                <div className="w-full h-full relative">
-                  <img
-                    src={selectedVideo.thumbnail}
-                    alt={selectedVideo.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white flex items-center justify-center">
-                      <Play className="w-8 h-8 md:w-10 md:h-10 text-white ml-2" />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-            </div>
-
-            {/* Video Controls & Info Overlay */}
-            <div className="bg-background/95 backdrop-blur-sm p-3 md:p-5">
-              {/* Title & Creator */}
-              <div className="mb-3 md:mb-4">
-                <h3 className="text-white text-lg md:text-xl font-bold mb-1.5 md:mb-2">{selectedVideo.title}</h3>
-                {(() => {
-                  const latestName = (selectedVideo.creatorId ? creatorInfo[selectedVideo.creatorId]?.name : null) ?? selectedVideo.creator;
-                  return (
-                    <div className="flex items-center gap-2">
-                      <CreatorAvatar
-                        avatarUrl={selectedVideo.creatorId ? creatorInfo[selectedVideo.creatorId]?.avatar ?? null : null}
-                        name={latestName}
-                        size="sm"
-                      />
-                      <span className="text-white/80 text-xs md:text-sm">{latestName}</span>
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Video Controls & Specs - Same Row */}
-              <div className="flex items-center justify-between gap-3 md:gap-4 mb-3 md:mb-4">
-                {/* Video Controls - Left */}
-                <div className="flex gap-1.5 md:gap-2">
-                  {isPlaying ? (
-                    <button
-                      onClick={handleVideoPause}
-                      className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all flex items-center justify-center"
-                    >
-                      <Pause className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleVideoPlay}
-                      className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all flex items-center justify-center"
-                    >
-                      <Play className="w-4 h-4 md:w-5 md:h-5 text-white ml-0.5" />
-                    </button>
-                  )}
-                  {isMuted ? (
-                    <button
-                      onClick={handleVideoUnmute}
-                      className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all flex items-center justify-center"
-                    >
-                      <VolumeX className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleVideoMute}
-                      className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all flex items-center justify-center"
-                    >
-                      <Volume2 className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                    </button>
-                  )}
-                  <button
-                    onClick={handleVideoMaximize}
-                    className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all flex items-center justify-center"
-                  >
-                    <Maximize className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                  </button>
-                </div>
-
-                {/* Video Specs - Right */}
-                <div className="flex gap-2 md:gap-3">
-                  <div className="text-center">
-                    <div className="text-white/50 text-[9px] md:text-[10px] mb-0.5">{t("productDetail.meta.resolution")}</div>
-                    <div className="text-white text-xs md:text-sm font-medium">{selectedVideo.resolution || '4K'}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-white/50 text-[9px] md:text-[10px] mb-0.5">{t("productDetail.meta.duration")}</div>
-                    <div className="text-white text-xs md:text-sm font-medium">{selectedVideo.duration || '0:30'}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-white/50 text-[9px] md:text-[10px] mb-0.5">{t("productDetail.meta.aiTool")}</div>
-                    <div className="text-white text-xs md:text-sm font-medium">{selectedVideo.tool || 'Sora'}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* License Tabs */}
-              <div className="mb-3 md:mb-4">
-                <div className="text-white/70 text-[10px] md:text-xs mb-1.5 md:mb-2">{t("productDetail.license.title")}</div>
-                <div className="grid grid-cols-3 gap-1.5 md:gap-2">
-                  <button
-                    onClick={() => setSelectedLicense('standard')}
-                    className={`p-2 md:p-3 rounded-lg border transition-all ${
-                      selectedLicense === 'standard'
-                        ? 'bg-gradient-to-r from-[#6366f1]/20 to-[#8b5cf6]/20 border-[#6366f1]'
-                        : 'bg-white/5 border-white/10 hover:border-white/20'
-                    }`}
-                  >
-                    <div className="text-white text-xs md:text-sm font-medium mb-0.5 md:mb-1">Standard</div>
-                    <div className={`text-[10px] md:text-xs ${
-                      selectedLicense === 'standard' ? 'text-[#6366f1]' : 'text-white/50'
-                    }`}>
-                      Personal / Small
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setSelectedLicense('commercial')}
-                    className={`p-2 md:p-3 rounded-lg border transition-all ${
-                      selectedLicense === 'commercial'
-                        ? 'bg-gradient-to-r from-[#6366f1]/20 to-[#8b5cf6]/20 border-[#6366f1]'
-                        : 'bg-white/5 border-white/10 hover:border-white/20'
-                    }`}
-                  >
-                    <div className="text-white text-xs md:text-sm font-medium mb-0.5 md:mb-1">Commercial</div>
-                    <div className={`text-[10px] md:text-xs ${
-                      selectedLicense === 'commercial' ? 'text-[#6366f1]' : 'text-white/50'
-                    }`}>
-                      Commercial
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setSelectedLicense('exclusive')}
-                    className={`p-2 md:p-3 rounded-lg border transition-all ${
-                      selectedLicense === 'exclusive'
-                        ? 'bg-gradient-to-r from-[#6366f1]/20 to-[#8b5cf6]/20 border-[#6366f1]'
-                        : 'bg-white/5 border-white/10 hover:border-white/20'
-                    }`}
-                  >
-                    <div className="text-white text-xs md:text-sm font-medium mb-0.5 md:mb-1">Exclusive</div>
-                    <div className={`text-[10px] md:text-xs ${
-                      selectedLicense === 'exclusive' ? 'text-[#6366f1]' : 'text-white/50'
-                    }`}>
-                      Exclusive
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* Price & Purchase Button */}
-              <div className="flex items-center justify-between gap-2 md:gap-4">
-                <div>
-                  <div className="text-white/50 text-[10px] md:text-xs mb-0.5 md:mb-1">{t("upload.priceLabel").replace(" *", "")}</div>
-                  <div className="text-white text-xl md:text-2xl font-bold">
-                    ₩{getPrice().toLocaleString()}
-                  </div>
-                </div>
-                <button className="flex-1 max-w-[180px] md:max-w-xs px-4 md:px-8 py-2.5 md:py-3 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white text-sm md:text-lg font-bold rounded-full hover:shadow-lg hover:shadow-[#6366f1]/50 transition-all">
-                  {t("productDetail.cart.purchase")}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <style>{`
         .coverflow-container {
