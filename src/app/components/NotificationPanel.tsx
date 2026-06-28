@@ -8,7 +8,7 @@ import { timeAgo } from "../utils/timeAgo";
 
 interface Notification {
   id: string;
-  type: "like" | "comment" | "purchase" | "sale" | "system" | "challenge";
+  type: "like" | "comment" | "purchase" | "sale" | "system" | "challenge" | "collab";
   title: string;
   body?: string;
   link?: string;

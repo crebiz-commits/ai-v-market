@@ -136,7 +136,9 @@ RETURNS integer LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS
     AND COALESCE(v.is_hidden, false) = false
     AND (p_filter <> 'free'   OR COALESCE(v.price_standard, 0) = 0)
     AND (p_filter <> 'paid'   OR COALESCE(v.price_standard, 0) > 0)
-    AND (p_filter <> 'cinema' OR COALESCE(v.show_on_ott, false) = true);
+    AND (p_filter <> 'cinema' OR COALESCE(v.show_on_ott, false) = true)
+    -- 시리즈 2화+ 후속화는 피드에서 제외되므로 카운트에서도 제외(배지 과대표시 버그 수정 2026-06-28)
+    AND (v.series_id IS NULL OR COALESCE(v.episode_number, 1) = 1);
 $$;
 
 GRANT EXECUTE ON FUNCTION public.get_home_feed_count(text) TO anon, authenticated;
