@@ -94,7 +94,7 @@ const AGE_OPTIONS: { value: string; labelKey: string; color: string }[] = [
   { value: "all", labelKey: "videoEditModal.ageRatingAll", color: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" },
   { value: "13",  labelKey: "videoEditModal.ageRating13", color: "border-amber-500/40 bg-amber-500/10 text-amber-300" },
   { value: "15",  labelKey: "videoEditModal.ageRating15", color: "border-orange-500/40 bg-orange-500/10 text-orange-300" },
-  { value: "19",  labelKey: "videoEditModal.ageRating19", color: "border-red-500/40 bg-red-500/10 text-red-300" },
+  // 19+(성인) 등급 제거 — 광고 정책상 성인인증 요구 콘텐츠 불가(애드핏/애드센스). 최대 15+.
 ];
 
 // HH:MM:SS or MM:SS → seconds

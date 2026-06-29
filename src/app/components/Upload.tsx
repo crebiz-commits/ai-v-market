@@ -1458,12 +1458,12 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
                 <Label className="mb-2 block">
                   {t("upload.ageRatingLabel", "시청 등급")} <span className="text-red-500">*</span>
                 </Label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {[
                     { value: "all", label: t("upload.ageAll", "전체관람가"), hint: t("upload.ageAllHint", "모든 시청자") },
                     { value: "13",  label: "12+", hint: t("upload.age12Hint", "가벼운 폭력·언어") },
                     { value: "15",  label: "15+", hint: t("upload.age15Hint", "폭력·선정성 일부") },
-                    { value: "19",  label: "19+", hint: t("upload.age19Hint", "성인 콘텐츠") },
+                    // 19+(성인) 등급 제거 — 광고 정책상 성인인증 요구 콘텐츠 불가. 최대 15+.
                   ].map((opt) => {
                     const selected = formData.ageRating === opt.value;
                     return (
@@ -1484,7 +1484,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
                   })}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1.5">
-                  {t("upload.ageRatingNote", "* 19+ 영상은 본인 인증된 시청자에게만 공개됩니다.")}
+                  {t("upload.ageRatingNote15Max", "* 최대 15세 이용가까지 등록할 수 있습니다 (성인 콘텐츠 불가).")}
                 </p>
               </div>
 
