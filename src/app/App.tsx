@@ -97,6 +97,7 @@ const OttRedesignPreview = lazy(() => import("./components/OttRedesignPreview").
 const ExternalAdPreview = lazy(() => import("./components/ExternalAdPreview").then(m => ({ default: m.ExternalAdPreview })));
 const DesktopHeaderPreview = lazy(() => import("./components/DesktopHeaderPreview").then(m => ({ default: m.DesktopHeaderPreview })));
 const TrendingRankPreview = lazy(() => import("./components/TrendingRankPreview").then(m => ({ default: m.TrendingRankPreview })));
+const CoupangBannerPreview = lazy(() => import("./components/CoupangBannerPreview").then(m => ({ default: m.CoupangBannerPreview })));
 const CreatorRevenueGuide = lazy(() => import("./components/CreatorRevenueGuide").then(m => ({ default: m.CreatorRevenueGuide })));
 
 // 비로그인 사용자 첫 화면 (Netflix 패턴 랜딩)
@@ -183,6 +184,7 @@ function AppContent() {
       "external-ad": <ExternalAdPreview />,
       "desktop-header": <DesktopHeaderPreview />,
       "trending-rank": <TrendingRankPreview />,
+      coupang: <CoupangBannerPreview />,
     };
     if (previewMap[previewParam]) {
       return <Suspense fallback={<PageLoading />}>{previewMap[previewParam]}</Suspense>;
