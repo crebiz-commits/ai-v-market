@@ -60,7 +60,7 @@ function Disclosure() {
 
 export function CoupangBannerPreview() {
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
+    <div className="h-screen overflow-y-auto bg-[#0a0a0a] text-white">
       <div className="max-w-3xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-black mb-1">쿠팡파트너스 보조 배너 — 배치 미리보기</h1>
         <p className="text-sm text-white/50 mb-1">실제 배너는 쿠팡 스크립트가 <b>회전형 실제 상품</b>으로 렌더합니다. 아래는 위치·디자인 시각 목업입니다.</p>
