@@ -144,11 +144,11 @@ export function ExternalAdSlot({ index = 0, className = "" }: ExternalAdSlotProp
   return (
     <div
       ref={wrapperRef}
-      className={`relative flex items-center justify-center bg-[#0a0a0a] ${className}`}
+      className={`relative flex items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_center,rgba(124,92,246,0.20),rgba(236,72,153,0.06)_45%,transparent_72%),#0a0a0a] ${className}`}
     >
-      {/* AdFit 정책: 광고 스크립트의 임의 변형·강조·라운딩·가림 금지.
-          → 라운딩(rounded)·테두리·그림자·AD 오버레이 제거하고 광고를 원본 그대로(모든 영역) 노출. */}
-      <div ref={containerRef} className="flex items-center justify-center" style={{ width: AD_W, height: AD_H }} />
+      {/* 배경(여백)만 브랜드 오로라 그라데이션 — 광고가 작아 생기는 빈 공간을 채움.
+          ※ AdFit 정책상 광고 자체는 변형·강조·라운딩·가림 금지 → 아래 광고 컨테이너는 손대지 않음(원본 그대로). */}
+      <div ref={containerRef} className="relative flex items-center justify-center" style={{ width: AD_W, height: AD_H }} />
     </div>
   );
 }
