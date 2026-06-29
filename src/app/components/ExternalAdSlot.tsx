@@ -81,22 +81,18 @@ export function ExternalAdSlot({ index = 0, className = "" }: ExternalAdSlotProp
     el.innerHTML = "";
 
     if (network === "adfit" && ADFIT.unit) {
-      // 카카오 애드핏: ins(300×250) 삽입. ba.min.js 는 한 번 로드되면 "그 시점에 있던 ins"만
-      // 렌더하고, 이후 동적으로 추가된 ins(지연로드/반응형 전환 슬롯)는 자동으로 안 그린다
-      // (= 새로고침해야만 보이던 빈칸 원인). → 기존 로더 스크립트를 제거하고 새로 삽입해
-      // 페이지의 모든 ins 를 다시 스캔·렌더하도록 유도한다.
-      const ins = document.createElement("ins");
-      ins.className = "kakao_ad_area";
-      ins.style.display = "none";
-      ins.setAttribute("data-ad-unit", ADFIT.unit);
-      ins.setAttribute("data-ad-width", String(AD_W));
-      ins.setAttribute("data-ad-height", String(AD_H));
-      el.appendChild(ins);
-      document.querySelectorAll('script[src*="ba.min.js"]').forEach((node) => node.remove());
-      const s = document.createElement("script");
-      s.async = true;
-      s.src = "//t1.daumcdn.net/kas/static/ba.min.js";
-      document.body.appendChild(s);
+      // 카카오 애드핏: 격리 iframe(/adfit.html)에서 ba.min.js 를 매번 새로 로드 → 동적/지연
+      //   추가 슬롯(반응형 전환·리사이즈)도 항상 렌더. (부모에 ins 직접삽입은 ba.min.js 1회
+      //   스캔 한계로 새로고침해야만 보이던 빈칸 발생). 같은 도메인 파일이라 도메인 인증 정상.
+      const iframe = document.createElement("iframe");
+      iframe.src = `/adfit.html?unit=${encodeURIComponent(ADFIT.unit)}&w=${AD_W}&h=${AD_H}`;
+      iframe.width = String(AD_W);
+      iframe.height = String(AD_H);
+      iframe.title = "advertisement";
+      iframe.setAttribute("scrolling", "no");
+      iframe.setAttribute("frameborder", "0");
+      iframe.style.cssText = `width:${AD_W}px;height:${AD_H}px;border:0;overflow:hidden;display:block;`;
+      el.appendChild(iframe);
     } else if (network === "adsense" && ADSENSE.client && ADSENSE.slot) {
       // Google AdSense: 300×250 고정 디스플레이 유닛
       loadScriptOnce(
