@@ -81,7 +81,10 @@ export function ExternalAdSlot({ index = 0, className = "" }: ExternalAdSlotProp
     el.innerHTML = "";
 
     if (network === "adfit" && ADFIT.unit) {
-      // 카카오 애드핏: ins 삽입 후 로더 스크립트가 스캔하여 렌더 (300×250 고정)
+      // 카카오 애드핏: ins(300×250) 삽입. ba.min.js 는 한 번 로드되면 "그 시점에 있던 ins"만
+      // 렌더하고, 이후 동적으로 추가된 ins(지연로드/반응형 전환 슬롯)는 자동으로 안 그린다
+      // (= 새로고침해야만 보이던 빈칸 원인). → 기존 로더 스크립트를 제거하고 새로 삽입해
+      // 페이지의 모든 ins 를 다시 스캔·렌더하도록 유도한다.
       const ins = document.createElement("ins");
       ins.className = "kakao_ad_area";
       ins.style.display = "none";
@@ -89,10 +92,11 @@ export function ExternalAdSlot({ index = 0, className = "" }: ExternalAdSlotProp
       ins.setAttribute("data-ad-width", String(AD_W));
       ins.setAttribute("data-ad-height", String(AD_H));
       el.appendChild(ins);
+      document.querySelectorAll('script[src*="ba.min.js"]').forEach((node) => node.remove());
       const s = document.createElement("script");
       s.async = true;
       s.src = "//t1.daumcdn.net/kas/static/ba.min.js";
-      el.appendChild(s);
+      document.body.appendChild(s);
     } else if (network === "adsense" && ADSENSE.client && ADSENSE.slot) {
       // Google AdSense: 300×250 고정 디스플레이 유닛
       loadScriptOnce(
