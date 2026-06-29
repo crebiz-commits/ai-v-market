@@ -144,7 +144,7 @@ export function ExternalAdSlot({ index = 0, className = "" }: ExternalAdSlotProp
   return (
     <div
       ref={wrapperRef}
-      className={`relative flex items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#2a2055_0%,#120d24_46%,#2a1338_100%)] ${className}`}
+      className={`relative flex items-center justify-center overflow-hidden bg-[linear-gradient(180deg,#3d2e86_0%,#171022_50%,#3a1a52_100%)] ${className}`}
     >
       {/* 배경(여백)만 브랜드 오로라 그라데이션 — 광고가 작아 생기는 빈 공간을 채움.
           ※ AdFit 정책상 광고 자체는 변형·강조·라운딩·가림 금지 → 아래 광고 컨테이너는 손대지 않음(원본 그대로). */}
