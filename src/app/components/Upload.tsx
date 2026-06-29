@@ -69,7 +69,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
     description: "",
     category: "",
     genre: "",
-    ageRating: "" as "" | "all" | "13" | "15" | "19",  // 등급 — 필수 입력 (Phase 31.1). 값은 DB CHECK('all','13','15','19') 표준에 맞춤
+    ageRating: "" as "" | "all" | "13" | "15",  // 등급 — 필수 입력. UI 최대 15+(19 제거, 광고정책). DB CHECK엔 19도 있으나 미사용
     aiTool: "",
     aiModelVersion: "", // 모델 버전 (예: "Sora v2.1")
     resolution: "",
