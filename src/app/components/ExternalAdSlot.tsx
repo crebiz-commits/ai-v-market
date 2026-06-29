@@ -18,7 +18,7 @@
 //   VITE_ADSENSE_CLIENT=ca-pub-xxxxxxxxxxxxxxxx   # AdSense 게시자 ID
 //   VITE_ADSENSE_SLOT=xxxxxxxxxx                   # AdSense 300×250 고정 광고 슬롯
 // ════════════════════════════════════════════════════════════════════════════
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 const ENV: any = (import.meta as any).env ?? {};
 const _flag = String(ENV.VITE_EXTERNAL_ADS_ENABLED ?? "").toLowerCase();
@@ -74,26 +74,7 @@ export function ExternalAdSlot({ index = 0, className = "" }: ExternalAdSlotProp
   const containerRef = useRef<HTMLDivElement>(null);
   const networks = enabledNetworks();
   const network: Network | null = networks.length ? networks[index % networks.length] : null;
-  const [visible, setVisible] = useState(false);
-
-  // 지연 로드: 슬롯이 뷰포트 근처에 올 때만 광고 초기화.
-  // (무한 피드의 모든 광고 슬롯이 마운트 즉시 동시에 ba.min.js 로드+광고호출 →
-  //  첫 화면 멈춤·과부하를 유발하던 문제 방지. 화면 밖 슬롯은 빈 div로만 대기.)
-  useEffect(() => {
-    if (!EXTERNAL_ADS_ON || !network) return;
-    const el = wrapperRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) { setVisible(true); io.disconnect(); }
-      },
-      { rootMargin: "300px" },  // 화면 도달 직전 미리 로드
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [network]);
-
-  // 광고 삽입 (애드핏: ins+로더 / 애드센스: ins+push). 컨테이너를 비우고 새로 렌더.
+  // 광고 삽입 (애드핏: ins+로더 / 애드센스: ins+push). 비어 있을 때만 호출.
   const injectAd = useCallback(() => {
     const el = containerRef.current;
     if (!el || !network) return;
@@ -133,31 +114,44 @@ export function ExternalAdSlot({ index = 0, className = "" }: ExternalAdSlotProp
     }
   }, [network]);
 
-  // 슬롯이 뷰포트 근처에 오면 1회 렌더
+  // 지연 로드 + 리사이즈 복원 (단일 로직):
+  //   - 슬롯이 화면 근처이고 "비어 있을 때만"(ins·iframe 둘 다 없음) 광고 삽입.
+  //   - IntersectionObserver 는 끊지 않고 유지 → 보였다/안 보였다 해도 빈 슬롯이면 다시 채움.
+  //   - 리사이즈/반응형(모바일↔데스크탑) 전환으로 광고가 사라지면 디바운스 후 재삽입.
+  //   ※ "ins·iframe 모두 없을 때만" 채우므로, 로딩 중인 광고를 끊거나(=풀사이즈 빈칸 버그) 중복 호출하지 않음.
   useEffect(() => {
-    if (!visible || !network) return;
-    injectAd();
-    return () => {
-      const el = containerRef.current;
-      if (el) el.innerHTML = "";
-    };
-  }, [visible, network, injectAd]);
+    if (!EXTERNAL_ADS_ON || !network) return;
+    const wrap = wrapperRef.current;
+    if (!wrap) return;
 
-  // 창 크기 변경(리사이즈/반응형 전환) 시 애드핏 광고가 사라지는 문제 →
-  // 리사이즈가 멎은 뒤(450ms) 광고(iframe)가 비어 있을 때만 재삽입. (비었을 때만 → 중복 호출/노출 방지)
-  useEffect(() => {
-    if (!visible || !network) return;
+    const fillIfEmpty = () => {
+      const el = containerRef.current;
+      if (el && !el.querySelector("ins, iframe")) injectAd();
+    };
+
+    const io = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) fillIfEmpty(); },
+      { rootMargin: "300px" },  // 화면 도달 직전 미리 로드
+    );
+    io.observe(wrap);
+
     let t = 0;
     const onResize = () => {
       window.clearTimeout(t);
       t = window.setTimeout(() => {
-        const el = containerRef.current;
-        if (el && !el.querySelector("iframe")) injectAd();
+        const r = wrap.getBoundingClientRect();
+        const near = r.bottom > -300 && r.top < window.innerHeight + 300;
+        if (near) fillIfEmpty();
       }, 450);
     };
     window.addEventListener("resize", onResize);
-    return () => { window.removeEventListener("resize", onResize); window.clearTimeout(t); };
-  }, [visible, network, injectAd]);
+
+    return () => {
+      io.disconnect();
+      window.removeEventListener("resize", onResize);
+      window.clearTimeout(t);
+    };
+  }, [network, injectAd]);
 
   // 미설정/비활성 — 운영·개발 모두 렌더 안 함(빈 슬롯). ID(env) 등록 시에만 실제 광고 노출.
   if (!EXTERNAL_ADS_ON || !network) {
