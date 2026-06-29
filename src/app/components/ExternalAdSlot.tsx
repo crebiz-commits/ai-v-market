@@ -18,7 +18,7 @@
 //   VITE_ADSENSE_CLIENT=ca-pub-xxxxxxxxxxxxxxxx   # AdSense 게시자 ID
 //   VITE_ADSENSE_SLOT=xxxxxxxxxx                   # AdSense 300×250 고정 광고 슬롯
 // ════════════════════════════════════════════════════════════════════════════
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 const ENV: any = (import.meta as any).env ?? {};
 const _flag = String(ENV.VITE_EXTERNAL_ADS_ENABLED ?? "").toLowerCase();
@@ -93,9 +93,10 @@ export function ExternalAdSlot({ index = 0, className = "" }: ExternalAdSlotProp
     return () => io.disconnect();
   }, [network]);
 
-  useEffect(() => {
-    if (!visible || !network || !containerRef.current) return;
+  // 광고 삽입 (애드핏: ins+로더 / 애드센스: ins+push). 컨테이너를 비우고 새로 렌더.
+  const injectAd = useCallback(() => {
     const el = containerRef.current;
+    if (!el || !network) return;
     el.innerHTML = "";
 
     if (network === "adfit" && ADFIT.unit) {
@@ -130,11 +131,33 @@ export function ExternalAdSlot({ index = 0, className = "" }: ExternalAdSlotProp
         /* 로더 아직 미도착 시 무시 — 스크립트 로드 후 자동 렌더 */
       }
     }
+  }, [network]);
 
+  // 슬롯이 뷰포트 근처에 오면 1회 렌더
+  useEffect(() => {
+    if (!visible || !network) return;
+    injectAd();
     return () => {
-      el.innerHTML = "";
+      const el = containerRef.current;
+      if (el) el.innerHTML = "";
     };
-  }, [visible, network]);
+  }, [visible, network, injectAd]);
+
+  // 창 크기 변경(리사이즈/반응형 전환) 시 애드핏 광고가 사라지는 문제 →
+  // 리사이즈가 멎은 뒤(450ms) 광고(iframe)가 비어 있을 때만 재삽입. (비었을 때만 → 중복 호출/노출 방지)
+  useEffect(() => {
+    if (!visible || !network) return;
+    let t = 0;
+    const onResize = () => {
+      window.clearTimeout(t);
+      t = window.setTimeout(() => {
+        const el = containerRef.current;
+        if (el && !el.querySelector("iframe")) injectAd();
+      }, 450);
+    };
+    window.addEventListener("resize", onResize);
+    return () => { window.removeEventListener("resize", onResize); window.clearTimeout(t); };
+  }, [visible, network, injectAd]);
 
   // 미설정/비활성 — 운영·개발 모두 렌더 안 함(빈 슬롯). ID(env) 등록 시에만 실제 광고 노출.
   if (!EXTERNAL_ADS_ON || !network) {
