@@ -1516,6 +1516,11 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
           height: 40dvh !important;
           width: 100% !important;
         }
+        /* 댓글 열림 시: 활성 카드 하단 글로우 구분선(::after, z-50)이 댓글 시트(z-40) 상단으로
+           겹쳐 첫 댓글과 포개지던 것 방지 → 구분선 숨김 */
+        .mobile-feed-container.comments-open .discovery-section-wrapper.is-comment-active::after {
+          display: none !important;
+        }
         .desktop-feed-container { display: none; background: #0a0a0a; }
         @media (min-width: 1024px) { 
           .mobile-feed-container { display: none; } 
