@@ -12,8 +12,25 @@
       <!-- 검색엔진 사이트 소유확인 -->
       <meta name="naver-site-verification" content="a60b3862361e8431900e13522a7c7d42195772a3" />
 
-      <!-- Google AdSense 사이트 소유확인 + 광고 (게시자 ca-pub-1525031148019194) -->
-      <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1525031148019194" crossorigin="anonymous"></script>
+      <!-- Google AdSense (게시자 ca-pub-1525031148019194) — 초기 로드 경쟁 방지 위해 지연 로드.
+           head 에서 즉시 로드하면 모바일 저속/혼잡 시 앱 핵심 리소스 대역폭을 뺏어 첫 화면이
+           검은 스피너로 수초간 멈추는 문제 발생. 앱 인터랙티브(window load) + 2.5s 후 삽입.
+           (Google 크롤러는 JS 실행 후 스크립트를 찾으므로 소유확인/심사에도 지장 없음) -->
+      <script>
+        (function () {
+          function loadAdSense() {
+            if (window.__adsenseLoaded) return;
+            window.__adsenseLoaded = true;
+            var s = document.createElement('script');
+            s.async = true;
+            s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1525031148019194';
+            s.crossOrigin = 'anonymous';
+            document.head.appendChild(s);
+          }
+          if (document.readyState === 'complete') setTimeout(loadAdSense, 2500);
+          else window.addEventListener('load', function () { setTimeout(loadAdSense, 2500); });
+        })();
+      </script>
 
       <!-- PWA -->
       <link rel="manifest" href="/manifest.json" />
