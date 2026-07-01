@@ -6,8 +6,10 @@
 //   VITE_COUPANG_ID=1234567           # 쿠팡파트너스 다이나믹 배너 위젯 id(숫자)
 //   VITE_COUPANG_TRACKING=AF1234567   # 배너 트래킹코드
 const ENV: any = (import.meta as any).env ?? {};
-const CP_ID = (ENV.VITE_COUPANG_ID as string | undefined) || "";
-const CP_TRACKING = (ENV.VITE_COUPANG_TRACKING as string | undefined) || "";
+// id·trackingCode 는 페이지에 공개 노출되는 값이라 기본값으로 박아둠(env 로 덮어쓰기 가능).
+//   위젯: 다이나믹 배너(캐러셀, 고객관심기반) — 2026-07-01 생성.
+const CP_ID = (ENV.VITE_COUPANG_ID as string | undefined) || "1002079";
+const CP_TRACKING = (ENV.VITE_COUPANG_TRACKING as string | undefined) || "AF1384938";
 
 export const COUPANG_ACTIVE = !!(CP_ID && CP_TRACKING);
 
