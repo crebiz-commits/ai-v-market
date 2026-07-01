@@ -12,7 +12,7 @@ import {
   ShieldCheck, Megaphone, Settings, Coins, Flag, EyeOff,
   ArrowLeft, Menu, X, ShieldAlert, Loader2, LayoutDashboard,
   Users, Film, DollarSign, Send, ClipboardList, MessageSquare,
-  Globe, Sparkles, Inbox, Trophy, Image as ImageIcon, Bug, Coffee, LifeBuoy, ClipboardCheck
+  Globe, Sparkles, Inbox, Trophy, Image as ImageIcon, Bug, Coffee, LifeBuoy, ClipboardCheck, Crown
 } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -40,6 +40,7 @@ const AdminChallenges = lazy(() => import("./AdminChallenges").then(m => ({ defa
 const AdminBanners = lazy(() => import("./AdminBanners").then(m => ({ default: m.AdminBanners })));
 const AdminBugReports = lazy(() => import("./AdminBugReports").then(m => ({ default: m.AdminBugReports })));
 const AdminMegaUploader = lazy(() => import("./AdminMegaUploader").then(m => ({ default: m.AdminMegaUploader })));
+const AdminGrantPremium = lazy(() => import("./AdminGrantPremium").then(m => ({ default: m.AdminGrantPremium })));
 
 type AdminPage =
   | "overview"      // 대시보드 (한눈에 보기)
@@ -62,6 +63,7 @@ type AdminPage =
   | "banners"       // 이벤트 배너 관리
   | "bugs"          // 버그 제보 관리
   | "mega"          // 메가커피 업로더 이벤트
+  | "grant_premium" // 프리미엄 수동 지급 (챌린지 보상 등)
   | "activity";     // 활동 로그
 
 interface MenuItem {
@@ -89,6 +91,7 @@ const MENU: MenuItem[] = [
   { key: "policy",       label: "수익 정책",       icon: Settings,        group: "💰 수익화" },
   { key: "settlement",   label: "정산 관리",       icon: Coins,           group: "💰 수익화" },
   { key: "payments",     label: "결제·환불",       icon: DollarSign,      group: "💰 수익화" },
+  { key: "grant_premium", label: "프리미엄 지급",    icon: Crown,           group: "💰 수익화" },
   { key: "reports",      label: "신고 큐",         icon: Flag,            group: "🛡 안전·품질" },
   { key: "moderation",   label: "숨김 콘텐츠",      icon: EyeOff,          group: "🛡 안전·품질" },
   { key: "comments",     label: "댓글 관리",       icon: MessageSquare,   group: "🛡 안전·품질" },
@@ -113,6 +116,7 @@ const PAGE_META: Record<AdminPage, { title: string; subtitle: string }> = {
   policy:     { title: "수익 정책",      subtitle: "크리에이터 분배율·CPM·정산 허들을 변경하고 이력을 추적합니다" },
   settlement: { title: "정산 관리",      subtitle: "월별 크리에이터 수익을 산출하고 지급 처리합니다" },
   payments:   { title: "결제·환불",      subtitle: "모든 결제 내역 조회 및 환불 처리 (구독/라이선스/광고예산)" },
+  grant_premium: { title: "프리미엄 지급", subtitle: "이메일로 사용자에게 프리미엄 구독을 수동 지급합니다 (챌린지 우승 보상 등)" },
   reports:    { title: "신고 큐",        subtitle: "사용자가 신고한 영상/댓글/사용자/커뮤니티 글을 검토합니다" },
   moderation: { title: "숨김 콘텐츠",    subtitle: "자동/수동 숨김된 콘텐츠와 정지된 계정을 통합 관리합니다" },
   comments:   { title: "댓글 관리",      subtitle: "전체 댓글을 검색·필터링하고 강제 숨김/복원/삭제합니다 (스팸·도배 능동 대응)" },
@@ -206,6 +210,7 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
         {currentPage === "policy" && <AdminRevenuePolicy />}
         {currentPage === "settlement" && <AdminRevenueSettlement />}
         {currentPage === "payments" && <AdminPayments />}
+        {currentPage === "grant_premium" && <AdminGrantPremium />}
         {currentPage === "reports" && <AdminReports />}
         {currentPage === "moderation" && <AdminModeration />}
         {currentPage === "comments" && <AdminComments />}
