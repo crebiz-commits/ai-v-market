@@ -43,8 +43,8 @@ const EMPTY_FORM: FormState = {
   tag: "",
   title: "",
   title_en: "",
-  prize: "총 60만원",
-  prize_en: "₩600,000 total",
+  prize: "홈 히어로 1개월 · 프리미엄 6개월 · 이달의 크리에이터 뱃지 · 공식 SNS 소개",
+  prize_en: "1mo Home Hero · 6mo Premium · Creator of the Month badge · Official SNS feature",
   description: "",
   description_en: "",
   image: "",
@@ -147,7 +147,7 @@ export function AdminChallenges() {
       tag,
       title: form.title.trim(),
       title_en: form.title_en.trim() || null,
-      prize: form.prize.trim() || "총 60만원",
+      prize: form.prize.trim() || "홈 히어로 1개월 · 프리미엄 6개월 · 이달의 크리에이터 뱃지 · 공식 SNS 소개",
       prize_en: form.prize_en.trim() || null,
       description: form.description.trim(),
       description_en: form.description_en.trim() || null,
@@ -254,13 +254,13 @@ export function AdminChallenges() {
                 placeholder="https://..." />
             </div>
             <div>
-              <label className="text-xs font-semibold text-muted-foreground block mb-1">상금 (한국어)</label>
-              <input className={inputCls} value={form.prize} maxLength={60}
+              <label className="text-xs font-semibold text-muted-foreground block mb-1">보상 (한국어)</label>
+              <input className={inputCls} value={form.prize} maxLength={120}
                 onChange={(e) => setForm((f) => ({ ...f, prize: e.target.value }))} />
             </div>
             <div>
-              <label className="text-xs font-semibold text-muted-foreground block mb-1">상금 (영어, 선택)</label>
-              <input className={inputCls} value={form.prize_en} maxLength={60}
+              <label className="text-xs font-semibold text-muted-foreground block mb-1">보상 (영어, 선택)</label>
+              <input className={inputCls} value={form.prize_en} maxLength={120}
                 onChange={(e) => setForm((f) => ({ ...f, prize_en: e.target.value }))} />
             </div>
             <div>

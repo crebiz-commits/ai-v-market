@@ -81,14 +81,14 @@ export function CommunityChallengeDetail({ challenge, onClose, onParticipate, on
   // 매월 정기 콘테스트 — 고정 시상 구조 (1등 30 / 2등 20 / 3등 10만원)
   const PRIZE_TIERS = isKo
     ? [
-        { rank: "1등", emoji: "🥇", prize: "30만원", perk: "메인 피드 1주일 무료 노출" },
-        { rank: "2등", emoji: "🥈", prize: "20만원", perk: "프리미엄 크리에이터 인증" },
-        { rank: "3등", emoji: "🥉", prize: "10만원", perk: "다음 챌린지 우선 심사" },
+        { rank: "1등", emoji: "🥇", prize: "프리미엄 6개월 + 홈 히어로 1개월", perk: "이달의 크리에이터 뱃지 · 공식 SNS 소개" },
+        { rank: "2등", emoji: "🥈", prize: "프리미엄 3개월", perk: "추천 행 2주 노출 · 우수상 뱃지" },
+        { rank: "3등", emoji: "🥉", prize: "프리미엄 1개월", perk: "다음 챌린지 우선 심사 · 입선 뱃지" },
       ]
     : [
-        { rank: "1st", emoji: "🥇", prize: "₩300,000", perk: "1-week home feed featuring" },
-        { rank: "2nd", emoji: "🥈", prize: "₩200,000", perk: "Premium creator verification" },
-        { rank: "3rd", emoji: "🥉", prize: "₩100,000", perk: "Priority review for next challenge" },
+        { rank: "1st", emoji: "🥇", prize: "6mo Premium + 1mo Home Hero", perk: "Creator of the Month badge · Official SNS feature" },
+        { rank: "2nd", emoji: "🥈", prize: "3mo Premium", perk: "2-week featured row · Excellence badge" },
+        { rank: "3rd", emoji: "🥉", prize: "1mo Premium", perk: "Priority review next challenge · Finalist badge" },
       ];
 
   const RULES = isKo
