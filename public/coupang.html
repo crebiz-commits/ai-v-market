@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ad</title>
+  <style>html,body{margin:0;padding:0;overflow:hidden;background:transparent}</style>
+</head>
+<body>
+  <!--
+    쿠팡파트너스 다이나믹 배너 격리 프레임.
+    CoupangBanner 가 <iframe src="/coupang.html?id=위젯ID&tc=트래킹코드&h=높이"> 로 띄운다.
+    독립 문서라 g.js 가 프레임마다 새로 로드 → SPA/리사이즈에서 안정적으로 렌더.
+    같은 도메인(creaite.net) 파일이라 쿠팡 도메인 인증에도 문제없음.
+  -->
+  <script>
+    (function () {
+      var p = new URLSearchParams(location.search);
+      var id = p.get('id');
+      var tc = p.get('tc');
+      var h = p.get('h') || '140';
+      if (!id || !tc) return;
+      var s = document.createElement('script');
+      s.src = 'https://ads-partners.coupang.com/g.js';
+      s.onload = function () {
+        try {
+          // eslint-disable-next-line no-undef
+          new PartnersCoupang.G({ id: Number(id), template: 'carousel', trackingCode: tc, width: '100%', height: h });
+        } catch (e) { /* 로드 실패 무시 */ }
+      };
+      document.body.appendChild(s);
+    })();
+  </script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
+import { CoupangBanner } from "./CoupangBanner";
 
 interface FooterProps {
   // 각 페이지에서 Footer 호출 시 페이지의 onNavigate prop 그대로 전달 가능하도록 string 타입
@@ -26,6 +27,9 @@ export function Footer({ onNavigate, mobile = false }: FooterProps) {
       className={`${mobile ? "block" : "hidden md:block"} border-t border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl mt-auto`}
     >
       <div className="max-w-[1800px] mx-auto px-5 md:px-10 py-6 md:py-8">
+        {/* 쿠팡파트너스 보조 배너 — env(VITE_COUPANG_ID/TRACKING) 설정 시에만 노출. 고지 문구 포함 */}
+        <CoupangBanner className="mb-6" height={140} />
+
         {/* 4단 링크 메뉴 — 모바일에선 숨김(햄버거 메뉴에 동일 내용). 데스크탑만 노출 */}
         <div className="hidden md:grid grid-cols-2 md:grid-cols-4 gap-8 mb-6">
           {/* 비즈니스 */}
