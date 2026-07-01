@@ -167,6 +167,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
   const [heroSrc, setHeroSrc] = useState<{ url: string; start: number; end: number; clipUrl?: string; previewUrl?: string } | null>(null);
   const [heroMuted, setHeroMuted] = useState(true);
   const [heroIdx, setHeroIdx] = useState(0);   // 히어로 순환 인덱스 (20초마다)
+  const [featured, setFeatured] = useState<CarouselVideo[]>([]);  // 피처링(챌린지 우승작) — 히어로 최우선
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const allVideoIds = useMemo(() => {
@@ -203,7 +204,14 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
 
   // 히어로 후보: 트렌딩(비면 카테고리 행 영화) 상위 5편을 20초마다 순환 (2026-06-12)
   const heroFallback = genreRows.flatMap((r) => r.videos);
-  const heroes = (trending.length > 0 ? trending : heroFallback).slice(0, 5);
+  // 피처링(챌린지 우승작)을 히어로 최우선으로 앞에 붙이고 중복 제거 후 상위 5편
+  const _heroPool = trending.length > 0 ? trending : heroFallback;
+  const _heroSeen = new Set<string>();
+  const heroes = [...featured, ..._heroPool].filter((v) => {
+    if (!v?.id || _heroSeen.has(v.id)) return false;
+    _heroSeen.add(v.id);
+    return true;
+  }).slice(0, 5);
   const heroId = heroes[heroIdx]?.id;
   useEffect(() => { setHeroIdx(0); }, [heroes.length]);   // 목록 바뀌면 처음부터
   useEffect(() => {
@@ -211,6 +219,22 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
     const id = setInterval(() => setHeroIdx((i) => (i + 1) % heroes.length), 20000);
     return () => clearInterval(id);
   }, [heroes.length]);
+  // 피처링 영상(featured_hero_until 미래) 로드 → 히어로 최우선 노출 (챌린지 우승작 1개월)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("videos")
+        .select("id, title, thumbnail, creator, creator_id, category, genre, duration_seconds, likes, price_standard, highlight_start, highlight_end")
+        .gt("featured_hero_until", new Date().toISOString())
+        .eq("visibility", "public")
+        .eq("status", "ready")
+        .order("featured_hero_until", { ascending: false })
+        .limit(3);
+      if (!cancelled && Array.isArray(data)) setFeatured(data as unknown as CarouselVideo[]);
+    })();
+    return () => { cancelled = true; };
+  }, []);
   // 현재 히어로의 재생 URL(+클립) 로딩 — RPC엔 video_url 이 없어 별도 조회
   useEffect(() => {
     setHeroSrc(null);

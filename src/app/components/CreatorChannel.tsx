@@ -80,6 +80,17 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const { isBlocked, blockUser, unblockUser } = useBlockedUsers();
   const blockedHere = isBlocked(creatorId);
+  // 이달의 크리에이터 뱃지 (creator_of_month_until 이 미래면 표시)
+  const [crownUntil, setCrownUntil] = useState<string | null>(null);
+  const isCreatorOfMonth = !!crownUntil && new Date(crownUntil).getTime() > Date.now();
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("profiles").select("creator_of_month_until").eq("id", creatorId).maybeSingle();
+      if (!cancelled) setCrownUntil((data as any)?.creator_of_month_until ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [creatorId]);
 
   // 메뉴 외부 클릭 시 닫기
   useEffect(() => {
@@ -284,7 +295,14 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
                 </div>
               )}
             </div>
-            <h1 className="text-2xl md:text-3xl font-black text-white mb-2">{profile.creator_name}</h1>
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <h1 className="text-2xl md:text-3xl font-black text-white">{profile.creator_name}</h1>
+              {isCreatorOfMonth && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-400/40 text-amber-300 text-xs font-black shadow-[0_0_12px_rgba(251,191,36,0.25)]">
+                  👑 이달의 크리에이터
+                </span>
+              )}
+            </div>
             {profile.bio && (
               <p className="text-sm text-gray-400 leading-relaxed mb-4 max-w-2xl whitespace-pre-line">
                 {profile.bio}

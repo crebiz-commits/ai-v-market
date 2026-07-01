@@ -19,6 +19,37 @@ export function AdminGrantPremium() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<GrantResult | null>(null);
 
+  // 이달의 크리에이터 임명 (뱃지 + 홈 히어로)
+  const [crownEmail, setCrownEmail] = useState("");
+  const [crownVideo, setCrownVideo] = useState("");
+  const [crownBusy, setCrownBusy] = useState(false);
+  const [crownDone, setCrownDone] = useState<{ video_title?: string | null } | null>(null);
+
+  const extractVideoId = (s: string): string => {
+    const t = s.trim();
+    if (!t) return "";
+    try { const q = new URL(t).searchParams.get("video"); if (q) return q; } catch { /* URL 아님 */ }
+    const m = t.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    return m ? m[0] : t;
+  };
+
+  const crown = async () => {
+    const e = crownEmail.trim();
+    if (!e) { toast.error("우승자 이메일을 입력하세요"); return; }
+    const vid = extractVideoId(crownVideo);
+    setCrownBusy(true); setCrownDone(null);
+    try {
+      const { data, error } = await supabase.rpc("admin_crown_creator", {
+        p_email: e, p_video_id: vid || null, p_badge_months: 1, p_hero_days: 30,
+      });
+      if (error) throw error;
+      setCrownDone((data as any) || {});
+      toast.success("이달의 크리에이터 임명 완료 👑" + (vid ? " · 홈 히어로 고정" : ""));
+    } catch (err: any) {
+      toast.error(err?.message || "임명 실패");
+    } finally { setCrownBusy(false); }
+  };
+
   const grant = async () => {
     const e = email.trim();
     if (!e) { toast.error("이메일을 입력하세요"); return; }
@@ -119,6 +150,33 @@ export function AdminGrantPremium() {
           </p>
         </div>
       )}
+
+      {/* ── 이달의 크리에이터 임명 (뱃지 + 홈 히어로) ── */}
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.04] p-5 space-y-4">
+        <div className="flex items-center gap-2 text-amber-300 font-bold">👑 이달의 크리에이터 임명</div>
+        <p className="text-[11px] text-muted-foreground -mt-2">
+          채널에 <b>“👑 이달의 크리에이터” 뱃지 1개월</b> + (우승작 지정 시) <b>OTT 홈 히어로 1개월 고정</b>.
+        </p>
+        <div className="flex flex-col">
+          <label className="text-xs font-semibold text-muted-foreground mb-1">우승자 이메일</label>
+          <input className={inputCls} type="email" placeholder="winner@gmail.com" value={crownEmail}
+            onChange={(e) => setCrownEmail(e.target.value)} />
+        </div>
+        <div className="flex flex-col">
+          <label className="text-xs font-semibold text-muted-foreground mb-1">
+            우승작 영상 ID 또는 URL <span className="text-white/30">(선택 — 홈 히어로 고정용)</span>
+          </label>
+          <input className={inputCls} placeholder="영상 상세 URL 붙여넣기 또는 영상 ID" value={crownVideo}
+            onChange={(e) => setCrownVideo(e.target.value)} />
+        </div>
+        <button onClick={crown} disabled={crownBusy}
+          className="w-full h-11 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold flex items-center justify-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity">
+          {crownBusy ? <Loader2 className="w-4 h-4 animate-spin text-black" /> : <span>👑</span>} 이달의 크리에이터 임명
+        </button>
+        {crownDone && (
+          <p className="text-xs text-emerald-300">✓ 임명 완료{crownDone.video_title ? ` · 히어로 고정: ${crownDone.video_title}` : ""}</p>
+        )}
+      </div>
 
       <div className="text-[11px] text-muted-foreground leading-relaxed">
         <p>· 챌린지 우승 보상 등 <b>수동 지급</b>용 (토스 결제와 무관).</p>
