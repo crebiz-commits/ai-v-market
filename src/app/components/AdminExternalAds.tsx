@@ -32,9 +32,9 @@ const NETWORKS: AdNet[] = [
     name: "쿠팡 파트너스",
     desc: "푸터 다이나믹 배너 (클릭→구매 시 수수료)",
     url: "https://partners.coupang.com/",
-    reportHint: "로그인 후 '리포트'에서 클릭·구매·수익 확인 (스크린샷 최종승인 대기)",
-    status: "노출 중 · 최종승인 대기",
-    statusColor: "bg-amber-500/15 text-amber-400 border border-amber-500/30",
+    reportHint: "로그인 후 '리포트'에서 클릭·구매·수익 확인 (실시간 집계 중)",
+    status: "노출 중",
+    statusColor: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
     accent: "text-[#ff5a5f]",
     emoji: "🛒",
   },
@@ -91,7 +91,7 @@ export function AdminExternalAds() {
       <div className="rounded-xl border border-border bg-muted/30 p-5 text-xs text-muted-foreground leading-relaxed">
         <p className="font-bold text-foreground mb-1.5">참고</p>
         <p>· <b>애드핏</b>: 대시보드 → 보고서 (매체·광고단위별 노출·클릭·예상적립금). 지급은 월 단위.</p>
-        <p>· <b>쿠팡 파트너스</b>: 리포트 → 클릭·구매·수익. 스크린샷 최종승인 후 정식 집계.</p>
+        <p>· <b>쿠팡 파트너스</b>: 리포트 → 클릭·구매·수익 (실시간 집계 중, 클릭 발생 확인됨).</p>
         <p>· <b>애드센스</b>: 승인 후 보고서에서 수익. 승인 시 광고단위 슬롯ID를 개발에 전달하면 노출 시작.</p>
       </div>
     </div>
