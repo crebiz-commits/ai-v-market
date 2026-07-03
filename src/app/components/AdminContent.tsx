@@ -1,6 +1,6 @@
 // 콘텐츠 관리 페이지 (Phase 10.6) — 영상 검색/강제 숨김/복원/삭제
 import { useEffect, useState } from "react";
-import { Loader2, Search, Eye, EyeOff, Trash2, Film, Flag } from "lucide-react";
+import { Loader2, Search, Eye, EyeOff, Trash2, Film, Flag, Star } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
@@ -40,6 +40,8 @@ export function AdminContent() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [processingId, setProcessingId] = useState<string | null>(null);
+  // OTT 히어로 지정 영상 id → featured_hero_until (배지/토글 표시용)
+  const [heroMap, setHeroMap] = useState<Record<string, string>>({});
 
   const load = async () => {
     setLoading(true);
@@ -58,7 +60,32 @@ export function AdminContent() {
     setLoading(false);
   };
 
+  const loadHeroes = async () => {
+    const { data, error } = await supabase.rpc("admin_list_hero_video_ids");
+    if (error || !Array.isArray(data)) return;   // 실패해도 목록엔 영향 없음
+    const map: Record<string, string> = {};
+    for (const row of data as { video_id: string; featured_hero_until: string }[]) {
+      map[row.video_id] = row.featured_hero_until;
+    }
+    setHeroMap(map);
+  };
+
   useEffect(() => { load(); }, [filter]);
+  useEffect(() => { loadHeroes(); }, []);
+
+  const HERO_DAYS = 30;
+  const setHero = async (v: VideoRow, days: number) => {
+    setProcessingId(v.id);
+    const { data, error } = await supabase.rpc("admin_set_video_hero", { p_video_id: v.id, p_days: days });
+    setProcessingId(null);
+    if (error) return toast.error("히어로 설정 실패: " + error.message);
+    toast.success(days > 0 ? `OTT 히어로로 지정됨 (${days}일)` : "히어로 지정 해제됨");
+    setHeroMap(prev => {
+      const next = { ...prev };
+      if (data) next[v.id] = data as string; else delete next[v.id];
+      return next;
+    });
+  };
 
   const hide = async (v: VideoRow) => {
     const reason = prompt(`'${v.title}' 영상을 숨기는 이유:`);
@@ -149,6 +176,11 @@ export function AdminContent() {
                         <Flag className="w-3 h-3" />{v.pending_reports}건
                       </span>
                     )}
+                    {heroMap[v.id] && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-fuchsia-500/15 text-fuchsia-300 font-bold flex items-center gap-1">
+                        <Star className="w-3 h-3 fill-current" />OTT 히어로
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {v.creator_name || "이름 없음"} · {fmtDuration(v.duration_seconds)} · 조회 {v.views.toLocaleString()} · ₩{v.price.toLocaleString()}
@@ -165,6 +197,15 @@ export function AdminContent() {
                   ) : (
                     <Button size="sm" variant="outline" onClick={() => hide(v)} disabled={processingId === v.id} className="gap-1 text-amber-300 border-amber-500/30">
                       <EyeOff className="w-3.5 h-3.5" />숨김
+                    </Button>
+                  )}
+                  {heroMap[v.id] ? (
+                    <Button size="sm" variant="outline" onClick={() => setHero(v, 0)} disabled={processingId === v.id} className="gap-1 text-fuchsia-300 border-fuchsia-500/40">
+                      <Star className="w-3.5 h-3.5 fill-current" />히어로 해제
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => setHero(v, HERO_DAYS)} disabled={processingId === v.id || v.is_hidden} className="gap-1 text-muted-foreground">
+                      <Star className="w-3.5 h-3.5" />히어로 지정
                     </Button>
                   )}
                   <Button size="sm" variant="outline" onClick={() => remove(v)} disabled={processingId === v.id} className="gap-1 text-red-400 border-red-500/30">

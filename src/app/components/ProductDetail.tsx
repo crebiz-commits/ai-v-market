@@ -2079,6 +2079,8 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
             sponsorDisclosure: product.sponsorDisclosure,
             sponsorLinkUrl: product.sponsorLinkUrl,
             priceStandard: product.price,
+            highlightStart: product.highlightStart,
+            highlightEnd: product.highlightEnd,
           }}
           onClose={() => setEditOpen(false)}
           onSaved={(updates) => {

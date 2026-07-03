@@ -79,6 +79,8 @@ interface ExtendedInitial {
   sponsorDisclosure?: string | null;
   sponsorLinkUrl?: string | null;
   priceStandard?: number;
+  highlightStart?: number;
+  highlightEnd?: number;
 }
 
 interface VideoEditModalProps {
@@ -192,6 +194,12 @@ export function VideoEditModal({
   const [priceStandard, setPriceStandard] = useState<string>(
     initialExtended?.priceStandard != null ? formatPriceCommas(String(initialExtended.priceStandard)) : ""
   );
+  // Phase 35 — 하이라이트 구간 (홈 피드/OTT 히어로 미리보기용). MM:SS 문자열로 편집.
+  //   초기값과 비교해 "변경됐을 때만" 저장 전송(안 바꿨으면 null=변경없음).
+  const hStartInit = initialExtended?.highlightStart != null ? formatTime(Math.round(initialExtended.highlightStart)) : "";
+  const hEndInit   = initialExtended?.highlightEnd   != null ? formatTime(Math.round(initialExtended.highlightEnd))   : "";
+  const [highlightStartStr, setHighlightStartStr] = useState<string>(hStartInit);
+  const [highlightEndStr, setHighlightEndStr] = useState<string>(hEndInit);
 
   // 시리즈(연속물) 지정 — 모달 열릴 때 현재 영상의 시리즈 + 내 시리즈 목록 로드
   const [seriesList, setSeriesList] = useState<{ id: string; title: string; episode_count: number }[]>([]);
@@ -456,6 +464,23 @@ export function VideoEditModal({
         setSaving(false);
         return;
       }
+      // Phase 35 — 하이라이트 구간: 초기값과 다를 때만 전송(안 바꿨으면 null=변경없음)
+      let hStartNum: number | null = null;
+      let hEndNum: number | null = null;
+      if (highlightStartStr !== hStartInit || highlightEndStr !== hEndInit) {
+        hStartNum = parseTimeInput(highlightStartStr);
+        hEndNum = parseTimeInput(highlightEndStr);
+        if (hStartNum === null || hEndNum === null) {
+          toast.error(t("videoEditModal.highlightInvalid", "하이라이트 구간 형식이 올바르지 않습니다 (예: 0:05)"));
+          setSaving(false);
+          return;
+        }
+        if (hEndNum <= hStartNum) {
+          toast.error(t("videoEditModal.highlightOrderInvalid", "하이라이트 끝은 시작보다 커야 합니다"));
+          setSaving(false);
+          return;
+        }
+      }
       const { error: rpcErr } = await supabase.rpc("update_my_video_metadata", {
         p_video_id: videoId,
         p_thumbnail: finalThumbnail ?? null,
@@ -488,6 +513,8 @@ export function VideoEditModal({
         p_sponsor_link_url: sponsorLinkUrl,
         p_clear_sponsor:    clearSponsor,
         p_price_standard:   priceNum,
+        p_highlight_start:  hStartNum,
+        p_highlight_end:    hEndNum,
       });
       if (rpcErr) throw rpcErr;
 
@@ -529,6 +556,8 @@ export function VideoEditModal({
           sponsorDisclosure: clearSponsor ? null : (sponsorDisclosure || null),
           sponsorLinkUrl: clearSponsor ? null : (sponsorLinkUrl || null),
           priceStandard: priceNum ?? undefined,
+          highlightStart: hStartNum ?? initialExtended?.highlightStart,
+          highlightEnd: hEndNum ?? initialExtended?.highlightEnd,
         },
       });
       onClose();
@@ -706,6 +735,42 @@ export function VideoEditModal({
                   <div className="mt-2 text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 leading-relaxed">
                     💡 {t("videoEditModal.priceNegotiationNotice", "₩1,000만 이상은 사이트 직접 판매가 아닌 1:1 협의 판매로 등록됩니다. 구매자에겐 \"별도 협의\"로 표시됩니다.")}
                   </div>
+                )}
+              </div>
+            </section>
+
+            {/* 1.65. 하이라이트 구간 (Phase 35) — 홈 피드/OTT 히어로 미리보기 */}
+            <section>
+              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <Film className="w-4 h-4 text-[#8b5cf6]" />
+                {t("videoEditModal.highlightHeader", "하이라이트 구간")}
+              </h3>
+              <p className="text-xs text-gray-500 mb-3">
+                {t("videoEditModal.highlightHint", "홈 피드·OTT 히어로에서 자동재생되는 미리보기 구간 (예: 0:05 ~ 0:35). 비워두면 변경 안 함.")}
+              </p>
+              <div className="flex items-center gap-2 max-w-xs">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={highlightStartStr}
+                  onChange={e => setHighlightStartStr(e.target.value)}
+                  placeholder="0:00"
+                  className="w-24 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1] text-center"
+                />
+                <span className="text-gray-500">~</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={highlightEndStr}
+                  onChange={e => setHighlightEndStr(e.target.value)}
+                  placeholder="0:30"
+                  className="w-24 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1] text-center"
+                />
+                {highlightStartStr && highlightEndStr && parseTimeInput(highlightStartStr) !== null && parseTimeInput(highlightEndStr) !== null && (
+                  <span className="text-[11px] text-gray-500">
+                    {Math.max(0, (parseTimeInput(highlightEndStr)! - parseTimeInput(highlightStartStr)!))}
+                    {t("upload.secondsSuffix", "초")}
+                  </span>
                 )}
               </div>
             </section>
