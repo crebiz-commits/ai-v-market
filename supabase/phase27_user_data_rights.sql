@@ -151,7 +151,11 @@ BEGIN
     'user_id', v_uid,
     'platform', 'CREAITE',
     'profile',
-      (SELECT to_jsonb(p) FROM public.profiles p WHERE p.id = v_uid),
+      -- 개인정보만 내보내고 내부 운영 플래그·타인 민감정보는 제외(키 subtract — 없는 키는 무시되어 안전).
+      (SELECT to_jsonb(p) - 'is_admin' - 'suspended_at' - 'suspended_reason'
+                         - 'deletion_requested_at' - 'deletion_reason'
+                         - 'referred_by' - 'referral_code'
+       FROM public.profiles p WHERE p.id = v_uid),
     'videos_uploaded',
       COALESCE((SELECT jsonb_agg(to_jsonb(v)) FROM public.videos v WHERE v.creator_id = v_uid), '[]'::jsonb),
     'comments',
@@ -209,9 +213,10 @@ AS $$
   SELECT
     p.deletion_requested_at AS requested_at,
     p.deletion_requested_at + INTERVAL '30 days' AS scheduled_at,
+    -- 남은 일수는 올림(CEIL)으로 계산 — EXTRACT(DAY ...)는 일 성분만 잘라 하루 적게 표시되던 버그 수정.
     GREATEST(
       0,
-      EXTRACT(DAY FROM (p.deletion_requested_at + INTERVAL '30 days' - now()))::INTEGER
+      CEIL(EXTRACT(EPOCH FROM (p.deletion_requested_at + INTERVAL '30 days' - now())) / 86400)::INTEGER
     ) AS days_left,
     p.deletion_reason AS reason
   FROM public.profiles p

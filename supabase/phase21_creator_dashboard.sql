@@ -82,10 +82,12 @@ BEGIN
   WHERE seller_id = v_uid AND status = 'completed'
     AND created_at >= v_month_start;
 
+  -- rd 별칭으로 컬럼 명확화: total_revenue 가 RETURNS TABLE 출력컬럼명과 겹쳐
+  -- "column reference total_revenue is ambiguous" 에러로 함수 전체가 실패하던 버그 수정.
   v_pending := v_pending + COALESCE(
-    (SELECT SUM(total_revenue)
-     FROM public.revenue_distributions
-     WHERE creator_id = v_uid AND payout_status = 'pending'), 0
+    (SELECT SUM(rd.total_revenue)
+     FROM public.revenue_distributions rd
+     WHERE rd.creator_id = v_uid AND rd.payout_status = 'pending'), 0
   );
 
   RETURN QUERY SELECT v_total_rev, v_total_views, v_total_likes, v_rpm, v_pending, v_next_month;

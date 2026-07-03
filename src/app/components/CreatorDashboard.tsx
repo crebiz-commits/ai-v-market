@@ -8,6 +8,7 @@ import { motion } from "motion/react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, Cell } from "recharts";
 import { supabase } from "../utils/supabaseClient";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { formatCompactNumber } from "../i18n/numberFormat";
 
 interface Summary {
@@ -79,7 +80,13 @@ export function CreatorDashboard() {
 
   const fetchSummary = useCallback(async () => {
     const { data, error } = await supabase.rpc("get_creator_dashboard_summary");
-    if (!error && Array.isArray(data) && data[0]) {
+    // 에러를 삼키면 함수가 터져도 KPI가 전부 0으로 보임(이번 버그가 숨었던 이유) → 표면화.
+    if (error) {
+      console.error("[CreatorDashboard] summary RPC 실패:", error.message);
+      toast.error(t("creatorDashboard.loadFailed", "대시보드 통계를 불러오지 못했어요. 잠시 후 다시 시도해 주세요."));
+      return;
+    }
+    if (Array.isArray(data) && data[0]) {
       const row = data[0] as any;
       setSummary({
         total_revenue: Number(row.total_revenue) || 0,
@@ -102,6 +109,12 @@ export function CreatorDashboard() {
       supabase.rpc("get_creator_retention_by_duration", { p_days: d }),
       supabase.rpc("get_creator_top_videos", { p_metric: metric, p_days: d, p_limit: 5 }),
     ]);
+    // 6개 중 하나라도 실패하면 해당 차트가 조용히 비므로 로그+알림(무증상 실패 방지)
+    const firstErr = [revRes, engRes, folRes, audRes, retRes, topRes].find(r => r.error)?.error;
+    if (firstErr) {
+      console.error("[CreatorDashboard] 차트 RPC 실패:", firstErr.message);
+      toast.error(t("creatorDashboard.loadFailed", "대시보드 통계를 불러오지 못했어요. 잠시 후 다시 시도해 주세요."));
+    }
     if (Array.isArray(revRes.data)) {
       setRevenue((revRes.data as any[]).map(r => ({ day: r.day, revenue: Number(r.revenue) || 0 })));
     }
@@ -118,16 +131,18 @@ export function CreatorDashboard() {
         completion_rate: Number(a.completion_rate) || 0,
         unique_viewers: Number(a.unique_viewers) || 0,
         total_views: Number(a.total_views) || 0,
-        avg_watch_seconds: Number(a.avg_watch_seconds) || 0,
+        avg_watch_seconds: Math.round(Number(a.avg_watch_seconds) || 0),   // 소수 초("12.7s") 방지
       });
     }
     if (Array.isArray(retRes.data)) {
-      setRetention((retRes.data as any[]).map(r => ({
-        bucket: r.bucket,
-        bucket_order: Number(r.bucket_order),
-        avg_watch_ratio: Number(r.avg_watch_ratio) || 0,
-        view_count: Number(r.view_count) || 0,
-      })));
+      setRetention((retRes.data as any[])
+        .map(r => ({
+          bucket: r.bucket,
+          bucket_order: Number(r.bucket_order),
+          avg_watch_ratio: Number(r.avg_watch_ratio) || 0,
+          view_count: Number(r.view_count) || 0,
+        }))
+        .sort((a, b) => a.bucket_order - b.bucket_order));   // RPC 행 순서에 의존하지 않고 버킷 순서 보장
     }
     if (Array.isArray(topRes.data)) {
       setTopVideos((topRes.data as any[]).map(r => ({
@@ -229,7 +244,9 @@ export function CreatorDashboard() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-white mb-0.5">{t("creatorDashboard.nextPayoutTitle")}</p>
             <p className="text-xs text-gray-400">
-              {new Date(summary.next_settlement_date).toLocaleDateString("ko-KR", { month: "long", day: "numeric" })} ·
+              {summary.next_settlement_date && !isNaN(new Date(summary.next_settlement_date).getTime())
+                ? `${new Date(summary.next_settlement_date).toLocaleDateString("ko-KR", { month: "long", day: "numeric" })} · `
+                : ""}
               <span className="font-bold text-[#a78bfa] ml-1">₩{summary.pending_payout.toLocaleString()}</span> pending
             </p>
           </div>
@@ -405,7 +422,7 @@ export function CreatorDashboard() {
               <div key={v.id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg transition-colors">
                 <span className="text-base font-black text-amber-400 w-6 text-center">{idx + 1}</span>
                 <div className="w-20 aspect-video rounded-md overflow-hidden bg-black flex-shrink-0">
-                  {v.thumbnail && <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />}
+                  {v.thumbnail && <img src={v.thumbnail} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-white truncate">{v.title}</p>

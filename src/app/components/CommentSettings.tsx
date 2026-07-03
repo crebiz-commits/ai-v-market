@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { UserAvatar } from "./UserAvatar";
 import { X, Plus, Trash2, Loader2, Ban, Filter, AlertTriangle, RotateCcw, Search } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
@@ -59,7 +60,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
     setLoadingWords(true);
     const { data, error } = await supabase.rpc("creator_get_filter_words");
     if (error) {
-      toast.error(t("commentSettings.deleteFailed", { message: "" }));
+      toast.error(t("commentSettings.loadFailed", "목록을 불러오지 못했어요."));
       setFilterWords([]);
     } else {
       setFilterWords((data ?? []) as FilterWord[]);
@@ -71,7 +72,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
     setLoadingBlocked(true);
     const { data, error } = await supabase.rpc("creator_get_blocked_users");
     if (error) {
-      toast.error(t("commentSettings.deleteFailed", { message: "" }));
+      toast.error(t("commentSettings.loadFailed", "목록을 불러오지 못했어요."));
       setBlocked([]);
     } else {
       setBlocked((data ?? []) as BlockedUser[]);
@@ -83,7 +84,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
     setLoadingFiltered(true);
     const { data, error } = await supabase.rpc("creator_get_filtered_comments");
     if (error) {
-      toast.error(t("commentSettings.deleteFailed", { message: "" }));
+      toast.error(t("commentSettings.loadFailed", "목록을 불러오지 못했어요."));
       setFiltered([]);
     } else {
       setFiltered((data ?? []) as FilteredComment[]);
@@ -111,7 +112,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
       toast.error(t("commentSettings.saveFailed", { message: "" }));
       return;
     }
-    toast.success(w);
+    toast.success(t("commentSettings.filterAdded", { word: w, defaultValue: `'${w}' 금칙어를 추가했어요.` }));
     setNewWord("");
     fetchFilterWords();
   };
@@ -130,7 +131,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
   };
 
   const handleRemoveWord = async (id: string, word: string) => {
-    if (!confirm(word)) return;
+    if (!confirm(t("commentSettings.confirmRemoveWord", { word, defaultValue: `'${word}' 금칙어를 삭제할까요?` }))) return;
     const { error } = await supabase.rpc("creator_remove_filter_word", { p_word_id: id });
     if (error) {
       toast.error(t("commentSettings.deleteFailed", { message: "" }));
@@ -144,7 +145,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
     if (!confirm(t("mypage.blocks.confirmUnblock", { name: name || t("mypage.blocks.thisUser") }))) return;
     const { error } = await supabase.rpc("creator_unblock_user", { p_target_user_id: userId });
     if (error) {
-      toast.error(t("commentSettings.deleteFailed", { message: "" }));
+      toast.error(t("commentSettings.loadFailed", "목록을 불러오지 못했어요."));
       return;
     }
     toast.success(t("common.unblock"));
@@ -337,15 +338,7 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
                         key={b.blocked_user_id}
                         className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/5"
                       >
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center overflow-hidden flex-shrink-0">
-                          {b.avatar_url ? (
-                            <img src={b.avatar_url} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-white text-sm font-bold">
-                              {(b.display_name || "?").charAt(0).toUpperCase()}
-                            </span>
-                          )}
-                        </div>
+                        <UserAvatar src={b.avatar_url} name={b.display_name} className="w-10 h-10" fallbackClassName="text-sm" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-white truncate">
                             {b.display_name || t("mypage.blocks.unknownUser")}

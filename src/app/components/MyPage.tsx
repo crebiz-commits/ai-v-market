@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { UserAvatar } from "./UserAvatar";
 import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus, Clock, Trash2, Film, Tv, FolderPlus, Bookmark, ArrowLeft, Play, MessageSquare, Filter, UserX, Download, AlertTriangle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
@@ -90,11 +91,18 @@ function DangerZoneSection({ onSignOut }: { onSignOut: () => void }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const refresh = async () => {
     setLoading(true);
-    const { data } = await supabase.rpc("get_my_deletion_status");
-    setStatus((data && data[0]) || null);
+    // 에러를 삼키면 삭제예약 중인데도 "삭제 요청" UI가 떠서 사용자가 오조작할 수 있음 → 에러 시 이전 상태 유지 + 알림
+    const { data, error } = await supabase.rpc("get_my_deletion_status");
+    if (error) {
+      console.warn("[DangerZone] 삭제상태 조회 실패:", error.message);
+      toast.error(t("mypage.danger.statusLoadFailed", "계정 상태를 불러오지 못했어요. 잠시 후 다시 시도해 주세요."));
+    } else {
+      setStatus((data && data[0]) || null);
+    }
     setLoading(false);
   };
 
@@ -116,8 +124,11 @@ function DangerZoneSection({ onSignOut }: { onSignOut: () => void }) {
   };
 
   const handleCancel = async () => {
+    if (cancelling) return;
     if (!confirm(t("mypage.danger.confirmCancel"))) return;
+    setCancelling(true);
     const { error } = await supabase.rpc("cancel_account_deletion");
+    setCancelling(false);
     if (error) {
       toast.error(t("mypage.danger.cancelFailed"));
       return;
@@ -145,9 +156,10 @@ function DangerZoneSection({ onSignOut }: { onSignOut: () => void }) {
         </p>
         <Button
           onClick={handleCancel}
-          className="bg-white text-black hover:bg-gray-100 font-bold gap-2"
+          disabled={cancelling}
+          className="bg-white text-black hover:bg-gray-100 font-bold gap-2 disabled:opacity-60"
         >
-          <X className="w-4 h-4" />
+          {cancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
           {t("mypage.danger.cancelDeletion")}
         </Button>
       </div>
@@ -215,19 +227,24 @@ function BlockedUsersSection() {
   const { unblockUser } = useBlockedUsers();
   const [list, setList] = useState<{ blocked_user_id: string; display_name: string | null; avatar_url: string | null; blocked_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unblockingId, setUnblockingId] = useState<string | null>(null);
 
   const refresh = async () => {
     setLoading(true);
-    const { data } = await supabase.rpc("get_my_blocked_users");
-    setList((data ?? []) as any[]);
+    const { data, error } = await supabase.rpc("get_my_blocked_users");
+    if (error) { console.warn("[BlockedUsers] 목록 조회 실패:", error.message); }
+    else { setList((data ?? []) as any[]); }
     setLoading(false);
   };
 
   useEffect(() => { refresh(); }, []);
 
   const handleUnblock = async (id: string, name: string | null) => {
+    if (unblockingId) return;
     if (!confirm(t("mypage.blocks.confirmUnblock", { name: name || t("mypage.blocks.thisUser") }))) return;
+    setUnblockingId(id);
     const ok = await unblockUser(id);
+    setUnblockingId(null);
     if (ok) refresh();
   };
 
@@ -252,21 +269,17 @@ function BlockedUsersSection() {
         <div className="space-y-2">
           {list.map((u) => (
             <div key={u.blocked_user_id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/5">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center overflow-hidden flex-shrink-0">
-                {u.avatar_url ? (
-                  <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-white text-sm font-bold">{(u.display_name || "?").charAt(0).toUpperCase()}</span>
-                )}
-              </div>
+              <UserAvatar src={u.avatar_url} name={u.display_name} className="w-10 h-10" fallbackClassName="text-sm" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-white truncate">{u.display_name || t("mypage.blocks.unknownUser")}</p>
                 <p className="text-[10px] text-gray-500 mt-0.5">{new Date(u.blocked_at).toLocaleDateString()}{t("mypage.blocks.blockedSuffix")}</p>
               </div>
               <button
                 onClick={() => handleUnblock(u.blocked_user_id, u.display_name)}
-                className="px-3 py-1.5 text-xs font-bold text-gray-300 bg-white/5 hover:bg-white/10 rounded-md border border-white/10 transition-colors"
+                disabled={unblockingId === u.blocked_user_id}
+                className="px-3 py-1.5 text-xs font-bold text-gray-300 bg-white/5 hover:bg-white/10 rounded-md border border-white/10 transition-colors disabled:opacity-50 inline-flex items-center gap-1"
               >
+                {unblockingId === u.blocked_user_id && <Loader2 className="w-3 h-3 animate-spin" />}
                 {t("mypage.blocks.unblock")}
               </button>
             </div>
@@ -650,8 +663,12 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
         .eq('creator_id', user.id);
 
       if (videoError) {
-        // orders JOIN 실패 시 → orders 없이 videos만 다시 가져옴
+        // orders JOIN 실패 시 → orders 없이 videos만 다시 가져옴.
+        // '테이블/관계 없음'(42P01/PGRST200)은 정상 폴백이지만, 그 외 에러는 매출이 "0"으로
+        // 잘못 보일 수 있어 사용자에게 알림(조용한 0 폴백 방지).
         console.warn('[MyPage] videos+orders JOIN 실패, videos만 조회:', videoError.message);
+        const benign = (videoError as any).code === '42P01' || (videoError as any).code === 'PGRST200';
+        if (!benign) unexpectedError = true;
         const { data: videosOnly } = await supabase
           .from('videos')
           .select('*')
@@ -673,7 +690,8 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
           id: item.id,
           thumbnail: item.thumbnail,
           title: item.title,
-          views: parseInt(item.views || "0"),
+          views: parseInt(item.views, 10) || 0,   // views 는 TEXT 컬럼 — 파싱 실패 시 0 (NaN 방지)
+          likes: Number(item.likes) || 0,
           sales: salesCount,
           revenue: revenue,
           status: item.status || t("mypage.statusOnSale")
@@ -690,20 +708,23 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
       }
       setVideoTiers(tierMap);
 
-      // 월별 매출 차트 (orders 데이터 기반 — 없으면 0으로 채워진 6개월)
+      // 월별 매출 차트 — YYYY-MM 키로 집계(연도 충돌·정렬 버그 방지). 라벨은 렌더용으로 분리.
       const monthMap: Record<string, number> = {};
       videoData.forEach((video: any) => {
         (video.orders || []).forEach((order: any) => {
           const date = new Date(order.created_at);
-          const key = t("mypage.chartMonth", { n: date.getMonth() + 1 });
+          if (isNaN(date.getTime())) return;
+          const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
           monthMap[key] = (monthMap[key] || 0) + (order.amount || 0);
         });
       });
 
-      const chartData = Object.entries(monthMap).map(([month, sales]) => ({
-        month,
-        sales
-      })).sort((a, b) => parseInt(a.month) - parseInt(b.month));
+      const chartData = Object.entries(monthMap)
+        .sort((a, b) => a[0].localeCompare(b[0]))   // YYYY-MM 문자열 정렬 = 시간순
+        .map(([key, sales]) => ({
+          month: t("mypage.chartMonth", { n: parseInt(key.slice(5), 10) }),   // "N월" 표시 라벨
+          sales,
+        }));
 
       if (chartData.length === 0) {
         const defaultData = [];
@@ -760,7 +781,11 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
       try {
         const { data: settingsData, error: settingsErr } = await supabase.rpc('get_active_platform_settings');
         if (settingsErr) {
+          // 함수 없음(42883)/마이그레이션 미적용은 기본 분배율 폴백이 정상. 그 외 진짜 실패는
+          // 잘못된 정산액을 보여줄 수 있으므로 사용자에게 알림.
           console.warn('[MyPage] get_active_platform_settings 실패 (마이그레이션 미적용 가능):', settingsErr.message);
+          const benign = (settingsErr as any).code === '42883' || (settingsErr as any).code === '42P01';
+          if (!benign) unexpectedError = true;
         } else if (settingsData) {
           const map: Record<string, number> = {};
           for (const s of settingsData) map[s.key] = Number(s.value);
@@ -900,6 +925,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
 
   const totalRevenue = useMemo(() => myProducts.reduce((sum, p) => sum + p.revenue, 0), [myProducts]);
   const totalSales = useMemo(() => myProducts.reduce((sum, p) => sum + p.sales, 0), [myProducts]);
+  const totalLikes = useMemo(() => myProducts.reduce((sum, p) => sum + ((p as any).likes || 0), 0), [myProducts]);
 
   // 분배 정책 (platform_settings에서 로드, 미로드 시 기본값 = 정책 메모리 2026-05-12 기준)
   const CREATOR_SHARE_SALE   = policyRates.creator_share_sale            ?? 0.80;
@@ -1209,13 +1235,12 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
               transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.1 }}
               className="w-28 h-28 rounded-full border-[6px] border-[#121212] overflow-hidden shadow-lg"
             >
-              {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt={profile?.display_name || user?.name || ''} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-white text-4xl font-bold">
-                  {(profile?.display_name || user?.name || user?.email || '?').charAt(0).toUpperCase()}
-                </div>
-              )}
+              <UserAvatar
+                src={profile?.avatar_url}
+                name={profile?.display_name || user?.name || user?.email}
+                className="w-full h-full"
+                fallbackClassName="text-4xl"
+              />
             </motion.div>
             <div className="flex items-center gap-2 mb-2">
               {onViewMyChannel && (
@@ -1261,7 +1286,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
             {[
               { label: t("mypage.statsTotalSales"), value: totalSales, color: 'text-[#6366f1]' },
               { label: t("mypage.statsProducts"), value: myProducts.length, color: 'text-[#8b5cf6]' },
-              { label: t("mypage.statsRating"), value: '4.8', color: 'text-[#10b981]' },
+              { label: t("mypage.statsLikes", "받은 좋아요"), value: totalLikes, color: 'text-[#10b981]' },
             ].map((stat, idx) => (
               <motion.div 
                 key={idx}
@@ -1471,9 +1496,11 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                   {purchaseHistory.map((purchase) => (
                     <motion.div key={purchase.id} variants={itemVariants} className="bg-[#121212] rounded-2xl border border-white/5 overflow-hidden flex hover:border-white/10 transition-colors group">
                       <div className="relative w-28 md:w-36 h-full flex-shrink-0 bg-black">
-                        <img 
-                          src={purchase.thumbnail} 
+                        <img
+                          src={purchase.thumbnail}
                           alt={purchase.title}
+                          referrerPolicy="no-referrer"
+                          onError={(e) => { e.currentTarget.style.display = "none"; }}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#121212]" />
@@ -1639,9 +1666,11 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                     {myProducts.map((product) => (
                       <div key={product.id} className="flex gap-4 pb-4 border-b border-white/5 last:border-0 last:pb-0 group">
                         <div className="relative w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-black">
-                          <img 
-                            src={product.thumbnail} 
+                          <img
+                            src={product.thumbnail}
                             alt={product.title}
+                            referrerPolicy="no-referrer"
+                            onError={(e) => { e.currentTarget.style.display = "none"; }}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                           />
                         </div>
@@ -1857,6 +1886,8 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                                 <img
                                   src={h.thumbnail}
                                   alt=""
+                                  referrerPolicy="no-referrer"
+                                  onError={(e) => { e.currentTarget.style.display = "none"; }}
                                   className="w-24 h-16 rounded object-cover flex-shrink-0 bg-muted"
                                 />
                               ) : (
@@ -1932,7 +1963,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                               title={t("mypage.playlist.playVideo")}
                             >
                               {v.thumbnail ? (
-                                <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover" />
+                                <img src={v.thumbnail} alt={v.title} referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                               ) : (
                                 <div className="w-full h-full bg-gradient-to-br from-[#1c1c1e] to-[#2d2d30]" />
                               )}
@@ -1998,7 +2029,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                             >
                               <div className="relative aspect-video bg-black">
                                 {pl.preview_thumbnail ? (
-                                  <img src={pl.preview_thumbnail} alt={pl.name} className="w-full h-full object-cover" />
+                                  <img src={pl.preview_thumbnail} alt={pl.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                                 ) : (
                                   <div className="w-full h-full bg-gradient-to-br from-[#1c1c1e] to-[#2d2d30] flex items-center justify-center">
                                     <FolderPlus className="w-10 h-10 text-gray-700" />
@@ -2085,9 +2116,13 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                     <Button
                       variant="destructive"
                       className="w-full gap-2 h-14 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 rounded-xl font-bold transition-all shadow-sm"
-                      onClick={() => {
-                        signOut();
-                        toast.success(t("mypage.settings.signOutSuccess"));
+                      onClick={async () => {
+                        try {
+                          await signOut();
+                          toast.success(t("mypage.settings.signOutSuccess"));
+                        } catch {
+                          toast.error(t("mypage.settings.signOutFailed", "로그아웃에 실패했어요. 다시 시도해 주세요."));
+                        }
                       }}
                     >
                       <LogOut className="w-5 h-5" />
@@ -2182,7 +2217,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       }}
                     />
                     {editAvatarUrl ? (
-                      <img src={editAvatarUrl} alt="" className="w-full h-full object-cover" />
+                      <img src={editAvatarUrl} referrerPolicy="no-referrer" alt="" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center text-gray-500">
                         <ImagePlus className="w-6 h-6" />
@@ -2247,7 +2282,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                     }}
                   />
                   {editBannerUrl ? (
-                    <img src={editBannerUrl} alt="" className="w-full h-full object-cover" />
+                    <img src={editBannerUrl} referrerPolicy="no-referrer" alt="" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 text-xs gap-1.5">
                       <ImagePlus className="w-6 h-6" />
