@@ -47,7 +47,7 @@ const BANNERS: (BoardBanner & { activeFrom?: string; activeTo?: string })[] = [
   {
     id: "contest",
     title: "매달 열리는 AI 영상 콘테스트",
-    subtitle: "이달의 테마에 도전하세요! 우승 상금 총 60만원",
+    subtitle: "이달의 테마에 도전하세요! 우승 시 프리미엄 6개월 + 홈 히어로 노출 + 크리에이터 뱃지",
     ctaLabel: "참가하기",
     link: "/?tab=community&sub=challenges",
     image: "https://tvbpiuwmvrccfnplhwer.supabase.co/storage/v1/object/public/video-thumbnails/banners/contest-award.jpg",

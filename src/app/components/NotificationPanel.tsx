@@ -30,7 +30,7 @@ const SAMPLE_KO: Notification[] = [
     id: "s2",
     type: "challenge",
     title: "새 챌린지 시작: 미래 도시 영상 공모",
-    body: "상금 500만원! 지금 참여해보세요.",
+    body: "우승 시 프리미엄 6개월 + 홈 히어로 노출! 지금 참여해보세요.",
     read: false,
     created_at: new Date(Date.now() - 3600000).toISOString(),
   },

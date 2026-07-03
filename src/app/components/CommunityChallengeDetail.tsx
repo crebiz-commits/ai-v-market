@@ -78,7 +78,7 @@ export function CommunityChallengeDetail({ challenge, onClose, onParticipate, on
     return () => { cancelled = true; };
   }, [challenge.tag]);
 
-  // 매월 정기 콘테스트 — 고정 시상 구조 (1등 30 / 2등 20 / 3등 10만원)
+  // 매월 정기 콘테스트 — 고정 시상 구조 (1등 프리미엄6개월+홈히어로+뱃지 / 2등 프리미엄3개월 / 3등 프리미엄1개월)
   const PRIZE_TIERS = isKo
     ? [
         { rank: "1등", emoji: "🥇", prize: "프리미엄 6개월 + 홈 히어로 1개월", perk: "이달의 크리에이터 뱃지 · 공식 SNS 소개" },

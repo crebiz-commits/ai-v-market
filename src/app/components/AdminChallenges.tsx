@@ -279,7 +279,7 @@ export function AdminChallenges() {
             <label className="text-xs font-semibold text-muted-foreground block mb-1">설명 (한국어) *</label>
             <textarea className={`${inputCls} resize-none`} rows={5} value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              placeholder={"테마 설명, 참여 방법, 시상 안내 등.\n\n🏆 1등 30만원 · 2등 20만원 · 3등 10만원"} />
+              placeholder={"테마 설명, 참여 방법, 시상 안내 등.\n\n🏆 1등 프리미엄 6개월 + 홈 히어로 1개월 + 이달의 크리에이터 뱃지 · 2등 프리미엄 3개월 · 3등 프리미엄 1개월"} />
           </div>
           <div>
             <label className="text-xs font-semibold text-muted-foreground block mb-1">설명 (영어, 선택)</label>
