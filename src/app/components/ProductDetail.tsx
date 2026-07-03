@@ -437,14 +437,19 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   // wall-clock이 아닌 영상 시간 기준이라 시킹 점프(예: 7분 위치)도 즉시 차단.
   useEffect(() => {
     if (!needsPreviewCutoff || cinemaCutoffTriggered) return;
-    const iframe = iframeRef.current;
-    if (!iframe) return;
 
     const LISTENER_ID = "creaite-cinema-cutoff";
     const BUNNY_ORIGIN = "https://iframe.mediadelivery.net";
 
+    // ⚠️ iframe 존재로 early-return 하지 않는다: 프리롤 광고 중엔 본편 iframe 이 아직
+    //    마운트 안 돼 있고(iframeBlocked=true), 광고 종료 후 뒤늦게 마운트돼도 이 effect 의
+    //    deps 는 안 바뀌어 재실행되지 않는다 → 정확한 timeupdate 컷이 영영 안 붙어
+    //    비구독자가 시크로 미리보기를 우회할 수 있다(시청추적과 동일한 iframe 레이스).
+    //    window 리스너를 항상 유지하고, iframe 이 뜰 때까지 timeupdate 를 주기적 재구독한다.
+    let gotTimeupdate = false;
+
     const subscribeTimeupdate = () => {
-      iframe.contentWindow?.postMessage(
+      iframeRef.current?.contentWindow?.postMessage(
         JSON.stringify({
           context: "player.js",
           version: "0.0.1",
@@ -468,15 +473,14 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
 
       // Bunny가 ready 이벤트를 보내면 그때 timeupdate 구독 (load 시점은 너무 빠름)
       if (data?.event === "ready") {
-        console.log("[페이월] Bunny ready 수신 → timeupdate 구독");
         subscribeTimeupdate();
         return;
       }
 
-      if (data?.event === "timeupdate") {
+      if (data?.event === "timeupdate" && data?.listener === LISTENER_ID) {
+        gotTimeupdate = true;
         const seconds = data?.value?.seconds ?? 0;
         if (seconds >= previewSeconds) {
-          console.log("[페이월] currentTime", seconds, "초 도달 → 차단");
           setCinemaCutoffTriggered(true);
           setPaywallReason("cinema_cutoff");
           setPaywallOpen(true);
@@ -485,8 +489,18 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     };
 
     window.addEventListener("message", handleMessage);
+    subscribeTimeupdate();
+    // 프리롤(최대 수십 초) 후 iframe 이 늦게 떠도 timeupdate 가 실제로 올 때까지 재구독.
+    let tries = 0;
+    const poll = window.setInterval(() => {
+      tries += 1;
+      if (gotTimeupdate || tries > 60) { window.clearInterval(poll); return; } // 최대 ~90초
+      subscribeTimeupdate();
+    }, 1500);
+
     return () => {
       window.removeEventListener("message", handleMessage);
+      window.clearInterval(poll);
     };
   }, [needsPreviewCutoff, cinemaCutoffTriggered, previewSeconds]);
 
@@ -601,11 +615,12 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     window.addEventListener("message", handleMessage);
 
     // "ready" 이벤트를 놓쳤거나 iframe 이 프리롤 후 늦게 마운트되는 경우 대비 —
-    // timeupdate 가 실제로 들어올 때까지(최대 ~21초) 주기적으로 재구독.
+    // timeupdate 가 실제로 들어올 때까지 주기적으로 재구독. 프리롤이 수십 초일 수 있어
+    // 폴 한도를 넉넉히(최대 ~90초) 잡는다(21초에 멈추면 긴 프리롤 뒤 추적 미부착).
     let tries = 0;
     const poll = setInterval(() => {
       tries += 1;
-      if (gotTimeupdate || tries > 14) { clearInterval(poll); return; }
+      if (gotTimeupdate || tries > 60) { clearInterval(poll); return; }
       subscribeTimeupdate();
     }, 1500);
 

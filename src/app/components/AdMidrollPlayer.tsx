@@ -85,11 +85,9 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
 
     player.on("ended", () => {
       if (!playerRef.current || playerRef.current.isDisposed()) return;
-      const dur = Math.floor(player.duration() || 0);
-      recordAdImpression(ad.ad_id, videoId, format, {
-        completed: true,
-        positionSeconds: dur,
-      });
+      // ⚠️ 노출(impression)은 mount(위 effect)에서 1회만 기록한다. 여기서 다시
+      //    recordAdImpression 하면 예산 NULL(house) 광고는 서버 dedup 이 건너뛰어져
+      //    노출이 2배 집계된다(= 크리에이터 광고수익 2배 과지급). 재기록하지 않는다.
       safeComplete({ skipped: false });
     });
 
@@ -135,7 +133,7 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
   const handleSkip = () => {
     if (!canSkip || completedRef.current) return;
     completedRef.current = true;
-    recordAdImpression(ad.ad_id, videoId, format, { skipped: true, positionSeconds: elapsed });
+    // 노출은 mount 시 1회만 기록(위 ended 핸들러 주석 참조) — SKIP 시 재기록하지 않는다.
     onCompleteRef.current({ skipped: true });
   };
 
