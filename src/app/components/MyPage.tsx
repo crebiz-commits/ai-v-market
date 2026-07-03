@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { supabase } from "../utils/supabaseClient";
 import { InstallGuideCard } from "./InstallPrompt";
 import { CommentSettings } from "./CommentSettings";
+import { ReceivedCommentsSection } from "./ReceivedCommentsSection";
 import { CreatorDashboard } from "./CreatorDashboard";
 import { VideoEditModal } from "./VideoEditModal";
 import { NotificationSettings } from "./NotificationSettings";
@@ -1793,6 +1794,10 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
 
               {/* Phase 23: 댓글 관리 탭 (크리에이터 전용) */}
               <TabsContent value="comments" className="space-y-4 m-0">
+                {/* 받은 댓글 목록 (답글·숨김) */}
+                <ReceivedCommentsSection />
+
+                {/* 댓글 관리 도구 (금칙어·차단·필터 검토) */}
                 <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center shadow-md">
