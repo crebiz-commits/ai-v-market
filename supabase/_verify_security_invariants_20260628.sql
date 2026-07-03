@@ -128,5 +128,30 @@ SELECT * FROM (
       WHERE cfg LIKE 'search_path=%'
     )
 
+  UNION ALL
+  -- 10) confirm_payment 가 anon/authenticated 에 직접 EXECUTE 부여돼 있지 않은가
+  --     (Edge service_role 전용. 부여시 start_payment→confirm_payment 직접호출로
+  --      무결제 완료주문 생성 우회 가능 — 2026-07-03 드리프트로 실제 뚫렸던 항목.)
+  SELECT 10,
+    'confirm_payment 직접호출 차단(무결제 우회)',
+    CASE WHEN NOT EXISTS (
+      SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='public' AND p.proname='confirm_payment'
+        AND (has_function_privilege('anon', p.oid, 'EXECUTE')
+             OR has_function_privilege('authenticated', p.oid, 'EXECUTE'))
+    ) THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 hardening_live_20260703.sql 재적용(confirm_payment REVOKE)'
+
+  UNION ALL
+  -- 11) record_ad_impression 오버로드가 7-arg(dedup+과금) 1개뿐인가
+  --     (6-arg 무과금·무dedup 잔존시 광고주 과금없이 크리에이터 수익 부풀림 +
+  --      anon 스팸 — 2026-07-03 드리프트로 실제 존재했던 항목.)
+  SELECT 11,
+    'record_ad_impression 오버로드 1개(무과금 6-arg 부재)',
+    CASE WHEN (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+               WHERE n.nspname='public' AND p.proname='record_ad_impression') = 1
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 hardening_live_20260703.sql 재적용(6-arg DROP)'
+
 ) AS gate
 ORDER BY sort;
