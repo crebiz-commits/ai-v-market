@@ -16,6 +16,11 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { timeAgo } from "../utils/timeAgo";
 
+// 운영팀(공식) 명의 — 관리자가 "운영팀 명의로 게시" 시 사용. DB 저장값 SSOT.
+// (기존 공식 공지들과 동일: author_name='CREAITE 운영팀', author_avatar=사이트 로고)
+const OFFICIAL_AUTHOR_NAME = "CREAITE 운영팀";
+const OFFICIAL_AVATAR = "https://www.creaite.net/icon-192.png";
+
 // community_posts row → Post 매핑. (mock 데모는 CommunityMockShowcase.tsx 에 보존: ?preview=community-mock)
 function rowToPost(r: any, localeTag: string): Post {
   return {
@@ -405,6 +410,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   const [writePrompt, setWritePrompt] = useState("");        // 프롬프트 카테고리 전용
   const [writeVideoId, setWriteVideoId] = useState("");      // 내 영상 임베드
   const [writeNotice, setWriteNotice] = useState(false);     // 공지 (어드민 전용)
+  const [writeAsOfficial, setWriteAsOfficial] = useState(true); // 운영팀 명의로 게시 (어드민 전용, 기본 ON)
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [myVideos, setMyVideos] = useState<{ id: string; title: string; thumbnail: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -416,6 +422,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     setWritePrompt("");
     setWriteVideoId("");
     setWriteNotice(false);
+    setWriteAsOfficial(true);
     setEditingPostId(null);
   };
 
@@ -758,6 +765,11 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     }
     setSubmitting(true);
     try {
+      // 관리자가 "운영팀 명의로 게시" 를 켜면 작성자를 공식 운영팀으로 저장(SSOT).
+      // 그 외에는 개인 프로필로 저장. 영상(videos.creator)과는 무관.
+      const officialIdentity = !!profile?.is_admin && writeAsOfficial;
+      const authorName = officialIdentity ? OFFICIAL_AUTHOR_NAME : (profile?.display_name || user?.name || t("community.anonymous"));
+      const authorAvatar = officialIdentity ? OFFICIAL_AVATAR : (profile?.avatar_url || null);
       const payload: any = {
         title: writeTitle.trim(),
         content: writeContent.trim(),
@@ -767,10 +779,14 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
         is_notice: !!profile?.is_admin && writeNotice,
       };
       if (editingPostId) {
-        // 본인 글 수정 (RLS: auth.uid()=user_id)
+        // 본인 글 수정 (RLS: auth.uid()=user_id). 관리자면 명의(운영팀/개인)도 함께 갱신.
         const { data, error } = await supabase
           .from("community_posts")
-          .update({ ...payload, updated_at: new Date().toISOString() })
+          .update({
+            ...payload,
+            ...(profile?.is_admin ? { author_name: authorName, author_avatar: authorAvatar } : {}),
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", editingPostId)
           .select()
           .single();
@@ -785,8 +801,8 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
           .from("community_posts")
           .insert({
             user_id: user!.id,
-            author_name: profile?.display_name || user?.name || t("community.anonymous"),
-            author_avatar: profile?.avatar_url || null,
+            author_name: authorName,
+            author_avatar: authorAvatar,
             ...payload,
           })
           .select()
@@ -814,6 +830,8 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     setWritePrompt(post.promptText || "");
     setWriteVideoId(post.videoId || "");
     setWriteNotice(!!post.isNotice);
+    // 편집 진입 시 현재 명의(운영팀 여부) 유지
+    setWriteAsOfficial(post.author === OFFICIAL_AUTHOR_NAME);
     setShowWriteModal(true);
   };
 
@@ -1520,7 +1538,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
 
               {/* 공지 등록 (어드민 전용) */}
               {profile?.is_admin && (
-                <label className="flex items-center gap-2 mb-4 text-sm text-gray-300 cursor-pointer select-none">
+                <label className="flex items-center gap-2 mb-2 text-sm text-gray-300 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={writeNotice}
@@ -1529,6 +1547,25 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                   />
                   <Megaphone className="w-4 h-4 text-[#fbbf24]" />
                   {isKo ? "공지로 등록 (목록 상단 고정)" : "Post as notice (pinned to top)"}
+                </label>
+              )}
+
+              {/* 운영팀 명의로 게시 (어드민 전용) — 켜면 작성자가 'CREAITE 운영팀 + 로고' 로 저장 */}
+              {profile?.is_admin && (
+                <label className="flex items-center gap-2 mb-4 text-sm text-gray-300 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={writeAsOfficial}
+                    onChange={e => setWriteAsOfficial(e.target.checked)}
+                    className="w-4 h-4 accent-[#8b5cf6]"
+                  />
+                  <img src={OFFICIAL_AVATAR} alt="" className="w-4 h-4 rounded-full" />
+                  {isKo
+                    ? "운영팀 명의로 게시 (CREAITE 운영팀)"
+                    : "Post as official team (CREAITE Team)"}
+                  <span className="text-[11px] text-gray-500">
+                    {isKo ? "— 끄면 내 프로필로 게시" : "— off: post as my profile"}
+                  </span>
                 </label>
               )}
 
