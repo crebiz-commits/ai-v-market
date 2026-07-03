@@ -19,6 +19,7 @@ interface VideoFullscreenProps {
     likes: number;
   };
   isLiked: boolean;
+  likeCount?: number;   // 전역 스토어 반영 카운트(없으면 video.likes 폴백)
   commentCount?: number;
   onClose: () => void;
   onToggleLike: () => void;
@@ -36,6 +37,7 @@ function formatTime(s: number) {
 export function VideoFullscreen({
   video,
   isLiked,
+  likeCount,
   commentCount = 0,
   onClose,
   onToggleLike,
@@ -421,7 +423,7 @@ export function VideoFullscreen({
                 }`}>
                   <Heart className={`w-5 h-5 ${isLiked ? "fill-red-400 text-red-400" : "text-white"}`} strokeWidth={1.8} />
                 </div>
-                <span className="text-[10px] font-bold text-white mt-1 drop-shadow">{video.likes.toLocaleString()}</span>
+                <span className="text-[10px] font-bold text-white mt-1 drop-shadow">{(likeCount ?? video.likes).toLocaleString()}</span>
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onComment(); }}

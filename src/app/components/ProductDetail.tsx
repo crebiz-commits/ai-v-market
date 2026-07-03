@@ -9,6 +9,7 @@ import { CommentPanel } from "./CommentPanel";
 import { useBackButton } from "../hooks/useBackButton";
 import { useAuth } from "../contexts/AuthContext";
 import { useSettings } from "../contexts/SettingsContext";
+import { useLikes } from "../contexts/LikesContext";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { SubscriptionModal, type PaywallReason } from "./SubscriptionModal";
 import { CreatorAvatar } from "./CreatorAvatar";
@@ -131,10 +132,14 @@ interface ProductDetailProps {
 export function ProductDetail({ product: productProp, onClose, onAddToCart, onSignInClick, onViewCreator, onNavigateToVideo, autoOpenComments, startFullscreen }: ProductDetailProps) {
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
-  const [isLiked, setIsLiked] = useState(false);
-  const [likeBusy, setLikeBusy] = useState(false);
+  // 좋아요는 전역 스토어(LikesContext)로 통일 — 모든 피드 동시 반영
+  const { isLiked: isLikedStore, displayCount: likesDisplayCount, seedCount: seedLikeCount, displayViews, seedViews, toggleLike: toggleLikeStore } = useLikes();
+  const isLiked = isLikedStore(productProp.id);
   // Phase 31.6 — 좋아요·조회수 카운트 (DB videos.likes / videos.views 자동 동기화, 트리거 Phase 23.1)
-  const [likesCount, setLikesCount] = useState<number>(productProp.likes ?? 0);
+  //   baseLikes = fetch 한 기준 카운트, 표시값은 스토어의 세션 순증감을 더해 계산
+  const [baseLikes, setBaseLikes] = useState<number>(productProp.likes ?? 0);
+  const likesCount = likesDisplayCount(productProp.id, baseLikes);
+  useEffect(() => { seedLikeCount(productProp.id, productProp.likes ?? 0); seedViews(productProp.id, productProp.views ?? 0); }, [productProp.id, productProp.likes, productProp.views, seedLikeCount, seedViews]);
   const [viewsCount, setViewsCount] = useState<number>(productProp.views ?? 0);
   // Phase 31.3 — 라이선스 9개 체크리스트 모바일 접기/펼치기
   const [licenseExpanded, setLicenseExpanded] = useState(false);
@@ -362,9 +367,9 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
         setSeriesEpisodes([]);
         setSeriesTitle("");
       }
-      // Phase 31.6 — 카운트 최신화 (캐러셀 stale 데이터 보정)
-      if (typeof d.likes === "number") setLikesCount(d.likes);
-      if (typeof d.views === "number") setViewsCount(d.views);
+      // Phase 31.6 — 카운트 표시. 전역 스토어에 seed-once(이미 있으면 무시 → 경합/깜빡임 방지).
+      if (typeof d.likes === "number") { setBaseLikes(d.likes); seedLikeCount(product.id, d.likes); }
+      if (typeof d.views === "number") { setViewsCount(d.views); seedViews(product.id, d.views); }
       // Phase 26: 19+ 영상 + 미인증 사용자면 진입 시 자동 게이트
       if (meta.age_rating === "19" && !profile?.age_verified && user?.id !== (product.creatorId || undefined)) {
         setAgeGateOpen(true);
@@ -396,49 +401,12 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   // Phase 26: 19+ 영상 비인증 시 컨텐츠 잠금 (본인 영상은 제외)
   const isAgeLocked = !isMyVideo && shouldBlur(videoMeta.age_rating, profile?.age_verified);
 
-  // Phase 23: 좋아요 정상화 — video_likes 테이블 연동 (DiscoveryFeed와 동일 출처)
-  useEffect(() => {
-    if (!isAuthenticated || !user || !product.id) {
-      setIsLiked(false);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("video_likes")
-        .select("video_id")
-        .eq("video_id", product.id)
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (!cancelled) setIsLiked(!!data);
-    })();
-    return () => { cancelled = true; };
-  }, [product.id, isAuthenticated, user]);
+  // 좋아요 상태는 전역 스토어가 유저 로그인 시 1회 로드해 공유 → 여기서 별도 조회 불필요.
 
   const handleToggleLike = async () => {
-    if (!isAuthenticated || !user) {
-      onSignInClick?.();
-      return;
-    }
-    if (likeBusy) return;
-    setLikeBusy(true);
-    const next = !isLiked;
-    setIsLiked(next);
-    setLikesCount(c => Math.max(0, c + (next ? 1 : -1)));
-    try {
-      if (next) {
-        await supabase.from("video_likes").insert({ video_id: product.id, user_id: user.id });
-      } else {
-        await supabase.from("video_likes").delete().match({ video_id: product.id, user_id: user.id });
-      }
-    } catch (err) {
-      setIsLiked(!next);
-      setLikesCount(c => Math.max(0, c + (next ? -1 : 1)));
-      toast.error(t("productDetail.toast.likeFailed"));
-      console.error("[ProductDetail] toggleLike error:", err);
-    } finally {
-      setLikeBusy(false);
-    }
+    const res = await toggleLikeStore(product.id, baseLikes);
+    if (res === "needAuth") onSignInClick?.();
+    else if (res === "error") toast.error(t("productDetail.toast.likeFailed"));
   };
   const durationSeconds = product.durationSeconds ?? parseDurationText(product.duration);
   // 라이선스 판매 가능 여부 (₩0 영상은 무료 시청 전용, 라이선스 미판매)
@@ -1413,9 +1381,9 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                     {product.duration && (
                       <span className="text-sm text-gray-300">{hasYearOrAge ? "· " : ""}{product.duration}</span>
                     )}
-                    {viewsCount > 0 && (
+                    {displayViews(productProp.id, viewsCount) > 0 && (
                       <span className="text-sm text-gray-300 inline-flex items-center gap-1">
-                        {hasDurationLine ? "· " : ""}<Eye className="w-3.5 h-3.5 inline" /> {formatCompactNumber(viewsCount)}
+                        {hasDurationLine ? "· " : ""}<Eye className="w-3.5 h-3.5 inline" /> {formatCompactNumber(displayViews(productProp.id, viewsCount))}
                       </span>
                     )}
                     {likesCount > 0 && (
@@ -1493,7 +1461,6 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                 <motion.button
                   whileTap={{ scale: 0.85 }}
                   onClick={handleToggleLike}
-                  disabled={likeBusy}
                   className="flex flex-col items-center shrink-0"
                   aria-label={t("common.like")}
                 >

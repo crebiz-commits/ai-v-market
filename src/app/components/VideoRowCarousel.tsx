@@ -9,7 +9,7 @@
 //     showProgress={true}  // 이어 보기 행은 진행률 바 표시
 //   />
 // ════════════════════════════════════════════════════════════════════════════
-import { useRef, memo } from "react";
+import { useRef, memo, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Play, Crown, Lock, Plus, ThumbsUp, Layers } from "lucide-react";
 import { BETA_MODE, BETA_ROW_TARGET } from "../config/beta";
 import { BetaCard } from "./BetaCard";
@@ -22,7 +22,7 @@ import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { useAuth } from "../contexts/AuthContext";
 import { isNegotiationOnly } from "../utils/licensePricing";
 import { useSettings } from "../contexts/SettingsContext";
-import { supabase } from "../utils/supabaseClient";
+import { useLikes } from "../contexts/LikesContext";
 
 export interface CarouselVideo {
   id: string;
@@ -96,43 +96,23 @@ interface VideoCardProps {
 // memo: 부모 리렌더(연령/시리즈 카운트 갱신 등) 시 prop 동일하면 카드 재렌더 스킵 — 대량 카드 리렌더 폭풍 방지
 const VideoCard = memo(function VideoCard({ video, idx, onVideoClick, onAddToCart, showProgress, showRank, rating, isAgeLocked, isOttBadge, seriesCount }: VideoCardProps) {
   const { t } = useTranslation();
-  const { user } = useAuth();
-  const likingRef = useRef(false);  // 더블클릭 경합 방지(insert/delete 교차로 좋아요 상태 반전 막음)
+  const { isLiked, displayCount, seedCount, displayViews, seedViews, toggleLike } = useLikes();
+  const liked = isLiked(video.id);
+  // 좋아요·조회수 시드(seed-once) → 모든 피드가 같은 값 공유
+  useEffect(() => {
+    seedCount(video.id, video.likes);
+    seedViews(video.id, video.views ?? undefined);
+  }, [video.id, video.likes, video.views, seedCount, seedViews]);
 
-  // 좋아요 토글 — supabase video_likes 직접 처리 (ProductDetail 패턴 재사용)
+  // 좋아요 토글 — 전역 스토어 경유(모든 피드 동시 반영). 낙관적 반영·롤백은 스토어가 처리.
   const handleLikeClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!user) {
-      toast.info(t("video.signInRequired", "로그인 후 이용해주세요"));
-      return;
-    }
-    if (likingRef.current) return;
-    likingRef.current = true;
-    try {
-      const { error } = await supabase
-        .from("video_likes")
-        .insert({ video_id: video.id, user_id: user.id });
-      if (error) {
-        if ((error as any).code === "23505") {
-          // 이미 좋아요 → 취소
-          await supabase
-            .from("video_likes")
-            .delete()
-            .match({ video_id: video.id, user_id: user.id });
-          toast.info(t("video.unliked", "좋아요 취소"));
-        } else {
-          throw error;
-        }
-      } else {
-        toast.success(t("video.liked", "♥ 좋아요"));
-      }
-    } catch (err: any) {
-      console.error("[VideoCard] like toggle error:", err);
-      toast.error(t("video.likeFailed", "좋아요 처리 실패"));
-    } finally {
-      likingRef.current = false;
-    }
+    const res = await toggleLike(video.id, video.likes);
+    if (res === "needAuth") toast.info(t("video.signInRequired", "로그인 후 이용해주세요"));
+    else if (res === "liked") toast.success(t("video.liked", "♥ 좋아요"));
+    else if (res === "unliked") toast.info(t("video.unliked", "좋아요 취소"));
+    else if (res === "error") toast.error(t("video.likeFailed", "좋아요 처리 실패"));
   };
 
   // 장바구니 추가 — 부모 콜백 호출 (App.tsx의 addToCart)
@@ -239,10 +219,10 @@ const VideoCard = memo(function VideoCard({ video, idx, onVideoClick, onAddToCar
             <span
               role="button"
               onClick={handleLikeClick}
-              className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-sm border border-white/40 flex items-center justify-center hover:border-white transition-colors"
+              className={`w-7 h-7 rounded-full backdrop-blur-sm border flex items-center justify-center transition-colors ${liked ? "bg-red-500/30 border-red-400" : "bg-white/15 border-white/40 hover:border-white"}`}
               aria-label={t("videoRow.like", "좋아요")}
             >
-              <ThumbsUp className="w-3.5 h-3.5 text-white" />
+              <ThumbsUp className={`w-3.5 h-3.5 ${liked ? "text-red-300 fill-red-300" : "text-white"}`} />
             </span>
           </div>
         )}
@@ -253,8 +233,8 @@ const VideoCard = memo(function VideoCard({ video, idx, onVideoClick, onAddToCar
         <p className="text-xs md:text-base font-semibold line-clamp-2 leading-tight">{video.title}</p>
         <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 md:mt-1 truncate">
           {video.creator_display_name || video.creator || t("videoRow.nameless")}
-          {video.views ? ` · ${t("videoRow.viewsPrefix")} ${fmtViews(video.views)}` : ""}
-          {typeof video.likes === "number" && video.likes > 0 ? ` · ♥ ${fmtViews(video.likes)}` : ""}
+          {displayViews(video.id, video.views) > 0 ? ` · ${t("videoRow.viewsPrefix")} ${fmtViews(displayViews(video.id, video.views))}` : ""}
+          {displayCount(video.id, video.likes) > 0 ? ` · ♥ ${fmtViews(displayCount(video.id, video.likes))}` : ""}
         </p>
         {/* 가격 — 판매 중이면 ₩가격, 아니면 라이선스 미판매 (홈피드와 동일) */}
         <p className="text-[11px] md:text-sm font-black mt-0.5 md:mt-1">

@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState, useCallback, memo } from "react";
 import { Play, Info, Plus, Lock, Loader2, Volume2, VolumeX, Clock, ChevronLeft, ChevronRight, Heart, Eye, Layers } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
+import { useLikes } from "../contexts/LikesContext";
 import { type CarouselVideo } from "./VideoRowCarousel";
 import { formatCompactNumber as fmtCompact } from "../i18n/numberFormat";
 import { Footer } from "./Footer";
@@ -604,6 +605,11 @@ const CategoryRow = memo(function CategoryRow({
   onUpload?: () => void;   // BETA_MODE: 넘기면 베타 카드로 8칸 채움 + 우측 CTA
 }) {
   const { t } = useTranslation();
+  const { displayCount: likesDisplayCount, seedCount: seedLikeCount, displayViews, seedViews } = useLikes();
+  // 좋아요·조회수 시드(seed-once) → 다른 피드와 같은 값 공유
+  useEffect(() => {
+    videos.forEach((v) => { seedLikeCount(v.id, v.likes); seedViews(v.id, v.views ?? undefined); });
+  }, [videos, seedLikeCount, seedViews]);
   const style = getGenreStyle(category);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(false);     // hover 일시정지
@@ -732,14 +738,14 @@ const CategoryRow = memo(function CategoryRow({
                             {g.rating === "all" ? "전체" : g.rating === "19" ? "19+" : `${g.rating}+`}
                           </span>
                         )}
-                        {typeof v.likes === "number" && v.likes > 0 && (
+                        {likesDisplayCount(v.id, v.likes) > 0 && (
                           <span className="flex items-center gap-1 text-[11px] md:text-xs text-gray-200">
-                            <Heart className="w-3.5 h-3.5 fill-[#f87171] text-[#f87171]" />{fmtCompact(v.likes)}
+                            <Heart className="w-3.5 h-3.5 fill-[#f87171] text-[#f87171]" />{fmtCompact(likesDisplayCount(v.id, v.likes))}
                           </span>
                         )}
-                        {typeof v.views === "number" && v.views > 0 && (
+                        {displayViews(v.id, v.views) > 0 && (
                           <span className="flex items-center gap-1 text-[11px] md:text-xs text-gray-400">
-                            <Eye className="w-3.5 h-3.5" />{fmtCompact(v.views)}
+                            <Eye className="w-3.5 h-3.5" />{fmtCompact(displayViews(v.id, v.views))}
                           </span>
                         )}
                         <span className="ml-auto text-[12px] md:text-sm font-black">

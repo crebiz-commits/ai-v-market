@@ -1,15 +1,14 @@
 // 급상승랭킹 섹션 — 1위 히어로 카드 + 2~10위 네온 글로우 캐러셀 (2026-05-27)
 // 디자인: A-4 (TrendingCardPreview 에서 선정)
 // 사용처: Cinema.tsx 의 trending 행 자리
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Play, ChevronLeft, ChevronRight, Plus, ThumbsUp } from "lucide-react";
 import type { CarouselVideo } from "./VideoRowCarousel";
 import { formatCompactNumber } from "../i18n/numberFormat";
 import { getCategoryLabel, getGenreLabel } from "../i18n/categoryLabels";
-import { useAuth } from "../contexts/AuthContext";
-import { supabase } from "../utils/supabaseClient";
+import { useLikes } from "../contexts/LikesContext";
 
 interface Props {
   title: string;
@@ -29,43 +28,22 @@ function fmtDuration(s?: number | null) {
 
 export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onAddToCart, emptyMessage }: Props) {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { isLiked, displayCount, seedCount, displayViews, seedViews, toggleLike } = useLikes();
   const restScrollRef = useRef<HTMLDivElement>(null);
-  const likingRef = useRef<Set<string>>(new Set());  // 영상별 좋아요 in-flight 가드(더블클릭 경합 방지)
+  // 좋아요·조회수 시드(seed-once) → 모든 피드가 같은 값 공유
+  useEffect(() => {
+    videos.forEach((v) => { seedCount(v.id, v.likes); seedViews(v.id, v.views ?? undefined); });
+  }, [videos, seedCount, seedViews]);
 
-  // 좋아요 토글 (2~10위 카드용)
+  // 좋아요 토글 (2~10위 카드용) — 전역 스토어 경유(모든 피드 동시 반영)
   const handleLikeClick = async (e: React.MouseEvent, v: CarouselVideo) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!user) {
-      toast.info(t("video.signInRequired", "로그인 후 이용해주세요"));
-      return;
-    }
-    if (likingRef.current.has(v.id)) return;
-    likingRef.current.add(v.id);
-    try {
-      const { error } = await supabase
-        .from("video_likes")
-        .insert({ video_id: v.id, user_id: user.id });
-      if (error) {
-        if ((error as any).code === "23505") {
-          await supabase
-            .from("video_likes")
-            .delete()
-            .match({ video_id: v.id, user_id: user.id });
-          toast.info(t("video.unliked", "좋아요 취소"));
-        } else {
-          throw error;
-        }
-      } else {
-        toast.success(t("video.liked", "♥ 좋아요"));
-      }
-    } catch (err: any) {
-      console.error("[TrendingHeroSection] like toggle error:", err);
-      toast.error(t("video.likeFailed", "좋아요 처리 실패"));
-    } finally {
-      likingRef.current.delete(v.id);
-    }
+    const res = await toggleLike(v.id, v.likes);
+    if (res === "needAuth") toast.info(t("video.signInRequired", "로그인 후 이용해주세요"));
+    else if (res === "liked") toast.success(t("video.liked", "♥ 좋아요"));
+    else if (res === "unliked") toast.info(t("video.unliked", "좋아요 취소"));
+    else if (res === "error") toast.error(t("video.likeFailed", "좋아요 처리 실패"));
   };
 
   const handleCartClick = (e: React.MouseEvent, v: CarouselVideo) => {
@@ -170,10 +148,10 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
                     <span
                       role="button"
                       onClick={(e) => handleLikeClick(e, v)}
-                      className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-sm border border-white/40 flex items-center justify-center hover:border-white transition-colors"
+                      className={`w-7 h-7 rounded-full backdrop-blur-sm border flex items-center justify-center transition-colors ${isLiked(v.id) ? "bg-red-500/30 border-red-400" : "bg-white/15 border-white/40 hover:border-white"}`}
                       aria-label={t("videoRow.like", "좋아요")}
                     >
-                      <ThumbsUp className="w-3.5 h-3.5 text-white" />
+                      <ThumbsUp className={`w-3.5 h-3.5 ${isLiked(v.id) ? "text-red-300 fill-red-300" : "text-white"}`} />
                     </span>
                   </div>
                 </div>
@@ -181,11 +159,11 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
                 <p className="text-xs md:text-base font-bold text-white mt-2 line-clamp-1">{v.title}</p>
                 <p className="text-[11px] md:text-xs text-muted-foreground line-clamp-1">
                   {v.creator_display_name || v.creator || ""}
-                  {typeof v.views === "number" && v.views > 0
-                    ? ` · ${t("videoRow.viewsPrefix")} ${formatCompactNumber(v.views)}`
+                  {displayViews(v.id, v.views) > 0
+                    ? ` · ${t("videoRow.viewsPrefix")} ${formatCompactNumber(displayViews(v.id, v.views))}`
                     : ""}
-                  {typeof v.likes === "number" && v.likes > 0
-                    ? ` · ♥ ${formatCompactNumber(v.likes)}`
+                  {displayCount(v.id, v.likes) > 0
+                    ? ` · ♥ ${formatCompactNumber(displayCount(v.id, v.likes))}`
                     : ""}
                 </p>
                 {/* 카테고리 · 장르 인라인 배지 */}

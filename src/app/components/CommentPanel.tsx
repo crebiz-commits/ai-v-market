@@ -3,6 +3,7 @@ import { X, Send, Heart, ChevronDown, ChevronUp, Loader2, MessageCircle, Trash2,
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
+import { useLikes } from "../contexts/LikesContext";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { ReportModal } from "./ReportModal";
@@ -65,12 +66,18 @@ function Avatar({ name, src, size = 36 }: { name: string; src?: string; size?: n
   return (
     <div
       style={{ width: size, height: size, minWidth: size }}
-      className={`rounded-full bg-gradient-to-br ${color} flex items-center justify-center text-white font-bold overflow-hidden`}
+      className={`relative rounded-full bg-gradient-to-br ${color} flex items-center justify-center text-white font-bold overflow-hidden`}
     >
-      {src ? (
-        <img src={src} alt={name} className="w-full h-full object-cover" />
-      ) : (
-        <span style={{ fontSize: size * 0.4 }}>{getInitials(name)}</span>
+      {/* 이니셜(아래) + 사진(위) — 구글사진 핫링크 대비 no-referrer, 실패 시 onError 로 숨겨 이니셜 노출 */}
+      <span style={{ fontSize: size * 0.4 }}>{getInitials(name)}</span>
+      {src && (
+        <img
+          src={src}
+          alt={name}
+          referrerPolicy="no-referrer"
+          className="absolute inset-0 w-full h-full object-cover"
+          onError={(e) => { e.currentTarget.style.display = "none"; }}
+        />
       )}
     </div>
   );
@@ -80,7 +87,24 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
   const { t, i18n } = useTranslation();
   const isKo = i18n.language?.startsWith("ko");
   const { user, isAuthenticated, profile } = useAuth();
+  const { seedComments, bumpComments } = useLikes();
   const isVideoOwner = !!(videoId && videoCreatorId && user?.id === videoCreatorId);
+
+  // 영상 댓글 총계를 정확히 세어 전역 스토어에 seed-once → 모든 피드의 "댓글 N" 통일
+  useEffect(() => {
+    if (!videoId) return;
+    let cancelled = false;
+    (async () => {
+      const { count } = await supabase
+        .from("comments")
+        .select("id", { count: "exact", head: true })
+        .eq("video_id", videoId)
+        .is("parent_id", null)
+        .eq("is_hidden", false);
+      if (!cancelled && typeof count === "number") seedComments(videoId, count);
+    })();
+    return () => { cancelled = true; };
+  }, [videoId, seedComments]);
 
   const [comments, setComments] = useState<Comment[]>([]);
   const allUserIds: string[] = [];
@@ -270,6 +294,8 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
         }
       } else {
         setComments((prev) => [newComment, ...prev]);
+        // 최상위 댓글만 피드의 "댓글 N" 에 반영(+1). 답글은 미집계.
+        if (videoId) bumpComments(videoId, 1);
       }
 
       onCommentPosted?.();
@@ -299,6 +325,8 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
         const target = comments.find(c => c.id === commentId);
         removed = 1 + (target?.replies?.length || 0);
         setComments(prev => prev.filter(c => c.id !== commentId));
+        // 최상위 댓글 삭제만 피드 카운트 -1 (답글 삭제는 top-level 수 불변)
+        if (videoId) bumpComments(videoId, -1);
       }
       onCommentDeleted?.(removed);
     } catch {

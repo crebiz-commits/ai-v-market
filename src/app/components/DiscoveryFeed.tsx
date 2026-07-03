@@ -8,6 +8,7 @@ import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
 import { sendAdEvent } from "../utils/adEvent";
 import { useAuth } from "../contexts/AuthContext";
+import { useLikes } from "../contexts/LikesContext";
 import { CommentPanel } from "./CommentPanel";
 import { ShareModal } from "./ShareModal";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
@@ -259,15 +260,18 @@ const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) 
 });
 
 // ✨ 액션 버튼 (글래스 + 글로우 스타일)
-const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, commentCount = 0 }: {
+const ActionButtons = memo(({ video, onToggleLike, onComment, onShare, commentCount = 0 }: {
   video: Video;
-  isLiked: boolean;
-  onToggleLike: (id: string, currentlyLiked: boolean) => void;
+  onToggleLike: (id: string, base: number) => void;
   onComment: (video: Video) => void;
   onShare: (video: Video) => void;
   commentCount?: number;
 }) => {
   const { t } = useTranslation();
+  const { isLiked: isLikedStore, displayCount, displayComments } = useLikes();
+  const isLiked = isLikedStore(video.id);
+  const likeCount = displayCount(video.id, video.likes);
+  const commentDisplay = displayComments(video.id, commentCount);
   const [showRipple, setShowRipple] = useState(false);
 
   const handleLike = (e: React.MouseEvent) => {
@@ -276,7 +280,7 @@ const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, 
       setShowRipple(true);
       setTimeout(() => setShowRipple(false), 600);
     }
-    onToggleLike(video.id, isLiked);
+    onToggleLike(video.id, video.likes);
   };
 
   return (
@@ -316,7 +320,7 @@ const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, 
           />
         </div>
         <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">
-          {video.likes.toLocaleString()}
+          {likeCount.toLocaleString()}
         </span>
       </motion.button>
 
@@ -333,7 +337,7 @@ const ActionButtons = memo(({ video, isLiked, onToggleLike, onComment, onShare, 
           <MessageCircle className="w-4 h-4 text-white" strokeWidth={1.8} />
         </div>
         <span className="text-[10px] font-bold text-white mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">
-          {commentCount > 0 ? commentCount.toLocaleString() : t("common.comment")}
+          {commentDisplay > 0 ? commentDisplay.toLocaleString() : t("common.comment")}
         </span>
       </motion.button>
 
@@ -362,7 +366,6 @@ const MovieSection = memo(({
   isMuted,
   onToggleMute,
   onVideoClick,
-  isLiked,
   onToggleLike,
   onSetActive,
   onComment,
@@ -379,8 +382,7 @@ const MovieSection = memo(({
   isMuted: boolean;
   onToggleMute: () => void;
   onVideoClick: (video: Video) => void;
-  isLiked: boolean;
-  onToggleLike: (id: string, currentlyLiked: boolean) => void;
+  onToggleLike: (id: string, base: number) => void;
   onSetActive: (id: string) => void;
   onComment: (video: Video) => void;
   onShare: (video: Video) => void;
@@ -688,7 +690,6 @@ const MovieSection = memo(({
       {/* 우측 액션 버튼 (글래스 + 글로우 스타일) */}
       <ActionButtons
         video={video}
-        isLiked={isLiked}
         onToggleLike={onToggleLike}
         onComment={onComment}
         onShare={onShare}
@@ -825,7 +826,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   const [ads, setAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [likedVideos, setLikedVideos] = useState<Set<string>>(new Set());
+  // 좋아요는 전역 스토어(LikesContext)로 통일 — 모든 피드 동시 반영
+  const { isLiked: isLikedStore, displayCount: likesDisplayCount, seedCount: seedLikeCount, seedComments: seedCommentCount, toggleLike: toggleLikeStore } = useLikes();
   const [isMuted, setIsMuted] = useState(true);
   const [commentVideo, setCommentVideo] = useState<Video | null>(null);
   const [shareTarget, setShareTarget] = useState<Video | null>(null);
@@ -934,6 +936,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
         let mapped = rows.map(mapVideoRow);
         // Showcase Mode(데모)일 때만 첫 페이지에 Mock 합성 (현재 비활성)
         if (from === 0 && showcase) mapped = mergeShowcase<Video>(mapped, showcaseToVideo);
+        // 전역 스토어에 좋아요 수 시드(seed-once) → 모든 피드가 같은 값 공유
+        mapped.forEach((v) => { if (!v.id.startsWith("demo-")) seedLikeCount(v.id, v.likes); });
         setVideos((prev) => {
           const seen = new Set(prev.map((v) => v.id));
           return [...prev, ...mapped.filter((v) => !seen.has(v.id))];
@@ -948,6 +952,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
             const counts: Record<string, number> = {};
             countData.forEach((c: any) => { counts[c.video_id] = (counts[c.video_id] || 0) + 1; });
             setCommentCounts((prev) => ({ ...prev, ...counts }));
+            // 전역 스토어에 댓글수 시드(seed-once) → 모든 피드 "댓글 N" 통일
+            Object.entries(counts).forEach(([id, n]) => seedCommentCount(id, n));
           }
         }
       }
@@ -972,17 +978,13 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
       fetchingRef.current = false;
       setHasMore(snap.hasMore);
       setVideos(snap.videos);
+      snap.videos.forEach((v) => { if (!v.id.startsWith("demo-")) seedLikeCount(v.id, v.likes); });
       setAds(snap.ads);
       setCommentCounts(snap.commentCounts);
+      Object.entries(snap.commentCounts).forEach(([id, n]) => seedCommentCount(id, n as number));
       setActiveId(snap.videos[0]?.id ?? null);
       setLoading(false);
-      // 좋아요 상태만 백그라운드 갱신(사용자별, 가벼움)
-      if (user) {
-        (async () => {
-          const { data: likesData } = await supabase.from("video_likes").select("video_id").eq("user_id", user.id);
-          if (!cancelled && likesData) setLikedVideos(new Set(likesData.map((l) => l.video_id)));
-        })();
-      }
+      // 좋아요 상태는 전역 LikesContext 가 유저 로그인 시 1회 로드해 공유 (여기서 별도 조회 불필요)
       return () => { cancelled = true; };
     }
     (async () => {
@@ -1002,12 +1004,6 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
           .select("id,title,advertiser,image_url,video_url,thumbnail_url,link_url,cta_text,interval_count,ad_type")
           .or("ad_type.eq.feed_display,ad_type.is.null");
         if (!cancelled && adResult.data && adResult.data.length > 0) setAds(adResult.data as Ad[]);
-
-        if (!cancelled && user) {
-          const { data: likesData } = await supabase.from("video_likes")
-            .select("video_id").eq("user_id", user.id);
-          if (!cancelled && likesData) setLikedVideos(new Set(likesData.map((l) => l.video_id)));
-        }
 
         if (!cancelled) await loadMore();
       } catch (error) {
@@ -1174,42 +1170,12 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   }, [videos, loading]); // loading 포함: setVideos와 setLoading(false)가 다른 배치로 커밋돼
                          // loading=false 시점에 container가 생기므로 재실행 필요
 
-  const toggleLike = useCallback(async (videoId: string, currentlyLiked: boolean) => {
+  // 좋아요 토글 — 전역 스토어 경유(모든 피드 동시 반영). 낙관적 반영·롤백·중복방지는 스토어가 처리.
+  const toggleLike = useCallback(async (videoId: string, base?: number) => {
     if (handleShowcaseClick(videoId)) return;
-    if (!user) {
-      if (onSignInClick) onSignInClick();
-      return;
-    }
-
-    setLikedVideos(prev => {
-      const n = new Set(prev);
-      currentlyLiked ? n.delete(videoId) : n.add(videoId);
-      return n;
-    });
-
-    setVideos(prev => prev.map(v => 
-      v.id === videoId ? { ...v, likes: v.likes + (currentlyLiked ? -1 : 1) } : v
-    ));
-
-    try {
-      if (currentlyLiked) {
-        await supabase.from("video_likes").delete().match({ video_id: videoId, user_id: user.id });
-      } else {
-        await supabase.from("video_likes").insert({ video_id: videoId, user_id: user.id });
-      }
-    } catch (error) {
-      console.error("Error toggling like:", error);
-      // 실패 → 낙관적 업데이트 롤백 (UI/DB 불일치 방지)
-      setLikedVideos(prev => {
-        const n = new Set(prev);
-        currentlyLiked ? n.add(videoId) : n.delete(videoId);
-        return n;
-      });
-      setVideos(prev => prev.map(v =>
-        v.id === videoId ? { ...v, likes: v.likes + (currentlyLiked ? 1 : -1) } : v
-      ));
-    }
-  }, [user, onSignInClick]);
+    const res = await toggleLikeStore(videoId, base);
+    if (res === "needAuth" && onSignInClick) onSignInClick();
+  }, [onSignInClick, toggleLikeStore]);
 
   const handleShare = useCallback(async (video: Video) => {
     if (handleShowcaseClick(video.id)) return;
@@ -1310,7 +1276,6 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
                 isMuted={isMuted}
                 onToggleMute={() => setIsMuted(!isMuted)}
                 onVideoClick={onVideoClick}
-                isLiked={likedVideos.has(item.id)}
                 onToggleLike={toggleLike}
                 onSetActive={(id) => setActiveId(id)}
                 onComment={(v) => { if (handleShowcaseClick(v.id)) return; setCommentVideo(v); }}
@@ -1431,7 +1396,6 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
                   key={v.id}
                   video={v}
                   onVideoClick={onVideoClick}
-                  isLiked={likedVideos.has(v.id)}
                   onToggleLike={toggleLike}
                   onComment={(vid) => { if (handleShowcaseClick(vid.id)) return; setCommentVideo(vid); }}
                   onShare={handleShare}
@@ -1615,7 +1579,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
         {fullscreenVideo && (
           <VideoFullscreen
             video={fullscreenVideo}
-            isLiked={likedVideos.has(fullscreenVideo.id)}
+            isLiked={isLikedStore(fullscreenVideo.id)}
+            likeCount={likesDisplayCount(fullscreenVideo.id, fullscreenVideo.likes)}
             commentCount={commentCounts[fullscreenVideo.id] || 0}
             onClose={() => {
               setFullscreenVideo(null);
@@ -1631,7 +1596,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
                 }
               });
             }}
-            onToggleLike={() => toggleLike(fullscreenVideo.id, likedVideos.has(fullscreenVideo.id))}
+            onToggleLike={() => toggleLike(fullscreenVideo.id, fullscreenVideo.likes)}
             onComment={() => {
               setCommentVideo(fullscreenVideo);
               setFullscreenVideo(null);
@@ -1706,7 +1671,10 @@ const DesktopAdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: s
   );
 });
 
-function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onComment, onShare, commentCount = 0, creatorAvatar = null, creatorName = null, onViewCreator, onSignInClick }: { video: Video; onVideoClick: (video: Video) => void; isLiked: boolean; onToggleLike: (id: string, currentlyLiked: boolean) => void; onComment: (video: Video) => void; onShare: (video: Video) => void; commentCount?: number; creatorAvatar?: string | null; creatorName?: string | null; onViewCreator?: (creatorId: string) => void; onSignInClick?: () => void }) {
+function DesktopMovieCard({ video, onVideoClick, onToggleLike, onComment, onShare, commentCount = 0, creatorAvatar = null, creatorName = null, onViewCreator, onSignInClick }: { video: Video; onVideoClick: (video: Video) => void; onToggleLike: (id: string, base: number) => void; onComment: (video: Video) => void; onShare: (video: Video) => void; commentCount?: number; creatorAvatar?: string | null; creatorName?: string | null; onViewCreator?: (creatorId: string) => void; onSignInClick?: () => void }) {
+  const { isLiked: isLikedStore, displayComments } = useLikes();
+  const isLiked = isLikedStore(video.id);
+  const commentDisplay = displayComments(video.id, commentCount);
   const { t } = useTranslation();
   const [isHovered, setIsHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1824,13 +1792,13 @@ function DesktopMovieCard({ video, onVideoClick, isLiked, onToggleLike, onCommen
             )}
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, isLiked); }} className="p-2 hover:bg-red-500/10 rounded-full transition-colors">
+            <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, video.likes); }} className="p-2 hover:bg-red-500/10 rounded-full transition-colors">
               <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white/30'}`} />
             </button>
             {/* 모바일 카드와 동일한 아이콘으로 통일: 댓글 MessageCircle, 공유 Send (2026-06-11) */}
             <button onClick={(e) => { e.stopPropagation(); onComment(video); }} className="flex items-center gap-1 p-2 hover:bg-white/10 rounded-full transition-colors">
               <MessageCircle className="w-5 h-5 text-white/30 hover:text-white transition-colors" />
-              {commentCount > 0 && <span className="text-xs text-white/40">{commentCount}</span>}
+              {commentDisplay > 0 && <span className="text-xs text-white/40">{commentDisplay}</span>}
             </button>
             <button onClick={(e) => { e.stopPropagation(); onShare(video); }} className="p-2 hover:bg-white/10 rounded-full transition-colors">
               <Send className="w-5 h-5 text-white/30 hover:text-white transition-colors" />
