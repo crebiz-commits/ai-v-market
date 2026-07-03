@@ -684,6 +684,13 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     }
 
     if (videoData) {
+      // 유효 조회수(video_views 기준) 영상별 집계 — videos.views 컬럼은 갱신 안 되므로 대신 사용.
+      const viewMap: Record<string, number> = {};
+      try {
+        const { data: vc } = await supabase.rpc("get_creator_video_view_counts");
+        (vc || []).forEach((r: any) => { viewMap[r.video_id] = Number(r.valid_views) || 0; });
+      } catch { /* RPC 미적용 시 0 폴백 */ }
+
       const products = videoData.map((item: any) => {
         const salesCount = item.orders?.length || 0;
         const revenue = (item.orders || []).reduce((sum: number, o: any) => sum + (o.amount || 0), 0);
@@ -691,7 +698,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
           id: item.id,
           thumbnail: item.thumbnail,
           title: item.title,
-          views: parseInt(item.views, 10) || 0,   // views 는 TEXT 컬럼 — 파싱 실패 시 0 (NaN 방지)
+          views: viewMap[item.id] ?? 0,   // 유효 조회수(video_views). videos.views(TEXT)는 미갱신이라 미사용
           likes: Number(item.likes) || 0,
           sales: salesCount,
           revenue: revenue,

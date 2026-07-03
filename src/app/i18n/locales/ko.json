@@ -745,7 +745,7 @@
       "revenue": "매출",
       "registeredProducts": "등록 상품",
       "productsCount": "{{count}}개",
-      "viewsLabel": "조회수",
+      "viewsLabel": "유효 조회수",
       "salesLabel": "판매",
       "salesCount": "{{count}}건",
       "salesRevenue": "매출",

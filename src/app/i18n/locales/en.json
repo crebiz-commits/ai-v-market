@@ -745,7 +745,7 @@
       "revenue": "Revenue",
       "registeredProducts": "Registered products",
       "productsCount": "{{count}} products",
-      "viewsLabel": "Views",
+      "viewsLabel": "Valid views",
       "salesLabel": "Sales",
       "salesCount": "{{count}}",
       "salesRevenue": "Revenue",

@@ -373,13 +373,18 @@ export function CreatorDashboard() {
                 <YAxis stroke="#666" tick={{ fontSize: 11 }} axisLine={false} tickLine={false}
                   tickFormatter={(v) => `${Math.round(Number(v) * 100)}%`} domain={[0, 1]} />
                 <Tooltip
+                  cursor={{ fill: 'rgba(255,255,255,0.06)' }}
                   contentStyle={{ backgroundColor: '#1a1a1c', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: 12 }}
+                  labelStyle={{ color: '#fff' }}
+                  itemStyle={{ color: '#fff' }}
                   formatter={(v: any, _name: any, p: any) => [
                     `${Math.round(Number(v) * 100)}% (${p.payload.view_count} views)`,
                     t("creatorDashboard.kpiWatchRatio")
                   ]}
                 />
-                <Bar dataKey="avg_watch_ratio" radius={[6, 6, 0, 0]}>
+                {/* maxBarSize: 버킷이 1~2개일 때 막대가 화면 전체 폭으로 늘어나 '빨간 사각형'처럼
+                    보이던 문제 방지 (recharts는 카테고리 적으면 막대를 최대한 넓게 그림) */}
+                <Bar dataKey="avg_watch_ratio" radius={[6, 6, 0, 0]} maxBarSize={72}>
                   {retention.map((_, idx) => (
                     <Cell key={idx} fill={retentionColors[idx % retentionColors.length]} />
                   ))}
