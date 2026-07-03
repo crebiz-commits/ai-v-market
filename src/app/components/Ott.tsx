@@ -147,7 +147,7 @@ type OttSnapshot = {
 };
 const ottCache: Record<string, OttSnapshot> = {};
 // 히어로 영상 소스 캐시(heroId → src) — 20초 회전마다 같은 영상 video_url 재조회 방지
-type HeroSrc = { url: string; start: number; end: number; clipUrl?: string; previewUrl?: string };
+type HeroSrc = { url: string; start: number; end: number; clipUrl?: string; previewUrl?: string; seekUrl?: string };
 const heroSrcCache = new Map<string, HeroSrc>();
 
 export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }: OttProps) {
@@ -258,7 +258,12 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
         const previewUrl = /\/[^/]+\.m3u8$/i.test(data.video_url)
           ? data.video_url.replace(/\/[^/]+$/, "/preview.webp")
           : undefined;
-        const srcObj: HeroSrc = { url: data.video_url, start: hStart, end: hEnd, clipUrl: data.hero_clip_url || undefined, previewUrl };
+        // 클립이 없을 때 하이라이트 구간을 반영하기 위한 seek용 mp4 URL
+        //   (HLS .m3u8 은 네이티브 <video> seek 이 불안정 → preroll 과 동일하게 play_720p.mp4 로).
+        const seekUrl = data.video_url.includes("/playlist.m3u8")
+          ? data.video_url.replace("/playlist.m3u8", "/play_720p.mp4")
+          : undefined;
+        const srcObj: HeroSrc = { url: data.video_url, start: hStart, end: hEnd, clipUrl: data.hero_clip_url || undefined, previewUrl, seekUrl };
         heroSrcCache.set(heroId, srcObj);
         setHeroSrc(srcObj);
       }
@@ -445,7 +450,7 @@ const HeroBillboard = memo(function HeroBillboard({
   onPlay,
 }: {
   video: CarouselVideo;
-  src: { url: string; start: number; end: number; clipUrl?: string; previewUrl?: string } | null;
+  src: { url: string; start: number; end: number; clipUrl?: string; previewUrl?: string; seekUrl?: string } | null;
   ageGuard: AgeGuard;
   muted: boolean;
   onToggleMute: () => void;
@@ -458,14 +463,17 @@ const HeroBillboard = memo(function HeroBillboard({
   // 영상이 실제로 재생을 시작했는지. 그 전엔 포스터를 깔아둬 검은/멈춤 화면 방지.
   const [videoReady, setVideoReady] = useState(false);
 
-  // 재생 소스 우선순위: 미리 잘린 30초 하이라이트 클립(seek 불필요·100% 안정) →
-  //   풀영상 MP4 폴백 → 샘플 폴백. 클립이 있으면 deep seek 자체를 안 하므로 멈춤·검은화면이 없다.
-  // 히어로 클립(미리 잘린 30초)이 있을 때만 자동재생. 없으면 포스터(썸네일)만 표시.
-  // (클립 없는 영화로 deep seek/풀영상 재생하면 멈춤·검은화면 위험 → 포스터가 안전·깔끔)
-  const playUrl = src?.clipUrl || "";
-  const useVideo = !g.isAgeLocked && !!src?.clipUrl;
-  // 클립이 없으면 Bunny 애니메이션 미리보기(preview.webp)로 동적 표시 (정적 멈춤 방지).
-  const usePreview = !g.isAgeLocked && !src?.clipUrl && !!src?.previewUrl;
+  // 재생 소스 우선순위:
+  //   ① 미리 잘린 하이라이트 클립(hero_clip_url) — seek 불필요·100% 안정, 0초부터 루프.
+  //   ② 클립이 없고 하이라이트 구간(끝>시작)이 있으면 본편 mp4 를 highlight_start 로 seek 후
+  //      구간 루프 → 크리에이터가 편집한 하이라이트가 히어로에 반영됨.
+  //   preview.webp 를 항상 베이스로 깔아둬 seek 이 버벅이거나 실패해도 화면이 비지 않음(안전 폴백).
+  const isClip = !!src?.clipUrl;
+  const isSeek = !isClip && !!src?.seekUrl && (src?.end ?? 0) > (src?.start ?? 0);
+  const playUrl = src?.clipUrl || (isSeek ? src?.seekUrl : undefined) || "";
+  const useVideo = !g.isAgeLocked && !!playUrl;
+  // 클립이 없으면(=seek 이든 정지든) Bunny 애니메이션 미리보기(preview.webp)를 베이스로 표시.
+  const usePreview = !g.isAgeLocked && !isClip && !!src?.previewUrl;
 
   // 네이티브 <video> 사용(배경 영상 표준). playUrl 변경 시 노출 초기화 → 포스터부터 다시.
   useEffect(() => { setVideoReady(false); }, [playUrl]);
@@ -519,11 +527,27 @@ const HeroBillboard = memo(function HeroBillboard({
               src={playUrl}
               autoPlay
               muted
-              loop
+              loop={isClip}
               playsInline
               preload="auto"
-              onTimeUpdate={() => { const v = videoRef.current; if (v && v.currentTime > 0.05) setVideoReady(true); }}
-              onPlaying={() => { const v = videoRef.current; if (v && v.currentTime > 0.05) setVideoReady(true); }}
+              onLoadedMetadata={() => {
+                // seek 재생: 메타데이터 로드 후 하이라이트 시작점으로 이동
+                const v = videoRef.current;
+                if (v && isSeek && src) { try { v.currentTime = src.start; } catch { /* 무시 */ } }
+              }}
+              onTimeUpdate={() => {
+                const v = videoRef.current; if (!v) return;
+                const base = isSeek && src ? src.start : 0;
+                // 시작점을 지나 실제 재생 중일 때만 노출(그 전엔 preview.webp/포스터 유지)
+                if (v.currentTime > base + 0.05) setVideoReady(true);
+                // 구간 끝 도달 시 시작점으로 되감아 하이라이트만 루프
+                if (isSeek && src && v.currentTime >= src.end) { try { v.currentTime = src.start; } catch { /* 무시 */ } }
+              }}
+              onPlaying={() => {
+                const v = videoRef.current;
+                const base = isSeek && src ? src.start : 0;
+                if (v && v.currentTime > base + 0.05) setVideoReady(true);
+              }}
             />
           </div>
         )}
