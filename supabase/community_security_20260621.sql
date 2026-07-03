@@ -10,11 +10,19 @@
 -- ────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.tg_force_post_author()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE v_name TEXT; v_avatar TEXT;
+DECLARE v_name TEXT; v_avatar TEXT; v_is_admin BOOLEAN;
 BEGIN
-  SELECT display_name, avatar_url INTO v_name, v_avatar FROM public.profiles WHERE id = NEW.user_id;
-  NEW.author_name   := COALESCE(NULLIF(btrim(v_name), ''), 'CREAITE');  -- 프로필 표시명 강제(없으면 generic)
-  NEW.author_avatar := v_avatar;                                        -- 프로필 아바타 강제
+  SELECT display_name, avatar_url, COALESCE(is_admin, false)
+    INTO v_name, v_avatar, v_is_admin
+    FROM public.profiles WHERE id = NEW.user_id;
+  -- 관리자가 '운영팀 명의로 게시'를 선택한 경우만 공식 운영팀 아이덴티티 허용.
+  -- (비관리자는 어떤 값을 보내도 프로필로 강제 → 위장 차단 유지)
+  IF v_is_admin AND NEW.author_name = 'CREAITE 운영팀' THEN
+    NEW.author_avatar := 'https://www.creaite.net/icon-192.png';       -- 공식 로고 고정
+  ELSE
+    NEW.author_name   := COALESCE(NULLIF(btrim(v_name), ''), 'CREAITE'); -- 프로필 표시명 강제(없으면 generic)
+    NEW.author_avatar := v_avatar;                                       -- 프로필 아바타 강제
+  END IF;
   RETURN NEW;
 END; $$;
 
