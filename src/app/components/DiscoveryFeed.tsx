@@ -1672,8 +1672,9 @@ const DesktopAdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: s
 });
 
 function DesktopMovieCard({ video, onVideoClick, onToggleLike, onComment, onShare, commentCount = 0, creatorAvatar = null, creatorName = null, onViewCreator, onSignInClick }: { video: Video; onVideoClick: (video: Video) => void; onToggleLike: (id: string, base: number) => void; onComment: (video: Video) => void; onShare: (video: Video) => void; commentCount?: number; creatorAvatar?: string | null; creatorName?: string | null; onViewCreator?: (creatorId: string) => void; onSignInClick?: () => void }) {
-  const { isLiked: isLikedStore, displayComments } = useLikes();
+  const { isLiked: isLikedStore, displayCount, displayComments } = useLikes();
   const isLiked = isLikedStore(video.id);
+  const likeDisplay = displayCount(video.id, video.likes);
   const commentDisplay = displayComments(video.id, commentCount);
   const { t } = useTranslation();
   const [isHovered, setIsHovered] = useState(false);
@@ -1792,8 +1793,9 @@ function DesktopMovieCard({ video, onVideoClick, onToggleLike, onComment, onShar
             )}
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, video.likes); }} className="p-2 hover:bg-red-500/10 rounded-full transition-colors">
+            <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, video.likes); }} className="flex items-center gap-1 p-2 hover:bg-red-500/10 rounded-full transition-colors">
               <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white/30'}`} />
+              {likeDisplay > 0 && <span className="text-xs text-white/40">{likeDisplay.toLocaleString()}</span>}
             </button>
             {/* 모바일 카드와 동일한 아이콘으로 통일: 댓글 MessageCircle, 공유 Send (2026-06-11) */}
             <button onClick={(e) => { e.stopPropagation(); onComment(video); }} className="flex items-center gap-1 p-2 hover:bg-white/10 rounded-full transition-colors">
