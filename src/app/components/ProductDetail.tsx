@@ -176,10 +176,13 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     attribution?: string;
     originalCreator?: string;
     createdAt?: string;
+    price?: number;
   }>({});
   // 진입 경로별 누락 필드를 DB fetch 결과로 보강한 통합 product (Cinema/OTT 가벼운 페이로드 보강용)
   const product = useMemo(() => ({
     ...productProp,
+    // 편집으로 바뀐 가격은 extra 가 우선(저장 직후 새로고침 없이 반영)
+    price: extra.price ?? productProp.price,
     description: productProp.description ?? extra.description,
     genre: productProp.genre ?? extra.genre,
     productionYear: productProp.productionYear ?? extra.productionYear,
@@ -2079,6 +2082,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
             sponsorLogoUrl: product.sponsorLogoUrl,
             sponsorDisclosure: product.sponsorDisclosure,
             sponsorLinkUrl: product.sponsorLinkUrl,
+            priceStandard: product.price,
           }}
           onClose={() => setEditOpen(false)}
           onSaved={(updates) => {
@@ -2088,7 +2092,13 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
             if (updates.ageRating) setVideoMeta(prev => ({ ...prev, age_rating: updates.ageRating! }));
             // Phase 33 — 확장 필드 갱신 (extra state 에 머지 → useMemo product 재계산)
             if (updates.extended) {
-              setExtra(prev => ({ ...prev, ...updates.extended }));
+              const ext = updates.extended;
+              setExtra(prev => ({
+                ...prev,
+                ...ext,
+                // priceStandard(편집 모달) → price(상세페이지) 매핑
+                ...(ext.priceStandard !== undefined ? { price: ext.priceStandard } : {}),
+              }));
             }
           }}
         />

@@ -52,6 +52,20 @@ function loadEnv() {
 }
 const ENV = loadEnv();
 
+// .env.bulk 의 특정 키 값을 보존하며 갱신(리프레시 토큰 회전분 저장)
+function updateEnv(updates) {
+  const envPath = path.join(ROOT, ".env.bulk");
+  let lines = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf8").split(/\r?\n/) : [];
+  const seen = new Set();
+  lines = lines.map((line) => {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=/);
+    if (m && updates[m[1]] !== undefined) { seen.add(m[1]); return `${m[1]}=${updates[m[1]]}`; }
+    return line;
+  });
+  for (const [k, v] of Object.entries(updates)) if (!seen.has(k)) lines.push(`${k}=${v}`);
+  fs.writeFileSync(envPath, lines.join("\n"));
+}
+
 const SUPABASE_URL = ENV.SUPABASE_URL || "https://tvbpiuwmvrccfnplhwer.supabase.co";
 const ANON_KEY = ENV.SUPABASE_ANON_KEY || "";
 const FN_BASE = `${SUPABASE_URL}/functions/v1/server`;
@@ -79,16 +93,45 @@ function fmtDur(sec) {
 }
 
 // ffprobe 로 길이·해상도 (없으면 0 — OTT 자동분류엔 길이가 필요하므로 ffmpeg 설치 권장)
+// PATH에 ffprobe가 없어도 되도록: ENV.FFPROBE_PATH → 흔한 winget 설치경로 → "ffprobe" 순으로 탐색.
+// 길이가 0으로 저장되면 classify_video_placement 트리거가 show_on_ott/cinema=false 로 분류 → OTT 코너에서 누락됨.
+let _ffprobeBin = null;
+function resolveFfprobe() {
+  if (_ffprobeBin) return _ffprobeBin;
+  const candidates = [];
+  if (ENV.FFPROBE_PATH) candidates.push(ENV.FFPROBE_PATH);
+  candidates.push("ffprobe"); // PATH 우선 시도
+  // winget(Gyan.FFmpeg) 기본 설치 위치 글롭
+  try {
+    const wingetRoot = path.join(process.env.LOCALAPPDATA || "", "Microsoft", "WinGet", "Packages");
+    if (fs.existsSync(wingetRoot)) {
+      for (const pkg of fs.readdirSync(wingetRoot)) {
+        if (!/Gyan\.FFmpeg/i.test(pkg)) continue;
+        const pkgDir = path.join(wingetRoot, pkg);
+        for (const sub of fs.readdirSync(pkgDir)) {
+          const bin = path.join(pkgDir, sub, "bin", "ffprobe.exe");
+          if (fs.existsSync(bin)) candidates.push(bin);
+        }
+      }
+    }
+  } catch { /* 무시 */ }
+  for (const bin of candidates) {
+    const r = spawnSync(bin, ["-version"], { encoding: "utf8" });
+    if (!r.error && r.status === 0) { _ffprobeBin = bin; return bin; }
+  }
+  _ffprobeBin = "ffprobe"; // 최후 폴백(실패해도 probe가 0 반환)
+  return _ffprobeBin;
+}
 let ffprobeWarned = false;
 function probe(file) {
-  const res = spawnSync("ffprobe", [
+  const res = spawnSync(resolveFfprobe(), [
     "-v", "error", "-select_streams", "v:0",
     "-show_entries", "stream=width,height:format=duration",
     "-of", "json", file,
   ], { encoding: "utf8" });
   if (res.error || res.status !== 0) {
     if (!ffprobeWarned) {
-      console.warn(c.y("⚠ ffprobe 없음 → 영상 길이/해상도 미설정(0). OTT 자동분류·길이배지엔 ffmpeg 설치 권장."));
+      console.warn(c.y("⚠ ffprobe 없음 → 영상 길이/해상도 미설정(0). OTT 자동분류·길이배지엔 ffmpeg 설치 권장. (.env.bulk 의 FFPROBE_PATH 로 경로 지정 가능)"));
       ffprobeWarned = true;
     }
     return { durationSeconds: 0, resolution: "" };
@@ -128,15 +171,20 @@ async function authenticate() {
     if (error) fail(`로그인 실패(이메일/비번): ${error.message}`);
     _session = data.session;
     console.log(c.g(`✓ 로그인: ${data.user.email}`));
-  } else if (ENV.BULK_ACCESS_TOKEN) {
-    const { data, error } = await supabase.auth.setSession({
-      access_token: ENV.BULK_ACCESS_TOKEN,
-      refresh_token: ENV.BULK_REFRESH_TOKEN || "",
-    });
-    if (error || !data.session) fail(`토큰 설정 실패: ${error?.message || "세션 없음"}. 만료됐을 수 있음 → 이메일/비번 권장.`);
+  } else if (ENV.BULK_REFRESH_TOKEN) {
+    // 리프레시 토큰으로 새 액세스 토큰 발급(액세스 토큰은 ~1h 만료). 회전된 토큰은 .env.bulk 에 저장.
+    const { data, error } = await supabase.auth.refreshSession({ refresh_token: ENV.BULK_REFRESH_TOKEN });
+    if (error || !data.session) fail(`토큰 갱신 실패(리프레시): ${error?.message || "no session"} — .env.bulk 의 BULK_REFRESH_TOKEN 재발급 필요`);
     _session = data.session;
-    const { data: u } = await supabase.auth.getUser();
-    console.log(c.g(`✓ 토큰 인증: ${u?.user?.email || "(이메일 미확인)"}`));
+    updateEnv({ BULK_ACCESS_TOKEN: data.session.access_token, BULK_REFRESH_TOKEN: data.session.refresh_token });
+    console.log(c.g(`✓ 토큰 갱신: ${data.user?.email || "(unknown)"}`));
+  } else if (ENV.BULK_ACCESS_TOKEN) {
+    // 액세스 토큰 직접 사용 — setSession(refresh 토큰 회전)을 피해 헤더에 바로 씀.
+    // 한 번 추출하면 액세스 토큰 유효시간(~1h)동안 재추출 없이 동작.
+    _session = { access_token: ENV.BULK_ACCESS_TOKEN, expires_at: 0 };
+    let email = "(unknown)";
+    try { email = JSON.parse(Buffer.from(ENV.BULK_ACCESS_TOKEN.split(".")[1], "base64").toString("utf8")).email || email; } catch {}
+    console.log(c.g(`✓ 토큰 직접 사용: ${email}`));
   } else {
     fail("인증 정보 없음. .env.bulk 에 BULK_EMAIL+BULK_PASSWORD (권장) 또는 BULK_ACCESS_TOKEN 설정.");
   }
@@ -180,14 +228,26 @@ async function tusUpload(file, auth) {
   if (!location) throw new Error("TUS Location 헤더 없음");
   const uploadUrl = new URL(location, TUS_ENDPOINT).toString();
 
-  const patchRes = await fetch(uploadUrl, {
-    method: "PATCH",
-    headers: { ...authHeaders, "Upload-Offset": "0", "Content-Type": "application/offset+octet-stream" },
-    body: buf,
-  });
-  if (patchRes.status !== 204 && patchRes.status !== 200) {
-    throw new Error(`TUS 업로드 실패 (${patchRes.status})`);
+  // 청크 분할 업로드: 단일 PATCH로 대용량(수백 MB)을 보내면 Bunny에 안 실려
+  // status=2·storageSize=0 으로 정체됨 → 32MB 청크로 나눠 순차 PATCH.
+  // 청크 크기는 256KB 배수여야 함(마지막 청크 제외). 서버가 반환하는 Upload-Offset 을 신뢰.
+  const CHUNK = 32 * 1024 * 1024; // 32MB
+  let offset = 0;
+  while (offset < buf.length) {
+    const end = Math.min(offset + CHUNK, buf.length);
+    const patchRes = await fetch(uploadUrl, {
+      method: "PATCH",
+      headers: { ...authHeaders, "Upload-Offset": String(offset), "Content-Type": "application/offset+octet-stream" },
+      body: buf.subarray(offset, end),
+    });
+    if (patchRes.status !== 204 && patchRes.status !== 200) {
+      throw new Error(`TUS 업로드 실패 (${patchRes.status}) offset=${offset}/${buf.length}`);
+    }
+    const serverOffset = parseInt(patchRes.headers.get("Upload-Offset") || "", 10);
+    offset = Number.isFinite(serverOffset) ? serverOffset : end;
+    process.stdout.write(c.dim(`${Math.round((offset / buf.length) * 100)}% `));
   }
+  if (offset !== buf.length) throw new Error(`TUS 업로드 불완전 (${offset}/${buf.length})`);
 }
 
 // ── 시리즈 캐시(이름→id) ────────────────────────────────────────────────────

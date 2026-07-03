@@ -2,7 +2,7 @@
 
 > **새 컴퓨터에서 이 폴더를 열고 작업을 이어갈 때 가장 먼저 읽는 문서.**
 > 개인 메모리(`~/.claude/...`)는 폴더 밖이라 이동 시 사라짐 → 핵심을 여기(저장소+GitHub)에 박아둠.
-> 마지막 갱신: 2026-06-19.
+> 마지막 갱신: 2026-06-26.
 
 ## 📖 새 컴퓨터에서 읽는 순서
 1. [`CLAUDE.md`](../CLAUDE.md) — 작업 원칙(⭐검증 우선·한글·실서비스·출시순서)
@@ -14,12 +14,13 @@
 
 ## 🟢 지금 진행 중인 메인 작업 4개 (상태 + 다음 스텝)
 
-### ① Google Play (안드로이드 앱) — 본인확인 검토중 ⏳
-- ✅ **개인(Personal) 개발자 계정 생성 완료** ($25 결제). 계정ID `6416230521373665610`. 소유 구글계정 `crebizlogistics@gmail.com`. 개발자명 **CREAITE**.
-- ✅ **본인확인·주소확인 제출** → **구글 검토중**(며칠, 결과는 crebizlogistics@gmail.com 메일). 제출정보: 이현우 / 사업자등록증(사업장주소) / 주민번호앞7 / KT알뜰폰 / +82 10-2797-7009.
-- ✅ Android 기기 액세스 확인 완료(Play Console 모바일앱 로그인).
-- ⏳ 연락처 전화번호 인증 = **본인확인 승인 후** 자동 열림.
-- **다음(승인 메일 오면):** `앱 만들기` → **CREAITE.aab 업로드(비공개테스트 트랙)** → **테스터 12명 초대×14일 연속** → 스토어등록정보(스크린샷·설명·개인정보URL `https://www.creaite.net/?info=privacy`)·콘텐츠선언(등급·타겟·데이터보안·광고) → **assetlinks에 Play 앱서명 SHA-256 추가** → 프로덕션 신청.
+### ① Google Play (안드로이드 앱) — 앱 생성·내부테스트 완료, 비공개테스트 준비중 ⏳ (2026-06-25 갱신)
+- ✅ **개인 개발자 계정 + 계정 인증 전부 완료** ($25). 계정ID `6416230521373665610`. **앱ID `4974574370398364495`**. 패키지 **`net.creaite.app`**. 개발자명 CREAITE. 본인확인·주소·전화번호·개발자프로필 모두 통과.
+- 📌 **본인확인 주소증빙 교훈(재발방지)**: 이전 거부=사업자등록증은 주소증빙 허용서류 아님 + 사업장주소 불일치. Play 법적주소는 **결제 프로필에서만 변경**(계정세부정보 직접수정 불가). → **자택**(경기도 파주시 송학1길 62-27, 102동 401호, 야당동 이래하이츠)으로 전환 + **KT M mobile 명세서**(주소 나오는 "명세서". 가입정보 조회엔 주소 없음)로 통과. ※사무실 62-24 퓨처스페이스와 혼동주의. 허용서류=90일내 공공요금/휴대폰고지서/카드·은행명세서(주소표기)/임대계약서/주소+사진 신분증. ❌사업자등록증·법인명의 임대계약서(개인계정 명의불일치)·건강검진안내·배당통지서.
+- ✅ **개발자 프로필**: 아이콘=`public/icon-512.png`, 헤더=`marketing/creaite-dev-header.png`(`scripts/generate-dev-header.mjs`로 생성, 4096×2304·sharp), 광고문구 한글.
+- ✅ **내부 테스트에 CREAITE.aab(1.0.0) 업로드 완료**. .aab 위치=**`D:\크리에잇 구글 스토어 PWABuilder\`**(CREAITE.aab·signing.keystore 2708B·signing-key-info.txt — ⚠️분실금지, 클라우드 백업권장). Play 앱서명 ON. 타겟SDK 35.
+- ✅ **TWA assetlinks 수정·배포완료**(커밋 8c6723f, Vercel 반영확인): 내부테스트 설치시 주소창 노출(Custom Tab 폴백) = assetlinks에 Play 앱서명 키 없어 도메인검증 실패 → 추가해 해결. **앱서명키 SHA-256=`CE:DF:45:44:E7:6E:1D:00:E6:FA:E7:20:DF:05:A2:00:0B:B3:D4:93:21:B0:CA:11:E0:2B:45:90:F3:3D`**, 업로드키=`6D:90:DA:..`. 앱서명키 페이지=Play Console `.../app/4974574370398364495/keymanagement`(좌측 "Google Play로 보호됨"→앱서명, 또는 직접 URL). ▶ assetlinks 갱신 후엔 폰에서 **앱 제거→재설치**해야 재검증(설치시 캐시).
+- ⏳ **남은 출시 단계**: 폰 재설치로 풀스크린 검증 → **앱설정 완료**(콘텐츠등급·데이터보안·타겟연령·광고선언·개인정보URL `https://www.creaite.net/?info=privacy`) → **비공개테스트 12명×14일 연속**(프로덕션 필수요건·병목) → **프로덕션 신청**.
 - **앱 패키지 파일 위치(⚠️ 폴더 밖!):** `C:\Users\crebi\Downloads\_creaite_pkg\` 와 `CREAITE - Google Play package.zip` 안에 `CREAITE.aab`·`CREAITE.apk`·`signing.keystore`·`signing-key-info.txt`. → **새 컴퓨터로 이 파일들(특히 `signing.keystore`)도 따로 옮기거나, 사용자가 백업한 것 복원.** (.aab/.apk은 PWABuilder로 재생성 가능: https://www.pwabuilder.com → www.creaite.net, Package ID `net.creaite.app`)
 - 패키지명 **`net.creaite.app`**. assetlinks 로컬키 지문은 이미 `public/.well-known/assetlinks.json`에 있음(`6D:90:DA:…:3D:85`). Play 업로드 후 **Play 앱서명 지문을 배열에 추가** 필요([twa-build-guide.md](twa-build-guide.md) 3단계).
 
@@ -41,6 +42,29 @@
 
 ### ④ Apple (iOS) — 보류 (베타 후)
 - Apple ID 생성이 throttle/503로 계속 실패 → **지금 불필요**(iOS는 나중). Apple Developer $99/년은 iOS 단계에서.
+
+---
+
+## ⏪ 되돌려야 할 임시 조치 (TODO — 조건 충족 시 원복)
+
+### [✅ 원복 완료 2026-07-03] 최전선 영화를 OTT 히어로에 배치 (2026-06-26)
+- **원복 사유**: 10분+ 정식 OTT 콘텐츠 **바다의 신비(11:41, 다큐멘터리/자연·풍경, id `b74e4056-5dc8-4824-8807-3675cbe2b247`)** 가 OTT에 등록되어 히어로가 자연히 채워짐 → 최전선을 OTT에서 내림(`show_on_ott=false`, `hero_clip_url=NULL`). **최전선은 15초라 시네마(60초+)·OTT(600초+) 둘 다 원래 미달 → 원복 후 홈(영화/액션)에만 노출.** (주의: 시네마 기준은 3분→1분(60초)으로 하향됨, `content_policy_v2.sql`.) **아래는 이력 보존용.**
+- **왜**: OTT는 10분+ 영상(`show_on_ott`)만 노출 → 정식 OTT 콘텐츠가 없어 히어로가 비어 허전함. 임시로 15초 액션클립 **최전선**(id `e21d3001-1265-47d8-81e4-f2a5a6993a50`)의 `show_on_ott`=true + `hero_clip_url` 수동 지정해 OTT 히어로 자동재생으로 채워둠.
+- **되돌리는 조건**: **10분+(600초) 정식 OTT 콘텐츠가 1편 이상 올라와 OTT 히어로가 자연히 채워지면** → 아래 SQL로 최전선을 OTT에서 내림. (최전선은 원래 영화/액션, 홈·시네마엔 그대로 노출 유지)
+- **확인 쿼리** (최전선 외에 진짜 OTT 콘텐츠가 생겼는지):
+  ```sql
+  SELECT id, title, duration_seconds, show_on_ott
+  FROM public.videos
+  WHERE show_on_ott = true AND id <> 'e21d3001-1265-47d8-81e4-f2a5a6993a50';
+  -- 위에서 1행 이상(=10분+ 정식 OTT 콘텐츠 존재) 나오면 아래 원복 실행
+  ```
+- **원복 SQL** (Supabase SQL Editor):
+  ```sql
+  UPDATE public.videos
+  SET show_on_ott = false, hero_clip_url = NULL
+  WHERE id = 'e21d3001-1265-47d8-81e4-f2a5a6993a50';
+  ```
+- 참고: OTT tier 분류 트리거는 `duration` 변경 시에만 작동 → 위 플래그 수동변경은 자동으로 안 바뀜(직접 원복해야 함). 분류 규칙은 [`supabase/phase1_video_placement.sql`](../supabase/phase1_video_placement.sql).
 
 ---
 

@@ -11,6 +11,14 @@ import { Button } from "./ui/button";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { getCategoryLabel, getGenreLabel, getAiToolLabel, getLanguageLabel } from "../i18n/categoryLabels";
+import { isNegotiationOnly } from "../utils/licensePricing";
+
+// 가격 입력 쉼표 포맷 (Upload.tsx 와 동일 규칙)
+const formatPriceCommas = (v: string) => {
+  const digits = String(v).replace(/[^\d]/g, "");
+  return digits ? new Intl.NumberFormat("en-US").format(parseInt(digits, 10)) : "";
+};
+const stripPriceCommas = (v: string) => String(v).replace(/[^\d]/g, "");
 
 // AI 홍보문건 결과 필드 — 복사 버튼 포함
 function PromoField({ label, value, t, multiline }: { label: string; value: string; t: any; multiline?: boolean }) {
@@ -70,6 +78,7 @@ interface ExtendedInitial {
   sponsorLogoUrl?: string | null;
   sponsorDisclosure?: string | null;
   sponsorLinkUrl?: string | null;
+  priceStandard?: number;
 }
 
 interface VideoEditModalProps {
@@ -179,6 +188,10 @@ export function VideoEditModal({
   const [sponsorDisclosure, setSponsorDisclosure] = useState<string>(initialExtended?.sponsorDisclosure || "유료 광고 포함");
   const [sponsorLinkUrl, setSponsorLinkUrl] = useState<string>(initialExtended?.sponsorLinkUrl || "");
   const [clearSponsor, setClearSponsor] = useState(false);
+  // 판매 가격 (All-in-One 단일가). 쉼표 포함 표시값으로 보관, 저장 시 숫자만 추출.
+  const [priceStandard, setPriceStandard] = useState<string>(
+    initialExtended?.priceStandard != null ? formatPriceCommas(String(initialExtended.priceStandard)) : ""
+  );
 
   // 시리즈(연속물) 지정 — 모달 열릴 때 현재 영상의 시리즈 + 내 시리즈 목록 로드
   const [seriesList, setSeriesList] = useState<{ id: string; title: string; episode_count: number }[]>([]);
@@ -436,6 +449,13 @@ export function VideoEditModal({
         setSaving(false);
         return;
       }
+      // 가격: 빈값이면 변경 없음(null), 있으면 숫자만 추출. 음수 불가(숫자만 파싱하므로 자동 보장)
+      const priceNum = priceStandard.trim() === "" ? null : parseInt(stripPriceCommas(priceStandard), 10);
+      if (priceNum !== null && (isNaN(priceNum) || priceNum < 0)) {
+        toast.error(t("videoEditModal.priceInvalid", "가격은 0 이상의 숫자여야 합니다"));
+        setSaving(false);
+        return;
+      }
       const { error: rpcErr } = await supabase.rpc("update_my_video_metadata", {
         p_video_id: videoId,
         p_thumbnail: finalThumbnail ?? null,
@@ -467,6 +487,7 @@ export function VideoEditModal({
         p_sponsor_disclosure: sponsorDisclosure,
         p_sponsor_link_url: sponsorLinkUrl,
         p_clear_sponsor:    clearSponsor,
+        p_price_standard:   priceNum,
       });
       if (rpcErr) throw rpcErr;
 
@@ -507,6 +528,7 @@ export function VideoEditModal({
           sponsorLogoUrl: clearSponsor ? null : (sponsorLogoUrl || null),
           sponsorDisclosure: clearSponsor ? null : (sponsorDisclosure || null),
           sponsorLinkUrl: clearSponsor ? null : (sponsorLinkUrl || null),
+          priceStandard: priceNum ?? undefined,
         },
       });
       onClose();
@@ -648,6 +670,43 @@ export function VideoEditModal({
                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1] resize-y"
                   />
                 </div>
+              </div>
+            </section>
+
+            {/* 1.6. 판매 가격 (All-in-One 단일가) */}
+            <section>
+              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <TagIcon className="w-4 h-4 text-[#8b5cf6]" />
+                {t("videoEditModal.priceHeader", "판매 가격")}
+              </h3>
+              <p className="text-xs text-gray-500 mb-3">
+                {t("videoEditModal.priceHint", "라이선스(다운로드) 판매가. 0원이면 판매 안 함(시청만).")}
+              </p>
+              <div className="max-w-xs">
+                <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2 focus-within:border-[#6366f1]">
+                  <span className="text-sm text-gray-400">₩</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={priceStandard}
+                    onChange={e => setPriceStandard(formatPriceCommas(e.target.value))}
+                    placeholder="0"
+                    className="flex-1 bg-transparent text-sm text-white placeholder-gray-600 focus:outline-none text-right"
+                  />
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1.5">
+                  {t("upload.priceVatNotice", "표시가는 부가세(VAT) 별도이며 결제 시 10%가 추가됩니다.")}
+                </p>
+                {parseInt(stripPriceCommas(priceStandard) || "0", 10) === 0 && (
+                  <p className="text-[11px] text-emerald-400 mt-1">
+                    {t("videoEditModal.priceFreeNotice", "0원 — 라이선스 미판매(무료 시청 콘텐츠로 노출)")}
+                  </p>
+                )}
+                {isNegotiationOnly(parseInt(stripPriceCommas(priceStandard) || "0", 10)) && (
+                  <div className="mt-2 text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 leading-relaxed">
+                    💡 {t("videoEditModal.priceNegotiationNotice", "₩1,000만 이상은 사이트 직접 판매가 아닌 1:1 협의 판매로 등록됩니다. 구매자에겐 \"별도 협의\"로 표시됩니다.")}
+                  </div>
+                )}
               </div>
             </section>
 
