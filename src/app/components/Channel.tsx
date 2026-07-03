@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { UserAvatar } from "./UserAvatar";
 import { Users, Compass, Loader2, Play, Eye, Crown, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
@@ -449,13 +450,13 @@ function ExploreTab({
 
             {/* 큰 아바타 + 이름 + 통계 (중앙 정렬) */}
             <div className="flex flex-col items-center mt-3 mb-4">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#1E1E24] to-[#2B2B36] border-2 border-white/10 flex items-center justify-center shadow-lg overflow-hidden mb-3">
-                {c.avatar_url ? (
-                  <img src={c.avatar_url} alt={c.creator_name} className="w-full h-full object-cover" />
-                ) : (
-                  <Sparkles className="w-8 h-8 text-gray-400" />
-                )}
-              </div>
+              <UserAvatar
+                src={c.avatar_url}
+                name={c.creator_name}
+                className="w-20 h-20 border-2 border-white/10 shadow-lg mb-3"
+                bgClassName="bg-gradient-to-br from-[#1E1E24] to-[#2B2B36]"
+                fallback={<Sparkles className="w-8 h-8 text-gray-400" />}
+              />
               <h3 className="font-bold text-white text-base mb-1.5 line-clamp-1 text-center px-2">
                 {c.creator_name}
               </h3>

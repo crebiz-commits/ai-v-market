@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { UserAvatar } from "./UserAvatar";
 import { ExternalAdSlot } from "./ExternalAdSlot";
 import { Trophy, MessageCircle, Heart, Bookmark, Plus, X, Send, Loader2, Handshake, UserPlus, HelpCircle, Briefcase, Megaphone, Terminal, Play, Film } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
@@ -1003,13 +1004,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                   >
                     <div className="p-4">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] overflow-hidden flex-shrink-0 flex items-center justify-center">
-                          {post.avatar ? (
-                            <img src={post.avatar} alt={post.author} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-white font-bold text-sm">{post.author.charAt(0)}</span>
-                          )}
-                        </div>
+                        <UserAvatar src={post.avatar} name={post.author} className="w-10 h-10" fallbackClassName="text-sm" />
                         <div className="flex-1">
                           <p className="font-medium">{post.author}</p>
                           <p className="text-xs text-muted-foreground">{post.timestamp}</p>
@@ -1292,13 +1287,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                       className={`bg-card rounded-xl border border-border p-4 transition-colors hover:border-[#6366f1]/50 cursor-pointer ${closed ? "opacity-60" : ""}`}
                     >
                       <div className="flex items-start gap-3">
-                        {c.avatar ? (
-                          <img src={c.avatar} alt={c.author} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full flex-shrink-0 bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center text-white font-bold">
-                            {(c.author || "C").charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                        <UserAvatar src={c.avatar} name={c.author} className="w-10 h-10" />
                         <div className="flex-1 min-w-0">
                           {/* 타입 배지 + 상태 */}
                           <div className="flex items-center gap-2 mb-1.5 flex-wrap">

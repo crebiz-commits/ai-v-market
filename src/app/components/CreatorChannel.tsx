@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { UserAvatar } from "./UserAvatar";
 import { ArrowLeft, Loader2, Play, Sparkles, Eye, Users, Film, Filter, Flag, UserX, MoreVertical } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
@@ -226,13 +227,13 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
           <div className="px-5 md:px-6 pb-6">
             <div className="relative -mt-14 mb-4 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
               <div className="flex items-end gap-4">
-                <div className="w-24 h-24 md:w-28 md:h-28 rounded-full border-[6px] border-[#121212] bg-gradient-to-br from-[#1E1E24] to-[#2B2B36] flex items-center justify-center shadow-lg overflow-hidden shrink-0">
-                  {profile.avatar_url ? (
-                    <img src={profile.avatar_url} alt={profile.creator_name} className="w-full h-full object-cover" />
-                  ) : (
-                    <Sparkles className="w-10 h-10 text-gray-400" />
-                  )}
-                </div>
+                <UserAvatar
+                  src={profile.avatar_url}
+                  name={profile.creator_name}
+                  className="w-24 h-24 md:w-28 md:h-28 border-[6px] border-[#121212] shadow-lg"
+                  bgClassName="bg-gradient-to-br from-[#1E1E24] to-[#2B2B36]"
+                  fallback={<Sparkles className="w-10 h-10 text-gray-400" />}
+                />
               </div>
               {isMyChannel ? (
                 <button

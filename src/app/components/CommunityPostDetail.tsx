@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { UserAvatar } from "./UserAvatar";
 import { ArrowLeft, Heart, MessageCircle, Bookmark, Send, Share2, Flag, Pencil, Trash2, Play, Copy, Megaphone, Terminal } from "lucide-react";
 import { toast } from "sonner";
 import { CommentPanel } from "./CommentPanel";
@@ -174,13 +175,7 @@ export function CommunityPostDetail({
       <article className="max-w-2xl mx-auto px-4 md:px-6 py-6 pb-40">
         {/* 작성자 정보 */}
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] overflow-hidden flex-shrink-0 flex items-center justify-center">
-            {post.avatar ? (
-              <img src={post.avatar} alt={post.author} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-white font-bold">{post.author.charAt(0)}</span>
-            )}
-          </div>
+          <UserAvatar src={post.avatar} name={post.author} className="w-12 h-12" />
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-foreground">{post.author}</p>
             <p className="text-xs text-muted-foreground">{post.timestamp}</p>

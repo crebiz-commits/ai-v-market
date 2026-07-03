@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, Search, ShieldAlert, Crown, ShieldCheck, Ban, CheckCircle2, Users } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
+import { UserAvatar } from "./UserAvatar";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 
@@ -125,13 +126,7 @@ export function AdminUsers() {
           {users.map(u => (
             <div key={u.id} className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-start gap-3">
-                {u.avatar_url ? (
-                  <img src={u.avatar_url} className="w-12 h-12 rounded-full object-cover" alt="" />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center">
-                    <Users className="w-6 h-6 text-white" />
-                  </div>
-                )}
+                <UserAvatar src={u.avatar_url} name={u.display_name} className="w-12 h-12" fallbackClassName="text-lg" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold truncate">{u.display_name || "이름 없음"}</span>

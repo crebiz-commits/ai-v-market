@@ -5,6 +5,7 @@
 // 한 화면에서 사용자/콘텐츠/매출/시청/신고 전체 현황 파악.
 // ════════════════════════════════════════════════════════════════════════════
 import { useEffect, useState } from "react";
+import { UserAvatar } from "./UserAvatar";
 import {
   Loader2, Users, Crown, Film, EyeOff, DollarSign, AlertCircle,
   Eye, Clock, TrendingUp, Megaphone, ShieldAlert, Flag, RefreshCw
@@ -290,13 +291,7 @@ export function AdminOverview() {
               {topCreators.map((c, i) => (
                 <div key={c.creator_id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted">
                   <span className="text-sm font-bold text-muted-foreground w-5">{i + 1}</span>
-                  {c.avatar_url ? (
-                    <img src={c.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center">
-                      <Users className="w-5 h-5 text-white" />
-                    </div>
-                  )}
+                  <UserAvatar src={c.avatar_url} name={(c as any).creator_name} className="w-10 h-10" fallback={<Users className="w-5 h-5 text-white" />} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate">{c.display_name || "이름 없음"}</p>
                     <p className="text-[11px] text-muted-foreground">영상 {num(c.video_count)}개</p>

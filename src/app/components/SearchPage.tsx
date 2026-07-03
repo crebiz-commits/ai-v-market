@@ -3,6 +3,7 @@
 // 영상/크리에이터 검색 + 자동완성 + 필터 + 정렬 + 인기 검색어 + 검색 기록
 // ════════════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from "react";
+import { UserAvatar } from "./UserAvatar";
 import { Search, X, Loader2, TrendingUp, Clock, Filter, ChevronDown, Eye, Heart, Play, Users, ArrowLeft, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
@@ -771,13 +772,7 @@ function CreatorRow({ creator, onClick }: { creator: CreatorResult; onClick: () 
       onClick={onClick}
       className="w-full flex items-center gap-3 p-3 bg-[#121212] rounded-xl border border-white/5 hover:border-white/10 transition-colors text-left"
     >
-      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center overflow-hidden flex-shrink-0">
-        {creator.avatar_url ? (
-          <img src={creator.avatar_url} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <span className="text-white text-lg font-bold">{(creator.display_name || "?").charAt(0).toUpperCase()}</span>
-        )}
-      </div>
+      <UserAvatar src={creator.avatar_url} name={creator.display_name} className="w-12 h-12" fallbackClassName="text-lg" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-white truncate">{creator.display_name || t("searchPage.nameless")}</p>
         {creator.bio && <p className="text-xs text-gray-500 truncate mt-0.5">{creator.bio}</p>}
