@@ -547,17 +547,19 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   // 페이월 cutoff와 별도 LISTENER_ID로 구독해서 서로 간섭 없음.
   useEffect(() => {
     if (!product.id || !durationSeconds) return;
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
+    // ⚠️ iframe 존재로 early-return 하면 안 됨: 프리롤 광고 중엔 iframe(iframeBlocked)이 아직
+    //    마운트 안 돼 있고, 광고 종료 후 마운트돼도 이 effect 는 재실행 안 되므로 추적을 영영
+    //    못 붙임(= 60초+ 영상 시청이 집계 0). window 리스너를 항상 유지하고, iframe 이 뒤늦게
+    //    떠도 timeupdate 가 올 때까지 주기적으로 재구독한다.
     const LISTENER_ID = "creaite-view-tracker";
     const BUNNY_ORIGIN = "https://iframe.mediadelivery.net";
     const threshold = Math.max(5, Math.floor(durationSeconds * 0.30));
     let maxWatched = 0;
     let tracked = false;
+    let gotTimeupdate = false;
 
     const subscribeTimeupdate = () => {
-      iframe.contentWindow?.postMessage(
+      iframeRef.current?.contentWindow?.postMessage(
         JSON.stringify({
           context: "player.js",
           version: "0.0.1",
@@ -586,6 +588,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       // 다른 LISTENER (cinema cutoff 등) 이벤트는 무시
       if (data?.event !== "timeupdate" || data?.listener !== LISTENER_ID) return;
 
+      gotTimeupdate = true;
       const seconds = data?.value?.seconds ?? 0;
       if (seconds > maxWatched) maxWatched = seconds;
 
@@ -596,8 +599,19 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     };
 
     window.addEventListener("message", handleMessage);
+
+    // "ready" 이벤트를 놓쳤거나 iframe 이 프리롤 후 늦게 마운트되는 경우 대비 —
+    // timeupdate 가 실제로 들어올 때까지(최대 ~21초) 주기적으로 재구독.
+    let tries = 0;
+    const poll = setInterval(() => {
+      tries += 1;
+      if (gotTimeupdate || tries > 14) { clearInterval(poll); return; }
+      subscribeTimeupdate();
+    }, 1500);
+
     return () => {
       window.removeEventListener("message", handleMessage);
+      clearInterval(poll);
       // 30%에 못 도달했어도 5초+ 시청은 기록 (서버에서 유효성 판정)
       if (!tracked && maxWatched >= 5) {
         trackVideoView(product.id, Math.floor(maxWatched));
