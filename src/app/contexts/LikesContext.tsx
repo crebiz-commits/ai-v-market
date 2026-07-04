@@ -55,6 +55,7 @@ export function LikesProvider({ children }: { children: ReactNode }) {
   const [viewCounts, setViewCounts] = useState<Record<string, number>>({});
   const [ready, setReady] = useState(false);
   const inFlight = useRef<Set<string>>(new Set());  // 영상별 더블클릭 경합 방지
+  const toggledRef = useRef<Set<string>>(new Set()); // H8: 이 세션에 사용자가 좋아요 토글한 영상(재시드 시 낙관값 보존)
 
   // 유저 로그인/변경 시 좋아요 목록 1회 로드. 로그아웃이면 초기화.
   useEffect(() => {
@@ -86,7 +87,18 @@ export function LikesProvider({ children }: { children: ReactNode }) {
     [viewCounts],
   );
 
-  const seedCount = useCallback(seedOnce(setCounts), []);
+  // H8: 좋아요 수는 "미토글 영상은 더 신선한(큰) 값으로 갱신, 토글한 영상은 낙관값 보존".
+  //   → 여러 피드 중 먼저 온 stale 값으로 세션 내내 고착되던 문제 해소. unlike 낙관값은
+  //     toggledRef 로 보호(덮지 않음). 좋아요는 대체로 단조증가라 max(grow)가 안전.
+  const seedCount = useCallback((id: string, count: number | null | undefined) => {
+    if (count == null) return;
+    setCounts((prev) => {
+      if (toggledRef.current.has(id)) return prev;          // 사용자가 토글한 건 낙관값 유지
+      const inc = Math.max(0, count);
+      const cur = prev[id];
+      return (cur === undefined || inc > cur) ? { ...prev, [id]: inc } : prev;  // 미토글은 더 큰 값으로만
+    });
+  }, []);
   const seedComments = useCallback(seedOnce(setCommentBase), []);  // 서버 기준값만 seed-once
   const seedViews = useCallback(seedOnce(setViewCounts), []);
 
@@ -99,6 +111,7 @@ export function LikesProvider({ children }: { children: ReactNode }) {
     if (!user) return "needAuth";
     if (inFlight.current.has(videoId)) return "error";
     inFlight.current.add(videoId);
+    toggledRef.current.add(videoId);   // H8: 이후 재시드가 이 영상의 낙관값을 덮지 않도록
 
     const wasLiked = liked.has(videoId);
     const next = !wasLiked;

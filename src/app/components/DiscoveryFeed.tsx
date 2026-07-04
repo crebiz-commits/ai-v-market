@@ -1226,8 +1226,9 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
       container.removeEventListener("scroll", onScroll);
       if (debounceTimer) clearTimeout(debounceTimer);
     };
-  }, [videos, loading]); // loading 포함: setVideos와 setLoading(false)가 다른 배치로 커밋돼
-                         // loading=false 시점에 container가 생기므로 재실행 필요
+  }, [videos.length > 0, loading]); // 매 append 마다 리스너 재바인딩하던 것 → 피드 등장/소멸(0↔N)
+                                    // 시에만 재바인딩(detectActive 는 내부에서 현재 래퍼를 querySelectorAll
+                                    // 로 읽어 새 항목 반영). loading 포함: container 는 loading=false 시 생김.
 
   // 좋아요 토글 — 전역 스토어 경유(모든 피드 동시 반영). 낙관적 반영·롤백·중복방지는 스토어가 처리.
   const toggleLike = useCallback(async (videoId: string, base?: number) => {
