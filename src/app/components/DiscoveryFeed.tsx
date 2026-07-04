@@ -803,7 +803,9 @@ const FEED_PAGE_SIZE = 12;
 
 // 탭 복귀 시 즉시 복원용 모듈 캐시(메모리, 세션 내). 키 = `${userId}:${chip}`.
 // 무한스크롤로 누적된 피드를 통째로 보관 → 복귀 시 리로드/스피너 없이 직전 상태 그대로.
-type HomeFeedSnapshot = { videos: Video[]; offset: number; hasMore: boolean; commentCounts: Record<string, number>; ads: Ad[]; order: string[] };
+type HomeFeedSnapshot = { videos: Video[]; offset: number; hasMore: boolean; commentCounts: Record<string, number>; ads: Ad[]; order: string[]; ts: number };
+const HOME_CACHE_TTL_MS = 90_000;   // H9: 탭복귀 캐시 신선도 — 90초 지난 스냅샷은 폐기하고 새로 로드
+const HOME_CACHE_MAX = 8;           // H9: 캐시 엔트리 상한(메모리 무한 증가 방지)
 const homeFeedCache: Record<string, HomeFeedSnapshot> = {};
 
 export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOpenSearch, onNavigate }: DiscoveryFeedProps) {
@@ -859,6 +861,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   const fetchingRef = useRef(false);    // 중복 호출 방지
   const chipRef = useRef("all");        // 현재 칩 필터 (loadMore stale 방지용)
   const orderRef = useRef<string[]>([]); // H3: 세션 시작 시 확정한 랭킹된 video_id 전체 순서(고정)
+  const sessionSeqRef = useRef(0);       // H10: 칩/유저 세션 카운터 — stale loadMore 완료가 새 세션 상태를 못 건드리게
   const { user, profile, isSubscriber } = useAuth();
   const { isBlocked } = useBlockedUsers();
   const showcase = shouldShowShowcase(profile?.is_admin);
@@ -926,6 +929,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     fetchingRef.current = true;
     setLoadingMore(true);
     const reqChip = chipRef.current;   // 요청 시점 칩 스냅샷 (변경 시 결과 폐기 — 경쟁 방지)
+    const mySeq = sessionSeqRef.current;   // H10: 이 세션 스냅샷 (완료 시 세션 일치할 때만 상태 정리)
     try {
       const from = offsetRef.current;
       // H3 완전안정: 세션 시작 시 고정한 랭킹 순서(orderRef)에서 다음 페이지 id 를 잘라
@@ -976,8 +980,11 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
         setFeedError(true);
       }
     } finally {
-      fetchingRef.current = false;
-      setLoadingMore(false);
+      // H10: 그 사이 칩/유저가 바뀌었으면(=새 세션) 이 stale 완료는 새 세션의 fetching/loading 을 안 건드린다
+      if (mySeq === sessionSeqRef.current) {
+        fetchingRef.current = false;
+        setLoadingMore(false);
+      }
     }
   }, [showcase]);
 
@@ -1000,7 +1007,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     let cancelled = false;
     const cacheKey = `${user?.id ?? "anon"}:${chip}`;
     const snap = homeFeedCache[cacheKey];
-    if (snap) {
+    if (snap && Date.now() - snap.ts < HOME_CACHE_TTL_MS) {   // H9: TTL 이내만 즉시 복원, 오래되면 새로 로드
+      sessionSeqRef.current++;   // H10: 캐시 복원도 새 세션 — 이전 in-flight loadMore 무효화
       chipRef.current = chip;
       offsetRef.current = snap.offset;
       hasMoreRef.current = snap.hasMore;
@@ -1020,6 +1028,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     (async () => {
       setLoading(true);
       // 페이지네이션 상태 리셋 (칩 필터 반영)
+      sessionSeqRef.current++;   // H10: 새 세션 시작 → 이전 세션의 in-flight loadMore 완료를 무효화
       chipRef.current = chip;
       offsetRef.current = 0;
       hasMoreRef.current = true;
@@ -1062,8 +1071,15 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   useEffect(() => {
     if (loading) return;
     homeFeedCache[`${user?.id ?? "anon"}:${chip}`] = {
-      videos, offset: offsetRef.current, hasMore: hasMoreRef.current, commentCounts, ads, order: orderRef.current,
+      videos, offset: offsetRef.current, hasMore: hasMoreRef.current, commentCounts, ads, order: orderRef.current, ts: Date.now(),
     };
+    // H9: 캐시 크기 제한 — 오래된 스냅샷부터 제거
+    const keys = Object.keys(homeFeedCache);
+    if (keys.length > HOME_CACHE_MAX) {
+      keys.sort((a, b) => homeFeedCache[a].ts - homeFeedCache[b].ts)
+        .slice(0, keys.length - HOME_CACHE_MAX)
+        .forEach((k) => delete homeFeedCache[k]);
+    }
   }, [videos, ads, commentCounts, loading, user?.id, chip]);
 
   // 칩 바 좌우 화살표 표시 여부 (유튜브식: 넘칠 때만, 스크롤 위치 따라)
