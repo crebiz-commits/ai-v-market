@@ -218,6 +218,7 @@ const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) 
         <img
           src={ad.image_url}
           alt={ad.title}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           className="absolute inset-0 w-full h-full object-cover"
         />
       ) : ad.video_url ? (
@@ -227,6 +228,7 @@ const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) 
         <img
           src={ad.thumbnail_url}
           alt={ad.title}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           className="absolute inset-0 w-full h-full object-cover"
         />
       ) : (
@@ -600,7 +602,8 @@ const MovieSection = memo(({
           alt=""
           loading="lazy"
           decoding="async"
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 z-[15] pointer-events-none ${isPlaying ? 'opacity-0' : 'opacity-100'}`}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 z-[15] pointer-events-none ${isPlaying ? 'opacity-0' : 'opacity-100'} ${isAgeLocked ? 'blur-xl scale-110' : ''}`}
         />
         <div className="relative w-full h-full z-10 pointer-events-none">
           <div ref={containerRef} className="w-full h-full" />
@@ -1177,6 +1180,11 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     if (res === "needAuth" && onSignInClick) onSignInClick();
   }, [onSignInClick, toggleLikeStore]);
 
+  // 안정 참조 — DesktopMovieCard/MovieSection(memo) 리렌더 방지용(H12)
+  const handleComment = useCallback((video: Video) => {
+    if (handleShowcaseClick(video.id)) return;
+    setCommentVideo(video);
+  }, []);
   const handleShare = useCallback(async (video: Video) => {
     if (handleShowcaseClick(video.id)) return;
     const url = `${window.location.origin}?video=${video.id}`;
@@ -1278,7 +1286,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
                 onVideoClick={onVideoClick}
                 onToggleLike={toggleLike}
                 onSetActive={(id) => setActiveId(id)}
-                onComment={(v) => { if (handleShowcaseClick(v.id)) return; setCommentVideo(v); }}
+                onComment={handleComment}
                 onShare={handleShare}
                 onFullscreen={(v) => { if (handleShowcaseClick(v.id)) return; openFullscreenGated(v); }}
                 commentCount={commentCounts[item.id] || 0}
@@ -1397,7 +1405,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
                   video={v}
                   onVideoClick={onVideoClick}
                   onToggleLike={toggleLike}
-                  onComment={(vid) => { if (handleShowcaseClick(vid.id)) return; setCommentVideo(vid); }}
+                  onComment={handleComment}
                   onShare={handleShare}
                   commentCount={commentCounts[v.id] || 0}
                   creatorAvatar={v.creatorId ? creatorInfo[v.creatorId]?.avatar ?? null : null}
@@ -1643,11 +1651,11 @@ const DesktopAdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: s
     >
       <div className="relative aspect-video bg-black overflow-hidden">
         {ad.image_url ? (
-          <img src={ad.image_url} alt={ad.title} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
+          <img src={ad.image_url} alt={ad.title} loading="lazy" decoding="async" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />
         ) : ad.video_url ? (
           <AdVideoPlayer src={ad.video_url} poster={ad.thumbnail_url} />
         ) : ad.thumbnail_url ? (
-          <img src={ad.thumbnail_url} alt={ad.title} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
+          <img src={ad.thumbnail_url} alt={ad.title} loading="lazy" decoding="async" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[#6366f1] to-[#8b5cf6]" />
         )}
@@ -1671,12 +1679,16 @@ const DesktopAdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: s
   );
 });
 
-function DesktopMovieCard({ video, onVideoClick, onToggleLike, onComment, onShare, commentCount = 0, creatorAvatar = null, creatorName = null, onViewCreator, onSignInClick }: { video: Video; onVideoClick: (video: Video) => void; onToggleLike: (id: string, base: number) => void; onComment: (video: Video) => void; onShare: (video: Video) => void; commentCount?: number; creatorAvatar?: string | null; creatorName?: string | null; onViewCreator?: (creatorId: string) => void; onSignInClick?: () => void }) {
+const DesktopMovieCard = memo(function DesktopMovieCard({ video, onVideoClick, onToggleLike, onComment, onShare, commentCount = 0, creatorAvatar = null, creatorName = null, onViewCreator, onSignInClick }: { video: Video; onVideoClick: (video: Video) => void; onToggleLike: (id: string, base: number) => void; onComment: (video: Video) => void; onShare: (video: Video) => void; commentCount?: number; creatorAvatar?: string | null; creatorName?: string | null; onViewCreator?: (creatorId: string) => void; onSignInClick?: () => void }) {
   const { isLiked: isLikedStore, displayCount, displayComments } = useLikes();
   const isLiked = isLikedStore(video.id);
   const likeDisplay = displayCount(video.id, video.likes);
   const commentDisplay = displayComments(video.id, commentCount);
   const { t } = useTranslation();
+  const { profile, user } = useAuth();
+  const ageVerified = profile?.age_verified ?? false;
+  const isMyVideo = !!user?.id && !!video.creatorId && user.id === video.creatorId;
+  const isAgeLocked = !isMyVideo && shouldBlur((video as any).age_rating, ageVerified);
   const [isHovered, setIsHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -1684,7 +1696,7 @@ function DesktopMovieCard({ video, onVideoClick, onToggleLike, onComment, onShar
   // Video.js를 React 외부에서 생성 — removeChild 충돌 방지
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !isHovered || playerRef.current) return;
+    if (!container || !isHovered || playerRef.current || isAgeLocked) return;  // 19+ 미인증 호버 자동재생 차단
 
     // React가 소유하지 않는 video 엘리먼트를 직접 생성
     const videoEl = document.createElement('video');
@@ -1704,7 +1716,7 @@ function DesktopMovieCard({ video, onVideoClick, onToggleLike, onComment, onShar
       const pp = p.play();
       if (pp) pp.catch(() => {});
     });
-  }, [isHovered, video.videoUrl, video.highlightStart]);
+  }, [isHovered, video.videoUrl, video.highlightStart, isAgeLocked]);
 
   // 호버 해제 시 일시정지
   useEffect(() => {
@@ -1731,7 +1743,9 @@ function DesktopMovieCard({ video, onVideoClick, onToggleLike, onComment, onShar
       className="bg-[#141414] rounded-2xl overflow-hidden border border-white/[0.08] hover:border-[#6366f1]/50 shadow-lg hover:shadow-[0_0_30px_rgba(99,102,241,0.15)] transition-all duration-300 cursor-pointer group"
     >
       <div className="relative aspect-video bg-black overflow-hidden">
-        <img src={video.thumbnail} loading="lazy" decoding="async" className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 z-10 ${isHovered ? 'opacity-0' : 'opacity-100'}`} />
+        <img src={video.thumbnail} loading="lazy" decoding="async"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 z-10 ${isHovered && !isAgeLocked ? 'opacity-0' : 'opacity-100'} ${isAgeLocked ? 'blur-xl scale-110' : ''}`} />
         {/* React가 아닌 Video.js가 직접 관리하는 컨테이너 */}
         <div ref={containerRef} className="absolute inset-0 z-0" />
         <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 items-start">
@@ -1750,6 +1764,16 @@ function DesktopMovieCard({ video, onVideoClick, onToggleLike, onComment, onShar
         </div>
         {/* 호버 시 하단 그라디언트 */}
         <div className={`absolute inset-0 bg-gradient-to-t from-black/60 to-transparent transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`} />
+        {/* Phase 26: 19+ 잠금 오버레이 (본인 영상 제외) — 클릭은 카드로 버블 → ProductDetail 재게이트 */}
+        {isAgeLocked && (
+          <div className="absolute inset-0 z-30 bg-black/80 backdrop-blur-xl flex flex-col items-center justify-center text-center p-4">
+            <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center mb-3">
+              <Lock className="w-6 h-6 text-white" />
+            </div>
+            <p className="text-base font-black text-white mb-1">{t("video.ageGateLockTitle")}</p>
+            <p className="text-xs text-gray-300 underline">{t("video.ageGateLockHint")}</p>
+          </div>
+        )}
       </div>
       <div className="p-5">
         <div className="flex justify-between items-start mb-2">
@@ -1813,4 +1837,4 @@ function DesktopMovieCard({ video, onVideoClick, onToggleLike, onComment, onShar
       </div>
     </motion.div>
   );
-}
+});
