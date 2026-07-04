@@ -803,7 +803,7 @@ const FEED_PAGE_SIZE = 12;
 
 // 탭 복귀 시 즉시 복원용 모듈 캐시(메모리, 세션 내). 키 = `${userId}:${chip}`.
 // 무한스크롤로 누적된 피드를 통째로 보관 → 복귀 시 리로드/스피너 없이 직전 상태 그대로.
-type HomeFeedSnapshot = { videos: Video[]; offset: number; hasMore: boolean; commentCounts: Record<string, number>; ads: Ad[] };
+type HomeFeedSnapshot = { videos: Video[]; offset: number; hasMore: boolean; commentCounts: Record<string, number>; ads: Ad[]; order: string[] };
 const homeFeedCache: Record<string, HomeFeedSnapshot> = {};
 
 export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOpenSearch, onNavigate }: DiscoveryFeedProps) {
@@ -854,10 +854,11 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [feedError, setFeedError] = useState(false);   // H5: 피드 로드 실패 표시(무한 재시도 방지)
-  const offsetRef = useRef(0);          // 다음 페이지 시작 위치 (DB row 기준)
+  const offsetRef = useRef(0);          // 고정 순서(orderRef) 내 다음 슬라이스 시작 인덱스
   const hasMoreRef = useRef(true);      // 클로저 stale 방지용
   const fetchingRef = useRef(false);    // 중복 호출 방지
   const chipRef = useRef("all");        // 현재 칩 필터 (loadMore stale 방지용)
+  const orderRef = useRef<string[]>([]); // H3: 세션 시작 시 확정한 랭킹된 video_id 전체 순서(고정)
   const { user, profile, isSubscriber } = useAuth();
   const { isBlocked } = useBlockedUsers();
   const showcase = shouldShowShowcase(profile?.is_admin);
@@ -927,20 +928,20 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     const reqChip = chipRef.current;   // 요청 시점 칩 스냅샷 (변경 시 결과 폐기 — 경쟁 방지)
     try {
       const from = offsetRef.current;
-      // 개인화 추천: 시청이력·좋아요·팔로우 기반 순위 (비로그인/이력없음은 인기+최신).
-      // 모든 show_on_home 영상이 포함되며 우선순위만 달라짐. id 타이브레이커로 페이지 안정.
-      const { data, error } = await supabase.rpc("get_home_feed", {
-        p_limit: FEED_PAGE_SIZE,
-        p_offset: from,
-        p_filter: reqChip,
-      });
+      // H3 완전안정: 세션 시작 시 고정한 랭킹 순서(orderRef)에서 다음 페이지 id 를 잘라
+      //   상세를 배치 조회 → 페이지 경계 흔들림(누락/중복) 원천 차단. offset 은 "고정 순서"
+      //   기준으로 전진(반환 행수 아님 → 그 사이 숨겨진 영상도 한 번만 건너뜀).
+      const order = orderRef.current;
+      const pageIds = order.slice(from, from + FEED_PAGE_SIZE);
+      if (pageIds.length === 0) { hasMoreRef.current = false; setHasMore(false); return; }
+      const { data, error } = await supabase.rpc("get_home_feed_by_ids", { p_ids: pageIds });
       if (error) throw error;
       setFeedError(false);   // 성공 → 에러 상태 해제
       // 도중에 칩이 바뀌었으면 이전 칩 결과를 버린다 (초기화 로직이 새로 로드함)
       if (reqChip !== chipRef.current) return;
       const rows = data || [];
-      offsetRef.current = from + rows.length;
-      if (rows.length < FEED_PAGE_SIZE) { hasMoreRef.current = false; setHasMore(false); }
+      offsetRef.current = from + pageIds.length;
+      if (offsetRef.current >= order.length) { hasMoreRef.current = false; setHasMore(false); }
       if (rows.length > 0) {
         let mapped = rows.map(mapVideoRow);
         // Showcase Mode(데모)일 때만 첫 페이지에 Mock 합성 (현재 비활성)
@@ -980,11 +981,16 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     }
   }, [showcase]);
 
-  // H5: 에러 후 재시도 — 에러 해제 + 센티넬 재가동 + 다음 페이지 재요청
-  const retryLoad = useCallback(() => {
+  // H5: 에러 후 재시도 — 에러 해제 + (순서 미확정이면 재확정) + 다음 페이지 재요청
+  const retryLoad = useCallback(async () => {
     setFeedError(false);
     hasMoreRef.current = true;
     setHasMore(true);
+    if (orderRef.current.length === 0) {
+      const { data, error } = await supabase.rpc("get_home_feed_order", { p_filter: chipRef.current });
+      if (error) { setFeedError(true); hasMoreRef.current = false; setHasMore(false); return; }
+      orderRef.current = (data as string[]) || [];
+    }
     loadMore();
   }, [loadMore]);
 
@@ -999,6 +1005,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
       offsetRef.current = snap.offset;
       hasMoreRef.current = snap.hasMore;
       fetchingRef.current = false;
+      orderRef.current = snap.order || [];   // H3: 고정 순서 복원
       setHasMore(snap.hasMore);
       setVideos(snap.videos);
       snap.videos.forEach((v) => { if (!v.id.startsWith("demo-")) seedLikeCount(v.id, v.likes); });
@@ -1017,6 +1024,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
       offsetRef.current = 0;
       hasMoreRef.current = true;
       fetchingRef.current = false;
+      orderRef.current = [];   // H3: 세션 순서 초기화 (아래서 재확정)
       setHasMore(true);
       setFeedError(false);   // 칩/유저 전환 시 이전 에러 해제
       setVideos([]);
@@ -1029,9 +1037,20 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
           .or("ad_type.eq.feed_display,ad_type.is.null");
         if (!cancelled && adResult.data && adResult.data.length > 0) setAds(adResult.data as Ad[]);
 
+        // H3: 이 세션의 랭킹 순서를 1회 확정(고정) → 이후 페이지는 이 순서에서 슬라이스만.
+        const { data: orderData, error: orderErr } = await supabase.rpc("get_home_feed_order", { p_filter: chip });
+        if (cancelled) return;
+        if (orderErr) throw orderErr;
+        if (chip !== chipRef.current) return;   // 그 사이 칩 바뀌면 폐기
+        orderRef.current = (orderData as string[]) || [];
+        const hasAny = orderRef.current.length > 0;
+        hasMoreRef.current = hasAny;
+        setHasMore(hasAny);
+
         if (!cancelled) await loadMore();
       } catch (error) {
         console.error("Error fetching discovery data:", error);
+        if (!cancelled) { setFeedError(true); hasMoreRef.current = false; setHasMore(false); }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -1043,7 +1062,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   useEffect(() => {
     if (loading) return;
     homeFeedCache[`${user?.id ?? "anon"}:${chip}`] = {
-      videos, offset: offsetRef.current, hasMore: hasMoreRef.current, commentCounts, ads,
+      videos, offset: offsetRef.current, hasMore: hasMoreRef.current, commentCounts, ads, order: orderRef.current,
     };
   }, [videos, ads, commentCounts, loading, user?.id, chip]);
 
