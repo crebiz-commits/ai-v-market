@@ -531,23 +531,21 @@ const HeroBillboard = memo(function HeroBillboard({
               playsInline
               preload="auto"
               onLoadedMetadata={() => {
-                // seek 재생: 메타데이터 로드 후 하이라이트 시작점으로 이동
+                // seek 재생: 메타데이터 로드 후 하이라이트 시작점으로 이동(best-effort).
                 const v = videoRef.current;
                 if (v && isSeek && src) { try { v.currentTime = src.start; } catch { /* 무시 */ } }
               }}
               onTimeUpdate={() => {
                 const v = videoRef.current; if (!v) return;
-                const base = isSeek && src ? src.start : 0;
-                // 시작점을 지나 실제 재생 중일 때만 노출(그 전엔 preview.webp/포스터 유지)
-                if (v.currentTime > base + 0.05) setVideoReady(true);
+                // 재생이 시작되면(위치 무관) 즉시 선명 영상 노출 — seek 완료를 기다리지 않는다.
+                //   (프로덕션에서 88초 seek 이 느려 videoReady 가 영영 안 켜지던 문제 해결.
+                //    seek 이 성공하면 하이라이트 지점, 느리면 잠깐 앞부분이 보였다가 이동.)
+                if (v.currentTime > 0.05) setVideoReady(true);
                 // 구간 끝 도달 시 시작점으로 되감아 하이라이트만 루프
                 if (isSeek && src && v.currentTime >= src.end) { try { v.currentTime = src.start; } catch { /* 무시 */ } }
               }}
-              onPlaying={() => {
-                const v = videoRef.current;
-                const base = isSeek && src ? src.start : 0;
-                if (v && v.currentTime > base + 0.05) setVideoReady(true);
-              }}
+              onPlaying={() => { if ((videoRef.current?.currentTime ?? 0) > 0.05) setVideoReady(true); }}
+              onError={() => setVideoReady(false)}   // 재생 실패 시 preview.webp/포스터로 안전 폴백
             />
           </div>
         )}
