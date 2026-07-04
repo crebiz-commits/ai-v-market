@@ -1,6 +1,13 @@
 -- ════════════════════════════════════════════════════════════════════════════
 -- 홈 피드 개인화 추천 RPC: get_home_feed(p_limit, p_offset)
 --
+-- 🛑🛑 경고(2026-07-04): 이 파일의 get_home_feed(integer,integer) 2-arg 정의는 SUPERSEDED —
+--   **재실행 금지**. RETURNS SETOF public.videos 라 moderation 컬럼이 anon 에 노출되고,
+--   현행 프론트는 3-arg get_home_feed(p_limit,p_offset,p_filter) 를 호출한다. 재적용 시
+--   불필요한 2-arg 오버로드가 생겨 raw videos 를 반환한다. 보안 정본(SSOT) =
+--   get_home_feed_safe_columns_20260620.sql (RETURNS SETOF v_home_feed_public).
+--   재발 감지: 게이트 #6 (_verify_security_invariants_20260628.sql).
+--
 -- 홈 피드는 "모든 영상의 하이라이트 코너" — 모든 show_on_home 영상이 포함되고
 -- 우선순위(순서)만 사용자별로 달라진다. 무한 스크롤 페이징(OFFSET/LIMIT)과 호환.
 --

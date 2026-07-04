@@ -840,6 +840,10 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   // 일 때만 직접 연다. 길이 메타가 0/누락이면(durationSeconds 미확정) 알 수 없으므로 페이월로 우회
   // (ProductDetail 이 자체 previewSeconds 기준으로 컷오프/풀재생을 다시 판단 → 새는 길 차단).
   const openFullscreenGated = (v: Video) => {
+    // H4: 19+ 미인증 콘텐츠는 무제한 풀스크린 직행 금지 → ProductDetail 에서 연령 게이트 재적용.
+    //   (VideoFullscreen 은 자체 연령/페이월 게이트가 없으므로 진입 지점에서 막는다)
+    const isMine = !!user?.id && !!v.creatorId && user.id === v.creatorId;
+    if (!isMine && shouldBlur((v as any).age_rating, profile?.age_verified ?? false)) { onVideoClick(v); return; }
     const dur = v.durationSeconds || 0;
     const knownShort = dur > 0 && dur <= 60;
     if (!isSubscriber && !knownShort) { onVideoClick(v); return; }

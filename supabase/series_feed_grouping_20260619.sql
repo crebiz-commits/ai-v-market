@@ -8,6 +8,14 @@
 -- ⚠️ 모든 피드의 근간(v_available_videos / get_home_feed) 수정 — 기존 로직 100% 보존 + 필터 1줄만 추가.
 -- 적용: Supabase Dashboard → SQL Editor → 붙여넣기 → Run.
 -- 검증: 하단 주석.
+--
+-- 🛑🛑 경고(2026-07-04): 아래 get_home_feed(integer,integer,text) 는 SUPERSEDED — **이 파일 전체 재실행 금지**.
+--   이 파일의 get_home_feed 는 RETURNS SETOF public.videos(=SELECT v.*) 라, 재적용 시
+--   moderation_status/score/categories/error 가 anon 에 재노출된다(내부컬럼 유출).
+--   보안 정본(SSOT) = get_home_feed_safe_columns_20260620.sql (RETURNS SETOF v_home_feed_public).
+--   시리즈 1화 필터 변경이 필요하면 그 SSOT 파일에 반영해 적용할 것.
+--   v_available_videos / get_home_feed_count 만 필요하면 해당 블록만 개별 실행.
+--   재발 감지: 게이트 #6 (_verify_security_invariants_20260628.sql).
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ────────────────────────────────────────────────────────────────────────────
