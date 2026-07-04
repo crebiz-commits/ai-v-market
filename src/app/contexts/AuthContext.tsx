@@ -119,8 +119,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const checkInitialSession = async () => {
       try {
         console.log('[AuthContext] Checking initial session...');
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
+        // C(2026-07-04): getSession 이 인증 락/네트워크로 지연돼도 2초면 우선 진행.
+        //   onAuthStateChange(INITIAL_SESSION) 가 이후 실제 세션으로 보정하므로 안전.
+        const raced = await Promise.race([
+          supabase.auth.getSession().then((r) => ({ ok: true as const, r })),
+          new Promise<{ ok: false }>((res) => setTimeout(() => res({ ok: false }), 2000)),
+        ]);
+        if (!raced.ok) {
+          console.warn('[AuthContext] getSession 2s 초과 → 우선 진행(리스너가 보정)');
+          return;
+        }
+        const { data: { session }, error } = raced.r;
+
         if (error) {
           console.error('[AuthContext] getSession error:', error.message);
           return;
