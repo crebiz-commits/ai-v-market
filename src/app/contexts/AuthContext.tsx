@@ -145,7 +145,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         console.error('[AuthContext] checkInitialSession crash:', err);
       } finally {
-        if (mounted) setLoading(false);
+        // 로딩 해제 + 실패세이프 타이머 해제(성공 시 4s 경고가 매번 뜨던 노이즈 제거).
+        //   → 이제 실패세이프 경고는 진짜 4s 이상 행일 때만 발생.
+        if (mounted) { setLoading(false); clearTimeout(loadingFailsafe); }
       }
     };
 
@@ -251,6 +253,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // 로딩 중이었다면 해제 (OAuth 리다이렉트 후 첫 이벤트 수신 시점)
       setLoading(false);
+      clearTimeout(loadingFailsafe);
     });
 
     // 초기 로드 실행
