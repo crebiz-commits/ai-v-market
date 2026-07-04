@@ -48,7 +48,10 @@ export function LikesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [liked, setLiked] = useState<Set<string>>(new Set());
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  // 댓글수 = 서버 기준값(seed-once) + 이 세션의 증감(delta). base+delta 라 미시드여도 base 반영
+  //   → 미시드 상태서 작성 시 1로 고착되던 문제 제거(H6). 화면엔 max(0, base+delta).
+  const [commentBase, setCommentBase] = useState<Record<string, number>>({});
+  const [commentDelta, setCommentDelta] = useState<Record<string, number>>({});
   const [viewCounts, setViewCounts] = useState<Record<string, number>>({});
   const [ready, setReady] = useState(false);
   const inFlight = useRef<Set<string>>(new Set());  // 영상별 더블클릭 경합 방지
@@ -74,8 +77,9 @@ export function LikesProvider({ children }: { children: ReactNode }) {
     [counts],
   );
   const displayComments = useCallback(
-    (id: string, base: number | null | undefined) => Math.max(0, commentCounts[id] ?? (base || 0)),
-    [commentCounts],
+    (id: string, base: number | null | undefined) =>
+      Math.max(0, (commentBase[id] ?? (base || 0)) + (commentDelta[id] ?? 0)),
+    [commentBase, commentDelta],
   );
   const displayViews = useCallback(
     (id: string, base: number | null | undefined) => Math.max(0, viewCounts[id] ?? (base || 0)),
@@ -83,12 +87,12 @@ export function LikesProvider({ children }: { children: ReactNode }) {
   );
 
   const seedCount = useCallback(seedOnce(setCounts), []);
-  const seedComments = useCallback(seedOnce(setCommentCounts), []);
+  const seedComments = useCallback(seedOnce(setCommentBase), []);  // 서버 기준값만 seed-once
   const seedViews = useCallback(seedOnce(setViewCounts), []);
 
-  // 댓글 작성(+1)/삭제(-1) — 시드된 기준값에 증감 반영. 미시드면 0 기준(피드 진입 시 시드됨).
+  // 댓글 작성(+1)/삭제(-1) — delta 에 누적(base 와 분리). 화면은 base+delta 라 미시드여도 정확.
   const bumpComments = useCallback((videoId: string, delta: number) => {
-    setCommentCounts((prev) => ({ ...prev, [videoId]: Math.max(0, (prev[videoId] ?? 0) + delta) }));
+    setCommentDelta((prev) => ({ ...prev, [videoId]: (prev[videoId] ?? 0) + delta }));
   }, []);
 
   const toggleLike = useCallback(async (videoId: string, base?: number | null): Promise<ToggleResult> => {
@@ -104,15 +108,30 @@ export function LikesProvider({ children }: { children: ReactNode }) {
       next ? n.add(videoId) : n.delete(videoId);
       return n;
     });
+    let prevCount: number | undefined;
     setCounts((prev) => {
+      prevCount = prev[videoId];  // 토글 이전 값 캡처(정확 복원용)
       const cur = prev[videoId] ?? (base || 0);
       return { ...prev, [videoId]: Math.max(0, cur + (next ? 1 : -1)) };
     });
+    // 롤백/중복 시 낙관적 이전 값으로 정확 복원(apply/rollback 대칭 — H7)
+    const restoreCount = () =>
+      setCounts((prev) => {
+        const n = { ...prev };
+        if (prevCount === undefined) delete n[videoId];
+        else n[videoId] = prevCount;
+        return n;
+      });
 
     try {
       if (next) {
         const { error } = await supabase.from("video_likes").insert({ video_id: videoId, user_id: user.id });
-        if (error && (error as any).code !== "23505") throw error;  // 23505=이미 존재 → 멱등 처리
+        if (error) {
+          if ((error as any).code === "23505") {
+            // 이미 좋아요됨(다른 기기 등) → 서버 카운트에 이미 반영. 낙관적 +1 취소(중복 방지), 하트는 유지.
+            restoreCount();
+          } else throw error;
+        }
       } else {
         const { error } = await supabase.from("video_likes").delete().match({ video_id: videoId, user_id: user.id });
         if (error) throw error;
@@ -125,10 +144,7 @@ export function LikesProvider({ children }: { children: ReactNode }) {
         next ? n.delete(videoId) : n.add(videoId);
         return n;
       });
-      setCounts((prev) => {
-        const cur = prev[videoId] ?? 0;
-        return { ...prev, [videoId]: Math.max(0, cur + (next ? -1 : 1)) };
-      });
+      restoreCount();
       return "error";
     } finally {
       inFlight.current.delete(videoId);

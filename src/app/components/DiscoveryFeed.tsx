@@ -830,7 +830,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   // 좋아요는 전역 스토어(LikesContext)로 통일 — 모든 피드 동시 반영
-  const { isLiked: isLikedStore, displayCount: likesDisplayCount, seedCount: seedLikeCount, seedComments: seedCommentCount, toggleLike: toggleLikeStore } = useLikes();
+  const { isLiked: isLikedStore, displayCount: likesDisplayCount, displayComments: likesDisplayComments, seedCount: seedLikeCount, seedComments: seedCommentCount, toggleLike: toggleLikeStore } = useLikes();
   const [isMuted, setIsMuted] = useState(true);
   const [commentVideo, setCommentVideo] = useState<Video | null>(null);
   const [shareTarget, setShareTarget] = useState<Video | null>(null);
@@ -849,6 +849,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   // 무한 스크롤 — 전 영상을 페이지 단위로 끊김 없이 로드
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [feedError, setFeedError] = useState(false);   // H5: 피드 로드 실패 표시(무한 재시도 방지)
   const offsetRef = useRef(0);          // 다음 페이지 시작 위치 (DB row 기준)
   const hasMoreRef = useRef(true);      // 클로저 stale 방지용
   const fetchingRef = useRef(false);    // 중복 호출 방지
@@ -930,6 +931,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
         p_filter: reqChip,
       });
       if (error) throw error;
+      setFeedError(false);   // 성공 → 에러 상태 해제
       // 도중에 칩이 바뀌었으면 이전 칩 결과를 버린다 (초기화 로직이 새로 로드함)
       if (reqChip !== chipRef.current) return;
       const rows = data || [];
@@ -962,11 +964,25 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
       }
     } catch (e) {
       console.error("loadMore error:", e);
+      // H5: 에러 시 무한 재시도 루프 중단 + 사용자 피드백. 재시도 버튼으로 재개.
+      if (reqChip === chipRef.current) {
+        hasMoreRef.current = false;
+        setHasMore(false);
+        setFeedError(true);
+      }
     } finally {
       fetchingRef.current = false;
       setLoadingMore(false);
     }
   }, [showcase]);
+
+  // H5: 에러 후 재시도 — 에러 해제 + 센티넬 재가동 + 다음 페이지 재요청
+  const retryLoad = useCallback(() => {
+    setFeedError(false);
+    hasMoreRef.current = true;
+    setHasMore(true);
+    loadMore();
+  }, [loadMore]);
 
   // 초기 로드: 광고 + 좋아요 상태 + 첫 페이지 영상 (user/칩 변경 시 처음부터 재시작)
   // 단, 모듈 캐시에 직전 피드가 있으면 즉시 복원(리로드/스피너 없이 — 탭 복귀 즉시화).
@@ -998,6 +1014,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
       hasMoreRef.current = true;
       fetchingRef.current = false;
       setHasMore(true);
+      setFeedError(false);   // 칩/유저 전환 시 이전 에러 해제
       setVideos([]);
       setActiveId(null);
       try {
@@ -1178,6 +1195,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     if (handleShowcaseClick(videoId)) return;
     const res = await toggleLikeStore(videoId, base);
     if (res === "needAuth" && onSignInClick) onSignInClick();
+    else if (res === "error") toast.error("좋아요 처리에 실패했어요. 잠시 후 다시 시도해 주세요.");
   }, [onSignInClick, toggleLikeStore]);
 
   // 안정 참조 — DesktopMovieCard/MovieSection(memo) 리렌더 방지용(H12)
@@ -1204,7 +1222,18 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   }, []);
 
   if (loading) return <div className="h-full flex items-center justify-center bg-background"><Loader2 className="w-10 h-10 text-[#6366f1] animate-spin" /></div>;
-  if (videos.length === 0) return <div className="h-full flex items-center justify-center bg-background text-muted-foreground">표시할 영상이 없습니다.</div>;
+  if (videos.length === 0) return (
+    <div className="h-full flex flex-col items-center justify-center gap-3 bg-background text-center px-6">
+      {feedError ? (
+        <>
+          <p className="text-muted-foreground">영상을 불러오지 못했어요.</p>
+          <button onClick={retryLoad} className="px-4 py-2 rounded-lg bg-[#6366f1] hover:bg-[#5457e5] text-white text-sm font-bold transition-colors">다시 시도</button>
+        </>
+      ) : (
+        <p className="text-muted-foreground">표시할 영상이 없습니다.</p>
+      )}
+    </div>
+  );
 
   const isCommentOpen = commentVideo !== null;
 
@@ -1303,7 +1332,13 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
         {loadingMore && (
           <div className="py-10 flex justify-center"><Loader2 className="w-6 h-6 text-[#6366f1] animate-spin" /></div>
         )}
-        {!hasMore && (
+        {feedError && (
+          <div className="py-10 flex flex-col items-center gap-3 text-center">
+            <p className="text-sm text-gray-400">영상을 불러오지 못했어요.</p>
+            <button onClick={retryLoad} className="px-4 py-2 rounded-lg bg-[#6366f1] hover:bg-[#5457e5] text-white text-sm font-bold transition-colors">다시 시도</button>
+          </div>
+        )}
+        {!hasMore && !feedError && (
           <div className="py-20 text-center text-gray-300 text-[10px] font-bold">END OF FEED</div>
         )}
       </div>
@@ -1421,7 +1456,13 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
           {loadingMore && (
             <div className="py-10 flex justify-center"><Loader2 className="w-6 h-6 text-[#6366f1] animate-spin" /></div>
           )}
-          {!hasMore && (
+          {feedError && (
+            <div className="py-10 flex flex-col items-center gap-3 text-center">
+              <p className="text-sm text-gray-400">영상을 불러오지 못했어요.</p>
+              <button onClick={retryLoad} className="px-4 py-2 rounded-lg bg-[#6366f1] hover:bg-[#5457e5] text-white text-sm font-bold transition-colors">다시 시도</button>
+            </div>
+          )}
+          {!hasMore && !feedError && (
             <div className="py-12 text-center text-gray-400 text-xs font-bold uppercase tracking-widest">End of Feed</div>
           )}
         </div>
@@ -1532,8 +1573,6 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
               videoCreatorId={commentVideo.creatorId}
               title={commentVideo.title}
               onClose={() => setCommentVideo(null)}
-              onCommentPosted={() => setCommentCounts(prev => ({ ...prev, [commentVideo.id]: (prev[commentVideo.id] || 0) + 1 }))}
-              onCommentDeleted={(n) => setCommentCounts(prev => ({ ...prev, [commentVideo.id]: Math.max(0, (prev[commentVideo.id] || 0) - n) }))}
               onViewCreator={(cid) => { setCommentVideo(null); onViewCreator?.(cid); }}
               mode="sheet"
             />
@@ -1573,8 +1612,6 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
                 videoCreatorId={commentVideo.creatorId}
                 title={commentVideo.title}
                 onClose={() => setCommentVideo(null)}
-                onCommentDeleted={(n) => setCommentCounts(prev => ({ ...prev, [commentVideo.id]: Math.max(0, (prev[commentVideo.id] || 0) - n) }))}
-                onCommentPosted={() => setCommentCounts(prev => ({ ...prev, [commentVideo.id]: (prev[commentVideo.id] || 0) + 1 }))}
                 mode="sheet"
               />
             </motion.div>
@@ -1589,7 +1626,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
             video={fullscreenVideo}
             isLiked={isLikedStore(fullscreenVideo.id)}
             likeCount={likesDisplayCount(fullscreenVideo.id, fullscreenVideo.likes)}
-            commentCount={commentCounts[fullscreenVideo.id] || 0}
+            commentCount={likesDisplayComments(fullscreenVideo.id, commentCounts[fullscreenVideo.id] || 0)}
             onClose={() => {
               setFullscreenVideo(null);
               // 모달 unmount 후 활성 영상 재개
