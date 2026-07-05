@@ -37,8 +37,10 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
   const [agreed, setAgreed] = useState(false);   // 자동결제 동의 (전자상거래법)
   const [billing, setBilling] = useState<{ card_company: string | null; card_last4: string | null; auto_renew: boolean; status: string; next_charge_at: string | null } | null>(null);
 
-  const isPremium = profile?.subscription_tier === "premium";
   const expires = (profile as any)?.subscription_expires_at as string | undefined;
+  // P9/m-2: 만료 반영 — tier 만 보지 말고 만료일(미래)까지 확인(NULL=만료로 취급).
+  const isPremium = profile?.subscription_tier === "premium"
+    && !!expires && new Date(expires).getTime() > Date.now();
   const hasAutoBilling = !!billing && billing.status === "active" && billing.auto_renew;
 
   useEffect(() => {

@@ -419,10 +419,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const subscriptionTier: SubscriptionTier = profile?.subscription_tier ?? 'free';
+  // P9(2026-07-05): 만료일(expires_at) NULL = 비구독으로 통일(서버 재생게이트와 일치).
+  //   영구 무료제공(관리자 컴프)은 NULL 대신 먼 미래 날짜(예: 2099-12-31)로 명시할 것.
   const subscriptionActive =
     subscriptionTier !== 'free' &&
-    (!profile?.subscription_expires_at ||
-      new Date(profile.subscription_expires_at).getTime() > Date.now());
+    !!profile?.subscription_expires_at &&
+    new Date(profile.subscription_expires_at).getTime() > Date.now();
 
   // H8: 비밀번호 재설정 메일 발송 (로그인 전 계정 복구)
   const requestPasswordReset = async (email: string) => {
