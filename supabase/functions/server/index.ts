@@ -1268,18 +1268,15 @@ app.post('/billing-auth-confirm', async (c) => {
     if (!authKey || !customerKey) return c.json({ error: 'authKey, customerKey 필요' }, 400);
     if (customerKey !== user.id) return c.json({ error: 'customerKey 불일치' }, 400);
 
-    // C5(2026-06-14) 멱등성: 최근 3분 내 이미 자동결제가 설정·청구됐으면 재청구 방지.
-    //   success URL 새로고침 / 중복 제출 / 빠른 재마운트로 인한 이중 청구 차단.
+    // P5(2026-07-05): 이미 활성 프리미엄이면 첫 결제 재실행 금지(정기 갱신은 billing-run 담당).
+    //   기존 3분 시간창 대신 "현재 프리미엄?" 판정 → 느린복귀/재등록으로 인한 이중 빌링키·이중 +30일 차단.
     const idemClient = getSupabaseClient(true);
-    const { data: existingSub } = await idemClient
-      .from('billing_subscriptions')
-      .select('status, last_charge_at, created_at')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .maybeSingle();
-    const lastChargeTs = existingSub?.last_charge_at || existingSub?.created_at;
-    if (existingSub && lastChargeTs && (Date.now() - new Date(lastChargeTs).getTime()) < 3 * 60 * 1000) {
-      return c.json({ success: true, message: '자동결제가 이미 설정되어 있습니다.', idempotent: true });
+    const { data: prof } = await idemClient.from('profiles')
+      .select('subscription_tier, subscription_expires_at').eq('id', user.id).maybeSingle();
+    const stillPremium = prof?.subscription_tier === 'premium'
+      && !!prof?.subscription_expires_at && new Date(prof.subscription_expires_at).getTime() > Date.now();
+    if (stillPremium) {
+      return c.json({ success: true, message: '이미 프리미엄 구독 중입니다.', idempotent: true });
     }
 
     const tossSecretKey = Deno.env.get('TOSS_SECRET_KEY');
@@ -1306,11 +1303,11 @@ app.post('/billing-auth-confirm', async (c) => {
       if (data && Number(data) > 0) amount = Number(data);
     } catch { /* 기본값 */ }
 
-    // 3) 첫 결제 (빌링키로 즉시 청구)
-    const orderId = `sub_${user.id.slice(0, 8)}_${Date.now()}`;
+    // 3) 첫 결제 (빌링키로 즉시 청구) — P3: 결정적 orderId(유저+일자) + Idempotency-Key 로 동시/재제출 이중청구 차단
+    const orderId = `sub_${user.id.slice(0, 8)}_first_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`;
     const chargeRes = await fetch(`https://api.tosspayments.com/v1/billing/${billingKey}`, {
       method: 'POST',
-      headers: { 'Authorization': authBasic, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': authBasic, 'Content-Type': 'application/json', 'Idempotency-Key': orderId },
       body: JSON.stringify({ customerKey, amount, orderId, orderName: 'CREAITE 프리미엄 구독 (자동결제)', customerEmail: user.email }),
     });
     const chargeBody = await chargeRes.json();
@@ -1329,8 +1326,15 @@ app.post('/billing-auth-confirm', async (c) => {
       p_approved_at: chargeBody?.approvedAt || new Date().toISOString(), p_raw: chargeBody,
     });
     if (applyErr) {
-      console.error('[billing] billing_apply_charge 실패:', applyErr);
-      return c.json({ error: '결제는 완료됐지만 DB 처리 실패. 고객센터 문의 필요' }, 500);
+      // P4: 토스 첫 결제 성공 + DB 반영 실패 → 청구 취소(void)해 "돈만 나가고 미부여" 방지.
+      console.error('[billing] billing_apply_charge 실패, 토스 취소 시도:', applyErr);
+      try {
+        if (chargeBody?.paymentKey) await fetch(`https://api.tosspayments.com/v1/payments/${chargeBody.paymentKey}/cancel`, {
+          method: 'POST', headers: { 'Authorization': authBasic, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cancelReason: 'DB 반영 실패 자동 취소' }),
+        });
+      } catch (ve) { console.error('[billing] 토스 취소 실패(수동조치 필요):', ve); }
+      return c.json({ error: '결제 처리에 실패해 취소되었습니다. 다시 시도해 주세요.' }, 500);
     }
 
     return c.json({ success: true, message: '자동결제가 설정되고 첫 결제가 완료되었습니다.', cardLast4 });
@@ -1364,11 +1368,15 @@ app.post('/billing-run', async (c) => {
 
     let ok = 0, fail = 0;
     for (const sub of (due || [])) {
-      const orderId = `sub_${sub.user_id.slice(0, 8)}_${Date.now()}`;
+      // P3: 주기 결정적 orderId — 같은 주기 재시도는 동일 orderId → 토스 Idempotency-Key +
+      //   payments.order_id 로 재청구 차단(토스성공+apply실패/크래시 시 같은달 이중청구 방지).
+      const period = String(sub.next_charge_at || '').slice(0, 10).replace(/-/g, '')
+        || new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const orderId = `sub_${sub.user_id.slice(0, 8)}_${period}`;
       try {
         const res = await fetch(`https://api.tosspayments.com/v1/billing/${sub.billing_key}`, {
           method: 'POST',
-          headers: { 'Authorization': authBasic, 'Content-Type': 'application/json' },
+          headers: { 'Authorization': authBasic, 'Content-Type': 'application/json', 'Idempotency-Key': orderId },
           body: JSON.stringify({ customerKey: sub.customer_key, amount: sub.amount, orderId, orderName: 'CREAITE 프리미엄 구독 (자동결제)' }),
         });
         const body = await res.json();
@@ -1377,12 +1385,23 @@ app.post('/billing-run', async (c) => {
           fail++; continue;
         }
         const card = body?.card || {};
-        await admin.rpc('billing_apply_charge', {
+        const { error: applyErr } = await admin.rpc('billing_apply_charge', {
           p_user_id: sub.user_id, p_billing_key: sub.billing_key, p_customer_key: sub.customer_key,
           p_card_company: card?.company || null, p_card_last4: (card?.number || '').replace(/[^0-9]/g, '').slice(-4) || null,
           p_amount: sub.amount, p_order_id: orderId, p_payment_key: body?.paymentKey || null,
           p_approved_at: body?.approvedAt || new Date().toISOString(), p_raw: body,
         });
+        if (applyErr) {
+          // P4: 토스 청구 성공 + DB 반영 실패 → 청구 취소(void)해 "돈만 나가고 미부여" 방지. 다음 cron 이 깨끗이 재시도.
+          console.error('[billing-run] apply 실패, 토스 취소 시도:', sub.user_id, applyErr);
+          try {
+            if (body?.paymentKey) await fetch(`https://api.tosspayments.com/v1/payments/${body.paymentKey}/cancel`, {
+              method: 'POST', headers: { 'Authorization': authBasic, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ cancelReason: 'DB 반영 실패 자동 취소' }),
+            });
+          } catch (ve) { console.error('[billing-run] 토스 취소 실패(수동조치 필요):', ve); }
+          fail++; continue;
+        }
         ok++;
       } catch (e: any) {
         await admin.rpc('billing_mark_failed', { p_user_id: sub.user_id, p_reason: e?.message || 'exception' });
