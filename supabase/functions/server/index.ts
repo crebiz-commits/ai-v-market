@@ -1121,6 +1121,15 @@ app.post('/toss-confirm', async (c) => {
       return c.json({ error: 'orderId, paymentKey, amount 모두 필요합니다' }, 400);
     }
 
+    // P2(2026-07-05): 호출자 인증 + 소유자 바인딩 — orderId/paymentKey 는 토스 리다이렉트 URL 에
+    //   노출되므로, 유출 시 타인이 이 엔드포인트로 피해자 결제를 confirm 하는 걸 차단(빌링 핸들러와 동일).
+    const authHeader = c.req.header('Authorization');
+    const accessToken = authHeader?.replace('Bearer ', '');
+    if (!accessToken) return c.json({ error: '로그인이 필요합니다' }, 401);
+    const authClient = getSupabaseClient();
+    const { data: { user }, error: authErr } = await authClient.auth.getUser(accessToken);
+    if (authErr || !user) return c.json({ error: '인증 실패' }, 401);
+
     const tossSecretKey = Deno.env.get('TOSS_SECRET_KEY');
     if (!tossSecretKey) {
       console.error('[toss-confirm] TOSS_SECRET_KEY 미설정');
@@ -1140,6 +1149,12 @@ app.post('/toss-confirm', async (c) => {
     if (lookupErr || !paymentRow) {
       console.error('[toss-confirm] orderId 조회 실패:', orderId, lookupErr);
       return c.json({ error: '존재하지 않는 결제 요청입니다' }, 404);
+    }
+
+    // P2: 결제 소유자와 호출자 일치 확인 (paymentKey 유출돼도 남의 결제 승인 불가)
+    if (paymentRow.user_id !== user.id) {
+      console.error('[toss-confirm] 소유자 불일치:', { orderId, owner: paymentRow.user_id, caller: user.id });
+      return c.json({ error: '본인 결제만 승인할 수 있습니다' }, 403);
     }
 
     if (paymentRow.amount !== Number(amount)) {
@@ -1165,12 +1180,21 @@ app.post('/toss-confirm', async (c) => {
         'Authorization': authHeader,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ orderId, paymentKey, amount: Number(amount) }),
+      body: JSON.stringify({ orderId, paymentKey, amount: Number(paymentRow.amount) }),  // M2: 클라값 아닌 저장금액을 단일 출처로
     });
 
     const tossBody = await tossRes.json();
 
     if (!tossRes.ok) {
+      // C1: 동시 confirm 레이스 등으로 토스에서 이미 승인된 결제 → 실패로 뒤집지 말고 성공 처리.
+      //   confirm_payment 는 멱등(completed 면 no-op)이라 안전.
+      if (tossBody?.code === 'ALREADY_PROCESSED_PAYMENT') {
+        await supabase.rpc('confirm_payment', {
+          p_order_id: orderId, p_payment_key: paymentKey,
+          p_method: '카드', p_approved_at: new Date().toISOString(), p_raw_response: tossBody,
+        });
+        return c.json({ success: true, message: '이미 처리된 결제입니다', alreadyProcessed: true });
+      }
       // 토스 confirm 실패
       console.error('[toss-confirm] 토스 confirm 실패:', tossBody);
       await supabase.rpc('fail_payment', {
@@ -1217,8 +1241,9 @@ app.post('/toss-confirm', async (c) => {
       success: true,
       message: successMessage,
       orderId,
-      amount: Number(amount),
+      amount: Number(paymentRow.amount),
       method: tossBody?.method,
+      paymentType: paymentRow.payment_type,   // M5: 클라가 orderId 파싱 대신 이걸 쓰도록
     });
   } catch (err: any) {
     console.error('[toss-confirm] 예외:', err);

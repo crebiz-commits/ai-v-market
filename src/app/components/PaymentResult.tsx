@@ -9,7 +9,7 @@
 //   - success: Edge Function `toss-confirm` 호출 → 토스 API confirm + DB 업데이트
 //   - fail: payments 행을 'failed'로 갱신 + 사용자에게 사유 표시
 // ════════════════════════════════════════════════════════════════════════════
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion } from "motion/react";
 import { Check, X, Loader2, Home } from "lucide-react";
 import { Button } from "./ui/button";
@@ -31,8 +31,13 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
   const [status, setStatus] = useState<Status>("processing");
   const [message, setMessage] = useState<string>("");
   const [amount, setAmount] = useState<number | null>(null);
+  // P1: 이중 confirm 방지 — StrictMode 재호출/새로고침/리마운트 가드 (BillingResult 와 동일 패턴)
+  const processedRef = useRef(false);
 
   useEffect(() => {
+    if (processedRef.current) return;
+    processedRef.current = true;
+
     const params = new URLSearchParams(window.location.search);
     const outcome = params.get("payment");
 
@@ -53,7 +58,7 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
             p_failure_code: code,
             p_failure_reason: reason,
           })
-          .then(() => { /* 결과 무시 */ });
+          .then(({ error }) => { if (error) console.error("[PaymentResult] fail_payment 실패:", error.message); });  // P6: 무음삼킴 → 로깅
       }
       return;
     }
@@ -71,6 +76,9 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
         setMessage(t("paymentResult.failMessage", { message: "" }));
         return;
       }
+
+      // P1: paymentKey/orderId 를 URL 에서 즉시 제거 — 새로고침 시 재confirm(이중처리) 방지
+      window.history.replaceState({}, "", window.location.pathname);
 
       // Edge Function에 confirm 요청 (서버에서 토스 API 호출 + DB 갱신)
       (async () => {
@@ -103,8 +111,8 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
           try {
             const { data: { user } } = await supabase.auth.getUser();
             if (user?.id && user.email && parsedAmount) {
-              // order_id 형식: creaite-{payment_type}-{uuid} → 상품명 도출
-              const orderType = orderId.split("-")[1];
+              // M5: 서버가 내려준 payment_type 우선 사용(orderId 파싱은 폴백 — 포맷 변경에 취약)
+              const orderType = body?.paymentType || orderId.split("-")[1];
               const ORDER_NAMES: Record<string, string> = {
                 subscription: "CREAITE 프리미엄 구독 (월)",
                 license: "영상 라이선스 구매",
