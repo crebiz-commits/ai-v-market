@@ -1123,8 +1123,9 @@ app.post('/toss-confirm', async (c) => {
 
     // P2(2026-07-05): 호출자 인증 + 소유자 바인딩 — orderId/paymentKey 는 토스 리다이렉트 URL 에
     //   노출되므로, 유출 시 타인이 이 엔드포인트로 피해자 결제를 confirm 하는 걸 차단(빌링 핸들러와 동일).
-    const authHeader = c.req.header('Authorization');
-    const accessToken = authHeader?.replace('Bearer ', '');
+    //   ⚠️ 변수명 reqAuthHeader — 아래 토스 API 용 authHeader(Basic)와 충돌 방지.
+    const reqAuthHeader = c.req.header('Authorization');
+    const accessToken = reqAuthHeader?.replace('Bearer ', '');
     if (!accessToken) return c.json({ error: '로그인이 필요합니다' }, 401);
     const authClient = getSupabaseClient();
     const { data: { user }, error: authErr } = await authClient.auth.getUser(accessToken);
