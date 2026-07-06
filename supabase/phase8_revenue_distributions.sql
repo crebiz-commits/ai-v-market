@@ -3,6 +3,10 @@
 -- 적용 일자: 2026-05-12
 -- 선행: phase8_platform_settings.sql, phase8_video_views.sql
 --
+-- 🛑 경고(2026-07-05): 이 파일의 get_revenue_distributions_by_period 는 무가드본 — 재실행 금지
+--   (은행계좌 유출). 보안 정본 = fix_revenue_period_guard_20260625.sql. calculate_monthly_revenue
+--   최신본 = subscription_pool_actual_20260703.sql. 게이트 #12 참조.
+--
 -- 목적:
 --   - 월말 정산: 판매 + 광고 + 구독료 풀(pro-rata) → 크리에이터별 분배액 산출
 --   - 정산 시점의 비율을 applied_rates JSONB에 스냅샷 (분쟁 방지)

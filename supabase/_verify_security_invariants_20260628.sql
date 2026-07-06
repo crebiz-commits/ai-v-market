@@ -153,5 +153,25 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 hardening_live_20260703.sql 재적용(6-arg DROP)'
 
+  UNION ALL
+  -- 12) get_revenue_distributions_by_period 가 admin 가드(assert_admin) 를 가지는가
+  --     (무가드 재적용 시 전 크리에이터 은행계좌 덤프 — 2026-07-05 드리프트 감사 항목)
+  SELECT 12,
+    'get_revenue_distributions_by_period admin 가드(은행계좌 유출 방지)',
+    CASE WHEN (SELECT bool_and(prosrc ~ 'assert_admin') FROM pg_proc
+               WHERE proname='get_revenue_distributions_by_period')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 fix_revenue_period_guard_20260625.sql 재적용(payout_info 유출)'
+
+  UNION ALL
+  -- 13) get_creator_ad_stats / _by_video 가 IDOR 가드(is_admin) 를 가지는가
+  --     (무가드 재적용 시 타 크리에이터 광고통계 조회 — 2026-07-05 드리프트 감사 항목)
+  SELECT 13,
+    'get_creator_ad_stats IDOR 가드',
+    CASE WHEN (SELECT bool_and(prosrc ~ 'is_admin') FROM pg_proc
+               WHERE proname IN ('get_creator_ad_stats','get_creator_ad_stats_by_video'))
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 high_fixes_20260614.sql 재적용(광고통계 IDOR)'
+
 ) AS gate
 ORDER BY sort;

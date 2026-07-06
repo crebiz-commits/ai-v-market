@@ -1,6 +1,11 @@
 -- ════════════════════════════════════════════════════════════════════════════
 -- 정산 화면에 크리에이터 정산 계좌 노출 (2026-05-31, R4 수정)
 --
+-- 🛑 경고(2026-07-05): 아래 get_revenue_distributions_by_period 는 admin 가드 없는 SQL 함수.
+--   재실행 시 아무 로그인 사용자가 전 크리에이터 은행계좌를 덤프할 수 있다. 보안 정본(SSOT) =
+--   fix_revenue_period_guard_20260625.sql(assert_admin 포함). **이 함수 블록 재실행 금지.**
+--   재발 감지: 게이트 #12 (_verify_security_invariants_20260628.sql).
+--
 -- 문제:
 --   get_revenue_distributions_by_period 가 payout_info(은행/계좌)를 반환하지 않아,
 --   어드민이 "지급 완료 표시" 를 눌러도 실제 어디로 송금할지(계좌) 화면에서 볼 수 없었음.

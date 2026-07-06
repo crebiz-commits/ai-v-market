@@ -1,6 +1,11 @@
 -- ════════════════════════════════════════════════════════════════════════════
 -- 크리에이터 팔로우 + 채널 탭 RPC (Phase 6 — 2026-05-11)
 --
+-- 🛑 경고(2026-07-05): 이 파일의 get_creator_profile / get_creator_videos / get_my_following_videos /
+--   get_popular_creators 는 구버전(banner_url 없음 + is_hidden 미필터). 정본(SSOT) =
+--   channel_hide_filter_20260705.sql. **이 함수 블록 재실행 금지**(배너 회귀 + 모더레이션
+--   숨김영상 채널 재노출). 팔로우 테이블/RLS 부분은 유효.
+--
 -- 목적:
 --   1. creator_followers 테이블 — 팔로워↔크리에이터 관계 저장
 --   2. get_my_following_videos() — 채널 탭 "구독" 피드용 영상 목록

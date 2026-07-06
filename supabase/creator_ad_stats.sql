@@ -2,6 +2,10 @@
 -- 크리에이터 광고 수익 통계 RPC (Phase 1 — 페이월 지원 작업)
 -- 적용 일자: 2026-05-02
 --
+-- 🛑 경고(2026-07-05): 아래 get_creator_ad_stats / _by_video 는 IDOR 무가드본(p_creator_id 를
+--   auth.uid() 대조 없이 사용) — 재실행 시 타 크리에이터 광고통계 조회 가능. 보안 정본(SSOT) =
+--   high_fixes_20260614.sql(is_admin/auth.uid 가드). **재실행 금지.** 게이트 #13 참조.
+--
 -- 목적:
 --   ad_video_events는 RLS가 모두 차단(SELECT 불가)이므로, 크리에이터가 자기
 --   영상의 광고 노출/클릭/완료 카운트만 조회할 수 있는 RPC 제공.
