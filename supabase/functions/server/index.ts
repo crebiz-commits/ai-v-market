@@ -644,9 +644,24 @@ app.post("/videos/save-metadata", async (c) => {
       if (parts.length < 2 || parts.some((n) => Number.isNaN(n))) return 0;
       return parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
     };
-    const durationSec = parseDurationSec(metadata.duration);
-    const rawPrice = parseInt(metadata.standardPrice || "0");
-    const safePrice = (durationSec > 0 && durationSec < 180) ? 0 : rawPrice;
+    const clientDurationSec = parseDurationSec(metadata.duration);
+    // U1(2026-07-05): 클라 duration 을 신뢰하지 않음 — Bunny 가 보고한 실제 length(초) 우선.
+    //   인코딩 완료 전이면 length=0 → 클라값 폴백(완전 차단은 Bunny 인코딩완료 웹훅 필요, 후속).
+    //   Bunny 값이 있으면 duration_seconds 를 명시 저장해 트리거가 위조 문자열에서 재파생하지 못하게 함.
+    let bunnyLenSec = 0;
+    try {
+      const _lib = Deno.env.get('BUNNY_LIBRARY_ID'); const _key = Deno.env.get('BUNNY_API_KEY');
+      if (_lib && _key) {
+        const _bv = await fetch(`https://video.bunnycdn.com/library/${_lib}/videos/${videoId}`, { headers: { AccessKey: _key, accept: 'application/json' } });
+        if (_bv.ok) { const _bj = await _bv.json(); if (Number(_bj?.length) > 0) bunnyLenSec = Math.round(Number(_bj.length)); }
+      }
+    } catch (_e) { console.warn('[save-metadata] Bunny length 조회 실패:', _e); }
+    const durationSec = bunnyLenSec > 0 ? bunnyLenSec : clientDurationSec;
+    // U2(2026-07-05): 가격 서버검증 — 음수·NaN 은 0, ₩1억 상한 클램프. 180초 미만은 판매불가(0).
+    const MAX_PRICE = 100000000;
+    const rawPriceNum = parseInt(metadata.standardPrice || "0", 10);
+    const boundedPrice = (Number.isFinite(rawPriceNum) && rawPriceNum >= 0) ? Math.min(rawPriceNum, MAX_PRICE) : 0;
+    const safePrice = (durationSec > 0 && durationSec < 180) ? 0 : boundedPrice;
 
     const { error: dbError } = await supabaseAdmin
       .from('videos')
@@ -659,6 +674,8 @@ app.post("/videos/save-metadata", async (c) => {
         thumbnail: metadata.thumbnailUrl || '',
         video_url: metadata.hlsUrl || '',
         duration: metadata.duration || '0:00',
+        // U1: Bunny 실제 length 있으면 명시 저장(트리거 재파생 차단). 없으면 null → 트리거가 문자열서 파생(폴백).
+        duration_seconds: bunnyLenSec > 0 ? bunnyLenSec : null,
         views: "0",
         likes: 0,
         tags: (metadata.tags || "").split(',').map((t: string) => t.trim()).filter((t: string) => t !== ""),
@@ -670,7 +687,7 @@ app.post("/videos/save-metadata", async (c) => {
         ai_tool: metadata.aiTool || '',
         category: metadata.category || '',
         genre: metadata.genre || '',
-        age_rating: metadata.age_rating || 'all',  // Phase 31.1 — 시청 등급 (Upload 필수 입력)
+        age_rating: ['all', '13', '15'].includes(metadata.age_rating) ? metadata.age_rating : 'all',  // U-M3: 서버 화이트리스트(19/junk 차단, 광고정책)
         prompt: metadata.prompt || '',
         status: metadata.status || 'ready',
         resolution: metadata.resolution || '',
