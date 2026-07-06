@@ -521,18 +521,33 @@ export function VideoEditModal({
       // 시리즈 연결/변경/해제 (set_video_series: p_series_id=null 이면 해제)
       try {
         let sid: string | null = seriesId === "__new__" ? null : (seriesId || null);
-        if (seriesId === "__new__" && newSeriesTitle.trim()) {
-          const { data: createdId } = await supabase.rpc("create_series", { p_title: newSeriesTitle.trim(), p_genre: genre || null });
-          sid = (createdId as string) || null;
+        let skipSeries = false;
+        if (seriesId === "__new__") {
+          if (newSeriesTitle.trim()) {
+            const { data: createdId, error: createErr } = await supabase.rpc("create_series", { p_title: newSeriesTitle.trim(), p_genre: genre || null });
+            if (createErr || !createdId) {
+              // CH-M2: 생성 실패 시 set_video_series(null) 로 오히려 시리즈가 해제되던 것 방지 + 표면화
+              toast.error(t("videoEditModal.seriesCreateFailed", "시리즈 생성에 실패했어요. 다시 시도해 주세요."));
+              skipSeries = true;
+            } else sid = createdId as string;
+          } else {
+            skipSeries = true;  // "새 시리즈" 선택했는데 제목 미입력 → 아무 작업 안 함(기존 연결 유지)
+          }
         }
-        await supabase.rpc("set_video_series", {
-          p_video_id: videoId,
-          p_series_id: sid,
-          p_season_number: parseInt(seasonNumber) || 1,
-          p_episode_number: episodeNumber ? parseInt(episodeNumber) : null,
-        });
+        if (!skipSeries) {
+          const { data: ok, error: setErr } = await supabase.rpc("set_video_series", {
+            p_video_id: videoId,
+            p_series_id: sid,
+            p_season_number: parseInt(seasonNumber) || 1,
+            p_episode_number: episodeNumber ? parseInt(episodeNumber) : null,
+          });
+          if (setErr || ok === false) {
+            toast.error(t("videoEditModal.seriesAssignFailed", "시리즈/회차 지정에 실패했어요 (중복 회차이거나 권한 없음)."));
+          }
+        }
       } catch (e) {
         console.warn("[VideoEditModal] 시리즈 연결 실패:", e);
+        toast.error(t("videoEditModal.seriesAssignFailed", "시리즈/회차 지정에 실패했어요."));
       }
 
       toast.success(t("videoEditModal.saveSuccess"));
