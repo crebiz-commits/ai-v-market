@@ -12,7 +12,9 @@
 
 CREATE OR REPLACE FUNCTION public.set_video_series(
   p_video_id TEXT, p_series_id UUID, p_season_number INT DEFAULT 1, p_episode_number INT DEFAULT NULL
-) RETURNS BOOLEAN AS $$
+) RETURNS BOOLEAN
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp   -- #9: search_path hijack 방어 핀
+AS $$
 DECLARE
   v_season INT := COALESCE(NULLIF(p_season_number, 0), 1);
   v_ep INT := p_episode_number;
@@ -52,7 +54,7 @@ BEGIN
   WHERE id = p_video_id AND creator_id = auth.uid();
   RETURN FOUND;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 REVOKE ALL ON FUNCTION public.set_video_series(TEXT,UUID,INT,INT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.set_video_series(TEXT,UUID,INT,INT) TO authenticated;
 
