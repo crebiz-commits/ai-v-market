@@ -663,6 +663,37 @@ app.post("/videos/save-metadata", async (c) => {
     const boundedPrice = (Number.isFinite(rawPriceNum) && rawPriceNum >= 0) ? Math.min(rawPriceNum, MAX_PRICE) : 0;
     const safePrice = (durationSec > 0 && durationSec < 180) ? 0 : boundedPrice;
 
+    // M4(2026-07-07): 챌린지 태그 서버검증 — 마감/미존재 챌린지 출품, 1인 3편 초과, 위조 슬러그 차단.
+    //   업로드 자체는 막지 않고 '무효한 challenge:* 태그만' 제거(비챌린지 태그·정상 챌린지 태그는 유지).
+    let validatedTags: string[] = (metadata.tags || "").split(',').map((t: string) => t.trim()).filter((t: string) => t !== "");
+    const challengeTags = validatedTags.filter((t: string) => t.startsWith('challenge:'));
+    if (challengeTags.length > 0) {
+      const today = new Date().toISOString().slice(0, 10);  // 'YYYY-MM-DD' (challenges.starts_at/deadline 은 DATE)
+      const okChallengeTags: string[] = [];
+      for (const ct of challengeTags) {
+        const slug = ct.slice('challenge:'.length);
+        // ① 존재 + 현재 오픈(starts_at <= today <= deadline) 여부
+        const { data: ch } = await supabaseAdmin
+          .from('challenges')
+          .select('tag')
+          .eq('tag', slug)
+          .lte('starts_at', today)
+          .gte('deadline', today)
+          .maybeSingle();
+        if (!ch) continue;  // 미존재/마감/오픈전 → 태그 제거
+        // ② 1인 최대 3편 (재업로드/수정 대비 자기 영상 제외)
+        const { count } = await supabaseAdmin
+          .from('videos')
+          .select('id', { count: 'exact', head: true })
+          .eq('creator_id', user.id)
+          .contains('tags', [ct])
+          .neq('id', videoId);
+        if ((count ?? 0) >= 3) continue;  // 초과 출품 → 태그 제거
+        okChallengeTags.push(ct);
+      }
+      validatedTags = validatedTags.filter((t: string) => !t.startsWith('challenge:')).concat(okChallengeTags);
+    }
+
     const { error: dbError } = await supabaseAdmin
       .from('videos')
       .upsert({
@@ -678,7 +709,7 @@ app.post("/videos/save-metadata", async (c) => {
         duration_seconds: bunnyLenSec > 0 ? bunnyLenSec : null,
         views: "0",
         likes: 0,
-        tags: (metadata.tags || "").split(',').map((t: string) => t.trim()).filter((t: string) => t !== ""),
+        tags: validatedTags,  // M4: 챌린지 태그 서버검증 통과분만 (위 검증 블록 참조)
         // All-in-One 단일가: price_standard 만 사용. price_commercial/exclusive 는
         // stale 컬럼(어디서도 안 읽힘) — NOT NULL 안전을 위해 standard 와 동일값 유지. schema cleanup 시 DROP 예정.
         price_standard: safePrice,
