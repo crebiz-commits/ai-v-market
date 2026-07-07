@@ -185,9 +185,15 @@ BEGIN
     RAISE EXCEPTION 'Invalid tax_type: %', p_tax_type;
   END IF;
 
-  -- 사업자면 사업자등록번호 필수
-  IF p_tax_type LIKE 'business_%' AND (p_business_number IS NULL OR LENGTH(TRIM(p_business_number)) = 0) THEN
-    RAISE EXCEPTION '사업자등록번호는 필수입니다.';
+  -- 사업자면 사업자등록번호 필수 + 국세청 체크섬 검증(2026-07-07).
+  --   is_valid_biz_no 헬퍼 SSOT = mypage_input_validation_20260707.sql (먼저 적용 필요).
+  IF p_tax_type LIKE 'business_%' THEN
+    IF p_business_number IS NULL OR LENGTH(TRIM(p_business_number)) = 0 THEN
+      RAISE EXCEPTION '사업자등록번호는 필수입니다.';
+    END IF;
+    IF NOT public.is_valid_biz_no(p_business_number) THEN
+      RAISE EXCEPTION '올바른 사업자등록번호가 아닙니다 (10자리·검증번호 확인).';
+    END IF;
   END IF;
 
   UPDATE public.profiles SET

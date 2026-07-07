@@ -40,10 +40,10 @@ BEGIN
     RAISE EXCEPTION '은행을 선택해주세요';
   END IF;
 
-  -- 계좌번호: 숫자만 추출해 최소 길이 검증 (표시는 입력값에서 숫자/하이픈만 보존)
+  -- 계좌번호: 숫자만 추출. 은행별 자릿수 상이(체크섬 없음) → 6~16 sanity(2026-07-07).
   v_digits := REGEXP_REPLACE(COALESCE(p_account_number, ''), '[^0-9]', '', 'g');
-  IF LENGTH(v_digits) < 6 THEN
-    RAISE EXCEPTION '올바른 계좌번호를 입력해주세요';
+  IF LENGTH(v_digits) < 6 OR LENGTH(v_digits) > 16 THEN
+    RAISE EXCEPTION '올바른 계좌번호를 입력해주세요 (숫자 6~16자리)';
   END IF;
 
   IF p_account_holder IS NULL OR LENGTH(TRIM(p_account_holder)) = 0 THEN
