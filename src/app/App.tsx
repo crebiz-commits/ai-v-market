@@ -852,7 +852,7 @@ function AppContent() {
             />
           );
         }
-        return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} onViewCreator={handleViewCreator} onOpenSearch={(q) => { setPendingSearchQuery(q || ""); setActiveTab("search"); }} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <DiscoveryFeed onVideoClick={setSelectedProduct} onAddToCart={(v) => addToCart(v)} onSignInClick={() => setShowAuthModal(true)} onViewCreator={handleViewCreator} onOpenSearch={(q) => { setPendingSearchQuery(q || ""); setActiveTab("search"); }} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "market":
         return <Cinema onProductClick={setSelectedProduct} onAddToCart={(p) => addToCart(p)} tier="cinema" onNavigate={(tab, sub) => { setActiveTab(tab as Tab); if (tab === "community" && sub) setPendingCommunityTab(sub); }} onViewCreator={handleViewCreator} onSignInClick={() => setShowAuthModal(true)} />;
       case "ott":
@@ -939,7 +939,7 @@ function AppContent() {
           />
         );
       default:
-        return <DiscoveryFeed onVideoClick={setSelectedProduct} onSignInClick={() => setShowAuthModal(true)} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <DiscoveryFeed onVideoClick={setSelectedProduct} onAddToCart={(v) => addToCart(v)} onSignInClick={() => setShowAuthModal(true)} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
     }
   };
 

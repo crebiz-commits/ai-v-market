@@ -52,7 +52,8 @@ type DesktopItem =
 
 // 홈피드 광고 정책: 초반에는 직접 광고 수주가 어려워 외부 네트워크(애드핏+애드센스)로만 채움.
 // 직접 광고주가 생기면 true 로 바꾸면 자체광고(feed_display) 우선 노출 + 소진분만 외부 폴백.
-const HOME_FEED_SELF_ADS: boolean = false;
+// (스위치 SSOT 는 config/ads.ts — AdCreateModal 의 피드광고 판매 게이트와 함께 움직임)
+import { HOME_FEED_SELF_ADS } from "../config/ads";
 
 interface Video {
   // 기본 정보
@@ -101,6 +102,7 @@ interface Video {
 
 interface DiscoveryFeedProps {
   onVideoClick: (video: Video) => void;
+  onAddToCart?: (video: Video) => void;       // 데스크탑 카드 장바구니 버튼 → App.tsx addToCart
   onSignInClick?: () => void;
   onViewCreator?: (creatorId: string) => void;
   onOpenSearch?: (query?: string) => void;   // 데스크탑 홈 검색 진입 → SearchPage (검색어 전달)
@@ -808,7 +810,7 @@ const HOME_CACHE_TTL_MS = 90_000;   // H9: 탭복귀 캐시 신선도 — 90초 
 const HOME_CACHE_MAX = 8;           // H9: 캐시 엔트리 상한(메모리 무한 증가 방지)
 const homeFeedCache: Record<string, HomeFeedSnapshot> = {};
 
-export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOpenSearch, onNavigate }: DiscoveryFeedProps) {
+export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onViewCreator, onOpenSearch, onNavigate }: DiscoveryFeedProps) {
   const { i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
   // 댓글 패널 단일 마운트용 — 홈피드 모바일/데스크탑 분기(1024px=lg)와 일치.
@@ -862,6 +864,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   const chipRef = useRef("all");        // 현재 칩 필터 (loadMore stale 방지용)
   const orderRef = useRef<string[]>([]); // H3: 세션 시작 시 확정한 랭킹된 video_id 전체 순서(고정)
   const sessionSeqRef = useRef(0);       // H10: 칩/유저 세션 카운터 — stale loadMore 완료가 새 세션 상태를 못 건드리게
+  const stateKeyRef = useRef<string | null>(null); // 현재 videos state가 속한 캐시 키 — 세션 전환 커밋 직후
+                                                   // 이전 세션 데이터가 새 키로 저장되는 캐시 오염 차단용
   const { user, profile, isSubscriber } = useAuth();
   const { isBlocked } = useBlockedUsers();
   const showcase = shouldShowShowcase(profile?.is_admin);
@@ -940,9 +944,10 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
       if (pageIds.length === 0) { hasMoreRef.current = false; setHasMore(false); return; }
       const { data, error } = await supabase.rpc("get_home_feed_by_ids", { p_ids: pageIds });
       if (error) throw error;
+      // 도중에 칩 또는 세션(유저 전환 포함)이 바뀌었으면 이전 결과를 버린다 (초기화 로직이 새로 로드함)
+      // — 칩만 비교하면 "유저 전환 + 같은 칩" 케이스에서 stale 응답이 새 세션 offset 을 오염시킴
+      if (reqChip !== chipRef.current || mySeq !== sessionSeqRef.current) return;
       setFeedError(false);   // 성공 → 에러 상태 해제
-      // 도중에 칩이 바뀌었으면 이전 칩 결과를 버린다 (초기화 로직이 새로 로드함)
-      if (reqChip !== chipRef.current) return;
       const rows = data || [];
       offsetRef.current = from + pageIds.length;
       if (offsetRef.current >= order.length) { hasMoreRef.current = false; setHasMore(false); }
@@ -962,7 +967,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
         if (ids.length > 0) {
           const { data: countData } = await supabase.from("comments")
             .select("video_id").in("video_id", ids).is("parent_id", null);
-          if (countData && reqChip === chipRef.current) {   // B2: 댓글수 병합도 칩 변경 시 폐기(stale 방지)
+          if (countData && reqChip === chipRef.current && mySeq === sessionSeqRef.current) {   // B2: 댓글수 병합도 칩/세션 변경 시 폐기(stale 방지)
             const counts: Record<string, number> = {};
             countData.forEach((c: any) => { counts[c.video_id] = (counts[c.video_id] || 0) + 1; });
             setCommentCounts((prev) => ({ ...prev, ...counts }));
@@ -974,7 +979,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
     } catch (e) {
       console.error("loadMore error:", e);
       // H5: 에러 시 무한 재시도 루프 중단 + 사용자 피드백. 재시도 버튼으로 재개.
-      if (reqChip === chipRef.current) {
+      if (reqChip === chipRef.current && mySeq === sessionSeqRef.current) {
         hasMoreRef.current = false;
         setHasMore(false);
         setFeedError(true);
@@ -1021,12 +1026,14 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
       setCommentCounts(snap.commentCounts);
       Object.entries(snap.commentCounts).forEach(([id, n]) => seedCommentCount(id, n as number));
       setActiveId(snap.videos[0]?.id ?? null);
+      stateKeyRef.current = cacheKey;   // 복원된 state = 이 키의 데이터 (저장 가드 해제)
       setLoading(false);
       // 좋아요 상태는 전역 LikesContext 가 유저 로그인 시 1회 로드해 공유 (여기서 별도 조회 불필요)
       return () => { cancelled = true; };
     }
     (async () => {
       setLoading(true);
+      stateKeyRef.current = null;   // 새 세션 로드 시작 — 완료 전까지 캐시 저장 금지(이전 세션 데이터 오염 방지)
       // 페이지네이션 상태 리셋 (칩 필터 반영)
       sessionSeqRef.current++;   // H10: 새 세션 시작 → 이전 세션의 in-flight loadMore 완료를 무효화
       chipRef.current = chip;
@@ -1057,6 +1064,8 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
         setHasMore(hasAny);
 
         if (!cancelled) await loadMore();
+        // 첫 페이지 로드 완료 → 이제 state 는 이 키의 데이터 (캐시 저장 허용)
+        if (!cancelled && chip === chipRef.current) stateKeyRef.current = cacheKey;
       } catch (error) {
         console.error("Error fetching discovery data:", error);
         if (!cancelled) { setFeedError(true); hasMoreRef.current = false; setHasMore(false); }
@@ -1070,7 +1079,11 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
   // 피드 변경 시 모듈 캐시에 저장 → 탭 복귀 시 즉시 복원용(메모리, 세션 내). 초기 로딩 중엔 기록 안 함.
   useEffect(() => {
     if (loading) return;
-    homeFeedCache[`${user?.id ?? "anon"}:${chip}`] = {
+    const cacheKey = `${user?.id ?? "anon"}:${chip}`;
+    // state 소유 키와 현재 키가 일치할 때만 저장 — 유저/칩 전환 커밋 직후 이전 세션의
+    // videos 가 새 키에 (offset=0·order=[] 와 함께) 저장되는 캐시 포이즈닝 차단
+    if (stateKeyRef.current !== cacheKey) return;
+    homeFeedCache[cacheKey] = {
       videos, offset: offsetRef.current, hasMore: hasMoreRef.current, commentCounts, ads, order: orderRef.current, ts: Date.now(),
     };
     // H9: 캐시 크기 제한 — 오래된 스냅샷부터 제거
@@ -1479,6 +1492,7 @@ export function DiscoveryFeed({ onVideoClick, onSignInClick, onViewCreator, onOp
                   key={v.id}
                   video={v}
                   onVideoClick={onVideoClick}
+                  onAddToCart={onAddToCart}
                   onToggleLike={toggleLike}
                   onComment={handleComment}
                   onShare={handleShare}
@@ -1756,7 +1770,7 @@ const DesktopAdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: s
   );
 });
 
-const DesktopMovieCard = memo(function DesktopMovieCard({ video, onVideoClick, onToggleLike, onComment, onShare, commentCount = 0, creatorAvatar = null, creatorName = null, onViewCreator, onSignInClick }: { video: Video; onVideoClick: (video: Video) => void; onToggleLike: (id: string, base: number) => void; onComment: (video: Video) => void; onShare: (video: Video) => void; commentCount?: number; creatorAvatar?: string | null; creatorName?: string | null; onViewCreator?: (creatorId: string) => void; onSignInClick?: () => void }) {
+const DesktopMovieCard = memo(function DesktopMovieCard({ video, onVideoClick, onAddToCart, onToggleLike, onComment, onShare, commentCount = 0, creatorAvatar = null, creatorName = null, onViewCreator, onSignInClick }: { video: Video; onVideoClick: (video: Video) => void; onAddToCart?: (video: Video) => void; onToggleLike: (id: string, base: number) => void; onComment: (video: Video) => void; onShare: (video: Video) => void; commentCount?: number; creatorAvatar?: string | null; creatorName?: string | null; onViewCreator?: (creatorId: string) => void; onSignInClick?: () => void }) {
   const { isLiked: isLikedStore, displayCount, displayComments } = useLikes();
   const isLiked = isLikedStore(video.id);
   const likeDisplay = displayCount(video.id, video.likes);
@@ -1906,7 +1920,25 @@ const DesktopMovieCard = memo(function DesktopMovieCard({ video, onVideoClick, o
             <button onClick={(e) => { e.stopPropagation(); onShare(video); }} className="p-2 hover:bg-white/10 rounded-full transition-colors">
               <Send className="w-5 h-5 text-white/30 hover:text-white transition-colors" />
             </button>
-            <button onClick={(e) => { e.stopPropagation(); onVideoClick(video); }} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+            {/* 장바구니 — 담기(상세 이동 아님). ₩0=미판매 안내, 협의판매(₩1,000만+)=상세로(문의 흐름) */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (video.price <= 0) {
+                  toast.info(t("video.notForSaleToast", "무료 시청 전용 영상입니다 (라이선스 미판매)"));
+                  return;
+                }
+                if (isNegotiationOnly(video.price)) {
+                  toast.info(t("video.negotiationToast", "별도 협의 상품입니다 — 상세에서 문의해주세요"));
+                  onVideoClick(video);
+                  return;
+                }
+                if (onAddToCart) onAddToCart(video);
+                else onVideoClick(video);   // 콜백 미주입 폴백(기존 동작)
+              }}
+              className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              aria-label={t("videoRow.addToCart", "장바구니")}
+            >
               <ShoppingCart className="w-5 h-5 text-white/30 hover:text-white transition-colors" />
             </button>
           </div>
