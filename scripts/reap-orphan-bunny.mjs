@@ -50,14 +50,33 @@ if (SERVICE_KEY) {
   dbMode = "BULK 토큰(RLS 적용 — 숨김영상 누락 위험, service key 권장)";
 }
 
-// ── 1) DB videos.id 전량 수집(페이지네이션, id=Bunny guid) ──
-const dbIds = new Set();
+// ── 1) 참조 guid 전량 수집: videos.id(=Bunny guid) + ads.video_url(광고 인트로/프리롤) ──
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+const refIds = new Set();
+
+// 1a) videos.id
 for (let from = 0; ; from += 1000) {
   const { data, error } = await sb.from("videos").select("id").range(from, from + 999);
   if (error) { console.error("✗ videos 조회 실패:", error.message, "\n  (service role 키가 없으면 RLS로 막힐 수 있음 — .env.bulk 에 SUPABASE_SERVICE_ROLE_KEY 추가 권장)"); process.exit(1); }
-  data.forEach((r) => dbIds.add(String(r.id)));
+  data.forEach((r) => refIds.add(String(r.id)));
   if (data.length < 1000) break;
 }
+const dbVideoCount = refIds.size;
+
+// 1b) ads.video_url 에서 Bunny guid 추출(프리롤/하우스 광고 인트로는 videos 가 아니라 ads 에 있음)
+let adRefCount = 0;
+{
+  const { data, error } = await sb.from("ads").select("video_url");
+  if (error) {
+    console.warn("⚠ ads 조회 실패(광고 인트로 제외 불가):", error.message, "\n  → --go 전 반드시 목록에 광고 영상이 없는지 육안 확인할 것.");
+  } else {
+    for (const r of (data || [])) {
+      const m = String(r.video_url || "").match(UUID_RE);
+      if (m && !refIds.has(m[0].toLowerCase())) { refIds.add(m[0].toLowerCase()); adRefCount++; }
+    }
+  }
+}
+const dbIds = refIds;  // 이하 로직 호환(참조 집합)
 
 // ── 2) Bunny 라이브러리 영상 전량 수집(페이지네이션) ──
 const bunnyVideos = [];
@@ -75,7 +94,7 @@ for (let page = 1; ; page++) {
 // ── 3) 고아 판별: DB에 없고 + AGE_HOURS 초과된 것만 ──
 const cutoff = Date.now() - AGE_HOURS * 3600_000;
 let orphans = bunnyVideos.filter((v) => {
-  if (dbIds.has(String(v.guid))) return false;               // DB 행 있음 = 정상
+  if (dbIds.has(String(v.guid).toLowerCase())) return false; // DB/광고에서 참조 = 정상
   const uploaded = new Date(v.dateUploaded || v.dateCreated || 0).getTime();
   return uploaded > 0 && uploaded < cutoff;                  // 24h+ 지난 것만(진행중 보호)
 });
@@ -83,7 +102,7 @@ if (LIMIT !== Infinity) orphans = orphans.slice(0, LIMIT);
 
 console.log(`\n━━ 고아 Bunny 영상 리퍼 ━━ ${GO ? "🔴 실삭제" : "🟡 DRY-RUN"}`);
 console.log(`  DB 클라이언트: ${dbMode}`);
-console.log(`  DB 영상 ${dbIds.size}편 · Bunny 영상 ${bunnyVideos.length}편 · ${AGE_HOURS}h+ 고아 ${orphans.length}편 (라이브러리 ${LIBRARY_ID})\n`);
+console.log(`  참조 ${dbIds.size}건(영상 ${dbVideoCount}+광고 ${adRefCount})· Bunny 영상 ${bunnyVideos.length}편 · ${AGE_HOURS}h+ 고아 ${orphans.length}편 (라이브러리 ${LIBRARY_ID})\n`);
 
 if (!orphans.length) { console.log("정리할 고아 없음."); process.exit(0); }
 
