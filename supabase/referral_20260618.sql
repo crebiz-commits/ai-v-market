@@ -118,15 +118,9 @@ RETURNS BOOLEAN AS $$
 DECLARE
   v_uid UUID := auth.uid();
   v_referrer UUID;
-  v_already UUID;
+  v_already INTEGER;  -- C3: 연결된 행 수(ROW_COUNT)
 BEGIN
   IF v_uid IS NULL OR p_code IS NULL OR length(trim(p_code)) = 0 THEN
-    RETURN FALSE;
-  END IF;
-
-  -- 이미 초대 연결됨 → 무시(멱등)
-  SELECT referred_by INTO v_already FROM public.profiles WHERE id = v_uid;
-  IF v_already IS NOT NULL THEN
     RETURN FALSE;
   END IF;
 
@@ -136,7 +130,14 @@ BEGIN
     RETURN FALSE;
   END IF;
 
+  -- C3(2026-07-07): 원자적 클레임 — 실제 연결된 경우에만 카운트 증가(부풀리기 차단).
+  --   정본은 referral_claim_atomic_20260707.sql. 재적용 시 그 파일을 가장 나중에 Run.
   UPDATE public.profiles SET referred_by = v_referrer WHERE id = v_uid AND referred_by IS NULL;
+  GET DIAGNOSTICS v_already = ROW_COUNT;  -- v_already 재사용: 연결된 행 수
+  IF v_already = 0 THEN
+    RETURN FALSE;   -- 이미 연결됨/경합 패자 → 카운트 증가 없음
+  END IF;
+
   UPDATE public.profiles SET referral_count = referral_count + 1 WHERE id = v_referrer;
   RETURN TRUE;
 END;
