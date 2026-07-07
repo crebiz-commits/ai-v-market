@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { UserAvatar } from "./UserAvatar";
 import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus, Clock, Trash2, Film, Tv, FolderPlus, Bookmark, ArrowLeft, Play, MessageSquare, Filter, UserX, Download, AlertTriangle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
@@ -496,6 +496,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   const [playlistVideos, setPlaylistVideos] = useState<any[]>([]);
   const [playlistVideosLoading, setPlaylistVideosLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  // 현재 state가 어느 사용자의 데이터인지 추적 — 계정 전환 시 이전 사용자 데이터가
+  // 새 사용자 캐시에 저장되거나(오염) 화면에 잔존하는 것을 막는 가드
+  const stateOwnerRef = useRef<string | null>(null);
 
   // 프로필 편집 모달
   const [showProfileEdit, setShowProfileEdit] = useState(false);
@@ -624,6 +627,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   // 실패한 쿼리는 console.warn만 (사용자 toast 안 띄움) — 빈 화면 대신 부분 데이터 표시
   const fetchMyData = async (silent = false) => {
     if (!user) return;
+    const uid = user.id; // fetch 시작 시점의 사용자 — 완료 시 state 소유자 기록용
     if (!silent) setLoading(true);
     let unexpectedError = false;
 
@@ -809,11 +813,27 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
       toast.error(t("mypage.fetchPartialFail"));
     }
 
+    stateOwnerRef.current = uid; // 이 시점의 state = uid 사용자의 데이터
     setLoading(false);
   };
 
   useEffect(() => {
     if (isAuthenticated && user) {
+      // 계정 전환 감지: state가 다른 사용자의 데이터면 먼저 전부 초기화
+      // (fetch가 부분 실패해도 이전 사용자의 구매내역·매출이 새 사용자에게 남지 않도록)
+      if (stateOwnerRef.current && stateOwnerRef.current !== user.id) {
+        stateOwnerRef.current = null;
+        setPurchaseHistory([]);
+        setMyProducts([]);
+        setVideoTiers({});
+        setMonthlySales([]);
+        setAdStats({ impressions: 0, clicks: 0, completes: 0, skips: 0 });
+        setAdStatsByVideo({});
+        setPolicyRates({});
+        setPayoutInfo(null);
+        setWatchHistory([]);
+        setLoading(true);
+      }
       const snap = myPageCache[user.id];
       if (snap) {
         // 캐시 즉시 복원(stale-while-revalidate) — 스피너 없이 표시 후 아래서 백그라운드 갱신
@@ -824,6 +844,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
         if (snap.adStats) setAdStats(snap.adStats);
         if (snap.adStatsByVideo) setAdStatsByVideo(snap.adStatsByVideo);
         if (snap.policyRates) setPolicyRates(snap.policyRates);
+        stateOwnerRef.current = user.id; // 캐시는 저장 가드에 의해 항상 본인 데이터
         setLoading(false);
       }
       fetchMyData(!!snap);   // 캐시 있으면 silent(스피너 없이) 백그라운드 갱신
@@ -834,6 +855,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   // 마이페이지 메인 데이터 모듈 캐시 저장 → 재진입 즉시 복원용(메모리, 세션 내)
   useEffect(() => {
     if (loading || !user) return;
+    // state 소유자와 현재 사용자가 일치할 때만 저장 — 계정 전환 커밋 직후
+    // 이전 사용자 데이터가 새 사용자 키로 저장되는 캐시 오염 차단
+    if (stateOwnerRef.current !== user.id) return;
     myPageCache[user.id] = { purchaseHistory, myProducts, videoTiers, monthlySales, adStats, adStatsByVideo, policyRates };
   }, [loading, user?.id, purchaseHistory, myProducts, videoTiers, monthlySales, adStats, adStatsByVideo, policyRates]);
 

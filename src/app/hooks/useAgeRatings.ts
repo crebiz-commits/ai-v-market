@@ -38,9 +38,11 @@ export function useAgeRatings(videoIds: string[]): RatingMap {
           for (const row of data as { video_id: string; age_rating: string }[]) {
             cache[row.video_id] = row.age_rating || "all";
           }
+          // 성공 응답에 없는 id(목/DB 미존재 등)만 'all'로 캐시 → 재요청 방지.
+          // ⚠️ RPC 실패 시엔 캐시하지 않음 — 일시 오류로 19금 영상이 세션 내내
+          //    'all'(블러 없음)로 고착되는 청소년보호 구멍 방지 (다음 마운트에서 재시도)
+          for (const id of missing) if (!(id in cache)) cache[id] = "all";
         }
-        // 응답에 없는 id(목/DB 미존재 등)는 'all'로 캐시 → 재요청 방지
-        for (const id of missing) if (!(id in cache)) cache[id] = "all";
         if (!cancelled) force((n) => n + 1);  // 캐시가 채워졌으니 1회 리렌더
       } catch {
         // 조용한 폴백 — 등급 표시만 안 함

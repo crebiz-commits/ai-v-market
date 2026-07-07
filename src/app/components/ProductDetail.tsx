@@ -786,6 +786,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
 
   useEffect(() => {
     if (iframeBlocked) return;
+    if (!tokenReady) return;  // 토큰 발급 전엔 iframe 미마운트 — tokenReady가 deps에 있어 마운트 후 재실행됨
     if (!product.id || !durationSeconds || durationSeconds < 60) return;  // 1분 미만 제외
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -852,7 +853,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       if (adTimer) clearTimeout(adTimer);
       window.removeEventListener("message", handleMessage);
     };
-  }, [product.id, durationSeconds, iframeBlocked]);
+  }, [product.id, durationSeconds, iframeBlocked, tokenReady]);
 
   // ── Phase 28: Mid-roll 광고 (10분+ OTT 영상에 한정) ──
   const [midrollAd, setMidrollAd] = useState<AdRpcResult | null>(null);
@@ -862,6 +863,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
 
   useEffect(() => {
     if (iframeBlocked) return;
+    if (!tokenReady) return;  // 토큰 발급 전엔 iframe 미마운트 — tokenReady가 deps에 있어 마운트 후 재실행됨
     if (!product.id || !durationSeconds || durationSeconds < (settings.minDurationForMidroll || 600)) return;  // 10분+
     if (isSubscriber) return;  // 구독자(PREMIUM)는 광고 제거 — Step 6 정책과 동일
     const iframe = iframeRef.current;
@@ -920,7 +922,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       if (adTimer) clearTimeout(adTimer);
       window.removeEventListener("message", handleMessage);
     };
-  }, [product.id, durationSeconds, iframeBlocked, isSubscriber]);
+  }, [product.id, durationSeconds, iframeBlocked, isSubscriber, tokenReady]);
 
   // ── Phase 28: Sponsorship 배지 (영상 시작 시 5초간 우상단 노출) ──
   const [showSponsorBadge, setShowSponsorBadge] = useState(false);
@@ -983,6 +985,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   useEffect(() => {
     if (!onNavigateToVideo) return;
     if (iframeBlocked) return;
+    if (!tokenReady) return;  // 토큰 발급 전엔 iframe 미마운트 — tokenReady가 deps에 있어 마운트 후 재실행됨
     const iframe = iframeRef.current;
     if (!iframe) return;
 
@@ -1096,7 +1099,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       clearTimeout(initialSubscribe);
       window.removeEventListener("message", handleMessage);
     };
-  }, [product.id, iframeBlocked, onNavigateToVideo, durationSeconds, isSubscriber]);
+  }, [product.id, iframeBlocked, onNavigateToVideo, durationSeconds, isSubscriber, tokenReady]);
 
   // 뒤로가기로 댓글 패널 닫기
   useBackButton(showComments, () => setShowComments(false));

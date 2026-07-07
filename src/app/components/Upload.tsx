@@ -762,6 +762,11 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
       await uploadToBunny(selectedFile, { videoId, libraryId, tusSignature, tusExpire });
       console.log('File uploaded successfully');
 
+      // TUS 업로드가 길어지면(대용량·저속 회선) 시작 시 캡처한 JWT(1시간)가 만료될 수 있음
+      // → 이후 요청(썸네일·메타데이터 저장)은 최신 토큰으로 재조회해 401 확정 실패 방지
+      const { data: { session: postUploadSession } } = await supabase.auth.getSession();
+      const freshToken = postUploadSession?.access_token || currentToken;
+
       // 2.5. 커스텀 썸네일 업로드 (선택된 경우) — Edge Function 경유
       // 자동 추출 프레임 또는 사용자 업로드 이미지를 Bunny Stream에 전송
       // 실패해도 Bunny 자동 썸네일이 폴백되므로 치명적이지 않음
@@ -769,7 +774,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
         console.log('Setting custom thumbnail on Bunny...');
         toast.info(t("upload.toast.thumbnailProcessing"));
         try {
-          await setBunnyThumbnail(videoId, currentToken, selectedThumbnail);
+          await setBunnyThumbnail(videoId, freshToken, selectedThumbnail);
           console.log('Custom thumbnail set successfully');
         } catch (thumbErr) {
           console.warn('Thumbnail upload failed, falling back to Bunny default:', thumbErr);
@@ -860,7 +865,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${currentToken}`,
+              'Authorization': `Bearer ${freshToken}`,
               'apikey': supabaseAnonKey,
             },
             body: JSON.stringify(metadata),
