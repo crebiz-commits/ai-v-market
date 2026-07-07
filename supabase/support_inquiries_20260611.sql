@@ -40,7 +40,7 @@ CREATE POLICY "read own or admin support inquiry" ON public.support_inquiries FO
 -- 답변/상태 변경은 관리자만
 DROP POLICY IF EXISTS "admin update support inquiry" ON public.support_inquiries;
 CREATE POLICY "admin update support inquiry" ON public.support_inquiries FOR UPDATE
-  USING (public.is_admin());
+  USING (public.is_admin()) WITH CHECK (public.is_admin());  -- AF5(2026-07-07): 정책 완결(WITH CHECK 보강)
 
 -- ── 관리자 답변 RPC: 답변 저장 + 상태 answered + 고객에게 알림 ──
 CREATE OR REPLACE FUNCTION public.admin_reply_support_inquiry(p_id uuid, p_reply text)
