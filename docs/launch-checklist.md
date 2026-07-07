@@ -87,7 +87,7 @@
 > 코드 인프라(`ExternalAdSlot`, env 스위치) 준비됨 → 계정 신청·승인만 하면 노출 활성화. 📘 [ad-monetization-guide.md](ad-monetization-guide.md)
 > 토스 무관 — **무료 광고형 수익은 결제 없이 가능.** `public/ads.txt` 배치 완료(승인 후 ID 기입).
 
-- [ ] **카카오 애드핏**(먼저·쉬움) 광고단위(300×250) → `VITE_ADFIT_UNIT_ID`
+- [x] ✅ **카카오 애드핏**(2026-07-07) — 계정·매체 심사 승인, 광고단위 300×250 `DAN-u9aMDBktu0JpNuLu`, env·재배포 완료 → **실광고 노출 중**.
 - [ ] **Google AdSense**(까다로움 — 끌어온 영상 위주면 "가치낮음" 반려 주의, 커뮤니티·원본 보강 후) → `VITE_ADSENSE_CLIENT`/`VITE_ADSENSE_SLOT` + ads.txt 기입
 - [ ] (선택) 쿠팡 파트너스 등 제휴
 - [ ] 승인 후 Vercel env `VITE_EXTERNAL_ADS_ENABLED=1` → 재배포
