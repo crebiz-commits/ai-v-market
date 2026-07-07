@@ -1,4 +1,16 @@
 -- ════════════════════════════════════════════════════════════════════════════
+-- 🛑 미배포 폐기 설계 (2026-07-07 확인) — 재실행 금지.
+--   이 파일의 collab_applications 테이블 + apply_to_collab() '지원(관심)' 모델은
+--   라이브에 배포되지 않았고 채택되지도 않았음(라이브 검증: apply_to_collab 부재).
+--   실제 라이브 협업 지원 흐름 = **비공개 문의 스레드 모델**:
+--     collab_inquiries.sql (collab_inquire / collab_thread_send / collab_threads_for
+--     / collab_thread_mark_read + collab_threads / collab_messages 테이블)
+--     + collab_inquire_closed_guard_20260628.sql + collab_notify_privacy_20260614.sql.
+--   프론트(CollabInquiryModal.tsx)도 위 문의스레드 RPC만 호출한다.
+--   ⚠️ 이 파일을 Run 하면 쓰지 않는 collab_applications/apply_to_collab 이 생겨 감사
+--     혼선을 유발하므로 적용하지 말 것. (collab_posts 테이블 정의는 collab_inquiries.sql
+--     쪽과 중복 — 라이브는 이미 존재.)
+-- ════════════════════════════════════════════════════════════════════════════
 -- 크리에이터 협업 공간 (커뮤니티 → 협업 탭)
 -- 적용 일자: 2026-06-08
 --
