@@ -213,24 +213,22 @@ app.post("/videos/create-upload", async (c) => {
     }
 
     // 정지 계정 차단 + 남용 방지(#6): 비관리자는 시간당 create-upload 30회 제한 (빈 Bunny 영상 무한 생성 차단).
-    // 관리자(시드 콘텐츠 대량 업로드)는 예외. KV 기반 best-effort 윈도우.
+    // 관리자(시드 콘텐츠 대량 업로드)는 예외.
+    // U-M2(2026-07-07): rl_hit 원자적 카운터로 교체(KV get→set 경합 제거). is_admin/is_suspended 는
+    //   anon 미열람 컬럼이라 service 클라로 조회해야 함(기존 anon 조회는 항상 null → 예외/차단이 죽어있던 버그).
     {
-      const { data: _rlProf } = await supabase.from('profiles').select('is_admin, is_suspended').eq('id', user.id).maybeSingle();
+      const supabaseAdmin = getSupabaseClient(true);
+      const { data: _rlProf } = await supabaseAdmin.from('profiles').select('is_admin, is_suspended').eq('id', user.id).maybeSingle();
       // 정지된 계정은 업로드 불가 (모더레이션 — DB 트리거가 못 막는 service_role 경로라 여기서 차단)
       if (_rlProf?.is_suspended) {
         return c.json({ error: "정지된 계정은 업로드할 수 없습니다. 고객센터로 문의해 주세요." }, 403);
       }
       if (!_rlProf?.is_admin) {
-        const rlKey = `ratelimit:create-upload:${user.id}`;
-        const rl: any = await kv.get(rlKey);
-        const nowMs = Date.now();
-        if (rl && (nowMs - rl.windowStart) < 3600_000) {
-          if (rl.count >= 30) {
-            return c.json({ error: "업로드 요청이 너무 많습니다. 1시간 후 다시 시도해 주세요." }, 429);
-          }
-          await kv.set(rlKey, { windowStart: rl.windowStart, count: rl.count + 1 });
-        } else {
-          await kv.set(rlKey, { windowStart: nowMs, count: 1 });
+        const { data: _rlOk } = await supabaseAdmin.rpc('rl_hit', {
+          p_key: `create-upload:${user.id}`, p_limit: 30, p_window_sec: 3600,
+        });
+        if (_rlOk === false) {
+          return c.json({ error: "업로드 요청이 너무 많습니다. 1시간 후 다시 시도해 주세요." }, 429);
         }
       }
     }
@@ -448,15 +446,11 @@ app.post("/generate-promo", async (c) => {
     {
       const { data: _gpProf } = await supabase.from('profiles').select('is_admin').eq('id', user.id).maybeSingle();
       if (!_gpProf?.is_admin) {
-        const rlKey = `ratelimit:generate-promo:${user.id}`;
-        const rl: any = await kv.get(rlKey);
-        const nowMs = Date.now();
-        if (rl && (nowMs - rl.windowStart) < 3600_000) {
-          if (rl.count >= 20) return c.json({ error: "AI 홍보문 생성 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." }, 429);
-          await kv.set(rlKey, { windowStart: rl.windowStart, count: rl.count + 1 });
-        } else {
-          await kv.set(rlKey, { windowStart: nowMs, count: 1 });
-        }
+        // U-M2(2026-07-07): rl_hit 원자적 카운터(supabase 는 이미 service 클라). 20/시간.
+        const { data: _rlOk } = await supabase.rpc('rl_hit', {
+          p_key: `generate-promo:${user.id}`, p_limit: 20, p_window_sec: 3600,
+        });
+        if (_rlOk === false) return c.json({ error: "AI 홍보문 생성 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." }, 429);
       }
     }
 
