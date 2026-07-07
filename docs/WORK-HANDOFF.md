@@ -83,6 +83,14 @@
 - 커밋 전 `npx tsc --noEmit` 통과 확인.
 
 ## ✅ 이번 세션 코드 변경 (모두 커밋·푸시됨, main)
+**2026-07-08 (출시 전 전면 감사 — 5종 병렬감사 후 치명/높음 일괄 수정):**
+- 감사 결과: Edge 라우트 24개·RPC 197건 정합(치명 0) / 치명 1(MyPage 캐시 오염) + 높음 9건 발견·수정.
+- 프론트 수정(943a211): MyPage·홈피드 캐시 오염(계정 전환 시 타인 데이터 노출) / ProductDetail iframe 레이스(연속재생·미드롤·오버레이 영구 미동작) / useAgeRatings 19금 블러 우회 고착 / 업로드 JWT 만료 401 / `config/ads.ts` HOME_FEED_SELF_ADS SSOT 신설.
+- 광고 수정(09518a4): 수정모달 stale state(key 리마운트) / 피드광고 판매 게이트 / SQL `ads_gate_dedup_20260708.sql`(예산게이트+클릭 dedup+정리크론).
+- 결제 수정(d0486c6): `payments_gate_20260708.sql`(**payments_enabled=0** — test키 무상프리미엄·정산오염 차단, **live 전환 시 1로 해제** — launch-checklist §1) / `settlement_zero_correction_20260708.sql`(환불 재정산 0원 정정) / Edge 게이트+클릭 viewer_key.
+- ⚠️ **적용 순서**: ① SQL 3개(payments_gate → settlement_zero_correction → ads_gate_dedup) SQL Editor Run → ② `_verify_security_invariants_20260628.sql` Run(전부 PASS 확인) → ③ Edge 재배포(`npx supabase functions deploy server --project-ref tvbpiuwmvrccfnplhwer --no-verify-jwt`). **SQL보다 Edge를 먼저 배포하면 video_click 이 PGRST202로 깨짐(주의).**
+- 드리프트 발견: `admin_grant_premium`·`admin_crown_creator` RPC와 `profiles.creator_of_month_until` 컬럼이 라이브 DB엔 있으나 저장소 SQL에 없음(2026-07-01 커밋이 프론트만 포함) → 백필 필요(포맷 시 유실 방지).
+
 **2026-06-18 (애드핏 연동·광고 노출·온보딩 UX):**
 - 홈피드 광고: 데스크탑 그리드 **6칸마다** 광고 셀(주기 7칸=2·3·4열 서로소로 같은 열 쏠림 방지) / **현재 `HOME_FEED_SELF_ADS=false`라 자체광고 말고 외부망(애드핏+애드센스)으로만 채움**(나중에 직접 광고주 생기면 true→자체광고 우선) / 모바일도 외부 폴백 추가 / 광고 슬롯 **지연로드**(IntersectionObserver 300px, 첫화면 멈춤·과부하 해소) / 데스크탑 광고 셀 가로·세로 중앙 정렬.
 - 첫화면: **비로그인 랜딩 off**(`SHOW_LANDING=false`, 콘텐츠 우선) / **스플래시** 버튼 라벨 로그인→**둘러보기** + **2.8초 자동진입**(ref+빈deps) + 태그라인 정리. → 애드핏 "로그인벽" 보류 사유 해소 + SEO/유입.
