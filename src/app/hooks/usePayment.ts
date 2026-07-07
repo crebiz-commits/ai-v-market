@@ -66,6 +66,19 @@ async function startBillingAuth(customerKey: string, customerEmail?: string) {
     toast.error("결제 키가 설정되지 않았습니다. 관리자에게 문의하세요.");
     throw new Error("VITE_TOSS_CLIENT_KEY 미설정");
   }
+  // B-2(2026-07-08): 결제 게이트 — live 키 전환 전(payments_enabled=0)엔 카드창 열기 전에 안내.
+  //   서버(billing-auth-confirm)에도 같은 게이트가 있어 우회 불가 — 여기는 UX용 사전 차단.
+  //   조회 실패 시 진행(fail-open) — 서버 게이트가 최종 방어선.
+  try {
+    const { data: payGate } = await supabase.rpc("get_platform_setting", { p_key: "payments_enabled" });
+    if (payGate !== null && payGate !== undefined && Number(payGate) < 1) {
+      toast.info("결제 기능 준비 중입니다. 정식 오픈 후 이용해 주세요.");
+      throw Object.assign(new Error("결제 기능 준비 중"), { code: "PAYMENTS_DISABLED" });
+    }
+  } catch (e: any) {
+    if (e?.code === "PAYMENTS_DISABLED") throw e;
+    /* 설정 조회 실패는 무시하고 진행 */
+  }
   const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY);
   const origin = window.location.origin;
   await (tossPayments as any).requestBillingAuth("카드", {

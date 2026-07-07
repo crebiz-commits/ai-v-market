@@ -77,7 +77,9 @@ export function SubscriptionModal({
       // 성공 시 토스 카드 등록 페이지로 이동 — 여기 이후 코드는 실행 안 됨
     } catch (err: any) {
       // 사용자가 결제창에서 취소하거나 SDK 오류
-      if (err?.code === "USER_CANCEL") {
+      if (err?.code === "PAYMENTS_DISABLED") {
+        // B-2: 결제 게이트 — 안내 토스트는 usePayment 에서 이미 표시됨
+      } else if (err?.code === "USER_CANCEL") {
         toast.info(t("productDetail.toast.paymentCanceled"));
       } else {
         toast.error(t("productDetail.toast.paymentFailed") + (err?.message || t("productDetail.toast.unknownError")));

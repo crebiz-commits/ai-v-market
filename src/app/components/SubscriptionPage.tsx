@@ -67,7 +67,8 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
       await startAutoBilling({ customerKey: user.id, email: user?.email });
       // 토스 카드 등록 페이지로 이동 — 이후 코드 실행 안 됨
     } catch (err: any) {
-      if (err?.code === "USER_CANCEL") toast.info(isKo ? "취소했어요." : "Canceled.");
+      if (err?.code === "PAYMENTS_DISABLED") { /* B-2: 안내 토스트는 usePayment 에서 표시됨 */ }
+      else if (err?.code === "USER_CANCEL") toast.info(isKo ? "취소했어요." : "Canceled.");
       else toast.error((isKo ? "오류: " : "Error: ") + (err?.message || ""));
       setPaying(false);
     }

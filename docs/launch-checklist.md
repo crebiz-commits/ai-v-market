@@ -23,6 +23,8 @@
 - [ ] live 키 교체 (둘 다 **같은 가맹점 live 쌍**) — 토큰 주면 대행 가능
   - [ ] Vercel 환경변수 `VITE_TOSS_CLIENT_KEY` → `live_ck_...`
   - [ ] Supabase Edge Function 시크릿 `TOSS_SECRET_KEY` → `live_sk_...`
+  - [ ] ⭐ **결제 게이트 해제** (B-2, `payments_gate_20260708.sql`) — test 키 동안 무상 프리미엄·정산 오염 방지를 위해 결제가 서버에서 차단돼 있음. live 전환 시 SQL Editor에서:
+    `UPDATE public.platform_settings SET value = 1 WHERE key = 'payments_enabled' AND effective_to IS NULL;`
 - [ ] 전환 후 기존 test 빌링키 무효 → 자동결제 사용자 카드 재등록 공지 *(현재 빌링 사용자 없음 → 거의 무관)*
 - [ ] 실결제 1건 검증 (소액 결제 → 환불 왕복 확인)
 - [ ] ⚠️ **토스 연결/승인 후 → 푸터·햄버거 사업자정보의 전화번호 제거** — 현재 `010-2797-7009`(개인 휴대폰)을 토스 심사 요건(전자상거래법 §13 전화번호 표시) 때문에 **임시로** 넣어둠. 일반전화 없어 개인번호라 승인 후 바로 빼야 함. (Footer.tsx·HamburgerMenu.tsx의 `010-2797-7009` 라인 삭제 — 토큰 주면 대행)

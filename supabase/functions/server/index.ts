@@ -906,7 +906,8 @@ app.post("/ad-event", async (c: any) => {
         p_skipped: skipped ?? false, p_viewer_key: key,
       });
     } else if (type === "video_click") {
-      await supabaseAdmin.rpc("record_ad_click", { p_ad_id: ad_id, p_video_id: video_id, p_format: format || "preroll" });
+      // #4(2026-07-08): viewer_key 전달 → (광고,뷰어,1시간) dedup (클릭 인플레이션 차단)
+      await supabaseAdmin.rpc("record_ad_click", { p_ad_id: ad_id, p_video_id: video_id, p_format: format || "preroll", p_viewer_key: key });
     }
     return c.json({ status: "ok" });
   } catch (e: any) {
@@ -1310,6 +1311,17 @@ app.post('/billing-auth-confirm', async (c) => {
     const { authKey, customerKey } = await c.req.json();
     if (!authKey || !customerKey) return c.json({ error: 'authKey, customerKey 필요' }, 400);
     if (customerKey !== user.id) return c.json({ error: 'customerKey 불일치' }, 400);
+
+    // B-2(2026-07-08): 결제 게이트 — 토스 live 키 전환 전(payments_enabled=0)엔 구독 결제 차단.
+    //   테스트 키 상태에선 카드 등록이 실청구 없이 성공 → 진짜 프리미엄 +30일 무상 부여 +
+    //   가짜 수납액이 M1 구독 풀(실수납 기준 정산)에 산입되는 원장 오염을 서버 단에서 차단.
+    //   설정 행이 없으면 기본 허용(fail-open) — live 전환 후 행을 지워도 결제가 안 죽게.
+    try {
+      const { data: payGate } = await getSupabaseClient(true).rpc('get_platform_setting', { p_key: 'payments_enabled' });
+      if (payGate !== null && payGate !== undefined && Number(payGate) < 1) {
+        return c.json({ error: '결제 기능 준비 중입니다. 정식 오픈 후 이용해 주세요.' }, 503);
+      }
+    } catch { /* 설정 조회 실패는 fail-open (기존 동작 유지) */ }
 
     // P5(2026-07-05): 이미 활성 프리미엄이면 첫 결제 재실행 금지(정기 갱신은 billing-run 담당).
     //   기존 3분 시간창 대신 "현재 프리미엄?" 판정 → 느린복귀/재등록으로 인한 이중 빌링키·이중 +30일 차단.
