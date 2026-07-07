@@ -13,6 +13,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { uploadAdVideo } from "../utils/adVideoUpload";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { HOME_FEED_SELF_ADS } from "../config/ads";
 
 export interface AdvertiserAd {
   id: string;
@@ -179,7 +180,11 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
                       ["feed_image", isKo ? "피드 이미지" : "Feed image", ImageIcon],
                       ["feed_video", isKo ? "피드 영상" : "Feed video", Film],
                       ["preroll", isKo ? "영상 프리롤" : "Preroll", Film],
-                    ] as const).map(([k, label, Icon]) => (
+                    ] as const)
+                      // 피드 자체광고 노출면(HOME_FEED_SELF_ADS)이 꺼진 동안엔 피드 상품 판매 중단
+                      // — 노출면 없는 광고를 팔면 "결제됐는데 노출 0" 분쟁이 됨 (config/ads.ts 참조)
+                      .filter(([k]) => HOME_FEED_SELF_ADS || (k !== "feed_image" && k !== "feed_video"))
+                      .map(([k, label, Icon]) => (
                       <button key={k} type="button" onClick={() => setKind(k)}
                         className={`py-2.5 px-1 rounded-lg text-[13px] font-bold border flex items-center justify-center gap-1.5 transition-colors ${kind === k ? "bg-[#8b5cf6] text-white border-[#8b5cf6]" : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10"}`}>
                         <Icon className="w-4 h-4 shrink-0" />{label}

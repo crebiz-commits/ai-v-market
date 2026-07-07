@@ -204,7 +204,9 @@ export function AdvertiserDashboard({ onBack, onSignInClick }: Props) {
         )}
       </div>
 
-      <AdCreateModal open={modalOpen} editAd={editAd} onClose={() => setModalOpen(false)} onSaved={load} />
+      {/* key로 대상 변경 시 리마운트 강제 — 모달 폼이 useState 초기값으로만 세팅되므로
+          key 없이는 "수정"을 눌러도 기존 광고 값이 폼에 로드되지 않음(빈 폼·유형 오염) */}
+      <AdCreateModal key={editAd ? `edit-${editAd.id}` : "new"} open={modalOpen} editAd={editAd} onClose={() => setModalOpen(false)} onSaved={load} />
       {topupAd && <AdTopupModal open={!!topupAd} adId={topupAd.id} adTitle={topupAd.title} onClose={() => setTopupAd(null)} />}
       {statsAd && <AdStatsModal open={!!statsAd} adId={statsAd.id} adTitle={statsAd.title} onClose={() => setStatsAd(null)} />}
     </div>
