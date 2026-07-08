@@ -31,7 +31,7 @@ function fmtDuration(s?: number | null) {
 
 export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onAddToCart, emptyMessage, ageRatings }: Props) {
   const { t } = useTranslation();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const ageVerified = profile?.age_verified ?? false;
   const { isLiked, displayCount, seedCount, displayViews, seedViews, toggleLike } = useLikes();
   const restScrollRef = useRef<HTMLDivElement>(null);
@@ -93,7 +93,7 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
           {/* 좌측 화살표 */}
           <button
             onClick={() => scrollRest("left")}
-            className="flex absolute left-0 top-0 bottom-0 z-10 w-12 items-center justify-center bg-gradient-to-r from-background/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity"
+            className="hidden [@media(hover:hover)]:flex absolute left-0 top-0 bottom-0 z-10 w-12 items-center justify-center bg-gradient-to-r from-background/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity"
             aria-label={t("videoRow.previous")}
           >
             <ChevronLeft className="w-8 h-8 text-white" />
@@ -103,7 +103,8 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
             {ranked.map((v, i) => {
             const rank = i + 1;
             const twoDigit = rank >= 10;  // "10" 은 두 자리라 폭이 넓음 → 폰트 축소·자간 좁힘으로 한 자리와 비슷하게
-            const isAgeLocked = shouldBlur(ageRatings?.[v.id], ageVerified);  // 19+ 미인증 → 블러
+            const isMyVideo = !!user?.id && v.creator_id === user.id;  // 본인 영상은 블러 예외(VideoRowCarousel 동일)
+            const isAgeLocked = !isMyVideo && shouldBlur(ageRatings?.[v.id], ageVerified);  // 19+ 미인증 → 블러
             return (
               <button
                 key={v.id}
@@ -205,7 +206,7 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
           {/* 우측 화살표 */}
           <button
             onClick={() => scrollRest("right")}
-            className="flex absolute right-0 top-0 bottom-0 z-10 w-12 items-center justify-center bg-gradient-to-l from-background/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity"
+            className="hidden [@media(hover:hover)]:flex absolute right-0 top-0 bottom-0 z-10 w-12 items-center justify-center bg-gradient-to-l from-background/90 to-transparent opacity-0 group-hover/row:opacity-100 transition-opacity"
             aria-label={t("videoRow.next")}
           >
             <ChevronRight className="w-8 h-8 text-white" />

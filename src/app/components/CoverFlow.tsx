@@ -133,9 +133,9 @@ export function CoverFlow({ videos, hideControls, onVideoClick, ageRatings }: Co
       return;
     }
 
-    // 그렇지 않으면 해당 아이템으로 회전
+    // 그렇지 않으면 해당 아이템을 중앙으로 회전 (getCenterIndex 규약과 일치: +index)
     setIsAutoRotating(false);
-    const targetRotation = -index * anglePerItem;
+    const targetRotation = index * anglePerItem;
     setRotation(targetRotation);
     // 3초 후 자동 회전 재개
     if (autoRotateTimeoutRef.current) {
@@ -322,11 +322,7 @@ export function CoverFlow({ videos, hideControls, onVideoClick, ageRatings }: Co
                 {/* Cover Image */}
                 <div
                   className="coverflow-cover cursor-pointer"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onVideoClick?.(video);
-                  }}
+                  onClick={(e) => handleCoverClick(index, e)}
                 >
                   <img
                     src={video.thumbnail}

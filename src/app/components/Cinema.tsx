@@ -353,8 +353,9 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
       </div>
 
       <div className="mt-4">
-          {/* 🎡 CoverFlow — 원통형 캐러셀 (CREAITE만의 시그니처 UI). heroVideos/coverFlowVideos 는 위에서 useMemo */}
-          {heroVideos.length > 0 && (
+          {/* 🎡 CoverFlow — 원통형 캐러셀 (CREAITE만의 시그니처 UI). heroVideos/coverFlowVideos 는 위에서 useMemo.
+              3D 실린더는 3개 미만이면 자동회전 시 backface-visibility 로 카드가 사라져 보임 → 3편 이상일 때만 노출. */}
+          {heroVideos.length >= 3 && (
             <div className="mb-8 mt-2 md:-mb-10 lg:-mb-20">
               {/* 다른 섹션과 동일한 한 줄 헤더(고정 h-7 + 설명 인라인) */}
               <div className="px-4 md:px-6 mb-2 h-7 flex items-end gap-2 overflow-hidden">

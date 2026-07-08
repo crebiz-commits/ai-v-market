@@ -7,7 +7,7 @@
 //   → module-level 캐시를 single source of truth 로 두고, 매 렌더마다
 //     현재 videoIds 의 등급을 캐시에서 동기 구성해 반환 (한 번 채워지면 유지됨).
 //     fetch 완료 시에만 force 리렌더.
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "../utils/supabaseClient";
 
 type RatingMap = Record<string, string>;
@@ -22,6 +22,8 @@ export function getCachedAgeRating(videoId: string): string {
 export function useAgeRatings(videoIds: string[]): RatingMap {
   const key = videoIds.join(",");
   const [version, force] = useState(0);
+  const [retry, setRetry] = useState(0);
+  const retryCountRef = useRef(0);
 
   useEffect(() => {
     // 캐시 miss인 id만 fetch
@@ -34,23 +36,27 @@ export function useAgeRatings(videoIds: string[]): RatingMap {
         const { data, error } = await supabase.rpc("get_age_ratings_for_videos", {
           p_video_ids: missing,
         });
-        if (!error && data) {
-          for (const row of data as { video_id: string; age_rating: string }[]) {
-            cache[row.video_id] = row.age_rating || "all";
-          }
-          // 성공 응답에 없는 id(목/DB 미존재 등)만 'all'로 캐시 → 재요청 방지.
-          // ⚠️ RPC 실패 시엔 캐시하지 않음 — 일시 오류로 19금 영상이 세션 내내
-          //    'all'(블러 없음)로 고착되는 청소년보호 구멍 방지 (다음 마운트에서 재시도)
-          for (const id of missing) if (!(id in cache)) cache[id] = "all";
+        if (error) throw error;
+        for (const row of (data || []) as { video_id: string; age_rating: string }[]) {
+          cache[row.video_id] = row.age_rating || "all";
         }
+        // 성공 응답에 없는 id(목/DB 미존재 등)만 'all'로 캐시 → 재요청 방지.
+        for (const id of missing) if (!(id in cache)) cache[id] = "all";
+        retryCountRef.current = 0;
         if (!cancelled) force((n) => n + 1);  // 캐시가 채워졌으니 1회 리렌더
       } catch {
-        // 조용한 폴백 — 등급 표시만 안 함
+        // ⚠️ RPC 실패 시엔 캐시하지 않음(일시 오류로 19금이 'all'=무블러로 고착되는 청소년보호 구멍 방지).
+        //   다만 마운트 유지 중엔 remount 가 안 일어나 재시도가 없던 게 fail-open 이었음 →
+        //   최대 3회 백오프 재시도로 세션 내에서 실제 등급을 확보한다.
+        if (!cancelled && retryCountRef.current < 3) {
+          const n = (retryCountRef.current += 1);
+          setTimeout(() => { if (!cancelled) setRetry((r) => r + 1); }, 1500 * n);
+        }
       }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, retry]);
 
   // 캐시에서 구성한 맵을 useMemo 로 안정화 — 매 렌더 새 객체면 소비처(memo 카드/행) 리렌더 유발
   return useMemo(() => {
