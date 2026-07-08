@@ -94,7 +94,7 @@ interface CommentItemCtx {
   isAuthenticated: boolean;
   isKo: boolean;
   t: (key: string, opts?: any) => string;
-  creatorInfo: Record<string, { avatar?: string | null } | undefined>;
+  creatorInfo: Record<string, { name?: string; avatar?: string | null } | undefined>;
   likedComments: Set<string>;
   openMenu: string | null;
   setOpenMenu: (v: string | null) => void;
@@ -122,6 +122,9 @@ function CommentItemView({ comment, isReply = false, parentId, ctx }: { comment:
   const canCreatorBlock = isVideoOwner && !isCommentByCreator;
   const showMenu = !isMine && isAuthenticated; // 본인 댓글 아니고 로그인 시 메뉴 노출
   const menuOpen = openMenu === comment.id;
+  // 표시 이름은 프로필 display_name(라이브 해석, 크리에잇) 우선 → 없으면 저장된 author_name 폴백.
+  //   저장값은 작성 시점 user_metadata.name(예: crebiz크레비즈)이라 프로필명과 어긋날 수 있음.
+  const displayName = creatorInfo[comment.user_id]?.name ?? comment.author_name;
 
   // 본인 댓글 수정 — 상태를 CommentItemView 로컬로 둬서 타이핑 중 패널 리렌더 방지
   const [editing, setEditing] = useState(false);
@@ -190,17 +193,17 @@ function CommentItemView({ comment, isReply = false, parentId, ctx }: { comment:
         <button
           onClick={() => onViewCreator(comment.user_id)}
           className="flex-shrink-0 hover:opacity-80 transition-opacity"
-          aria-label={comment.author_name}
+          aria-label={displayName}
         >
           <Avatar
-            name={comment.author_name}
+            name={displayName}
             src={creatorInfo[comment.user_id]?.avatar ?? undefined}
             size={isReply ? 28 : 36}
           />
         </button>
       ) : (
         <Avatar
-          name={comment.author_name}
+          name={displayName}
           src={creatorInfo[comment.user_id]?.avatar ?? undefined}
           size={isReply ? 28 : 36}
         />
@@ -218,10 +221,10 @@ function CommentItemView({ comment, isReply = false, parentId, ctx }: { comment:
               onClick={() => onViewCreator(comment.user_id)}
               className="text-sm font-semibold text-white hover:text-[#a78bfa] transition-colors"
             >
-              {comment.author_name}
+              {displayName}
             </button>
           ) : (
-            <span className="text-sm font-semibold text-white">{comment.author_name}</span>
+            <span className="text-sm font-semibold text-white">{displayName}</span>
           )}
           {isCommentByCreator && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold">
@@ -280,7 +283,7 @@ function CommentItemView({ comment, isReply = false, parentId, ctx }: { comment:
           {!isReply && (
             <button
               onClick={() => {
-                setReplyTo({ id: comment.id, name: comment.author_name });
+                setReplyTo({ id: comment.id, name: displayName });
                 inputRef.current?.focus();
               }}
               className="text-xs text-gray-500 hover:text-[#8b5cf6] transition-colors"
@@ -352,7 +355,7 @@ function CommentItemView({ comment, isReply = false, parentId, ctx }: { comment:
                   <button
                     onClick={() => {
                       setOpenMenu(null);
-                      setReportTarget({ id: comment.id, name: comment.author_name });
+                      setReportTarget({ id: comment.id, name: displayName });
                     }}
                     className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-amber-400 transition-colors flex items-center gap-2"
                   >
@@ -362,7 +365,7 @@ function CommentItemView({ comment, isReply = false, parentId, ctx }: { comment:
                   <button
                     onClick={() => {
                       setOpenMenu(null);
-                      blockUser(comment.user_id, comment.author_name);
+                      blockUser(comment.user_id, displayName);
                     }}
                     className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-red-400 transition-colors flex items-center gap-2"
                   >
@@ -373,7 +376,7 @@ function CommentItemView({ comment, isReply = false, parentId, ctx }: { comment:
                     <button
                       onClick={() => {
                         setOpenMenu(null);
-                        handleBlockUser(comment.user_id, comment.author_name);
+                        handleBlockUser(comment.user_id, displayName);
                       }}
                       className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-red-400 transition-colors flex items-center gap-2 border-t border-white/5 mt-1 pt-2"
                     >
@@ -535,7 +538,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
     try {
       const payload: any = {
         user_id: user!.id,
-        author_name: user!.name || t("community.anonymous"),
+        author_name: profile?.display_name || user!.name || t("community.anonymous"),
         content: text.trim(),
         likes_count: 0,
       };
@@ -563,7 +566,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
 
       const newComment: Comment = {
         ...inserted,
-        author_name: user!.name,
+        author_name: profile?.display_name || user!.name,
         replies: [],
       };
 
