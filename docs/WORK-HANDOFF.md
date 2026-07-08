@@ -83,6 +83,12 @@
 - 커밋 전 `npx tsc --noEmit` 통과 확인.
 
 ## ✅ 이번 세션 코드 변경 (모두 커밋·푸시됨, main)
+**2026-07-08 (매거진 콘텐츠 영문화 — 기사 20편 한/영 이중언어, 91eab7c):**
+- 매거진 기사(제목·요약·HTML 본문)는 UI 문자열이 아니라 **콘텐츠**라 i18n.json이 아닌 **데이터 파일 자체를 언어별 구조로** 전환: `magazineArticles.ts`의 기존 한글은 `RAW_ARTICLES`로 보존, `ARTICLES_EN`(영문 20편) 맵 추가 → `title/excerpt/body`를 `LocalizedText{ko,en}`로 합성(en 없으면 ko 폴백). `Magazine.tsx`·`Footer.tsx`가 `i18n.language`로 언어 선택 렌더.
+- 카테고리(가이드·제작기·인사이트·정책)는 **값 유지 + `magazine.cat.*`로 표시만 번역**(로직/필터는 한글 값 그대로). SEO 메타도 언어별.
+- 번역은 5개 에이전트 병렬(각 4편) → 조각 JSON → 조립 스크립트(`assemble-mag-en.js`, 태그 개수·href 대조 검증) → 데이터 파일 삽입. 본문 HTML/href는 한글본과 동일.
+- ⚠️ **새 기사 추가 시**: `RAW_ARTICLES`에 한글 추가 후 `ARTICLES_EN`에 같은 slug로 영문도 넣어야 영문 모드에서 안 깨짐(안 넣으면 한글 폴백).
+
 **2026-07-08 (i18n 4차 — 동적/변수 키 raw 노출 대량 수정, +158키):**
 - 증상: 홈피드 칩이 `discoveryFeed.chips.all` 처럼 **키 이름 그대로** 노출(한·영 모두). 랜딩 가치카드·FAQ, 크리에이터 수익정책 본문, 고객센터 분류/상태, 공유대상 등도 동일.
 - 원인: 컴포넌트가 `t(\`ns.${var}\`)`·`t(labelKey)` 같은 **동적/변수 키**로 렌더하는데 해당 키가 ko/en.json에 없어 i18next가 키 문자열을 그대로 반환. 1~3차의 정적 검사(`check-missing-keys`)가 **동적 키를 못 잡던 사각**.
