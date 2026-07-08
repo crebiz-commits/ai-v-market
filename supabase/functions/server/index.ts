@@ -601,7 +601,7 @@ app.post("/videos/save-metadata", async (c) => {
 
     // 소유권/권한 검증 (#3·#4-b): 이 videoId 가 호출자 소유(create-upload 로 생성했거나 기존 본인 영상)이거나
     // 관리자여야 메타 저장 허용. 없으면 타인 videoId 로 메타 덮어쓰기·소유권 탈취 가능.
-    const { data: _prof } = await supabaseAdmin.from('profiles').select('is_admin').eq('id', user.id).maybeSingle();
+    const { data: _prof } = await supabaseAdmin.from('profiles').select('is_admin, display_name').eq('id', user.id).maybeSingle();
     const isAdmin = !!_prof?.is_admin;
     if (!isAdmin) {
       const ownerKv: any = await kv.get(`video:${videoId}`);
@@ -694,7 +694,9 @@ app.post("/videos/save-metadata", async (c) => {
         id: videoId,
         title: metadata.title || 'Untitled',
         description: metadata.description || '',
-        creator: user.user_metadata?.name || user.email?.split('@')[0],
+        // 프로필 표시이름(display_name) 우선 — OAuth user_metadata.name(예: 'crebiz크레비즈')이 아니라
+        // 사용자가 CREAITE 에서 설정한 이름(예: '크리에잇')으로 저장 (표시 일관성)
+        creator: _prof?.display_name || user.user_metadata?.name || user.email?.split('@')[0],
         creator_id: user.id,
         thumbnail: metadata.thumbnailUrl || '',
         video_url: metadata.hlsUrl || '',
