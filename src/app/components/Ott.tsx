@@ -473,9 +473,10 @@ const HeroBillboard = memo(function HeroBillboard({
   const [videoReady, setVideoReady] = useState(false);
 
   // 재생 소스 우선순위:
-  //   ① 미리 잘린 하이라이트 클립(hero_clip_url) — seek 불필요·100% 안정, 0초부터 루프.
-  //   ② 클립이 없고 하이라이트 구간(끝>시작)이 있으면 본편 mp4 를 highlight_start 로 seek 후
-  //      구간 루프 → 크리에이터가 편집한 하이라이트가 히어로에 반영됨.
+  //   ① 미리 잘린 하이라이트 클립(hero_clip_url) — 클립 1회 재생 후 다음 히어로(ended).
+  //   ② 클립이 없으면 본편 mp4 를 highlight_start 에서 시작해 그대로 연속 재생.
+  //      구간 되감기 없음(2026-07-08 단순화: 10초 구간 영상이 30초 창에서 3번 반복되던 것 제거)
+  //      → 30초 상한 타이머 또는 영상 종료(ended) 시 다음 히어로로.
   //   preview.webp 를 항상 베이스로 깔아둬 seek 이 버벅이거나 실패해도 화면이 비지 않음(안전 폴백).
   const isClip = !!src?.clipUrl;
   const isSeek = !isClip && !!src?.seekUrl && (src?.end ?? 0) > (src?.start ?? 0);
@@ -551,8 +552,7 @@ const HeroBillboard = memo(function HeroBillboard({
                 //   (프로덕션에서 88초 seek 이 느려 videoReady 가 영영 안 켜지던 문제 해결.
                 //    seek 이 성공하면 하이라이트 지점, 느리면 잠깐 앞부분이 보였다가 이동.)
                 if (v.currentTime > 0.05) setVideoReady(true);
-                // 구간 끝 도달 시 시작점으로 되감아 하이라이트만 루프
-                if (isSeek && src && v.currentTime >= src.end) { try { v.currentTime = src.start; } catch { /* 무시 */ } }
+                // (구간 되감기 제거 — 그대로 연속 재생, 전환은 30초 타이머/ended 가 담당)
               }}
               onPlaying={() => { if ((videoRef.current?.currentTime ?? 0) > 0.05) setVideoReady(true); }}
               onError={() => setVideoReady(false)}   // 재생 실패 시 preview.webp/포스터로 안전 폴백
