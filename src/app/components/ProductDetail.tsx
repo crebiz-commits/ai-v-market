@@ -420,7 +420,11 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   const [playFullAccess, setPlayFullAccess] = useState(false);
   // 영상이 미리보기 시간보다 길면 비구독자에게 미리보기 cutoff 적용
   // (영상이 더 짧으면 자동으로 풀 시청 — 별도 처리 불필요)
-  const needsPreviewCutoff = durationSeconds > previewSeconds && !isSubscriber && !playFullAccess;
+  // ⚠️ 소유자(isMyVideo)·관리자는 클라이언트가 즉시 아는 면제 대상 → 서버 재생토큰
+  //    (BUNNY_TOKEN_AUTH_KEY, 현재 무중단전환 대기라 fullAccess=false) 없이도 컷오프 제외.
+  //    (라이선스 구매자는 결제 게이트로 아직 없음 → 토큰 활성화 시 서버 fullAccess 로 커버)
+  const needsPreviewCutoff = durationSeconds > previewSeconds && !isSubscriber && !playFullAccess
+    && !isMyVideo && !profile?.is_admin;
   // OTT 영상도 1분 미리보기 통일 (즉시 차단 X) — 단 카드에는 "🔒 프리미엄" 배지 표시
   const isOttVideo = durationSeconds >= (settings.ottMinSeconds || FALLBACK_OTT_THRESHOLD);
   const isCinemaVideo = durationSeconds >= cinemaMinSec;

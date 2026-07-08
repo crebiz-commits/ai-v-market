@@ -108,10 +108,17 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
               onClick={() => go(b.link)}
               className="relative w-full h-44 md:h-48 rounded-2xl overflow-hidden text-left group block"
             >
-              {/* 배경: 사진 또는 그라데이션 */}
-              {b.image ? (
+              {/* 배경: 그라데이션을 항상 깔고(폴백), 이미지가 있으면 그 위에 덮음.
+                  이미지 로드 실패(핫링크 차단·만료 등) 시 onError 로 이미지를 숨겨 그라데이션이 드러남 → 빈 배너 방지. */}
+              <div className={`absolute inset-0 bg-gradient-to-br ${b.gradient || "from-[#1a1030] via-[#0d0d14] to-[#0d0d14]"}`} />
+              {b.image && (
                 <>
-                  <img src={b.image} alt="" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <img
+                    src={b.image}
+                    alt=""
+                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
                   {/* dark(밝은 이미지 + 어두운 글씨)일 땐 밝은 오버레이로 글씨 가독성 확보 */}
                   <div className={`absolute inset-0 ${
                     b.dark
@@ -119,8 +126,6 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
                       : (b.align === "center" ? "bg-black/55" : "bg-gradient-to-r from-black/85 via-black/55 to-black/20")
                   }`} />
                 </>
-              ) : (
-                <div className={`absolute inset-0 bg-gradient-to-br ${b.gradient || "from-[#1a1030] via-[#0d0d14] to-[#0d0d14]"}`} />
               )}
 
               {/* 좌상단 badge — dark(밝은 배경)일 땐 어두운 pill */}

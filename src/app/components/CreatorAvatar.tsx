@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface CreatorAvatarProps {
   avatarUrl?: string | null;
@@ -38,6 +38,9 @@ export function CreatorAvatar({
   onClick,
 }: CreatorAvatarProps) {
   const [failed, setFailed] = useState(false);
+  // avatarUrl 이 바뀌면(같은 인스턴스가 다른 크리에이터로 재사용될 때) 이전 로드실패 플래그 리셋 →
+  // 새 유효 URL 이 왔는데도 이니셜만 계속 보이던 stale-error 방지.
+  useEffect(() => { setFailed(false); }, [avatarUrl]);
   const sizeClass = SIZE_PX[size];
   const baseClass = `rounded-full flex items-center justify-center overflow-hidden shrink-0 ${sizeClass} ${className}`;
 
