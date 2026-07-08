@@ -166,7 +166,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
   const [formatRows, setFormatRows] = useState<{ category: string; position: "top" | "bottom"; videos: CarouselVideo[] }[]>(_ottInit?.formatRows ?? []);
   // 풀블리드 히어로: 자동재생 영상 소스 + 음소거 토글.
   // clipUrl(미리 잘린 30초 하이라이트 클립)이 있으면 seek 없이 처음부터 재생(안정적).
-  const [heroSrc, setHeroSrc] = useState<{ url: string; start: number; end: number; clipUrl?: string; previewUrl?: string } | null>(null);
+  const [heroSrc, setHeroSrc] = useState<HeroSrc | null>(null);   // seekUrl 포함(HeroSrc) — 이전 인라인 타입은 seekUrl 누락
   const [heroMuted, setHeroMuted] = useState(true);
   const [heroIdx, setHeroIdx] = useState(0);   // 히어로 순환 인덱스 (20초마다)
   const [featured, setFeatured] = useState<CarouselVideo[]>([]);  // 피처링(챌린지 우승작) — 히어로 최우선
@@ -489,7 +489,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
 
 // ────────────────────────────────────────────────────────────────────────────
 // 풀블리드 단일 히어로 (영상 자동재생 — 음소거·하이라이트 구간 반복, 소리 토글)
-//  · 헤더 영역까지 꽉 차는 배경. video.js 로 HLS 재생.
+//  · 헤더 영역까지 꽉 차는 배경. 네이티브 <video> 로 클립/mp4(seek) 재생 + preview.webp 폴백.
 //  · 실제 video_url 이 없으면 당분간 샘플 미리보기 영상을 전체 반복 재생 (폴백).
 // ────────────────────────────────────────────────────────────────────────────
 const HeroBillboard = memo(function HeroBillboard({
