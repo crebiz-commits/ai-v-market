@@ -90,7 +90,7 @@
 - 결제 수정(d0486c6): `payments_gate_20260708.sql`(**payments_enabled=0** — test키 무상프리미엄·정산오염 차단, **live 전환 시 1로 해제** — launch-checklist §1) / `settlement_zero_correction_20260708.sql`(환불 재정산 0원 정정) / Edge 게이트+클릭 viewer_key.
 - ⚠️ **적용 순서**: ① SQL 3개(payments_gate → settlement_zero_correction → ads_gate_dedup) SQL Editor Run → ② `_verify_security_invariants_20260628.sql` Run(전부 PASS 확인) → ③ Edge 재배포(`npx supabase functions deploy server --project-ref tvbpiuwmvrccfnplhwer --no-verify-jwt`). **SQL보다 Edge를 먼저 배포하면 video_click 이 PGRST202로 깨짐(주의).**
 - 드리프트 발견: `admin_grant_premium`·`admin_crown_creator` RPC와 `profiles.creator_of_month_until` 컬럼이 라이브 DB엔 있으나 저장소 SQL에 없음(2026-07-01 커밋이 프론트만 포함) → ✅ **백필 완료(2026-07-08)**: 라이브 덤프를 `supabase/backfill_admin_crown_premium_20260708.sql`로 보존. 시그니처(DEFAULT 1/30 포함)는 라이브 `pg_get_function_arguments()`로 대조 확인 완료 — 백필 정의와 100% 일치.
-- ✅ **후속 조치 완료(2026-07-08)**: SQL 3개 적용 + 보안 게이트 13/13 PASS + Edge 재배포까지 순서대로 완료.
+- ✅ **후속 조치 완료(2026-07-08)**: SQL 3개 적용 + 보안 게이트 13/13 PASS + Edge 재배포 + **사후검증 5/5 PASS**(광고 예산게이트 뷰 제외 / record_ad_click 오버로드 1개 / 정리 크론 3개 / payments_enabled=0 / start_payment 게이트 차단 — JWT 흉내 포함 실측). admin RPC는 anon 호출 시 내부 is_admin 게이트가 P0001 차단(실측). **미검증 잔여 1건**: B-1 환불 재정산 0원 정정은 실제 환불 발생 시에만 확인 가능(`settlement_zero_correction_20260708.sql` 주석의 시나리오로 그때 검증).
 - 📌 **영상 403 주의**: Bunny 스트림 CDN(`vz-6e85411f-96a.b-cdn.net`)에 리퍼러 화이트리스트가 걸려 있어 **`creaite.net`/`www.creaite.net`에서만 영상·썸네일이 나옴**. Vercel 기본 도메인(`ai-v-market.vercel.app`)이나 리퍼러 없는 직접 접근은 403 → "영상이 하나도 안 나옴" 증상은 장애가 아니라 이것(항상 `www.creaite.net`으로 접속·테스트할 것). 상세페이지 iframe(`iframe.mediadelivery.net`)은 영향 없음.
 
 **2026-06-18 (애드핏 연동·광고 노출·온보딩 UX):**
