@@ -64,6 +64,7 @@ export default async function handler(_req: Request): Promise<Response> {
     { loc: `${SITE_URL}/`, changefreq: "daily", priority: "1.0" },
     // 정보 페이지 (?info= 라우팅) — SEO 인덱싱 + 검색 유입
     { loc: `${SITE_URL}/?info=creator-revenue`, changefreq: "monthly", priority: "0.7" },
+    { loc: `${SITE_URL}/?info=about`, changefreq: "monthly", priority: "0.6" },
     { loc: `${SITE_URL}/?info=faq`, changefreq: "monthly", priority: "0.6" },
     { loc: `${SITE_URL}/?info=notices`, changefreq: "weekly", priority: "0.6" },
     { loc: `${SITE_URL}/?tab=bug-report`, changefreq: "monthly", priority: "0.5" },

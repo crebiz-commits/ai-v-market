@@ -243,6 +243,13 @@ function AppContent() {
         </Suspense>
       );
     }
+    if (infoParam === "about") {
+      return (
+        <Suspense fallback={<PageLoading />}>
+          <AboutPage onBack={goBack} onNavigate={(tab) => { window.location.href = `${window.location.pathname}?tab=${tab}`; }} />
+        </Suspense>
+      );
+    }
     if (infoParam === "terms") {
       return (
         <Suspense fallback={<PageLoading />}>
