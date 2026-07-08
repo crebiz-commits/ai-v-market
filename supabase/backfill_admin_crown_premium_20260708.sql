@@ -97,8 +97,10 @@ END;
 $function$;
 
 -- ── 3) 권한 게이트 ──────────────────────────────────────────────────────────
--- anon 미노출은 라이브 확인됨(PostgREST OpenAPI에 두 RPC 없음, 2026-07-08).
--- authenticated 실행 가능은 어드민 UI 정상 작동으로 확인(함수 내부 is_admin 게이트가 SSOT).
+-- 라이브 실측(2026-07-08, anon 키로 REST 호출): anon 도 호출은 가능하나 함수 내부
+-- is_admin 게이트가 차단(P0001 "관리자 권한이 필요합니다") — 즉 내부 게이트가 SSOT.
+-- 아래 REVOKE/GRANT 는 라이브보다 엄격한 심층방어(복원 시 anon 은 호출조차 불가).
+-- ⚠️ REVOKE FROM PUBLIC 뒤 GRANT TO authenticated 를 빼먹으면 어드민 UI가 깨짐 — 세트로 실행.
 REVOKE ALL ON FUNCTION public.admin_grant_premium(text, integer) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.admin_crown_creator(text, text, integer, integer) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_grant_premium(text, integer) TO authenticated;
