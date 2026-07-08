@@ -89,12 +89,14 @@
 - 검증: 수정파일 참조키 **누락 0** / ko·en 키 **대칭** / `tsc --noEmit` **0** / **prod 빌드 성공**.
 - 원복: **StaticPages.tsx**(약관·개인정보·청소년·FAQ)는 이미 ko/en 배열 완비(영문 정상 작동) + `returnObjects` 배열이라 불완전 변환 시 페이지 크래시 위험 → 되돌림. **About 섹션 일부 한글전용은 잔여 과제**.
 - ✅ **2차 완료(99da2d6, 번역키 +154)**: 위 미완 파일 대부분 t() 전환·검증 완료 — OTT/시네마(`Ott` `Cinema` `VideoRowCarousel` `TrendingHeroSection`) / 광고주(`AdCreateModal` `AdvertiserDashboard` `AdTopupModal` `AdStatsModal`) / 크리에이터(`CreatorDashboard` `ReceivedCommentsSection` `TaxInfoSection` `PayoutInfoModal`) / 채널·알림(`Channel` `CreatorChannel` `NotificationPanel`) / 설정·인증(`NotificationSettings` `CommentSettings` `PushPrompt` `InstallPrompt` `PasswordResetScreen`) / 커뮤니티상세(`CommunityPostDetail` `CommunityMockShowcase`) / 비즈니스(`BusinessPage` `EventBannerBoard`) / 공유·신고·광고(`ReportModal` `ReferralCard` `AdMidrollPlayer` `AdOverlayBanner` `CoupangBanner` `ExternalAdSlot`). 검증: 누락 키 0 · ko/en 대칭 · tsc 0 · 빌드 성공.
-- ⏳ **여전히 잔여(후순위/저노출)**:
-  - **StaticPages About 섹션** 일부 한글전용(1차에서 크래시 위험으로 파일 원복 → About만 미변환).
-  - **관리자(Admin\*) 화면 전체**·내부 디자인 프리뷰(`*Preview`·`LogoDesigns*` 등)·`SupportPage` 카테고리 일부 — 사용자 비노출이라 후순위.
-  - **InstallPrompt iOS 가이드** 4문장: 문장 중간에 아이콘/`<strong>`이 박혀 있어 `<Trans>` 리팩터 필요(현재 영문 하드코딩 상태라 한국어 사용자에게 영어 노출).
+- ✅ **3차 완료(2a0ebd9, 번역키 +92)**: 영문 모드 raw 한글 정밀검출(detect2) 후 잔여 마감 — StaticPages **About**(회사소개·비전·서비스구성 22키) / **Upload** 시리즈·라이선스·크레딧·후원 + **VideoEditModal** 편집폼 전반(라운드1 미처리 기존 누락키 43개 포함, 65키) / **Magazine** 크롬 / **DiscoveryFeed** 재시도버튼 / **BackButton** 기본 label. 검증: 누락 키 0 · ko/en 대칭 · tsc 0 · 빌드 성공.
+- ✅ **비관리자 사용자화면 영문화 사실상 완료**. 남은 raw 한글은 전부 정당: 약관/개인정보/청소년/FAQ는 `isKo ? KO배열 : EN배열` 이중언어(영문 정상) · `BunnySetupGuide`는 **죽은 코드**(`setShowBunnyGuide(true)` 미호출로 항상 닫힘) · Footer "크레비즈 그룹(CREBIZ Group)"은 브랜드 고유명사.
+- ⏳ **여전히 잔여(후순위/범위밖)**:
+  - **관리자(Admin\*) 화면 전체**·내부 디자인 프리뷰(`*Preview`·`LogoDesigns*` 등) — 사용자 비노출, 후순위(사용자가 "관리자 빼고" 지시).
+  - **InstallPrompt iOS 가이드** 4문장: 문장 중간에 아이콘/`<strong>`이 박혀 `<Trans>` 리팩터 필요(현재 영문 하드코딩이라 한국어 사용자에게 영어 노출 — 반대 방향 이슈).
+  - **Magazine 기사 본문/카테고리 taxonomy**·영상 제목 등 **콘텐츠성 한글**은 원문 유지(영상 원어 유지와 동일 정책).
   - **서버/DB 발원 텍스트**(알림 본문 `notif.body`, Supabase 인증 에러 `err.message`, 공지·문의 DB내용)는 프론트 i18n 범위 밖 — 서버 다국어화 별도 과제.
-  - 재개 방법: 같은 방식(하드코딩/isKo 한글 → t(key), ko/en.json에 키 추가) 반복. DB/로직용 한글 값은 유지하고 표시 시점에만 번역(`getCategoryLabel` 등). 검증 스크립트는 스크래치패드에 있음(merge-i18n·check-missing-keys·extract-defaults).
+  - 재개/점검 도구(스크래치패드): `detect2.js`(렌더 raw 한글 검출) · `merge-i18n.js`(조각→locale 병합·충돌검출) · `check-missing-keys.js`(참조키 누락) · `extract-defaults.js`(t 기본값 추출). DB/로직용 한글 값은 유지하고 표시 시점에만 번역(`getCategoryLabel` 등).
 
 **2026-07-08 (출시 전 전면 감사 — 5종 병렬감사 후 치명/높음 일괄 수정):**
 - 감사 결과: Edge 라우트 24개·RPC 197건 정합(치명 0) / 치명 1(MyPage 캐시 오염) + 높음 9건 발견·수정.
