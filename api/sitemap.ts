@@ -33,12 +33,17 @@ export default async function handler(_req: Request): Promise<Response> {
 
   // CREAITE 매거진 아티클 slug (src/app/data/magazineArticles.ts 와 동기화)
   const MAGAZINE_SLUGS = [
+    "creaite-is-your-distributor",
     "ai-video-prompt-formula",
     "making-of-paper-wings",
     "how-creators-earn",
     "genre-directing-guide",
     "what-is-ai-cinema-ott",
     "ai-video-copyright-license",
+    "first-ai-short-5-steps",
+    "where-to-upload-ai-video",
+    "ai-video-thumbnail-guide",
+    "power-of-series",
   ];
 
   const staticUrls = [
