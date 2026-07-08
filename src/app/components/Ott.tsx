@@ -238,7 +238,18 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
         .eq("status", "ready")
         .order("featured_hero_until", { ascending: false })
         .limit(3);
-      if (!cancelled && Array.isArray(data)) setFeatured(data as unknown as CarouselVideo[]);
+      if (cancelled || !Array.isArray(data)) return;
+      // 이 직접 쿼리는 profiles 조인이 없어 creator(업로드 시 저장된 문자열)만 옴 →
+      // 트렌딩 RPC 처럼 프로필 display_name 을 얹어 히어로 업로더명이 일관되게 나오도록 보강.
+      const ids = Array.from(new Set(data.map((d: any) => d.creator_id).filter(Boolean)));
+      let nameMap: Record<string, string> = {};
+      if (ids.length) {
+        const { data: ci } = await supabase.rpc("get_creators_info", { p_creator_ids: ids });
+        (ci || []).forEach((r: any) => { if (r.creator_name) nameMap[r.creator_id] = r.creator_name; });
+      }
+      if (!cancelled) setFeatured(
+        data.map((d: any) => ({ ...d, creator_display_name: nameMap[d.creator_id] || d.creator })) as unknown as CarouselVideo[]
+      );
     })();
     return () => { cancelled = true; };
   }, []);
