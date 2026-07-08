@@ -1387,8 +1387,8 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
         )}
         {feedError && (
           <div className="py-10 flex flex-col items-center gap-3 text-center">
-            <p className="text-sm text-gray-400">영상을 불러오지 못했어요.</p>
-            <button onClick={retryLoad} className="px-4 py-2 rounded-lg bg-[#6366f1] hover:bg-[#5457e5] text-white text-sm font-bold transition-colors">다시 시도</button>
+            <p className="text-sm text-gray-400">{t("discoveryFeed.loadFailed")}</p>
+            <button onClick={retryLoad} className="px-4 py-2 rounded-lg bg-[#6366f1] hover:bg-[#5457e5] text-white text-sm font-bold transition-colors">{t("discoveryFeed.retry")}</button>
           </div>
         )}
         {!hasMore && !feedError && (
@@ -1512,8 +1512,8 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
           )}
           {feedError && (
             <div className="py-10 flex flex-col items-center gap-3 text-center">
-              <p className="text-sm text-gray-400">영상을 불러오지 못했어요.</p>
-              <button onClick={retryLoad} className="px-4 py-2 rounded-lg bg-[#6366f1] hover:bg-[#5457e5] text-white text-sm font-bold transition-colors">다시 시도</button>
+              <p className="text-sm text-gray-400">{t("discoveryFeed.loadFailed")}</p>
+              <button onClick={retryLoad} className="px-4 py-2 rounded-lg bg-[#6366f1] hover:bg-[#5457e5] text-white text-sm font-bold transition-colors">{t("discoveryFeed.retry")}</button>
             </div>
           )}
           {!hasMore && !feedError && (

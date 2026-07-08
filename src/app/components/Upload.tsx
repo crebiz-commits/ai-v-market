@@ -1439,23 +1439,23 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
                     type="text"
                     value={newSeriesTitle}
                     onChange={(e) => setNewSeriesTitle(e.target.value)}
-                    placeholder="새 시리즈 제목"
+                    placeholder={t("upload.seriesTitlePlaceholder")}
                     className="mt-2 flex h-9 w-full rounded-md border border-input bg-card px-3 py-2 text-sm"
                   />
                 )}
                 {seriesId && (
                   <div className="grid grid-cols-2 gap-3 mt-2">
                     <div>
-                      <Label className="mb-1 block text-xs text-muted-foreground">시즌</Label>
+                      <Label className="mb-1 block text-xs text-muted-foreground">{t("upload.seasonLabel")}</Label>
                       <input type="number" min="1" value={seasonNumber} onChange={(e) => setSeasonNumber(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-2 text-sm" />
                     </div>
                     <div>
-                      <Label className="mb-1 block text-xs text-muted-foreground">회차 (N화)</Label>
-                      <input type="number" min="1" value={episodeNumber} onChange={(e) => setEpisodeNumber(e.target.value)} placeholder="예: 1" className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-2 text-sm" />
+                      <Label className="mb-1 block text-xs text-muted-foreground">{t("upload.episodeLabel")}</Label>
+                      <input type="number" min="1" value={episodeNumber} onChange={(e) => setEpisodeNumber(e.target.value)} placeholder={t("upload.episodeNumberPlaceholder")} className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-2 text-sm" />
                     </div>
                   </div>
                 )}
-                <p className="text-[11px] text-muted-foreground mt-1.5">시리즈로 묶으면 상세페이지에서 회차 목록·다음화로 노출됩니다.</p>
+                <p className="text-[11px] text-muted-foreground mt-1.5">{t("upload.seriesGroupNote")}</p>
               </div>
 
               {/* 시청 등급 — 필수 입력 (Phase 31.1) */}
@@ -1729,62 +1729,62 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
                   <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between hover:bg-card transition-colors">
                     <div className="flex items-center gap-2">
                       <span className="text-base">🛡️</span>
-                      <span className="font-semibold">라이선스·출처</span>
+                      <span className="font-semibold">{t("upload.licenseSectionTitle")}</span>
                       <span className="text-xs px-1.5 py-0.5 rounded bg-[#a78bfa]/20 text-[#a78bfa]">ADMIN</span>
                     </div>
                     <ChevronDown className="w-5 h-5 text-gray-300 group-open:rotate-180 transition-transform" />
                   </summary>
                   <div className="px-4 pb-4 space-y-4 border-t border-border">
                     <p className="text-xs text-muted-foreground pt-3">
-                      오픈 라이선스(CC0/CC-BY/퍼블릭도메인) 시드 콘텐츠를 올릴 때만 사용. 일반 크리에이터에겐 보이지 않습니다.
+                      {t("upload.licenseAdminNote")}
                     </p>
                     <div>
-                      <Label htmlFor="licenseType" className="mb-2 block text-sm">라이선스 종류</Label>
+                      <Label htmlFor="licenseType" className="mb-2 block text-sm">{t("upload.licenseTypeLabel")}</Label>
                       <select
                         id="licenseType"
                         value={formData.licenseType}
                         onChange={(e) => setFormData({ ...formData, licenseType: e.target.value as typeof formData.licenseType })}
                         className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
                       >
-                        <option value="original">직접 제작 (본인 창작)</option>
-                        <option value="cc0">CC0 (퍼블릭도메인 헌정)</option>
-                        <option value="cc-by">CC-BY (출처표기)</option>
-                        <option value="cc-by-sa">CC-BY-SA (출처표기 + 동일조건)</option>
-                        <option value="public-domain">Public Domain (퍼블릭도메인)</option>
+                        <option value="original">{t("upload.licenseOriginal")}</option>
+                        <option value="cc0">{t("upload.licenseCc0")}</option>
+                        <option value="cc-by">{t("upload.licenseCcBy")}</option>
+                        <option value="cc-by-sa">{t("upload.licenseCcBySa")}</option>
+                        <option value="public-domain">{t("upload.licensePublicDomain")}</option>
                       </select>
                     </div>
                     {formData.licenseType !== "original" && (
                       <>
                         <div>
-                          <Label htmlFor="licenseSourceUrl" className="mb-2 block text-sm">원본 출처 URL</Label>
+                          <Label htmlFor="licenseSourceUrl" className="mb-2 block text-sm">{t("upload.licenseSourceUrlLabel")}</Label>
                           <Input
                             id="licenseSourceUrl"
                             value={formData.licenseSourceUrl}
                             onChange={(e) => setFormData({ ...formData, licenseSourceUrl: e.target.value })}
-                            placeholder="예: https://studio.blender.org/films/sintel/"
+                            placeholder={t("upload.licenseSourceUrlPlaceholder")}
                             className="bg-background"
                             maxLength={300}
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label htmlFor="originalCreator" className="mb-2 block text-sm">원작자</Label>
+                            <Label htmlFor="originalCreator" className="mb-2 block text-sm">{t("upload.originalCreatorLabel")}</Label>
                             <Input
                               id="originalCreator"
                               value={formData.originalCreator}
                               onChange={(e) => setFormData({ ...formData, originalCreator: e.target.value })}
-                              placeholder="예: Blender Foundation"
+                              placeholder={t("upload.originalCreatorPlaceholder")}
                               className="bg-background"
                               maxLength={100}
                             />
                           </div>
                           <div>
-                            <Label htmlFor="attribution" className="mb-2 block text-sm">크레딧 문구</Label>
+                            <Label htmlFor="attribution" className="mb-2 block text-sm">{t("upload.attributionLabel")}</Label>
                             <Input
                               id="attribution"
                               value={formData.attribution}
                               onChange={(e) => setFormData({ ...formData, attribution: e.target.value })}
-                              placeholder="예: © Blender Foundation (CC BY)"
+                              placeholder={t("upload.attributionPlaceholder")}
                               className="bg-background"
                               maxLength={200}
                             />
@@ -1828,7 +1828,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
                         id="sponsorDisclosure"
                         value={formData.sponsorDisclosure}
                         onChange={(e) => setFormData({ ...formData, sponsorDisclosure: e.target.value })}
-                        placeholder="유료 광고 포함"
+                        placeholder={t("upload.sponsorDisclosurePlaceholder")}
                         className="bg-background"
                         maxLength={30}
                       />
@@ -2042,7 +2042,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
                         {isNegotiationOnly(parseInt((formData.standardPrice || "0").replace(/,/g, ""), 10)) && (
                           <div className="mt-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
                             <p className="text-xs text-amber-200/90 leading-relaxed">
-                              💡 ₩1,000만 이상은 사이트 직접 판매가 아닌 <b>1:1 협의 판매</b>로 등록됩니다 (영화 배급 등 고가 라이선스). 구매자에겐 "별도 협의"로 표시되고, 「라이선스 문의」를 통해 운영팀과 협의 후 판매됩니다.
+                              <Trans i18nKey="upload.highValueLicenseNote" components={{ b: <b /> }} />
                             </p>
                           </div>
                         )}

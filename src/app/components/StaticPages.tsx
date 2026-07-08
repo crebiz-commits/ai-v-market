@@ -39,41 +39,40 @@ function PageShell({ title, subtitle, onBack, onNavigate, children }: { title: s
 // About
 // ──────────────────────────────────────────────────────────────────────
 export function AboutPage({ onBack, onNavigate }: StaticPageProps) {
-  const isKo = useIsKorean();
-  const text = isKo ? ABOUT_KO : ABOUT_EN;
+  const { t } = useTranslation();
   return (
-    <PageShell title="CREAITE" subtitle={text.subtitle} onBack={onBack} onNavigate={onNavigate}>
+    <PageShell title="CREAITE" subtitle={t("staticPages.about.subtitle")} onBack={onBack} onNavigate={onNavigate}>
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
         className="bg-gradient-to-br from-[#6366f1]/10 to-[#8b5cf6]/10 border border-[#6366f1]/20 rounded-2xl p-6 md:p-8 mb-6"
       >
-        <h2 className="text-xl md:text-2xl font-black text-white mb-3">{text.headline}</h2>
-        <p className="text-sm md:text-base text-gray-300 leading-relaxed">{text.headlineBody}</p>
+        <h2 className="text-xl md:text-2xl font-black text-white mb-3">{t("staticPages.about.headline")}</h2>
+        <p className="text-sm md:text-base text-gray-300 leading-relaxed">{t("staticPages.about.headlineBody")}</p>
       </motion.div>
 
-      <h3 className="text-lg font-bold text-white mb-3">{text.visionTitle}</h3>
+      <h3 className="text-lg font-bold text-white mb-3">{t("staticPages.about.visionTitle")}</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
-        <Card icon={Sparkles} title={text.visionAi} desc={text.visionAiDesc} />
-        <Card icon={Film} title={text.visionCreator} desc={text.visionCreatorDesc} />
-        <Card icon={Crown} title={text.visionPremium} desc={text.visionPremiumDesc} />
-        <Card icon={Users} title={text.visionCommunity} desc={text.visionCommunityDesc} />
+        <Card icon={Sparkles} title={t("staticPages.about.visionAi")} desc={t("staticPages.about.visionAiDesc")} />
+        <Card icon={Film} title={t("staticPages.about.visionCreator")} desc={t("staticPages.about.visionCreatorDesc")} />
+        <Card icon={Crown} title={t("staticPages.about.visionPremium")} desc={t("staticPages.about.visionPremiumDesc")} />
+        <Card icon={Users} title={t("staticPages.about.visionCommunity")} desc={t("staticPages.about.visionCommunityDesc")} />
       </div>
 
-      <h3 className="text-lg font-bold text-white mb-3">{text.servicesTitle}</h3>
+      <h3 className="text-lg font-bold text-white mb-3">{t("staticPages.about.servicesTitle")}</h3>
       <ul className="space-y-2 text-sm text-gray-300 mb-8 bg-[#121212] p-5 rounded-2xl border border-white/5">
-        <li className="flex items-start gap-2"><Zap className="w-4 h-4 text-[#8b5cf6] mt-0.5 shrink-0" /><span dangerouslySetInnerHTML={{ __html: text.serviceHome }} /></li>
-        <li className="flex items-start gap-2"><Zap className="w-4 h-4 text-[#8b5cf6] mt-0.5 shrink-0" /><span dangerouslySetInnerHTML={{ __html: text.serviceCinema }} /></li>
-        <li className="flex items-start gap-2"><Zap className="w-4 h-4 text-[#8b5cf6] mt-0.5 shrink-0" /><span dangerouslySetInnerHTML={{ __html: text.serviceOtt }} /></li>
-        <li className="flex items-start gap-2"><Zap className="w-4 h-4 text-[#8b5cf6] mt-0.5 shrink-0" /><span dangerouslySetInnerHTML={{ __html: text.serviceChannel }} /></li>
-        <li className="flex items-start gap-2"><Zap className="w-4 h-4 text-[#8b5cf6] mt-0.5 shrink-0" /><span dangerouslySetInnerHTML={{ __html: text.serviceCommunity }} /></li>
+        <li className="flex items-start gap-2"><Zap className="w-4 h-4 text-[#8b5cf6] mt-0.5 shrink-0" /><span dangerouslySetInnerHTML={{ __html: t("staticPages.about.serviceHome") }} /></li>
+        <li className="flex items-start gap-2"><Zap className="w-4 h-4 text-[#8b5cf6] mt-0.5 shrink-0" /><span dangerouslySetInnerHTML={{ __html: t("staticPages.about.serviceCinema") }} /></li>
+        <li className="flex items-start gap-2"><Zap className="w-4 h-4 text-[#8b5cf6] mt-0.5 shrink-0" /><span dangerouslySetInnerHTML={{ __html: t("staticPages.about.serviceOtt") }} /></li>
+        <li className="flex items-start gap-2"><Zap className="w-4 h-4 text-[#8b5cf6] mt-0.5 shrink-0" /><span dangerouslySetInnerHTML={{ __html: t("staticPages.about.serviceChannel") }} /></li>
+        <li className="flex items-start gap-2"><Zap className="w-4 h-4 text-[#8b5cf6] mt-0.5 shrink-0" /><span dangerouslySetInnerHTML={{ __html: t("staticPages.about.serviceCommunity") }} /></li>
       </ul>
 
-      <h3 className="text-lg font-bold text-white mb-3">{text.contactTitle}</h3>
+      <h3 className="text-lg font-bold text-white mb-3">{t("staticPages.about.contactTitle")}</h3>
       <div className="bg-[#121212] p-5 rounded-2xl border border-white/5 text-sm space-y-1.5">
-        <p className="text-gray-400">{text.contactSupport}: <a href="mailto:support@creaite.net" className="text-[#8b5cf6] hover:underline">support@creaite.net</a></p>
-        <p className="text-gray-400">{text.contactBusiness}: <a href="mailto:business@creaite.net" className="text-[#8b5cf6] hover:underline">business@creaite.net</a></p>
+        <p className="text-gray-400">{t("staticPages.about.contactSupport")}: <a href="mailto:support@creaite.net" className="text-[#8b5cf6] hover:underline">support@creaite.net</a></p>
+        <p className="text-gray-400">{t("staticPages.about.contactBusiness")}: <a href="mailto:business@creaite.net" className="text-[#8b5cf6] hover:underline">business@creaite.net</a></p>
         <p className="text-gray-500 text-xs mt-3">© {new Date().getFullYear()} CREAITE. All rights reserved.</p>
       </div>
     </PageShell>
@@ -163,30 +162,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 // ────────────────────────────────────────────────────────────────────────
 // Korean content
 // ────────────────────────────────────────────────────────────────────────
-const ABOUT_KO = {
-  subtitle: "세계 최초 AI 시네마 OTT",
-  headline: "AI 영상의 새로운 시장을 만듭니다",
-  headlineBody: 'CREAITE는 AI가 만든 시네마틱 영상을 위한 첫 전문 OTT 플랫폼입니다. 누구나 상상하는 영화를 만들 수 있는 시대, 그 작품들이 시청되고 평가받고 거래되는 공간이 되겠습니다.',
-  visionTitle: "🎯 우리의 비전",
-  visionAi: "AI 시네마 전문",
-  visionAiDesc: "3분~30분 시네마틱 작품 중심",
-  visionCreator: "크리에이터 우선",
-  visionCreatorDesc: "구독료·광고·판매 수익 공정 분배",
-  visionPremium: "프리미엄 콘텐츠",
-  visionPremiumDesc: "10분+ OTT, 영화 같은 시청 경험",
-  visionCommunity: "글로벌 커뮤니티",
-  visionCommunityDesc: "AI 크리에이터들의 거점",
-  servicesTitle: "📊 서비스 구성",
-  serviceHome: '<b class="text-white">홈 (Discovery)</b> — 0~3분 숏폼 피드, 광고 수익 분배',
-  serviceCinema: '<b class="text-white">시네마</b> — 3분+ 영상, 라이선스 판매 + 광고 수익',
-  serviceOtt: '<b class="text-white">프리미엄 OTT</b> — 10분+ 시네마틱 작품 (구독 전용)',
-  serviceChannel: '<b class="text-white">채널</b> — 크리에이터 구독·발견',
-  serviceCommunity: '<b class="text-white">커뮤니티</b> — AI 제작 노하우 공유',
-  contactTitle: "📞 연락처",
-  contactSupport: "서비스 문의",
-  contactBusiness: "비즈니스 문의",
-};
-
 const TERMS_KO = {
   title: "이용약관",
   lastModifiedLabel: "최종 개정일",
@@ -247,30 +222,6 @@ const YOUTH_KO = {
 // ────────────────────────────────────────────────────────────────────────
 // English content
 // ────────────────────────────────────────────────────────────────────────
-const ABOUT_EN = {
-  subtitle: "World's first AI Cinema OTT",
-  headline: "Creating a new market for AI-generated video",
-  headlineBody: "CREAITE is the first OTT platform dedicated to AI-generated cinematic videos. We aim to be the home where anyone's imagined films are watched, reviewed, and traded.",
-  visionTitle: "🎯 Our Vision",
-  visionAi: "AI Cinema Focus",
-  visionAiDesc: "3–30 minute cinematic works at the core",
-  visionCreator: "Creator First",
-  visionCreatorDesc: "Fair sharing of subscription, ad, and sales revenue",
-  visionPremium: "Premium Content",
-  visionPremiumDesc: "10-min+ OTT, a movie-like viewing experience",
-  visionCommunity: "Global Community",
-  visionCommunityDesc: "Hub for AI creators worldwide",
-  servicesTitle: "📊 Service Structure",
-  serviceHome: '<b class="text-white">Home (Discovery)</b> — 0–3 minute shorts feed, with ad revenue sharing',
-  serviceCinema: '<b class="text-white">Cinema</b> — 3 minute+ videos, license sales + ad revenue',
-  serviceOtt: '<b class="text-white">Premium OTT</b> — 10 minute+ cinematic works (subscribers only)',
-  serviceChannel: '<b class="text-white">Channel</b> — Subscribe to and discover creators',
-  serviceCommunity: '<b class="text-white">Community</b> — Share AI production know-how',
-  contactTitle: "📞 Contact",
-  contactSupport: "Service inquiries",
-  contactBusiness: "Business inquiries",
-};
-
 const TERMS_EN = {
   title: "Terms of Service",
   lastModifiedLabel: "Last modified",

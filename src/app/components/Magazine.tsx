@@ -92,7 +92,7 @@ export function MagazinePage({ onBack, onNavigate }: MagazineProps) {
               <div className="flex items-center gap-2 mb-3 text-xs">
                 <span className="px-2.5 py-1 rounded-full bg-[#6366f1]/15 border border-[#6366f1]/30 text-[#c4b5fd] font-bold">{article.category}</span>
                 <span className="text-white/40">{article.date}</span>
-                <span className="text-white/40 flex items-center gap-1"><Clock className="w-3 h-3" /> {article.readMinutes}분</span>
+                <span className="text-white/40 flex items-center gap-1"><Clock className="w-3 h-3" /> {t("magazine.readMin", { count: article.readMinutes })}</span>
               </div>
               <h1 className="text-2xl md:text-4xl font-black text-white leading-tight mb-3">{article.title}</h1>
               <p className="text-gray-400 text-base md:text-lg leading-relaxed mb-8">{article.excerpt}</p>
@@ -100,14 +100,14 @@ export function MagazinePage({ onBack, onNavigate }: MagazineProps) {
 
               {/* 다른 글 추천 */}
               <div className="mt-12 pt-8 border-t border-white/10">
-                <h3 className="text-white font-bold mb-4">다른 이야기도 읽어보세요</h3>
+                <h3 className="text-white font-bold mb-4">{t("magazine.moreStories")}</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {MAGAZINE_ARTICLES.filter((a) => a.slug !== article.slug).slice(0, 4).map((a) => (
                     <a key={a.slug} href={`?info=magazine&article=${a.slug}`} className="flex items-center gap-3 p-3 rounded-xl bg-[#141414] border border-white/5 hover:border-[#6366f1]/40 transition-colors">
                       <div className={`w-11 h-11 rounded-lg bg-gradient-to-br ${a.gradient} flex items-center justify-center shrink-0`}><span className="text-xl">{a.emoji}</span></div>
                       <div className="min-w-0">
                         <div className="text-white text-sm font-bold line-clamp-2 leading-snug">{a.title}</div>
-                        <div className="text-white/40 text-[11px] mt-0.5">{a.category} · {a.readMinutes}분</div>
+                        <div className="text-white/40 text-[11px] mt-0.5">{a.category} · {t("magazine.readMin", { count: a.readMinutes })}</div>
                       </div>
                     </a>
                   ))}
@@ -121,9 +121,9 @@ export function MagazinePage({ onBack, onNavigate }: MagazineProps) {
             <BackButton onClick={onBack} label={t("creatorChannel.back", "뒤로")} className="mb-6" />
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
               <h1 className="text-3xl md:text-4xl font-black text-white mb-2">
-                CREAITE <span className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">매거진</span>
+                CREAITE <span className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">{t("magazine.title")}</span>
               </h1>
-              <p className="text-gray-400 text-sm md:text-base">AI 영상 제작 가이드, 장르 연출, 크리에이터 수익, 제작기 — AI 시네마를 더 깊이 즐기는 읽을거리.</p>
+              <p className="text-gray-400 text-sm md:text-base">{t("magazine.subtitle")}</p>
             </motion.div>
 
             {/* 카테고리 필터 */}
@@ -157,7 +157,7 @@ export function MagazinePage({ onBack, onNavigate }: MagazineProps) {
                   <div className="p-4">
                     <div className="flex items-center gap-2 mb-2 text-[11px]">
                       <span className="px-2 py-0.5 rounded-full bg-[#6366f1]/15 border border-[#6366f1]/30 text-[#c4b5fd] font-bold">{a.category}</span>
-                      <span className="text-white/40 flex items-center gap-1"><Clock className="w-3 h-3" /> {a.readMinutes}분</span>
+                      <span className="text-white/40 flex items-center gap-1"><Clock className="w-3 h-3" /> {t("magazine.readMin", { count: a.readMinutes })}</span>
                     </div>
                     <h2 className="text-white font-extrabold text-base leading-snug line-clamp-2 mb-1.5 group-hover:text-[#c4b5fd] transition-colors">{a.title}</h2>
                     <p className="text-white/50 text-xs leading-relaxed line-clamp-3">{a.excerpt}</p>

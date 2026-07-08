@@ -845,25 +845,25 @@ export function VideoEditModal({
 
               {/* 시리즈(연속물) 지정 */}
               <div className="mt-3">
-                <label className="text-xs text-gray-400 mb-1 block">시리즈 (연속물)</label>
+                <label className="text-xs text-gray-400 mb-1 block">{t("videoEditModal.seriesLabel")}</label>
                 <select
                   value={seriesId}
                   onChange={e => setSeriesId(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6366f1]"
                 >
-                  <option value="">시리즈 아님 (단일 영상)</option>
-                  {seriesList.map(s => <option key={s.id} value={s.id}>{s.title} ({s.episode_count}화)</option>)}
-                  <option value="__new__">+ 새 시리즈 만들기</option>
+                  <option value="">{t("upload.seriesNone")}</option>
+                  {seriesList.map(s => <option key={s.id} value={s.id}>{s.title} ({t("upload.seriesEpisodeCount", { count: s.episode_count })})</option>)}
+                  <option value="__new__">{t("upload.seriesCreateNew")}</option>
                 </select>
                 {seriesId === "__new__" && (
-                  <input type="text" value={newSeriesTitle} onChange={e => setNewSeriesTitle(e.target.value)} placeholder="새 시리즈 제목"
+                  <input type="text" value={newSeriesTitle} onChange={e => setNewSeriesTitle(e.target.value)} placeholder={t("upload.seriesTitlePlaceholder")}
                     className="mt-2 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
                 )}
                 {seriesId && (
                   <div className="grid grid-cols-2 gap-3 mt-2">
-                    <input type="number" min="1" value={seasonNumber} onChange={e => setSeasonNumber(e.target.value)} placeholder="시즌"
+                    <input type="number" min="1" value={seasonNumber} onChange={e => setSeasonNumber(e.target.value)} placeholder={t("upload.seasonLabel")}
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
-                    <input type="number" min="1" value={episodeNumber} onChange={e => setEpisodeNumber(e.target.value)} placeholder="회차 (N화)"
+                    <input type="number" min="1" value={episodeNumber} onChange={e => setEpisodeNumber(e.target.value)} placeholder={t("upload.episodeLabel")}
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
                   </div>
                 )}
@@ -1221,7 +1221,7 @@ export function VideoEditModal({
                 </div>
                 <div>
                   <label className="text-xs text-gray-400 mb-1 block">{t("upload.sponsorDisclosureLabel", "고지 문구")}</label>
-                  <input type="text" value={sponsorDisclosure} onChange={e => setSponsorDisclosure(e.target.value)} placeholder="유료 광고 포함"
+                  <input type="text" value={sponsorDisclosure} onChange={e => setSponsorDisclosure(e.target.value)} placeholder={t("upload.sponsorDisclosurePlaceholder")}
                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6366f1]" />
                 </div>
                 <div className="md:col-span-2">
