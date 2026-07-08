@@ -56,7 +56,7 @@ export default async function handler(_req: Request): Promise<Response> {
   ];
 
   // CREAITE 컬렉션 slug (src/app/data/collections.ts 와 동기화)
-  const COLLECTION_SLUGS = ["creaite-select", "first-watch", "night-tension", "heart-stays", "beyond-the-edge"];
+  const COLLECTION_SLUGS = ["creaite-select", "first-watch", "quick-punch", "night-tension", "heart-stays", "beyond-the-edge"];
   // CREAITE 스포트라이트 slug (src/app/data/spotlights.ts 와 동기화)
   const SPOTLIGHT_SLUGS = ["creaite-first-director"];
 
