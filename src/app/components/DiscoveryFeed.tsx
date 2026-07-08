@@ -8,6 +8,7 @@ import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
 import { sendAdEvent } from "../utils/adEvent";
 import { useAuth } from "../contexts/AuthContext";
+import { useSettings } from "../contexts/SettingsContext";
 import { useLikes } from "../contexts/LikesContext";
 import { CommentPanel } from "./CommentPanel";
 import { ShareModal } from "./ShareModal";
@@ -851,7 +852,10 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
     const isMine = !!user?.id && !!v.creatorId && user.id === v.creatorId;
     if (!isMine && shouldBlur((v as any).age_rating, profile?.age_verified ?? false)) { onVideoClick(v); return; }
     const dur = v.durationSeconds || 0;
-    const knownShort = dur > 0 && dur <= 60;
+    // 프리뷰 길이는 페이월(ProductDetail)과 동일 기준(cinemaPreviewSeconds) 사용 — 60 하드코딩이면
+    //   어드민이 프리뷰를 낮췄을 때 (previewSec, 60] 유료영상이 비구독자에게 무료 전체재생되던 누수.
+    const previewSec = settings.cinemaPreviewSeconds || 60;
+    const knownShort = dur > 0 && dur <= previewSec;
     if (!isSubscriber && !knownShort) { onVideoClick(v); return; }
     setFullscreenVideo(v);
   };
@@ -869,6 +873,7 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
   const stateKeyRef = useRef<string | null>(null); // 현재 videos state가 속한 캐시 키 — 세션 전환 커밋 직후
                                                    // 이전 세션 데이터가 새 키로 저장되는 캐시 오염 차단용
   const { user, profile, isSubscriber } = useAuth();
+  const settings = useSettings();
   const { isBlocked } = useBlockedUsers();
   const showcase = shouldShowShowcase(profile?.is_admin);
 

@@ -7,6 +7,7 @@ import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { CreatorAvatar } from "./CreatorAvatar";
 import { trackVideoView } from "../utils/viewTracking";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 interface VideoFullscreenProps {
   video: {
@@ -56,7 +57,9 @@ export function VideoFullscreen({
   const creatorAvatar = video.creatorId ? creatorInfo[video.creatorId]?.avatar ?? null : null;
   const creatorName = (video.creatorId ? creatorInfo[video.creatorId]?.name : null) ?? video.creator;
   const [duration, setDuration] = useState(0);
-  const [isSeeking, setIsSeeking] = useState(false);
+  // isSeeking 은 timeupdate 가드용으로만 쓰이고 렌더에 안 쓰이므로 ref — 상태였을 땐 플레이어 init
+  //   effect(deps 고정)가 초기 false 를 캡처해 가드가 죽어 드래그 중 스크러버가 튀던 것 해소.
+  const isSeekingRef = useRef(false);
   // Phase 14: 재생 컨트롤
   const [playbackRate, setPlaybackRate] = useState(1);
   const [showRateMenu, setShowRateMenu] = useState(false);
@@ -103,7 +106,7 @@ export function VideoFullscreen({
     });
     player.on("timeupdate", () => {
       const t = player.currentTime() || 0;
-      if (!isSeeking) setCurrentTime(t);
+      if (!isSeekingRef.current) setCurrentTime(t);
 
       // 시청 추적: 최대 시청 위치 갱신 + 30% 도달 시 1회 RPC 호출
       if (t > maxWatchedRef.current) maxWatchedRef.current = t;
@@ -125,6 +128,8 @@ export function VideoFullscreen({
     player.on("play", () => setIsPlaying(true));
     player.on("pause", () => setIsPlaying(false));
     player.on("volumechange", () => setIsMuted(!!player.muted()));
+    // 로드/재생 실패 — 검은 화면 방치 대신 안내(피드와 동일 메시지). X/Esc 로 닫기 가능.
+    player.on("error", () => { toast.error(t("discoveryFeed.videoProcessing")); });
 
     playerRef.current = player;
     return () => {
@@ -215,8 +220,13 @@ export function VideoFullscreen({
     setShowControls(true);
   };
   const cyclePlaybackRate = (direction: 1 | -1) => {
-    const currentIdx = RATES.indexOf(playbackRate);
-    const nextIdx = (currentIdx + direction + RATES.length) % RATES.length;
+    // 현재 배속은 플레이어(ref)에서 직접 읽는다 — keydown 핸들러가 초기 렌더의 이 함수를
+    //   캡처(deps [])해도 stale playbackRate(=1)에 갇히지 않고 항상 실제 배속 기준으로 증감.
+    const p = playerRef.current;
+    const cur = (p && !p.isDisposed()) ? (p.playbackRate() || 1) : playbackRate;
+    const curIdx = RATES.indexOf(cur);
+    const baseIdx = curIdx === -1 ? RATES.indexOf(1) : curIdx;
+    const nextIdx = (baseIdx + direction + RATES.length) % RATES.length;
     applyRate(RATES[nextIdx]);
   };
 
@@ -469,10 +479,10 @@ export function VideoFullscreen({
                     step="0.01"
                     value={currentTime}
                     onChange={handleSeek}
-                    onMouseDown={() => setIsSeeking(true)}
-                    onMouseUp={() => setIsSeeking(false)}
-                    onTouchStart={() => setIsSeeking(true)}
-                    onTouchEnd={() => setIsSeeking(false)}
+                    onMouseDown={() => { isSeekingRef.current = true; }}
+                    onMouseUp={() => { isSeekingRef.current = false; }}
+                    onTouchStart={() => { isSeekingRef.current = true; }}
+                    onTouchEnd={() => { isSeekingRef.current = false; }}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
                   <div

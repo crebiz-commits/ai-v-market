@@ -51,6 +51,7 @@ export function CreatorAvatar({
           alt={name || "creator"}
           className="w-full h-full object-cover"
           loading="lazy"
+          referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
         />
       </div>

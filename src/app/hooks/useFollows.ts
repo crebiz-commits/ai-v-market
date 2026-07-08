@@ -12,6 +12,9 @@ import { sendNotification, buildNewFollowerEmail } from "../utils/sendNotificati
 let cache: Set<string> = new Set();
 let fetched = false;
 const subscribers = new Set<(s: Set<string>) => void>();
+// 크리에이터별 토글 in-flight 가드(모듈 레벨) — 같은 크리에이터가 여러 피드 카드에 동시 노출될 때
+// 카드마다 독립적인 per-instance loading 으론 못 막는 크로스카드 중복 토글을 차단.
+const inFlightFollows = new Set<string>();
 
 function notify() {
   subscribers.forEach((cb) => cb(new Set(cache)));
@@ -63,6 +66,10 @@ export function useFollows() {
         return null;
       }
       if (user.id === creatorId) return null;
+      // 크로스카드 중복 토글 방지: 한 카드의 토글이 진행 중일 때 다른 카드 탭이 낙관값을 뒤집어
+      //   INSERT/DELETE 가 동시에 나가 DB/캐시가 어긋나고 유령 팔로워 메일이 발송되던 것 차단.
+      if (inFlightFollows.has(creatorId)) return null;
+      inFlightFollows.add(creatorId);
 
       const wasFollowing = cache.has(creatorId);
       const next = !wasFollowing;
@@ -121,6 +128,8 @@ export function useFollows() {
         notify();
         toast.error(err?.message || "팔로우 처리에 실패했습니다.");
         return null;
+      } finally {
+        inFlightFollows.delete(creatorId);
       }
     },
     [isAuthenticated, user]
