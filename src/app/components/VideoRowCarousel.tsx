@@ -65,6 +65,9 @@ interface Props {
   seriesCounts?: Record<string, number>;
   // BETA_MODE 전용: 업로드 페이지 이동 콜백. 넘기면 행을 베타 카드로 8칸까지 채우고 우측 CTA 표시.
   onUpload?: () => void;
+  // 카드 폭 오버라이드(Tailwind 클래스). 미지정 시 기본 w-[42vw] md:w-[15vw].
+  //   OTT 셀렉트 행에서 OTT 영상 카드(w-80 md:w-[30rem])와 크기를 맞추기 위해 사용.
+  cardWidthClass?: string;
 }
 
 function fmtDuration(s?: number | null) {
@@ -93,10 +96,11 @@ interface VideoCardProps {
   isAgeLocked: boolean;
   isOttBadge: boolean;
   seriesCount?: number;
+  cardWidthClass?: string;
 }
 
 // memo: 부모 리렌더(연령/시리즈 카운트 갱신 등) 시 prop 동일하면 카드 재렌더 스킵 — 대량 카드 리렌더 폭풍 방지
-const VideoCard = memo(function VideoCard({ video, idx, onVideoClick, onAddToCart, showProgress, showRank, rating, isAgeLocked, isOttBadge, seriesCount }: VideoCardProps) {
+const VideoCard = memo(function VideoCard({ video, idx, onVideoClick, onAddToCart, showProgress, showRank, rating, isAgeLocked, isOttBadge, seriesCount, cardWidthClass }: VideoCardProps) {
   const { t } = useTranslation();
   const { isLiked, displayCount, seedCount, displayViews, seedViews, toggleLike } = useLikes();
   const liked = isLiked(video.id);
@@ -129,7 +133,7 @@ const VideoCard = memo(function VideoCard({ video, idx, onVideoClick, onAddToCar
       whileHover={{ scale: 1.03 }}
       whileTap={{ scale: 0.97 }}
       onClick={() => onVideoClick(video)}
-      className="flex-shrink-0 snap-start w-[42vw] md:w-[15vw] text-left group/card"
+      className={`flex-shrink-0 snap-start ${cardWidthClass ?? "w-[42vw] md:w-[15vw]"} text-left group/card`}
     >
       <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
         {showRank && (
@@ -288,6 +292,7 @@ export function VideoRowCarousel({
   ageRatings,
   seriesCounts,
   onUpload,
+  cardWidthClass,
 }: Props) {
   const { t } = useTranslation();
   const { user, profile } = useAuth();
@@ -380,6 +385,7 @@ export function VideoRowCarousel({
                 isAgeLocked={isAgeLocked}
                 isOttBadge={isOttBadge}
                 seriesCount={seriesCounts?.[video.id]}
+                cardWidthClass={cardWidthClass}
               />
             );
           })}

@@ -438,6 +438,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
             onVideoClick={handleClick}
             onAddToCart={handleClick}
             ageRatings={ageRatings} seriesCounts={seriesCounts}
+            cardWidthClass="w-80 md:w-[30rem]"
           />
         </div>
       )}
