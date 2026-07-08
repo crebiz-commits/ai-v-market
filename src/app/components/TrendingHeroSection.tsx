@@ -4,11 +4,13 @@
 import { useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Play, ChevronLeft, ChevronRight, Plus, ThumbsUp } from "lucide-react";
+import { Play, ChevronLeft, ChevronRight, Plus, ThumbsUp, Lock } from "lucide-react";
 import type { CarouselVideo } from "./VideoRowCarousel";
+import { shouldBlur } from "./AgeBadge";
 import { formatCompactNumber } from "../i18n/numberFormat";
 import { getCategoryLabel, getGenreLabel } from "../i18n/categoryLabels";
 import { useLikes } from "../contexts/LikesContext";
+import { useAuth } from "../contexts/AuthContext";
 
 interface Props {
   title: string;
@@ -17,6 +19,7 @@ interface Props {
   onVideoClick: (video: CarouselVideo) => void;
   onAddToCart?: (video: CarouselVideo) => void;
   emptyMessage?: string;
+  ageRatings?: Record<string, string>;  // 19+ 블러용 (VideoRowCarousel 과 동일 게이팅)
 }
 
 function fmtDuration(s?: number | null) {
@@ -26,8 +29,10 @@ function fmtDuration(s?: number | null) {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
-export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onAddToCart, emptyMessage }: Props) {
+export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onAddToCart, emptyMessage, ageRatings }: Props) {
   const { t } = useTranslation();
+  const { profile } = useAuth();
+  const ageVerified = profile?.age_verified ?? false;
   const { isLiked, displayCount, seedCount, displayViews, seedViews, toggleLike } = useLikes();
   const restScrollRef = useRef<HTMLDivElement>(null);
   // 좋아요·조회수 시드(seed-once) → 모든 피드가 같은 값 공유
@@ -98,6 +103,7 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
             {ranked.map((v, i) => {
             const rank = i + 1;
             const twoDigit = rank >= 10;  // "10" 은 두 자리라 폭이 넓음 → 폰트 축소·자간 좁힘으로 한 자리와 비슷하게
+            const isAgeLocked = shouldBlur(ageRatings?.[v.id], ageVerified);  // 19+ 미인증 → 블러
             return (
               <button
                 key={v.id}
@@ -117,9 +123,18 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
                       <img
                         src={v.thumbnail}
                         alt={v.title}
-                        className="w-full h-full object-cover group-hover/card:scale-105 transition-transform"
+                        className={`w-full h-full object-cover group-hover/card:scale-105 transition-transform ${isAgeLocked ? "blur-xl scale-110" : ""}`}
                       />
                     )}
+                  {/* 19+ 잠금 오버레이 (VideoRowCarousel 과 동일) */}
+                  {isAgeLocked && (
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center text-center px-2 pointer-events-none">
+                      <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center mb-1.5">
+                        <Lock className="w-4 h-4 text-white" />
+                      </div>
+                      <p className="text-[10px] font-black text-white">{t("video.ageGateLockTitle")}</p>
+                    </div>
+                  )}
                   {/* 길이 배지 (우하단) */}
                   {v.duration_seconds ? (
                     <span className="absolute bottom-1.5 right-1.5 px-1 py-0.5 bg-black/80 rounded text-[10px] font-semibold text-white">

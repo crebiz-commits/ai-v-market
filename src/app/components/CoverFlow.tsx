@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Play } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Play, Lock } from 'lucide-react';
 import { useCreatorInfo } from '../hooks/useCreatorInfo';
 import { CreatorAvatar } from './CreatorAvatar';
+import { shouldBlur } from './AgeBadge';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Video {
   id: string;
@@ -25,9 +27,12 @@ interface CoverFlowProps {
   // (예전엔 미주입 시 내부 모달을 띄웠으나, 항상 주입돼 도달 불가였던 모달/플레이어/라이선스
   //  UI 는 2026-06-28 데드코드로 제거. 내부 재생이 필요해지면 git 이력에서 복원.)
   onVideoClick?: (video: Video) => void;
+  ageRatings?: Record<string, string>;  // 19+ 블러용 (다른 피드와 동일 게이팅)
 }
 
-export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps) {
+export function CoverFlow({ videos, hideControls, onVideoClick, ageRatings }: CoverFlowProps) {
+  const { profile } = useAuth();
+  const ageVerified = profile?.age_verified ?? false;
   const [rotation, setRotation] = useState(0);
   const creatorInfo = useCreatorInfo(videos.map((v) => v.creatorId));
   const [isDragging, setIsDragging] = useState(false);
@@ -201,6 +206,10 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // 화면에 안 보이거나(스크롤로 벗어남) 입력 중이면 화살표를 가로채지 않음 — 페이지 전역 하이재킹 방지.
+      if (!visibleRef.current) return;
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
       if (e.key === 'ArrowLeft') {
         handlePrev();
       } else if (e.key === 'ArrowRight') {
@@ -303,6 +312,7 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
         <div className="coverflow-stage">
           {videos.map((video, index) => {
             const style = getTransform(index);
+            const isAgeLocked = shouldBlur(ageRatings?.[video.id], ageVerified);  // 19+ 미인증 → 블러
             return (
               <div
                 key={video.id}
@@ -321,8 +331,16 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
                   <img
                     src={video.thumbnail}
                     alt={video.title}
-                    className="w-full h-full object-cover"
+                    className={`w-full h-full object-cover ${isAgeLocked ? "blur-xl scale-110" : ""}`}
                   />
+                  {/* 19+ 잠금 오버레이 */}
+                  {isAgeLocked && (
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+                      <div className="w-7 h-7 rounded-full bg-red-600 flex items-center justify-center">
+                        <Lock className="w-4 h-4 text-white" />
+                      </div>
+                    </div>
+                  )}
 
 
                   {/* Play Button for center item — 글래스모피즘, 카드 정중앙 */}
@@ -362,7 +380,7 @@ export function CoverFlow({ videos, hideControls, onVideoClick }: CoverFlowProps
                   <img
                     src={video.thumbnail}
                     alt=""
-                    className="w-full h-full object-cover"
+                    className={`w-full h-full object-cover ${isAgeLocked ? "blur-xl scale-110" : ""}`}
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/50 to-black" />
                 </div>

@@ -363,7 +363,13 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
               </div>
               <CoverFlow
                 videos={coverFlowVideos}
-                onVideoClick={(v: any) => handleClick(v as CarouselVideo)}
+                ageRatings={ageRatings}
+                onVideoClick={(v: any) => {
+                  // CoverFlow Video 는 camelCase(price/creatorId) — toProduct 는 snake_case(price_standard 등)를
+                  // 읽으므로 원본 CarouselVideo 를 id 로 되찾아 넘긴다(가격·크리에이터·하이라이트 유실 방지).
+                  const orig = heroVideos.find((h) => h.id === v.id);
+                  if (orig) handleClick(orig);
+                }}
               />
             </div>
           )}
@@ -418,6 +424,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
             onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
             emptyMessage={t("cinema.trendingEmpty")}
+            ageRatings={ageRatings}
           />
 
           {/* 새로 추가됨 */}
@@ -500,8 +507,10 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
             onSeeAll={() => onNavigate?.("top-creators")}
           />
 
-          {/* 빈 상태 */}
-          {recommended.length === 0 && trending.length === 0 && newReleases.length === 0 && (
+          {/* 빈 상태 — 모든 행(추천·트렌딩·신규·이달의BEST·형식·장르)이 비었을 때만 노출.
+              (top10/formatRows/categoryRows 를 빼면 그 행들엔 영상이 있는데도 "콘텐츠 없음"이 아래 떠버림) */}
+          {recommended.length === 0 && trending.length === 0 && newReleases.length === 0 &&
+           top10.length === 0 && formatRows.length === 0 && categoryRows.length === 0 && (
             <div className="text-center py-16 text-muted-foreground">
               <Film className="w-16 h-16 mx-auto mb-4 opacity-30" />
               <p className="font-semibold">{t("cinema.emptyCinemaTitle", { tier: heroTitle })}</p>

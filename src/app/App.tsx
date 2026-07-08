@@ -14,6 +14,7 @@ import './init';
 
 import { useState, useEffect, useCallback, Suspense, type ReactElement, type CSSProperties } from "react";
 import { lazyRetry as lazy } from "./utils/lazyRetry";
+import { isNegotiationOnly } from "./utils/licensePricing";
 import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, Loader2, Crown, Users } from "lucide-react";
 import { HamburgerMenu } from "./components/HamburgerMenu";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
@@ -698,6 +699,17 @@ function AppContent() {
       setPendingCartAdd({ product, licenseType });
       toast.info(t("app.cartPending"));
       setShowAuthModal(true);
+      return false;
+    }
+
+    // 판매 불가 상품은 장바구니 담기 차단(카드 '+' 버튼 포함): 무료(₩0=라이선스 미판매) /
+    // 협의 전용(₩1,000만+, 토스 결제 불가). ProductDetail 구매 가드와 동일 정책.
+    if (!(product.price > 0)) {
+      toast.info(t("video.notForSaleToast", "무료 시청 전용 영상입니다 (라이선스 미판매)"));
+      return false;
+    }
+    if (isNegotiationOnly(product.price)) {
+      toast.info(t("video.negotiationToast", "별도 협의 상품입니다 — 상세에서 문의해주세요"));
       return false;
     }
 
