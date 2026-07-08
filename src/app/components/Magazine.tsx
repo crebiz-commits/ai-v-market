@@ -80,7 +80,7 @@ export function MagazinePage({ onBack, onNavigate }: MagazineProps) {
         .mag-prose a:hover { color:#c4b5fd; }
       `}</style>
 
-      <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 md:py-10 pb-20">
+      <div className={`${article ? "max-w-3xl" : "max-w-6xl"} mx-auto px-4 md:px-6 py-6 md:py-10 pb-20`}>
         {article ? (
           // ───────── 개별 아티클 ─────────
           <>
@@ -141,7 +141,7 @@ export function MagazinePage({ onBack, onNavigate }: MagazineProps) {
               ))}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {visible.map((a, i) => (
                 <motion.a
                   key={a.slug}

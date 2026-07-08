@@ -49,6 +49,10 @@ export default async function handler(_req: Request): Promise<Response> {
     "color-grading-cinematic",
     "title-that-clicks",
     "ai-video-trends-2026",
+    "creator-workflow",
+    "collab-filmmaking",
+    "salvage-failed-clips",
+    "find-your-style",
   ];
 
   const staticUrls = [
