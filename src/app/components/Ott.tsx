@@ -203,7 +203,9 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
     [genreRows, band],
   );
 
-  // 히어로 후보: 트렌딩(비면 카테고리 행 영화) 상위 5편을 20초마다 순환 (2026-06-12)
+  // 히어로 후보: 트렌딩(비면 카테고리 행 영화) 상위 5편 순환 (2026-06-12)
+  // 순환 규칙(2026-07-08): 클립 영상 = 클립 길이만큼 1회 재생 후 즉시 전환(반복 없음),
+  //                       그 외 = 최대 30초 후 전환. 30초는 상한 타이머.
   const heroFallback = genreRows.flatMap((r) => r.videos);
   // 피처링(챌린지 우승작)을 히어로 최우선으로 앞에 붙이고 중복 제거 후 상위 5편
   const _heroPool = trending.length > 0 ? trending : heroFallback;
@@ -215,11 +217,15 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
   }).slice(0, 5);
   const heroId = heroes[heroIdx]?.id;
   useEffect(() => { setHeroIdx(0); }, [heroes.length]);   // 목록 바뀌면 처음부터
+  // 고정 인터벌 대신 히어로별 타임아웃(30초 상한) — 클립이 ended 로 조기 전환해도
+  // 다음 히어로가 30초를 온전히 갖는다(heroIdx 바뀔 때마다 타이머 리셋).
   useEffect(() => {
     if (heroes.length <= 1) return;
-    const id = setInterval(() => setHeroIdx((i) => (i + 1) % heroes.length), 20000);
-    return () => clearInterval(id);
-  }, [heroes.length]);
+    const id = setTimeout(() => setHeroIdx((i) => (i + 1) % heroes.length), 30000);
+    return () => clearTimeout(id);
+  }, [heroes.length, heroIdx]);
+  // 클립 영상이 끝나면 즉시 다음 히어로로 (같은 장면 반복 제거)
+  const advanceHero = useCallback(() => setHeroIdx((i) => (i + 1) % Math.max(heroes.length, 1)), [heroes.length]);
   // 피처링 영상(featured_hero_until 미래) 로드 → 히어로 최우선 노출 (챌린지 우승작 1개월)
   useEffect(() => {
     let cancelled = false;
@@ -388,6 +394,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
           onToggleMute={toggleHeroMute}
           onClick={handleClick}
           onPlay={handlePlay}
+          onEnded={heroes.length > 1 ? advanceHero : undefined}
         />
       )}
 
@@ -448,6 +455,7 @@ const HeroBillboard = memo(function HeroBillboard({
   onToggleMute,
   onClick,
   onPlay,
+  onEnded,
 }: {
   video: CarouselVideo;
   src: { url: string; start: number; end: number; clipUrl?: string; previewUrl?: string; seekUrl?: string } | null;
@@ -456,6 +464,7 @@ const HeroBillboard = memo(function HeroBillboard({
   onToggleMute: () => void;
   onClick: (v: CarouselVideo) => void;   // 작품 정보 / 섹션 클릭 → 상세
   onPlay: (v: CarouselVideo) => void;    // 지금 보기 → 상세 + 전체화면 재생
+  onEnded?: () => void;                  // 클립 재생 끝 → 다음 히어로로 조기 전환 (미주입=단일 히어로, 루프 유지)
 }) {
   const { t } = useTranslation();
   const g = ageGuard(video);
@@ -512,7 +521,7 @@ const HeroBillboard = memo(function HeroBillboard({
             key={src!.previewUrl}
             src={src!.previewUrl}
             alt=""
-            className="absolute inset-0 w-full h-full object-cover"
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${videoReady ? "opacity-0" : "opacity-100"}`}
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
           />
         )}
@@ -527,9 +536,10 @@ const HeroBillboard = memo(function HeroBillboard({
               src={playUrl}
               autoPlay
               muted
-              loop={isClip}
+              loop={isClip && !onEnded}
               playsInline
               preload="auto"
+              onEnded={() => onEnded?.()}
               onLoadedMetadata={() => {
                 // seek 재생: 메타데이터 로드 후 하이라이트 시작점으로 이동(best-effort).
                 const v = videoRef.current;
