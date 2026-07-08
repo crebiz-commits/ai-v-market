@@ -83,6 +83,23 @@
 - 커밋 전 `npx tsc --noEmit` 통과 확인.
 
 ## ✅ 이번 세션 코드 변경 (모두 커밋·푸시됨, main)
+**2026-07-08 (영문(i18n) 전환 — 하드코딩 한글 UI를 t()로, 누락 번역키 보강):**
+- 증상: 언어를 English로 바꿔도 여러 화면이 한글로 나옴 = 번역파일(ko/en 1276키)은 완전한데 **컴포넌트에 t() 없이 한글이 하드코딩**(또는 inline `isKo ? ko : en`)돼 있었음.
+- 조치(e99c6be): **19개 컴포넌트** 하드코딩 문자열을 `t()`로 전환 + ko.json/en.json에 **번역키 409개 추가**. 대상=홈피드·상세·커뮤니티·챌린지·업로드·마이페이지·구독·랜딩·크리에이터수익정책·푸터·햄버거·고객센터·인증·협업문의·베타카드·탑크리에이터·검색·전체화면·공유모달. 기존 누락 키(코드가 참조했으나 en에 없던 것)도 보강. Community collab 타입은 동적 `t(key)`로 정리.
+- 검증: 수정파일 참조키 **누락 0** / ko·en 키 **대칭** / `tsc --noEmit` **0** / **prod 빌드 성공**.
+- 원복: **StaticPages.tsx**(약관·개인정보·청소년·FAQ)는 이미 ko/en 배열 완비(영문 정상 작동) + `returnObjects` 배열이라 불완전 변환 시 페이지 크래시 위험 → 되돌림. **About 섹션 일부 한글전용은 잔여 과제**.
+- ⏳ **미완(다음 라운드 — 회귀 아님, 편집 전 상태 유지)**: 병렬 서브에이전트가 **세션 한도(session limit)로 중단**돼 아래 파일들은 미편집 → 영문 모드에서 여전히 일부 한글 노출:
+  - OTT/시네마: `Ott` `Cinema` `VideoRowCarousel` `TrendingHeroSection`
+  - 광고주: `AdCreateModal` `AdvertiserDashboard` `AdTopupModal` `AdStatsModal` (조각 `Ads.json` 키는 en.json에 이미 병합돼 있어 컴포넌트만 t()로 바꾸면 됨)
+  - 크리에이터: `CreatorDashboard` `ReceivedCommentsSection` `TaxInfoSection` `PayoutInfoModal`
+  - 채널/알림: `Channel` `CreatorChannel` `NotificationPanel`
+  - 설정/인증: `NotificationSettings` `CommentSettings` `PushPrompt` `InstallPrompt` `PasswordResetScreen`
+  - 커뮤니티상세: `CommunityPostDetail` `CommunityMockShowcase`
+  - 비즈니스: `BusinessPage` `EventBannerBoard`
+  - 공유/신고/광고: `ReportModal` `ReferralCard` `AdMidrollPlayer` `AdOverlayBanner` `CoupangBanner` `ExternalAdSlot`
+  - 관리자(Admin*)·내부 프리뷰(*Preview·LogoDesigns 등)는 사용자 비노출이라 후순위/제외.
+  - 재개 방법: 위 파일들에 대해 같은 방식(하드코딩/isKo 한글 → t(key), ko/en.json에 키 추가) 반복. 카테고리·장르·상태 등 **DB/로직용 한글 값은 유지**하고 표시 시점에만 번역(`getCategoryLabel` 등).
+
 **2026-07-08 (출시 전 전면 감사 — 5종 병렬감사 후 치명/높음 일괄 수정):**
 - 감사 결과: Edge 라우트 24개·RPC 197건 정합(치명 0) / 치명 1(MyPage 캐시 오염) + 높음 9건 발견·수정.
 - 프론트 수정(943a211): MyPage·홈피드 캐시 오염(계정 전환 시 타인 데이터 노출) / ProductDetail iframe 레이스(연속재생·미드롤·오버레이 영구 미동작) / useAgeRatings 19금 블러 우회 고착 / 업로드 JWT 만료 401 / `config/ads.ts` HOME_FEED_SELF_ADS SSOT 신설.
