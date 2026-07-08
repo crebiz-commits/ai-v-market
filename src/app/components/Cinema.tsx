@@ -16,6 +16,7 @@ import { Loader2, Film } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
+import { COLLECTIONS, getCollection, CREAITE_SELECT_SLUG } from "../data/collections";
 import { TrendingHeroSection } from "./TrendingHeroSection";
 import { Footer } from "./Footer";
 import { useAgeRatings } from "../hooks/useAgeRatings";
@@ -165,6 +166,22 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
   const [newReleases, setNewReleases] = useState<CarouselVideo[]>(_initSnap?.newReleases ?? []);
   const [top10, setTop10] = useState<CarouselVideo[]>(_initSnap?.top10 ?? []);
   const [categoryRows, setCategoryRows] = useState<CategoryRow[]>(_initSnap?.categoryRows ?? []);
+  // CREAITE 셀렉트(공식 선정작) — collections.ts 의 creaite-select videoIds 로 로드
+  const [selectVideos, setSelectVideos] = useState<CarouselVideo[]>([]);
+  useEffect(() => {
+    const ids = getCollection(CREAITE_SELECT_SLUG)?.videoIds ?? [];
+    if (!ids.length) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("videos")
+        .select("id, title, thumbnail, creator, creator_id, category, genre, duration, duration_seconds, ai_tool, price_standard, views, likes, highlight_start, highlight_end")
+        .in("id", ids).or("visibility.eq.public,visibility.is.null").eq("is_hidden", false);
+      if (cancelled) return;
+      const map = new Map((data || []).map((v: any) => [v.id, { ...v, creator_display_name: v.creator, creator_avatar: null } as CarouselVideo]));
+      setSelectVideos(ids.map((id) => map.get(id)).filter(Boolean) as CarouselVideo[]);
+    })();
+    return () => { cancelled = true; };
+  }, []);
   // 형식 카테고리 행 (애니메이션·다큐멘터리·뮤직비디오 — 장르가 아닌 category 기준, 2026-06-11)
   const [formatRows, setFormatRows] = useState<{ category: string; emoji: string; position: "top" | "bottom"; videos: CarouselVideo[] }[]>(_initSnap?.formatRows ?? []);
   // 이벤트 배너 — DB(event_banners) 로드, 실패/미적용 시 하드코딩 폴백 (2026-06-11)
@@ -184,8 +201,9 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
     top10.forEach(v => ids.add(v.id));
     formatRows.forEach(r => r.videos.forEach(v => ids.add(v.id)));
     categoryRows.forEach(r => r.videos.forEach(v => ids.add(v.id)));
+    selectVideos.forEach(v => ids.add(v.id));
     return Array.from(ids).filter(id => !id.startsWith("demo-")); // showcase mock 제외
-  }, [recommended, trending, newReleases, top10, formatRows, categoryRows]);
+  }, [recommended, trending, newReleases, top10, formatRows, categoryRows, selectVideos]);
   const ageRatings = useAgeRatings(allVideoIds);
   const seriesCounts = useSeriesCounts(allVideoIds);
 
@@ -378,6 +396,47 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
               emptyMessage={t("cinema.forYouEmpty")}
               ageRatings={ageRatings} seriesCounts={seriesCounts}
             />
+          </div>
+
+          {/* 🏆 CREAITE 셀렉트 — 공식 선정작 (에디터 선별) */}
+          {selectVideos.length > 0 && (
+            <VideoRowCarousel
+              title={t("cinema.selectTitle", "🏆 CREAITE 셀렉트")}
+              subtitle={t("cinema.selectSubtitle", "에디터가 보증하는 공식 선정작")}
+              videos={selectVideos}
+              onVideoClick={handleClick}
+              onAddToCart={handleAddToCart}
+              ageRatings={ageRatings} seriesCounts={seriesCounts}
+            />
+          )}
+
+          {/* 🎞️ CREAITE 컬렉션 — 에디터 셀렉션(컬렉션 페이지로) */}
+          <div className="mb-8">
+            <div className="px-4 md:px-8 mb-3 flex items-end justify-between">
+              <div>
+                <h2 className="text-lg md:text-2xl font-black text-white flex items-center gap-1.5">🎞️ {t("cinema.collectionsTitle", "CREAITE 컬렉션")}</h2>
+                <p className="text-xs md:text-sm text-white/40">{t("cinema.collectionsSubtitle", "장르와 무드로 엮은 에디터 셀렉션")}</p>
+              </div>
+              <a href="?info=collections" className="text-xs font-bold text-[#a78bfa] hover:text-white transition-colors shrink-0">{t("common.viewAll", "전체 보기")} →</a>
+            </div>
+            <div className="flex gap-3 overflow-x-auto no-scrollbar px-4 md:px-8 pb-2">
+              {COLLECTIONS.map((c) => (
+                <a
+                  key={c.slug}
+                  href={`?info=collections&c=${c.slug}`}
+                  className="shrink-0 w-[44vw] sm:w-[32vw] md:w-[22vw] max-w-[300px] group relative rounded-xl overflow-hidden border border-white/[0.08] hover:border-[#6366f1]/50 transition-all aspect-[16/10] flex"
+                >
+                  <div className={`absolute inset-0 bg-gradient-to-br ${c.gradient}`} />
+                  <div className="absolute -right-5 -top-5 w-28 h-28 rounded-full bg-white/15 blur-2xl" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+                  <span className="absolute top-2.5 right-3 text-4xl md:text-5xl opacity-85 group-hover:scale-110 transition-transform">{c.emoji}</span>
+                  <div className="relative mt-auto p-3">
+                    <div className="text-[10px] font-black text-white/80 mb-0.5">{c.tagline}</div>
+                    <div className="text-sm md:text-base font-black text-white leading-tight line-clamp-2 drop-shadow">{c.title}</div>
+                  </div>
+                </a>
+              ))}
+            </div>
           </div>
 
           {/* 인기 (24h) — 히어로 + 네온 글로우 캐러셀 */}
