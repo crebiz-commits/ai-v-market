@@ -4,10 +4,12 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "node scripts/i18n-check.mjs && tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
+    "i18n-check": "node scripts/i18n-check.mjs",
     "dev": "vite",
-    "bulk-upload": "node scripts/bulk-upload.mjs"
+    "bulk-upload": "node scripts/bulk-upload.mjs",
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -80,6 +82,7 @@
     "@types/video.js": "^7.3.58",
     "@vitejs/plugin-react": "4.7.0",
     "sharp": "^0.34.5",
+    "supabase": "^2.108.0",
     "tailwindcss": "4.1.12",
     "typescript": "^6.0.3",
     "vite": "6.3.5"

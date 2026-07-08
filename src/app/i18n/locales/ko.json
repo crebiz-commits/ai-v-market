@@ -2395,5 +2395,32 @@
   "creaiteSelect": {
     "label": "CREAITE 셀렉트",
     "tooltip": "CREAITE 셀렉트 — 공식 선정작"
+  },
+  "collections": {
+    "title": "컬렉션",
+    "subtitle": "장르와 무드로 엮은 큐레이션 셀렉션 — 무엇을 볼지 고민될 때, 에디터가 골라 드립니다.",
+    "backToList": "컬렉션 목록",
+    "editorPick": "에디터의 선택",
+    "inThisCollection": "이 컬렉션의 작품",
+    "empty": "표시할 작품이 없습니다.",
+    "more": "다른 셀렉션"
+  },
+  "spotlight": {
+    "backToList": "스포트라이트",
+    "badge": "CREAITE 스포트라이트",
+    "works": "대표작",
+    "noWorks": "작품 준비 중입니다.",
+    "ctaTitle": "다음 스포트라이트의 주인공은 당신입니다",
+    "ctaBody": "작품을 올리고, 관객을 만나고, 가치를 인정받으세요.",
+    "ctaButton": "내 작품 올리기",
+    "title1": "창작자를",
+    "title2": "만나다",
+    "subtitle": "AI 시네마를 만드는 사람들. CREAITE가 주목하는 창작자의 이야기와 작품.",
+    "recruitTitle": "곧, 더 많은 창작자를 만나요",
+    "recruitBody": "당신의 작품이 다음 스포트라이트가 될 수 있습니다 — 지금 올려보세요."
+  },
+  "subscription": {
+    "subscribeOnWeb": "구독 결제는 웹(creaite.net)에서 진행됩니다. 브라우저로 이동합니다.",
+    "subscribeOnWebCTA": "웹에서 구독하기"
   }
 }

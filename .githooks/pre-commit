@@ -1,0 +1,11 @@
+#!/bin/sh
+# CREAITE pre-commit — i18n 번역키 자동 검증(빠진 키/비대칭이면 커밋 차단).
+# 우회(비권장): git commit --no-verify
+# node 를 PATH 에서 못 찾는 환경(Windows Git Bash) 대비 후보 경로 탐색.
+NODE="$(command -v node 2>/dev/null)"
+[ -z "$NODE" ] && [ -x "/c/Program Files/nodejs/node.exe" ] && NODE="/c/Program Files/nodejs/node.exe"
+if [ -z "$NODE" ]; then
+  echo "⚠ node 를 찾지 못해 i18n 검증을 건너뜁니다 (PATH 확인)."
+  exit 0
+fi
+"$NODE" scripts/i18n-check.mjs || exit 1
