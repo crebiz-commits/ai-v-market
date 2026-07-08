@@ -89,7 +89,7 @@
 - 광고 수정(09518a4): 수정모달 stale state(key 리마운트) / 피드광고 판매 게이트 / SQL `ads_gate_dedup_20260708.sql`(예산게이트+클릭 dedup+정리크론).
 - 결제 수정(d0486c6): `payments_gate_20260708.sql`(**payments_enabled=0** — test키 무상프리미엄·정산오염 차단, **live 전환 시 1로 해제** — launch-checklist §1) / `settlement_zero_correction_20260708.sql`(환불 재정산 0원 정정) / Edge 게이트+클릭 viewer_key.
 - ⚠️ **적용 순서**: ① SQL 3개(payments_gate → settlement_zero_correction → ads_gate_dedup) SQL Editor Run → ② `_verify_security_invariants_20260628.sql` Run(전부 PASS 확인) → ③ Edge 재배포(`npx supabase functions deploy server --project-ref tvbpiuwmvrccfnplhwer --no-verify-jwt`). **SQL보다 Edge를 먼저 배포하면 video_click 이 PGRST202로 깨짐(주의).**
-- 드리프트 발견: `admin_grant_premium`·`admin_crown_creator` RPC와 `profiles.creator_of_month_until` 컬럼이 라이브 DB엔 있으나 저장소 SQL에 없음(2026-07-01 커밋이 프론트만 포함) → ✅ **백필 완료(2026-07-08)**: 라이브 덤프를 `supabase/backfill_admin_crown_premium_20260708.sql`로 보존. 단 `admin_crown_creator`의 `p_badge_months`/`p_hero_days` DEFAULT 값만 덤프 화면 잘림으로 프론트 사용값(1, 30) 가정 — 파일 상단 확인 쿼리로 라이브 값 대조 필요.
+- 드리프트 발견: `admin_grant_premium`·`admin_crown_creator` RPC와 `profiles.creator_of_month_until` 컬럼이 라이브 DB엔 있으나 저장소 SQL에 없음(2026-07-01 커밋이 프론트만 포함) → ✅ **백필 완료(2026-07-08)**: 라이브 덤프를 `supabase/backfill_admin_crown_premium_20260708.sql`로 보존. 시그니처(DEFAULT 1/30 포함)는 라이브 `pg_get_function_arguments()`로 대조 확인 완료 — 백필 정의와 100% 일치.
 - ✅ **후속 조치 완료(2026-07-08)**: SQL 3개 적용 + 보안 게이트 13/13 PASS + Edge 재배포까지 순서대로 완료.
 - 📌 **영상 403 주의**: Bunny 스트림 CDN(`vz-6e85411f-96a.b-cdn.net`)에 리퍼러 화이트리스트가 걸려 있어 **`creaite.net`/`www.creaite.net`에서만 영상·썸네일이 나옴**. Vercel 기본 도메인(`ai-v-market.vercel.app`)이나 리퍼러 없는 직접 접근은 403 → "영상이 하나도 안 나옴" 증상은 장애가 아니라 이것(항상 `www.creaite.net`으로 접속·테스트할 것). 상세페이지 iframe(`iframe.mediadelivery.net`)은 영향 없음.
 

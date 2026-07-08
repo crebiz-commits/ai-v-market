@@ -4,12 +4,9 @@
 -- 이 파일은 라이브 DB의 pg_get_functiondef() 덤프(2026-07-08)를 저장소에 보존한 것.
 --
 -- ⚠️ 지금 라이브에 실행할 필요 없음(이미 동일 정의 존재). 새 DB 복원/포맷 시에만 실행.
--- ⚠️ 단 하나 미확정: admin_crown_creator 의 p_badge_months/p_hero_days DEFAULT 값이
---    덤프 화면에서 잘림 → 프론트 사용값(1, 30)으로 기재함. 아래 쿼리로 라이브 값 확인 후
---    다르면 이 파일 수정할 것:
---      SELECT pg_get_function_arguments(p.oid)
---      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
---      WHERE n.nspname = 'public' AND p.proname = 'admin_crown_creator';
+-- ✅ admin_crown_creator 시그니처는 라이브 pg_get_function_arguments()로 확인 완료(2026-07-08):
+--    "p_email text, p_video_id text DEFAULT NULL::text,
+--     p_badge_months integer DEFAULT 1, p_hero_days integer DEFAULT 30" — 아래 정의와 일치.
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ── 0) 컬럼: 이달의 크리에이터 뱃지 만료 시각 ──────────────────────────────

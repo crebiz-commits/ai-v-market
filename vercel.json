@@ -50,6 +50,12 @@
       "has": [{ "type": "host", "value": "www.creaite.kr" }],
       "destination": "https://www.creaite.net/:path*",
       "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "ai-v-market.vercel.app" }],
+      "destination": "https://www.creaite.net/:path*",
+      "permanent": true
     }
   ],
   "rewrites": [
