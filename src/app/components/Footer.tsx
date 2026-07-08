@@ -145,6 +145,14 @@ export function Footer({ onNavigate, mobile = false }: FooterProps) {
                 </button>
               </li>
               <li>
+                <a
+                  href="?info=magazine"
+                  className="text-sm font-semibold text-[#a78bfa] hover:text-white transition-colors"
+                >
+                  📖 {t("footer.magazine", "CREAITE 매거진")}
+                </a>
+              </li>
+              <li>
                 <button
                   onClick={() => onNavigate("notices")}
                   className="text-sm text-gray-400 hover:text-white transition-colors"

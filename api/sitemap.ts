@@ -31,6 +31,16 @@ async function fetchAllVideos(): Promise<VideoLite[]> {
 export default async function handler(_req: Request): Promise<Response> {
   const videos = await fetchAllVideos();
 
+  // CREAITE 매거진 아티클 slug (src/app/data/magazineArticles.ts 와 동기화)
+  const MAGAZINE_SLUGS = [
+    "ai-video-prompt-formula",
+    "making-of-paper-wings",
+    "how-creators-earn",
+    "genre-directing-guide",
+    "what-is-ai-cinema-ott",
+    "ai-video-copyright-license",
+  ];
+
   const staticUrls = [
     { loc: `${SITE_URL}/`, changefreq: "daily", priority: "1.0" },
     // 정보 페이지 (?info= 라우팅) — SEO 인덱싱 + 검색 유입
@@ -40,6 +50,11 @@ export default async function handler(_req: Request): Promise<Response> {
     { loc: `${SITE_URL}/?tab=bug-report`, changefreq: "monthly", priority: "0.5" },
     { loc: `${SITE_URL}/?info=terms`, changefreq: "monthly", priority: "0.5" },
     { loc: `${SITE_URL}/?info=privacy`, changefreq: "monthly", priority: "0.5" },
+    // 매거진 (원본 아티클 — 검색 유입·색인 핵심)
+    { loc: `${SITE_URL}/?info=magazine`, changefreq: "weekly", priority: "0.8" },
+    ...MAGAZINE_SLUGS.map((s) => ({
+      loc: `${SITE_URL}/?info=magazine&amp;article=${s}`, changefreq: "monthly", priority: "0.7",
+    })),
   ];
 
   const videoUrls = videos.map(v => ({
