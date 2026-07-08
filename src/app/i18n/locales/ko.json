@@ -2370,6 +2370,16 @@
     "moreStories": "다른 이야기도 읽어보세요",
     "readMin": "{{count}}분",
     "backToList": "매거진 목록",
-    "read": "읽기"
+    "read": "읽기",
+    "cat": {
+      "all": "전체",
+      "guide": "가이드",
+      "making": "제작기",
+      "insight": "인사이트",
+      "policy": "정책"
+    },
+    "metaSuffix": "CREAITE 매거진",
+    "metaListTitle": "CREAITE 매거진 — AI 영상 제작·크리에이터 인사이트",
+    "metaListDesc": "AI 영상 프롬프트 작성법, 장르별 연출 가이드, 크리에이터 수익 모델, 제작기까지. CREAITE가 전하는 AI 시네마 이야기."
   }
 }

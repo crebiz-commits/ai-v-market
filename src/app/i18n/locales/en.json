@@ -2370,6 +2370,16 @@
     "moreStories": "More stories to read",
     "readMin": "{{count}} min",
     "backToList": "Back to magazine",
-    "read": "Read"
+    "read": "Read",
+    "cat": {
+      "all": "All",
+      "guide": "Guides",
+      "making": "Making-of",
+      "insight": "Insights",
+      "policy": "Policy"
+    },
+    "metaSuffix": "CREAITE Magazine",
+    "metaListTitle": "CREAITE Magazine — AI video production & creator insights",
+    "metaListDesc": "AI video prompt writing, genre directing guides, creator revenue models, and making-of stories — CREAITE's take on AI cinema."
   }
 }

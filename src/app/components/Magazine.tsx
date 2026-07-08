@@ -16,6 +16,15 @@ interface MagazineProps {
 
 const CATEGORIES: (MagazineCategory | "전체")[] = ["전체", "가이드", "제작기", "인사이트", "정책"];
 
+// 카테고리 값(한글, 로직/DB용)은 유지하고 표시만 번역.
+const MAGAZINE_CAT_KEY: Record<string, string> = {
+  "전체": "magazine.cat.all",
+  "가이드": "magazine.cat.guide",
+  "제작기": "magazine.cat.making",
+  "인사이트": "magazine.cat.insight",
+  "정책": "magazine.cat.policy",
+};
+
 // 검색엔진/미리보기용 메타 태그 세팅(정보 페이지는 CSR이라 직접 갱신)
 function setMeta(title: string, description: string) {
   document.title = title;
@@ -36,7 +45,9 @@ function setMeta(title: string, description: string) {
 }
 
 export function MagazinePage({ onBack, onNavigate }: MagazineProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang: "ko" | "en" = (i18n.language || "ko").split("-")[0] === "en" ? "en" : "ko";
+  const catLabel = (c: string) => t(MAGAZINE_CAT_KEY[c] ?? "", { defaultValue: c });
   const slug = typeof window !== "undefined"
     ? new URLSearchParams(window.location.search).get("article")
     : null;
@@ -52,13 +63,13 @@ export function MagazinePage({ onBack, onNavigate }: MagazineProps) {
   useEffect(() => {
     const prevTitle = document.title;
     if (article) {
-      setMeta(`${article.title} | CREAITE 매거진`, article.excerpt);
+      setMeta(`${article.title[lang]} | ${t("magazine.metaSuffix")}`, article.excerpt[lang]);
     } else {
-      setMeta("CREAITE 매거진 — AI 영상 제작·크리에이터 인사이트", "AI 영상 프롬프트 작성법, 장르별 연출 가이드, 크리에이터 수익 모델, 제작기까지. CREAITE가 전하는 AI 시네마 이야기.");
+      setMeta(t("magazine.metaListTitle"), t("magazine.metaListDesc"));
       window.scrollTo(0, 0);
     }
     return () => { document.title = prevTitle; };
-  }, [article?.slug]);
+  }, [article?.slug, lang]);
 
   const goList = () => {
     // 상세 → 목록: article 파라미터만 제거
@@ -90,13 +101,13 @@ export function MagazinePage({ onBack, onNavigate }: MagazineProps) {
                 <span className="text-6xl md:text-7xl drop-shadow-lg">{article.emoji}</span>
               </div>
               <div className="flex items-center gap-2 mb-3 text-xs">
-                <span className="px-2.5 py-1 rounded-full bg-[#6366f1]/15 border border-[#6366f1]/30 text-[#c4b5fd] font-bold">{article.category}</span>
+                <span className="px-2.5 py-1 rounded-full bg-[#6366f1]/15 border border-[#6366f1]/30 text-[#c4b5fd] font-bold">{catLabel(article.category)}</span>
                 <span className="text-white/40">{article.date}</span>
                 <span className="text-white/40 flex items-center gap-1"><Clock className="w-3 h-3" /> {t("magazine.readMin", { count: article.readMinutes })}</span>
               </div>
-              <h1 className="text-2xl md:text-4xl font-black text-white leading-tight mb-3">{article.title}</h1>
-              <p className="text-gray-400 text-base md:text-lg leading-relaxed mb-8">{article.excerpt}</p>
-              <div className="mag-prose" dangerouslySetInnerHTML={{ __html: article.body }} />
+              <h1 className="text-2xl md:text-4xl font-black text-white leading-tight mb-3">{article.title[lang]}</h1>
+              <p className="text-gray-400 text-base md:text-lg leading-relaxed mb-8">{article.excerpt[lang]}</p>
+              <div className="mag-prose" dangerouslySetInnerHTML={{ __html: article.body[lang] }} />
 
               {/* 다른 글 추천 */}
               <div className="mt-12 pt-8 border-t border-white/10">
@@ -106,8 +117,8 @@ export function MagazinePage({ onBack, onNavigate }: MagazineProps) {
                     <a key={a.slug} href={`?info=magazine&article=${a.slug}`} className="flex items-center gap-3 p-3 rounded-xl bg-[#141414] border border-white/5 hover:border-[#6366f1]/40 transition-colors">
                       <div className={`w-11 h-11 rounded-lg bg-gradient-to-br ${a.gradient} flex items-center justify-center shrink-0`}><span className="text-xl">{a.emoji}</span></div>
                       <div className="min-w-0">
-                        <div className="text-white text-sm font-bold line-clamp-2 leading-snug">{a.title}</div>
-                        <div className="text-white/40 text-[11px] mt-0.5">{a.category} · {t("magazine.readMin", { count: a.readMinutes })}</div>
+                        <div className="text-white text-sm font-bold line-clamp-2 leading-snug">{a.title[lang]}</div>
+                        <div className="text-white/40 text-[11px] mt-0.5">{catLabel(a.category)} · {t("magazine.readMin", { count: a.readMinutes })}</div>
                       </div>
                     </a>
                   ))}
@@ -136,7 +147,7 @@ export function MagazinePage({ onBack, onNavigate }: MagazineProps) {
                     cat === c ? "bg-white text-black border-white" : "bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  {c}
+                  {catLabel(c)}
                 </button>
               ))}
             </div>
@@ -156,11 +167,11 @@ export function MagazinePage({ onBack, onNavigate }: MagazineProps) {
                   </div>
                   <div className="p-4">
                     <div className="flex items-center gap-2 mb-2 text-[11px]">
-                      <span className="px-2 py-0.5 rounded-full bg-[#6366f1]/15 border border-[#6366f1]/30 text-[#c4b5fd] font-bold">{a.category}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-[#6366f1]/15 border border-[#6366f1]/30 text-[#c4b5fd] font-bold">{catLabel(a.category)}</span>
                       <span className="text-white/40 flex items-center gap-1"><Clock className="w-3 h-3" /> {t("magazine.readMin", { count: a.readMinutes })}</span>
                     </div>
-                    <h2 className="text-white font-extrabold text-base leading-snug line-clamp-2 mb-1.5 group-hover:text-[#c4b5fd] transition-colors">{a.title}</h2>
-                    <p className="text-white/50 text-xs leading-relaxed line-clamp-3">{a.excerpt}</p>
+                    <h2 className="text-white font-extrabold text-base leading-snug line-clamp-2 mb-1.5 group-hover:text-[#c4b5fd] transition-colors">{a.title[lang]}</h2>
+                    <p className="text-white/50 text-xs leading-relaxed line-clamp-3">{a.excerpt[lang]}</p>
                     <div className="text-white/30 text-[11px] mt-2">{a.date}</div>
                   </div>
                 </motion.a>

@@ -17,8 +17,15 @@ interface FooterProps {
  * 우리도 모바일에선 햄버거 메뉴에 동일 내용(비즈니스·회사소개·약관·고객센터·사업자정보)이
  * 모두 있으므로 푸터는 숨기고(md:block), 데스크탑(브라우저)에서만 노출.
  */
+const MAGAZINE_CAT_KEY: Record<string, string> = {
+  "전체": "magazine.cat.all", "가이드": "magazine.cat.guide", "제작기": "magazine.cat.making",
+  "인사이트": "magazine.cat.insight", "정책": "magazine.cat.policy",
+};
+
 export function Footer({ onNavigate, mobile = false }: FooterProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang: "ko" | "en" = (i18n.language || "ko").split("-")[0] === "en" ? "en" : "ko";
+  const catLabel = (c: string) => t(MAGAZINE_CAT_KEY[c] ?? "", { defaultValue: c });
   return (
     <motion.footer
       initial={{ opacity: 0 }}
@@ -54,11 +61,11 @@ export function Footer({ onNavigate, mobile = false }: FooterProps) {
                   <span className="absolute top-3 right-4 text-6xl md:text-7xl opacity-80 group-hover:scale-110 group-hover:rotate-3 transition-transform">{f.emoji}</span>
                   <div className="relative mt-auto p-4">
                     <div className="inline-flex items-center gap-1.5 text-[11px] font-black text-white/95 mb-1.5">
-                      <span className="px-1.5 py-0.5 rounded bg-white/20 backdrop-blur-sm">{f.category}</span>
-                      <span className="text-white/70">{f.readMinutes}분 읽기</span>
+                      <span className="px-1.5 py-0.5 rounded bg-white/20 backdrop-blur-sm">{catLabel(f.category)}</span>
+                      <span className="text-white/70">{t("magazine.readMin", { count: f.readMinutes })}</span>
                     </div>
-                    <div className="text-base md:text-xl font-black text-white leading-tight mb-1 line-clamp-2 drop-shadow">{f.title}</div>
-                    <div className="text-xs text-white/75 line-clamp-2 mb-2">{f.excerpt}</div>
+                    <div className="text-base md:text-xl font-black text-white leading-tight mb-1 line-clamp-2 drop-shadow">{f.title[lang]}</div>
+                    <div className="text-xs text-white/75 line-clamp-2 mb-2">{f.excerpt[lang]}</div>
                     <span className="text-xs font-bold text-white inline-flex items-center gap-1 group-hover:gap-2 transition-all">{t("magazine.read", "읽기")} <span>→</span></span>
                   </div>
                 </a>
@@ -77,8 +84,8 @@ export function Footer({ onNavigate, mobile = false }: FooterProps) {
                     <span className="text-2xl group-hover:scale-110 transition-transform">{a.emoji}</span>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[10px] text-[#c4b5fd] font-bold mb-0.5">{a.category} · {a.readMinutes}분</div>
-                    <div className="text-[13px] font-bold text-white leading-snug line-clamp-2 group-hover:text-[#c4b5fd] transition-colors">{a.title}</div>
+                    <div className="text-[10px] text-[#c4b5fd] font-bold mb-0.5">{catLabel(a.category)} · {t("magazine.readMin", { count: a.readMinutes })}</div>
+                    <div className="text-[13px] font-bold text-white leading-snug line-clamp-2 group-hover:text-[#c4b5fd] transition-colors">{a.title[lang]}</div>
                   </div>
                 </a>
               ))}
