@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type Dispatch, type SetStateAction, type RefObject } from "react";
 import { X, Send, Heart, ChevronDown, ChevronUp, Loader2, MessageCircle, Trash2, Pin, MoreVertical, Ban, Flag, UserX, Pencil } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
@@ -80,6 +80,314 @@ function Avatar({ name, src, size = 36 }: { name: string; src?: string; size?: n
         />
       )}
     </div>
+  );
+}
+
+// CommentItem 은 모듈 스코프 컴포넌트로 분리한다. CommentPanel 내부에 정의하면 부모가 렌더될
+// 때마다 새 함수(=새 컴포넌트 타입)가 되어 댓글 목록 전체가 리마운트됨 → 메인 입력 타이핑마다
+// 진입 애니메이션 깜빡임 + 인라인 수정 상태(editing/draft) 소실. ctx 로 부모 핸들러/상태를 주입해
+// 안정된 컴포넌트 식별자를 유지한다(로직·JSX 는 이전 인라인판과 동일).
+interface CommentItemCtx {
+  user: { id: string } | null | undefined;
+  videoCreatorId?: string;
+  isVideoOwner: boolean;
+  isAuthenticated: boolean;
+  isKo: boolean;
+  t: (key: string, opts?: any) => string;
+  creatorInfo: Record<string, { avatar?: string | null } | undefined>;
+  likedComments: Set<string>;
+  openMenu: string | null;
+  setOpenMenu: (v: string | null) => void;
+  onViewCreator?: (creatorId: string) => void;
+  setReplyTo: (v: { id: string; name: string } | null) => void;
+  inputRef: RefObject<HTMLTextAreaElement>;
+  setReportTarget: (v: { id: string; name: string } | null) => void;
+  setComments: Dispatch<SetStateAction<Comment[]>>;
+  blockUser: (userId: string, name: string) => void;
+  handleLike: (commentId: string) => void;
+  handleTogglePin: (commentId: string) => void;
+  handleToggleHeart: (commentId: string, parentId?: string) => void;
+  handleDelete: (commentId: string, parentId?: string) => void;
+  handleBlockUser: (targetUserId: string, name: string) => void;
+}
+
+function CommentItemView({ comment, isReply = false, parentId, ctx }: { comment: Comment; isReply?: boolean; parentId?: string; ctx: CommentItemCtx }) {
+  const {
+    user, videoCreatorId, isVideoOwner, isAuthenticated, isKo, t, creatorInfo, likedComments,
+    openMenu, setOpenMenu, onViewCreator, setReplyTo, inputRef, setReportTarget, setComments,
+    blockUser, handleLike, handleTogglePin, handleToggleHeart, handleDelete, handleBlockUser,
+  } = ctx;
+  const isMine = user?.id === comment.user_id;
+  const isCommentByCreator = !!videoCreatorId && comment.user_id === videoCreatorId;
+  const canCreatorBlock = isVideoOwner && !isCommentByCreator;
+  const showMenu = !isMine && isAuthenticated; // 본인 댓글 아니고 로그인 시 메뉴 노출
+  const menuOpen = openMenu === comment.id;
+
+  // 본인 댓글 수정 — 상태를 CommentItemView 로컬로 둬서 타이핑 중 패널 리렌더 방지
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(comment.content);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const saveEdit = async () => {
+    const newContent = draft.trim();
+    if (!newContent || newContent === comment.content) {
+      setEditing(false);
+      setDraft(comment.content);
+      return;
+    }
+    setSavingEdit(true);
+    const { data, error } = await supabase
+      .from("comments")
+      .update({ content: newContent, updated_at: new Date().toISOString() })
+      .eq("id", comment.id)
+      .select("id, is_hidden")
+      .single();
+    setSavingEdit(false);
+    if (error || !data) {
+      toast.error(t("commentPanel.postFailed"));
+      return;
+    }
+    // 자동 필터에 걸려 숨김된 경우 — 목록에서 제거 + 안내
+    if ((data as any).is_hidden) {
+      toast.error(t("comment.filtered"));
+      if (parentId) {
+        setComments((prev) =>
+          prev.map((c) =>
+            c.id === parentId
+              ? { ...c, replies: (c.replies || []).filter((r) => r.id !== comment.id) }
+              : c
+          )
+        );
+      } else {
+        setComments((prev) => prev.filter((c) => c.id !== comment.id));
+      }
+      return;
+    }
+    setComments((prev) =>
+      prev.map((c) => {
+        if (!parentId && c.id === comment.id) return { ...c, content: newContent };
+        if (parentId && c.id === parentId) {
+          return {
+            ...c,
+            replies: (c.replies || []).map((r) =>
+              r.id === comment.id ? { ...r, content: newContent } : r
+            ),
+          };
+        }
+        return c;
+      })
+    );
+    setEditing(false);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`flex gap-3 ${isReply ? "ml-10 mt-2" : ""} ${comment.is_pinned ? "bg-[#6366f1]/5 -mx-4 px-4 py-2 rounded-lg" : ""}`}
+    >
+      {onViewCreator ? (
+        <button
+          onClick={() => onViewCreator(comment.user_id)}
+          className="flex-shrink-0 hover:opacity-80 transition-opacity"
+          aria-label={comment.author_name}
+        >
+          <Avatar
+            name={comment.author_name}
+            src={creatorInfo[comment.user_id]?.avatar ?? undefined}
+            size={isReply ? 28 : 36}
+          />
+        </button>
+      ) : (
+        <Avatar
+          name={comment.author_name}
+          src={creatorInfo[comment.user_id]?.avatar ?? undefined}
+          size={isReply ? 28 : 36}
+        />
+      )}
+      <div className="flex-1 min-w-0">
+        {comment.is_pinned && !isReply && (
+          <div className="flex items-center gap-1 text-[11px] text-[#8b5cf6] font-bold mb-1">
+            <Pin className="w-3 h-3" />
+            {t("commentPanel.pinned")}
+          </div>
+        )}
+        <div className="flex items-baseline gap-2 flex-wrap">
+          {onViewCreator ? (
+            <button
+              onClick={() => onViewCreator(comment.user_id)}
+              className="text-sm font-semibold text-white hover:text-[#a78bfa] transition-colors"
+            >
+              {comment.author_name}
+            </button>
+          ) : (
+            <span className="text-sm font-semibold text-white">{comment.author_name}</span>
+          )}
+          {isCommentByCreator && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold">
+              {t("mypage.account.creator")}
+            </span>
+          )}
+          <span className="text-xs text-gray-500">{timeAgo(comment.created_at, isKo)}</span>
+        </div>
+        {editing ? (
+          <div className="mt-1.5">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              maxLength={500}
+              rows={2}
+              autoFocus
+              className="w-full bg-white/5 border border-[#6366f1]/50 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-[#6366f1] transition-colors"
+            />
+            <div className="flex items-center gap-2 mt-1.5">
+              <button
+                onClick={saveEdit}
+                disabled={savingEdit || !draft.trim()}
+                className="px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white disabled:opacity-40 flex items-center gap-1"
+              >
+                {savingEdit && <Loader2 className="w-3 h-3 animate-spin" />}
+                {t("common.save")}
+              </button>
+              <button
+                onClick={() => { setEditing(false); setDraft(comment.content); }}
+                className="px-3 py-1 rounded-full text-xs font-semibold bg-white/5 text-gray-400 hover:bg-white/10 transition-colors"
+              >
+                {t("common.cancel")}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-300 mt-0.5 leading-relaxed break-words">{comment.content}</p>
+        )}
+        <div className="flex items-center gap-4 mt-1.5">
+          <button
+            onClick={() => handleLike(comment.id)}
+            className={`flex items-center gap-1 text-xs transition-colors ${
+              likedComments.has(comment.id) ? "text-red-400" : "text-gray-500 hover:text-red-400"
+            }`}
+          >
+            <Heart className={`w-3.5 h-3.5 ${likedComments.has(comment.id) ? "fill-red-400" : ""}`} />
+            {comment.likes_count > 0 && <span>{comment.likes_count}</span>}
+          </button>
+
+          {comment.creator_hearted && (
+            <span title={t("commentPanel.creatorHearted")} className="relative inline-flex items-center">
+              <Heart className="w-3.5 h-3.5 fill-pink-500 text-pink-500" />
+            </span>
+          )}
+
+          {!isReply && (
+            <button
+              onClick={() => {
+                setReplyTo({ id: comment.id, name: comment.author_name });
+                inputRef.current?.focus();
+              }}
+              className="text-xs text-gray-500 hover:text-[#8b5cf6] transition-colors"
+            >
+              {t("commentPanel.reply")}
+            </button>
+          )}
+
+          {/* 영상 작성자 액션: 핀 (대댓글 제외) / 하트 / 차단 */}
+          {isVideoOwner && !isReply && !isCommentByCreator && (
+            <button
+              onClick={() => handleTogglePin(comment.id)}
+              className={`flex items-center gap-1 text-xs transition-colors ${
+                comment.is_pinned ? "text-[#8b5cf6]" : "text-gray-500 hover:text-[#8b5cf6]"
+              }`}
+              title={comment.is_pinned ? t("commentPanel.unpin") : t("commentPanel.pin")}
+            >
+              <Pin className={`w-3.5 h-3.5 ${comment.is_pinned ? "fill-[#8b5cf6]" : ""}`} />
+            </button>
+          )}
+          {isVideoOwner && !isCommentByCreator && (
+            <button
+              onClick={() => handleToggleHeart(comment.id, parentId)}
+              className={`flex items-center gap-1 text-xs transition-colors ${
+                comment.creator_hearted ? "text-pink-500" : "text-gray-500 hover:text-pink-500"
+              }`}
+              title={comment.creator_hearted ? t("commentPanel.unheart") : t("commentPanel.heart")}
+            >
+              <Heart className={`w-3.5 h-3.5 ${comment.creator_hearted ? "fill-pink-500" : ""}`} />
+            </button>
+          )}
+
+          {isMine && !editing && (
+            <button
+              onClick={() => { setDraft(comment.content); setEditing(true); }}
+              className="text-xs text-gray-600 hover:text-[#8b5cf6] transition-colors flex items-center gap-0.5"
+            >
+              <Pencil className="w-3 h-3" />
+              {t("common.edit")}
+            </button>
+          )}
+          {isMine && (
+            <button
+              onClick={() => handleDelete(comment.id, parentId)}
+              className="text-xs text-gray-600 hover:text-red-400 transition-colors flex items-center gap-0.5"
+            >
+              <Trash2 className="w-3 h-3" />
+              {t("common.delete")}
+            </button>
+          )}
+
+          {showMenu && (
+            <div className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpenMenu(menuOpen ? null : comment.id);
+                }}
+                className="text-gray-600 hover:text-gray-300 transition-colors"
+                title={t("creatorChannel.more")}
+              >
+                <MoreVertical className="w-3.5 h-3.5" />
+              </button>
+              {menuOpen && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute z-10 right-0 mt-1 bg-[#1c1c1e] border border-white/10 rounded-lg shadow-xl py-1 w-44"
+                >
+                  <button
+                    onClick={() => {
+                      setOpenMenu(null);
+                      setReportTarget({ id: comment.id, name: comment.author_name });
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-amber-400 transition-colors flex items-center gap-2"
+                  >
+                    <Flag className="w-3.5 h-3.5" />
+                    {t("comment.reportComment")}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setOpenMenu(null);
+                      blockUser(comment.user_id, comment.author_name);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-red-400 transition-colors flex items-center gap-2"
+                  >
+                    <UserX className="w-3.5 h-3.5" />
+                    {t("commentPanel.block")}
+                  </button>
+                  {canCreatorBlock && (
+                    <button
+                      onClick={() => {
+                        setOpenMenu(null);
+                        handleBlockUser(comment.user_id, comment.author_name);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-red-400 transition-colors flex items-center gap-2 border-t border-white/5 mt-1 pt-2"
+                    >
+                      <Ban className="w-3.5 h-3.5" />
+                      {t("commentPanel.blockHere")}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -476,279 +784,12 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
 
   const totalCount = visibleComments.reduce((acc, c) => acc + 1 + (c.replies?.length || 0), 0);
 
-  const CommentItem = ({ comment, isReply = false, parentId }: { comment: Comment; isReply?: boolean; parentId?: string }) => {
-    const isMine = user?.id === comment.user_id;
-    const isCommentByCreator = !!videoCreatorId && comment.user_id === videoCreatorId;
-    const canCreatorBlock = isVideoOwner && !isCommentByCreator;
-    const showMenu = !isMine && isAuthenticated; // 본인 댓글 아니고 로그인 시 메뉴 노출
-    const menuOpen = openMenu === comment.id;
-
-    // 본인 댓글 수정 — 상태를 CommentItem 로컬로 둬서 타이핑 중 패널 리렌더 방지
-    const [editing, setEditing] = useState(false);
-    const [draft, setDraft] = useState(comment.content);
-    const [savingEdit, setSavingEdit] = useState(false);
-
-    const saveEdit = async () => {
-      const newContent = draft.trim();
-      if (!newContent || newContent === comment.content) {
-        setEditing(false);
-        setDraft(comment.content);
-        return;
-      }
-      setSavingEdit(true);
-      const { data, error } = await supabase
-        .from("comments")
-        .update({ content: newContent, updated_at: new Date().toISOString() })
-        .eq("id", comment.id)
-        .select("id, is_hidden")
-        .single();
-      setSavingEdit(false);
-      if (error || !data) {
-        toast.error(t("commentPanel.postFailed"));
-        return;
-      }
-      // 자동 필터에 걸려 숨김된 경우 — 목록에서 제거 + 안내
-      if ((data as any).is_hidden) {
-        toast.error(t("comment.filtered"));
-        if (parentId) {
-          setComments((prev) =>
-            prev.map((c) =>
-              c.id === parentId
-                ? { ...c, replies: (c.replies || []).filter((r) => r.id !== comment.id) }
-                : c
-            )
-          );
-        } else {
-          setComments((prev) => prev.filter((c) => c.id !== comment.id));
-        }
-        return;
-      }
-      setComments((prev) =>
-        prev.map((c) => {
-          if (!parentId && c.id === comment.id) return { ...c, content: newContent };
-          if (parentId && c.id === parentId) {
-            return {
-              ...c,
-              replies: (c.replies || []).map((r) =>
-                r.id === comment.id ? { ...r, content: newContent } : r
-              ),
-            };
-          }
-          return c;
-        })
-      );
-      setEditing(false);
-    };
-
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`flex gap-3 ${isReply ? "ml-10 mt-2" : ""} ${comment.is_pinned ? "bg-[#6366f1]/5 -mx-4 px-4 py-2 rounded-lg" : ""}`}
-      >
-        {onViewCreator ? (
-          <button
-            onClick={() => onViewCreator(comment.user_id)}
-            className="flex-shrink-0 hover:opacity-80 transition-opacity"
-            aria-label={comment.author_name}
-          >
-            <Avatar
-              name={comment.author_name}
-              src={creatorInfo[comment.user_id]?.avatar ?? undefined}
-              size={isReply ? 28 : 36}
-            />
-          </button>
-        ) : (
-          <Avatar
-            name={comment.author_name}
-            src={creatorInfo[comment.user_id]?.avatar ?? undefined}
-            size={isReply ? 28 : 36}
-          />
-        )}
-        <div className="flex-1 min-w-0">
-          {comment.is_pinned && !isReply && (
-            <div className="flex items-center gap-1 text-[11px] text-[#8b5cf6] font-bold mb-1">
-              <Pin className="w-3 h-3" />
-              {t("commentPanel.pinned")}
-            </div>
-          )}
-          <div className="flex items-baseline gap-2 flex-wrap">
-            {onViewCreator ? (
-              <button
-                onClick={() => onViewCreator(comment.user_id)}
-                className="text-sm font-semibold text-white hover:text-[#a78bfa] transition-colors"
-              >
-                {comment.author_name}
-              </button>
-            ) : (
-              <span className="text-sm font-semibold text-white">{comment.author_name}</span>
-            )}
-            {isCommentByCreator && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold">
-                {t("mypage.account.creator")}
-              </span>
-            )}
-            <span className="text-xs text-gray-500">{timeAgo(comment.created_at, isKo)}</span>
-          </div>
-          {editing ? (
-            <div className="mt-1.5">
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                maxLength={500}
-                rows={2}
-                autoFocus
-                className="w-full bg-white/5 border border-[#6366f1]/50 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-[#6366f1] transition-colors"
-              />
-              <div className="flex items-center gap-2 mt-1.5">
-                <button
-                  onClick={saveEdit}
-                  disabled={savingEdit || !draft.trim()}
-                  className="px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white disabled:opacity-40 flex items-center gap-1"
-                >
-                  {savingEdit && <Loader2 className="w-3 h-3 animate-spin" />}
-                  {t("common.save")}
-                </button>
-                <button
-                  onClick={() => { setEditing(false); setDraft(comment.content); }}
-                  className="px-3 py-1 rounded-full text-xs font-semibold bg-white/5 text-gray-400 hover:bg-white/10 transition-colors"
-                >
-                  {t("common.cancel")}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-300 mt-0.5 leading-relaxed break-words">{comment.content}</p>
-          )}
-          <div className="flex items-center gap-4 mt-1.5">
-            <button
-              onClick={() => handleLike(comment.id)}
-              className={`flex items-center gap-1 text-xs transition-colors ${
-                likedComments.has(comment.id) ? "text-red-400" : "text-gray-500 hover:text-red-400"
-              }`}
-            >
-              <Heart className={`w-3.5 h-3.5 ${likedComments.has(comment.id) ? "fill-red-400" : ""}`} />
-              {comment.likes_count > 0 && <span>{comment.likes_count}</span>}
-            </button>
-
-            {comment.creator_hearted && (
-              <span title={t("commentPanel.creatorHearted")} className="relative inline-flex items-center">
-                <Heart className="w-3.5 h-3.5 fill-pink-500 text-pink-500" />
-              </span>
-            )}
-
-            {!isReply && (
-              <button
-                onClick={() => {
-                  setReplyTo({ id: comment.id, name: comment.author_name });
-                  inputRef.current?.focus();
-                }}
-                className="text-xs text-gray-500 hover:text-[#8b5cf6] transition-colors"
-              >
-                {t("commentPanel.reply")}
-              </button>
-            )}
-
-            {/* 영상 작성자 액션: 핀 (대댓글 제외) / 하트 / 차단 */}
-            {isVideoOwner && !isReply && !isCommentByCreator && (
-              <button
-                onClick={() => handleTogglePin(comment.id)}
-                className={`flex items-center gap-1 text-xs transition-colors ${
-                  comment.is_pinned ? "text-[#8b5cf6]" : "text-gray-500 hover:text-[#8b5cf6]"
-                }`}
-                title={comment.is_pinned ? t("commentPanel.unpin") : t("commentPanel.pin")}
-              >
-                <Pin className={`w-3.5 h-3.5 ${comment.is_pinned ? "fill-[#8b5cf6]" : ""}`} />
-              </button>
-            )}
-            {isVideoOwner && !isCommentByCreator && (
-              <button
-                onClick={() => handleToggleHeart(comment.id, parentId)}
-                className={`flex items-center gap-1 text-xs transition-colors ${
-                  comment.creator_hearted ? "text-pink-500" : "text-gray-500 hover:text-pink-500"
-                }`}
-                title={comment.creator_hearted ? t("commentPanel.unheart") : t("commentPanel.heart")}
-              >
-                <Heart className={`w-3.5 h-3.5 ${comment.creator_hearted ? "fill-pink-500" : ""}`} />
-              </button>
-            )}
-
-            {isMine && !editing && (
-              <button
-                onClick={() => { setDraft(comment.content); setEditing(true); }}
-                className="text-xs text-gray-600 hover:text-[#8b5cf6] transition-colors flex items-center gap-0.5"
-              >
-                <Pencil className="w-3 h-3" />
-                {t("common.edit")}
-              </button>
-            )}
-            {isMine && (
-              <button
-                onClick={() => handleDelete(comment.id, parentId)}
-                className="text-xs text-gray-600 hover:text-red-400 transition-colors flex items-center gap-0.5"
-              >
-                <Trash2 className="w-3 h-3" />
-                {t("common.delete")}
-              </button>
-            )}
-
-            {showMenu && (
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOpenMenu(menuOpen ? null : comment.id);
-                  }}
-                  className="text-gray-600 hover:text-gray-300 transition-colors"
-                  title={t("creatorChannel.more")}
-                >
-                  <MoreVertical className="w-3.5 h-3.5" />
-                </button>
-                {menuOpen && (
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    className="absolute z-10 right-0 mt-1 bg-[#1c1c1e] border border-white/10 rounded-lg shadow-xl py-1 w-44"
-                  >
-                    <button
-                      onClick={() => {
-                        setOpenMenu(null);
-                        setReportTarget({ id: comment.id, name: comment.author_name });
-                      }}
-                      className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-amber-400 transition-colors flex items-center gap-2"
-                    >
-                      <Flag className="w-3.5 h-3.5" />
-                      {t("comment.reportComment")}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setOpenMenu(null);
-                        blockUser(comment.user_id, comment.author_name);
-                      }}
-                      className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-red-400 transition-colors flex items-center gap-2"
-                    >
-                      <UserX className="w-3.5 h-3.5" />
-                      {t("commentPanel.block")}
-                    </button>
-                    {canCreatorBlock && (
-                      <button
-                        onClick={() => {
-                          setOpenMenu(null);
-                          handleBlockUser(comment.user_id, comment.author_name);
-                        }}
-                        className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-red-400 transition-colors flex items-center gap-2 border-t border-white/5 mt-1 pt-2"
-                      >
-                        <Ban className="w-3.5 h-3.5" />
-                        {t("commentPanel.blockHere")}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </motion.div>
-    );
+  // CommentItemView(모듈 스코프)에 주입할 핸들러/상태 번들 — 인라인 재정의 제거로 리마운트 방지.
+  // (매 렌더 새 객체지만 컴포넌트 타입은 고정 → 리렌더는 되어도 언마운트/리마운트는 안 일어남)
+  const itemCtx: CommentItemCtx = {
+    user, videoCreatorId, isVideoOwner, isAuthenticated, isKo, t, creatorInfo, likedComments,
+    openMenu, setOpenMenu, onViewCreator, setReplyTo, inputRef, setReportTarget, setComments,
+    blockUser, handleLike, handleTogglePin, handleToggleHeart, handleDelete, handleBlockUser,
   };
 
   const containerClass =
@@ -789,7 +830,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
           <AnimatePresence initial={false}>
             {visibleComments.map((comment) => (
               <div key={comment.id}>
-                <CommentItem comment={comment} />
+                <CommentItemView comment={comment} ctx={itemCtx} />
 
                 {/* 답글 토글 */}
                 {comment.replies && comment.replies.length > 0 && (
@@ -815,7 +856,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
                     <AnimatePresence>
                       {expandedReplies.has(comment.id) &&
                         comment.replies.map((reply) => (
-                          <CommentItem key={reply.id} comment={reply} isReply parentId={comment.id} />
+                          <CommentItemView key={reply.id} comment={reply} isReply parentId={comment.id} ctx={itemCtx} />
                         ))}
                     </AnimatePresence>
                   </div>
