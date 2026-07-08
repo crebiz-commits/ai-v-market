@@ -16,7 +16,7 @@ import { Loader2, Film } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
-import { COLLECTIONS, getCollection, CREAITE_SELECT_SLUG } from "../data/collections";
+import { COLLECTIONS } from "../data/collections";
 import { TrendingHeroSection } from "./TrendingHeroSection";
 import { Footer } from "./Footer";
 import { useAgeRatings } from "../hooks/useAgeRatings";
@@ -166,22 +166,6 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
   const [newReleases, setNewReleases] = useState<CarouselVideo[]>(_initSnap?.newReleases ?? []);
   const [top10, setTop10] = useState<CarouselVideo[]>(_initSnap?.top10 ?? []);
   const [categoryRows, setCategoryRows] = useState<CategoryRow[]>(_initSnap?.categoryRows ?? []);
-  // CREAITE 셀렉트(공식 선정작) — collections.ts 의 creaite-select videoIds 로 로드
-  const [selectVideos, setSelectVideos] = useState<CarouselVideo[]>([]);
-  useEffect(() => {
-    const ids = getCollection(CREAITE_SELECT_SLUG)?.videoIds ?? [];
-    if (!ids.length) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase.from("videos")
-        .select("id, title, thumbnail, creator, creator_id, category, genre, duration, duration_seconds, ai_tool, price_standard, views, likes, highlight_start, highlight_end")
-        .in("id", ids).or("visibility.eq.public,visibility.is.null").eq("is_hidden", false);
-      if (cancelled) return;
-      const map = new Map((data || []).map((v: any) => [v.id, { ...v, creator_display_name: v.creator, creator_avatar: null } as CarouselVideo]));
-      setSelectVideos(ids.map((id) => map.get(id)).filter(Boolean) as CarouselVideo[]);
-    })();
-    return () => { cancelled = true; };
-  }, []);
   // 형식 카테고리 행 (애니메이션·다큐멘터리·뮤직비디오 — 장르가 아닌 category 기준, 2026-06-11)
   const [formatRows, setFormatRows] = useState<{ category: string; emoji: string; position: "top" | "bottom"; videos: CarouselVideo[] }[]>(_initSnap?.formatRows ?? []);
   // 이벤트 배너 — DB(event_banners) 로드, 실패/미적용 시 하드코딩 폴백 (2026-06-11)
@@ -201,9 +185,8 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
     top10.forEach(v => ids.add(v.id));
     formatRows.forEach(r => r.videos.forEach(v => ids.add(v.id)));
     categoryRows.forEach(r => r.videos.forEach(v => ids.add(v.id)));
-    selectVideos.forEach(v => ids.add(v.id));
     return Array.from(ids).filter(id => !id.startsWith("demo-")); // showcase mock 제외
-  }, [recommended, trending, newReleases, top10, formatRows, categoryRows, selectVideos]);
+  }, [recommended, trending, newReleases, top10, formatRows, categoryRows]);
   const ageRatings = useAgeRatings(allVideoIds);
   const seriesCounts = useSeriesCounts(allVideoIds);
 
@@ -397,18 +380,6 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
               ageRatings={ageRatings} seriesCounts={seriesCounts}
             />
           </div>
-
-          {/* 🏆 CREAITE 셀렉트 — 공식 선정작 (에디터 선별) */}
-          {selectVideos.length > 0 && (
-            <VideoRowCarousel
-              title={t("cinema.selectTitle", "🏆 CREAITE 셀렉트")}
-              subtitle={t("cinema.selectSubtitle", "에디터가 보증하는 공식 선정작")}
-              videos={selectVideos}
-              onVideoClick={handleClick}
-              onAddToCart={handleAddToCart}
-              ageRatings={ageRatings} seriesCounts={seriesCounts}
-            />
-          )}
 
           {/* 🎞️ CREAITE 컬렉션 — 에디터 셀렉션(컬렉션 페이지로) */}
           <div className="mb-8">

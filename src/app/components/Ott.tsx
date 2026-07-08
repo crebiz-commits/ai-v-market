@@ -10,7 +10,8 @@ import { Play, Info, Plus, Lock, Loader2, Volume2, VolumeX, Clock, ChevronLeft, 
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { useLikes } from "../contexts/LikesContext";
-import { type CarouselVideo } from "./VideoRowCarousel";
+import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
+import { getCollection, CREAITE_SELECT_SLUG } from "../data/collections";
 import { formatCompactNumber as fmtCompact } from "../i18n/numberFormat";
 import { Footer } from "./Footer";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
@@ -171,13 +172,31 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
   const [featured, setFeatured] = useState<CarouselVideo[]>([]);  // 피처링(챌린지 우승작) — 히어로 최우선
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // CREAITE 셀렉트(공식 선정작) — 히어로 바로 아래 노출. creaite-select videoIds 로 로드.
+  const [selectVideos, setSelectVideos] = useState<CarouselVideo[]>([]);
+  useEffect(() => {
+    const ids = getCollection(CREAITE_SELECT_SLUG)?.videoIds ?? [];
+    if (!ids.length) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("videos")
+        .select("id, title, thumbnail, creator, creator_id, category, genre, duration, duration_seconds, ai_tool, price_standard, views, likes, highlight_start, highlight_end")
+        .in("id", ids).or("visibility.eq.public,visibility.is.null").eq("is_hidden", false);
+      if (cancelled) return;
+      const map = new Map((data || []).map((v: any) => [v.id, { ...v, creator_display_name: v.creator, creator_avatar: null } as CarouselVideo]));
+      setSelectVideos(ids.map((id) => map.get(id)).filter(Boolean) as CarouselVideo[]);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const allVideoIds = useMemo(() => {
     const ids = new Set<string>();
     trending.forEach((v) => ids.add(v.id));
     formatRows.forEach((r) => r.videos.forEach((v) => ids.add(v.id)));
     genreRows.forEach((r) => r.videos.forEach((v) => ids.add(v.id)));
+    selectVideos.forEach((v) => ids.add(v.id));
     return Array.from(ids).filter((id) => !id.startsWith("demo-"));
-  }, [trending, formatRows, genreRows]);
+  }, [trending, formatRows, genreRows, selectVideos]);
   const ageRatings = useAgeRatings(allVideoIds);
   const seriesCounts = useSeriesCounts(allVideoIds);
 
@@ -407,6 +426,20 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
           onPlay={handlePlay}
           onEnded={heroes.length > 1 ? advanceHero : undefined}
         />
+      )}
+
+      {/* 🏆 CREAITE 셀렉트 — 공식 선정작 (히어로 바로 아래) */}
+      {selectVideos.length > 0 && (
+        <div className="relative z-10 pt-5">
+          <VideoRowCarousel
+            title={t("ott.selectTitle", "🏆 CREAITE 셀렉트")}
+            subtitle={t("ott.selectSubtitle", "에디터가 보증하는 공식 선정작")}
+            videos={selectVideos}
+            onVideoClick={handleClick}
+            onAddToCart={handleClick}
+            ageRatings={ageRatings} seriesCounts={seriesCounts}
+          />
+        </div>
       )}
 
       {/* ━━━ 시간대 무드 편성 헤더 ━━━ */}
