@@ -94,26 +94,6 @@ export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCre
   const [creators, setCreators] = useState<PopularCreator[]>(channelCreatorsCache.v ?? []);
   const [creatorsLoading, setCreatorsLoading] = useState(false);
 
-  // 내가 팔로우 중인 creator_id 집합 (FollowButton 초기값용)
-  const [myFollows, setMyFollows] = useState<Set<string>>(new Set());
-
-  // 1. 내 팔로우 목록 (한 번 조회 → FollowButton에 전달)
-  const fetchMyFollows = useCallback(async () => {
-    if (!user) {
-      setMyFollows(new Set());
-      return;
-    }
-    const { data, error } = await supabase
-      .from("creator_followers")
-      .select("creator_id")
-      .eq("follower_id", user.id);
-    if (error) {
-      console.warn("[Channel] 내 팔로우 조회 실패:", error.message);
-      return;
-    }
-    setMyFollows(new Set((data || []).map((r: any) => r.creator_id)));
-  }, [user]);
-
   // 2. 구독 영상 피드
   const fetchFollowingVideos = useCallback(async () => {
     if (!isAuthenticated || !user) {
@@ -154,10 +134,6 @@ export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCre
   }, []);
 
   useEffect(() => {
-    fetchMyFollows();
-  }, [fetchMyFollows]);
-
-  useEffect(() => {
     if (activeTab === "subscribed") {
       fetchFollowingVideos();
     } else {
@@ -165,14 +141,8 @@ export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCre
     }
   }, [activeTab, fetchFollowingVideos, fetchPopularCreators]);
 
-  // 팔로우 토글 시 로컬 set 갱신 + 구독 탭이면 영상 목록 재조회
-  const handleFollowChange = (creatorId: string, following: boolean) => {
-    setMyFollows((prev) => {
-      const next = new Set(prev);
-      if (following) next.add(creatorId);
-      else next.delete(creatorId);
-      return next;
-    });
+  // 팔로우 토글 시 구독 탭이면 영상 목록 재조회 (팔로우 상태 자체는 useFollows 공유 캐시가 관리)
+  const handleFollowChange = () => {
     if (activeTab === "subscribed") {
       fetchFollowingVideos();
     }
@@ -193,7 +163,6 @@ export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCre
         creatorId={selectedCreatorId}
         onBack={() => {
           setSelectedCreatorId(null);
-          fetchMyFollows(); // 채널 페이지에서 팔로우 변경 후 돌아오면 동기화
         }}
         onSignInClick={onSignInClick}
         onProductClick={onProductClick}
@@ -286,7 +255,6 @@ export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCre
               <ExploreTab
                 loading={creatorsLoading}
                 creators={creators}
-                myFollows={myFollows}
                 onSignInClick={onSignInClick}
                 onFollowChange={handleFollowChange}
                 onCreatorClick={setSelectedCreatorId}
@@ -417,14 +385,12 @@ function SubscribedTab({
 function ExploreTab({
   loading,
   creators,
-  myFollows,
   onSignInClick,
   onFollowChange,
   onCreatorClick,
 }: {
   loading: boolean;
   creators: PopularCreator[];
-  myFollows: Set<string>;
   onSignInClick?: () => void;
   onFollowChange: (creatorId: string, following: boolean) => void;
   onCreatorClick: (creatorId: string) => void;
@@ -519,7 +485,6 @@ function ExploreTab({
             <div className="flex justify-center">
               <FollowButton
                 creatorId={c.creator_id}
-                initialFollowing={myFollows.has(c.creator_id)}
                 onSignInClick={onSignInClick}
                 onChange={(f) => onFollowChange(c.creator_id, f)}
                 size="md"

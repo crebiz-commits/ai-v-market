@@ -885,9 +885,9 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   };
 
   // 댓글 등록 → 목록 카운트 즉시 반영 (DB는 트리거가 동기화)
-  const bumpCommentCount = (postId: string | null) => {
+  const bumpCommentCount = (postId: string | null, delta = 1) => {
     if (!postId) return;
-    setPosts(prev => prev.map(p => (p.id === postId ? { ...p, comments: p.comments + 1 } : p)));
+    setPosts(prev => prev.map(p => (p.id === postId ? { ...p, comments: Math.max(0, p.comments + delta) } : p)));
   };
 
   // 카테고리 필터 + 정렬 (공지는 항상 최상단, 기본 정렬은 최신순 fetch 순서 유지)
@@ -1401,6 +1401,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                 title={commentPost?.title}
                 onClose={() => setCommentPostId(null)}
                 onCommentPosted={() => bumpCommentCount(commentPostId)}
+                onCommentDeleted={(removed) => bumpCommentCount(commentPostId, -removed)}
                 mode="sheet"
               />
             </motion.div>
@@ -1424,7 +1425,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
               onEdit={() => openEditModal(livePost)}
               onDelete={() => { void handleDeletePost(livePost); }}
               onPlayVideo={onPlayVideo}
-              onCommentCountChange={() => bumpCommentCount(livePost.id)}
+              onCommentCountChange={(delta) => bumpCommentCount(livePost.id, delta)}
             />
           );
         })()}

@@ -58,7 +58,7 @@ interface CommunityPostDetailProps {
   onEdit?: () => void;                       // 본인 글 수정 (글쓰기 모달 재사용)
   onDelete?: () => void;                     // 본인 글 삭제
   onPlayVideo?: (videoId: string) => void;   // 임베드 영상 재생
-  onCommentCountChange?: () => void;         // 댓글 등록 → 목록 카운트 갱신
+  onCommentCountChange?: (delta: number) => void;   // 댓글 ±N → 목록 카운트 갱신(작성 +1 / 삭제 -removed)
 }
 
 export function CommunityPostDetail({
@@ -341,7 +341,8 @@ export function CommunityPostDetail({
               postId={post.id}
               title={post.title}
               onClose={() => setShowComments(false)}
-              onCommentPosted={onCommentCountChange}
+              onCommentPosted={() => onCommentCountChange?.(1)}
+              onCommentDeleted={(removed) => onCommentCountChange?.(-removed)}
               mode="sheet"
             />
           </motion.div>

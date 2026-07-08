@@ -972,6 +972,9 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
         // 댓글 수 — 새 페이지 영상만 조회해 누적 병합
         const ids = mapped.map((v) => v.id).filter((id) => !id.startsWith("demo-"));
         if (ids.length > 0) {
+          // 수용된 제약(2026-07-08): 한 페이지(≤12영상)의 최상위·비숨김 댓글 행을 받아 클라에서 카운트.
+          //   PostgREST 기본 1000행 상한이 있어 12개 영상의 최상위 댓글 합이 1000을 넘으면 과소집계 가능
+          //   (현재 규모에선 미발동). 스케일 시 grouped-count RPC(video_id별 count) 로 전환 권장.
           const { data: countData } = await supabase.from("comments")
             .select("video_id").in("video_id", ids).is("parent_id", null).eq("is_hidden", false);
           if (countData && reqChip === chipRef.current && mySeq === sessionSeqRef.current) {   // B2: 댓글수 병합도 칩/세션 변경 시 폐기(stale 방지)
