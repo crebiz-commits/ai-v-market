@@ -1787,7 +1787,19 @@ const DesktopMovieCard = memo(function DesktopMovieCard({ video, onVideoClick, o
   // Video.js를 React 외부에서 생성 — removeChild 충돌 방지
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !isHovered || playerRef.current || isAgeLocked) return;  // 19+ 미인증 호버 자동재생 차단
+    if (!container || !isHovered || isAgeLocked || !video.videoUrl) return;  // 19+ 미인증 호버 자동재생 차단
+
+    // 재호버: 이미 만든 플레이어를 하이라이트 시작점부터 재생 재개
+    // (기존엔 pause 만 있고 resume 이 없어 두 번째 호버부터 멈춘 프레임만 보이던 버그)
+    if (playerRef.current) {
+      const p = playerRef.current;
+      if (!p.isDisposed()) {
+        p.currentTime(video.highlightStart || 0);
+        const pp = p.play();
+        if (pp) pp.catch(() => {});
+      }
+      return;
+    }
 
     // React가 소유하지 않는 video 엘리먼트를 직접 생성
     const videoEl = document.createElement('video');
@@ -1807,7 +1819,20 @@ const DesktopMovieCard = memo(function DesktopMovieCard({ video, onVideoClick, o
       const pp = p.play();
       if (pp) pp.catch(() => {});
     });
-  }, [isHovered, video.videoUrl, video.highlightStart, isAgeLocked]);
+    // 하이라이트 구간 루프 — 모바일 카드(MovieSection)와 동일: start~end(기본 30초) 반복
+    p.on('timeupdate', () => {
+      const s = video.highlightStart || 0;
+      let e = video.highlightEnd || (s + 30);
+      const d = p.duration();
+      if (typeof d === 'number' && d > 0 && e > d) e = d; // 구간이 영상보다 길면 전체 재생
+      const t = p.currentTime();
+      if (typeof t === 'number' && t >= e) {
+        p.currentTime(s);
+        const pp2 = p.play();
+        if (pp2) pp2.catch(() => {});
+      }
+    });
+  }, [isHovered, video.videoUrl, video.highlightStart, video.highlightEnd, isAgeLocked]);
 
   // 호버 해제 시 일시정지
   useEffect(() => {
