@@ -963,7 +963,8 @@ function AppContent() {
           />
         );
       default:
-        return <DiscoveryFeed onVideoClick={setSelectedProduct} onAddToCart={(v) => addToCart(v)} onSignInClick={() => setShowAuthModal(true)} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        // discovery 케이스와 동일한 props — 폴백 경로에서도 크리에이터 이동·데스크탑 검색이 살아있게.
+        return <DiscoveryFeed onVideoClick={setSelectedProduct} onAddToCart={(v) => addToCart(v)} onSignInClick={() => setShowAuthModal(true)} onViewCreator={handleViewCreator} onOpenSearch={(q) => { setPendingSearchQuery(q || ""); setActiveTab("search"); }} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
     }
   };
 

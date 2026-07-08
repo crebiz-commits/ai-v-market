@@ -1319,8 +1319,10 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
       )}
 
       {/* 모바일 칩 필터 바 — 데스크탑은 헤더에 칩이 있으나 모바일엔 진입점이 없던 것 보강(B1, 2026-06-28).
-          상단 상시 노출, 가로 스크롤. setChip 은 데스크탑과 동일 state 공유. */}
-      <div className="md:hidden shrink-0 bg-[#0a0a0a] border-b border-white/5">
+          상단 상시 노출, 가로 스크롤. setChip 은 데스크탑과 동일 state 공유.
+          브레이크포인트는 피드 레이아웃(≥1024px=데스크탑 그리드)과 맞춰 lg:hidden — md:hidden 이면
+          태블릿(768~1023px)에서 모바일 피드는 나오는데 칩 바만 사라지는 사각지대가 생김. */}
+      <div className="lg:hidden shrink-0 bg-[#0a0a0a] border-b border-white/5">
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar px-3 py-2">
           {HOME_CHIPS.map((c) => (
             <button
