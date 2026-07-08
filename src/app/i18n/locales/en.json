@@ -53,7 +53,8 @@
     "verifySentTitle": "Check your inbox",
     "verifySpamHint": "Don't see it? Check your spam folder.",
     "resendEmail": "Resend email",
-    "verifiedSignIn": "I've verified — Sign in"
+    "verifiedSignIn": "I've verified — Sign in",
+    "verifySentBody": "We sent a verification email to <mail>{{email}}</mail>.<br/>Click the link in the email to finish signing up — you'll be logged in right away."
   },
   "common": {
     "cancel": "Cancel",
@@ -102,7 +103,8 @@
     "cartDeleteFailed": "Failed to delete.",
     "loading": "Loading...",
     "adManage": "Manage Ads",
-    "uploadAria": "Upload"
+    "uploadAria": "Upload",
+    "cart": "Cart"
   },
   "channel": {
     "title": "Channel",
@@ -315,7 +317,12 @@
     "shareToWhatsApp": "Share on WhatsApp",
     "close": "Close",
     "copyFailed": "Failed to copy link",
-    "kakaoHint": "KakaoTalk sharing works best in the app"
+    "kakaoHint": "KakaoTalk sharing works best in the app",
+    "targetX": "X (Twitter)",
+    "targetFacebook": "Facebook",
+    "targetKakao": "KakaoTalk",
+    "targetTelegram": "Telegram",
+    "targetWhatsApp": "WhatsApp"
   },
   "reportModal": {
     "title": "Report",
@@ -514,7 +521,8 @@
     "signIn": "Sign in",
     "signOut": "Sign out",
     "membershipSub": "₩4,900/mo · ad-free unlimited",
-    "advertiser": "Advertiser Center"
+    "advertiser": "Advertiser Center",
+    "magazineSub": "AI video guides · insights"
   },
   "footer": {
     "tagline": "World's first AI Cinema OTT",
@@ -545,7 +553,9 @@
     "support1on1": "Support · Contact",
     "groupHq": "Group HQ",
     "affiliates": "Affiliates",
-    "devOps": "🛠 Dev & Ops"
+    "devOps": "🛠 Dev & Ops",
+    "magazine": "CREAITE Magazine",
+    "magazineMore": "View all"
   },
   "emailConfirm": {
     "title": "Please verify your email",
@@ -2002,7 +2012,15 @@
     "chipPrev": "Previous",
     "chipNext": "Next",
     "searchPlaceholder": "Search videos & creators",
-    "retry": "Retry"
+    "retry": "Retry",
+    "chips": {
+      "all": "All",
+      "popular": "🔥 Popular",
+      "new": "✨ New",
+      "free": "🆓 Free",
+      "paid": "💎 For sale",
+      "cinema": "🎬 Long-form"
+    }
   },
   "landing": {
     "hero": {
@@ -2017,7 +2035,25 @@
     },
     "value": {
       "title": "Why CREAITE?",
-      "subtitle": "More than watching AI-made films — a new platform to use them and earn from them."
+      "subtitle": "More than watching AI-made films — a new platform to use them and earn from them.",
+      "cards": {
+        "cinema": {
+          "title": "Unlimited AI cinema",
+          "desc": "Watch AI-made films, dramas, animation, and documentaries — all in one place, unlimited."
+        },
+        "adFree": {
+          "title": "Ad-free viewing",
+          "desc": "Premium removes every ad. Immerse like you're at the cinema."
+        },
+        "license": {
+          "title": "All-in-one license",
+          "desc": "Use purchased videos broadly — YouTube, social, corporate marketing. Copyright-verified with escrow protection."
+        },
+        "devices": {
+          "title": "Watch on any device",
+          "desc": "Desktop, mobile, tablet — anywhere. Watch right in the browser, no app install."
+        }
+      }
     },
     "posterWall": {
       "titleLine1": "Own and watch",
@@ -2027,7 +2063,38 @@
     },
     "faq": {
       "title": "Frequently Asked Questions",
-      "subtitle": "Got questions? Find your answers here."
+      "subtitle": "Got questions? Find your answers here.",
+      "items": {
+        "what": {
+          "q": "What is CREAITE?",
+          "a": "The world's first AI cinema OTT, gathering AI-made films, dramas, and documentaries. As you watch, you can also buy a creator's video license and use it as your own content."
+        },
+        "price": {
+          "q": "How much is the subscription?",
+          "a": "₩4,900/mo for unlimited viewing plus ad removal. Non-subscribers can still preview every video for 1 minute."
+        },
+        "copyright": {
+          "q": "How does copyright work for AI videos?",
+          "a": "At upload, creators warrant there's no copyright infringement. CREAITE auto-screens with Google Vision to block explicit/violent content and celebrity misuse, and takes immediate action on violations."
+        },
+        "licensePurchase": {
+          "q": "What is a license purchase?",
+          "a": "Buying a paid video gets you the original file download plus broad commercial rights — YouTube, social, corporate marketing, and more. It's a perpetual license with no time limit."
+        },
+        "creatorEarnings": {
+          "q": "How do creators earn?",
+          "a": "Three revenue sources: license sales (80%), video ads (50–60% by length), and the OTT subscription pool share (50%). See the footer's \"Creator Revenue Policy\" for details."
+        },
+        "refund": {
+          "q": "Can I get a refund?",
+          "a": "Subscriptions can be canceled anytime until the next billing date. Video licenses are downloadable digital goods, so refunds after purchase are restricted (withdrawal exception under the E-Commerce Act)."
+        },
+        "guest": {
+          "q": "Can I watch without signing in?",
+          "a": "Yes. Guests can preview every video for 1 minute. Watching past 1 minute, buying licenses, and commenting require sign-up."
+        }
+      },
+      "moreInfo": "For more, see <aboutLink>About</aboutLink> or the <revenueLink>Creator Revenue Policy</revenueLink>."
     },
     "cta": {
       "title": "Get started right now",
@@ -2103,13 +2170,28 @@
     "submit": "Send inquiry",
     "myInquiries": "My inquiries",
     "empty": "You haven't sent any inquiries yet.",
-    "adminReply": "CREAITE reply"
+    "adminReply": "CREAITE reply",
+    "category": {
+      "payment": "Payment/Refund",
+      "account": "Account/Login",
+      "subscription": "Subscription",
+      "video": "Video/Content",
+      "bug": "Error/Bug",
+      "etc": "Other"
+    },
+    "status": {
+      "open": "Received",
+      "answered": "Answered",
+      "closed": "Closed"
+    }
   },
   "creatorRevenueGuide": {
     "title": "Creator Revenue Policy",
     "subtitle": "A clear look at how you earn from AI videos on CREAITE, and which videos qualify for which revenue sources.",
     "when": {
-      "title": "📌 When do earnings happen?"
+      "title": "📌 When do earnings happen?",
+      "body": "All revenue (license, ads, subscription) is earned after a viewer <b>clicks a video card and opens the detail page</b>, then <b>plays</b> the video or <b>buys a license</b>. Cards simply appearing in the home feed, Cinema, or OTT don't earn anything on their own.",
+      "note": "※ The ad inserted every 4th video in the home feed is <b>CREAITE's own ad</b> and isn't shared with creators. Ads shared with creators are <b>the ones shown when a video plays on its detail page</b>."
     },
     "sources": {
       "title": "3 revenue sources",
@@ -2144,7 +2226,10 @@
       },
       "ott": {
         "title": "OTT (10 min+)",
-        "badge": "⭐ All revenue sources"
+        "badge": "⭐ All revenue sources",
+        "desc": "Shown in the premium OTT tab. Subscribers only. <b>The sole target of subscription-share revenue</b> — watch time is income.",
+        "tip": "💡 <b>Longer is better</b>: for the same video, a longer runtime accumulates more watch time → a higher subscription share and more ad opportunities (e.g. multiple mid-rolls).",
+        "adNote": "📢 <b>When ad revenue occurs</b>: an OTT video's ad revenue (60%) is earned only while a non-subscriber is in the 1-minute preview. Subscribers watch ad-free, so their watch time is settled via the subscription share (50%)."
       }
     },
     "badge": {
@@ -2156,7 +2241,13 @@
     },
     "ads": {
       "title": "Types of video ads",
-      "subtitle": "Your video can carry these 5 ad formats; every impression shares revenue with the creator."
+      "subtitle": "Your video can carry these 5 ad formats; every impression shares revenue with the creator.",
+      "preroll": "Shown right before the video plays. The most common ad format.",
+      "overlay": "A small banner at the bottom during playback. Minimal disruption.",
+      "midroll": "Inserted mid-video, only on OTT videos 10+ minutes long.",
+      "postroll": "Shown when the video ends, before the next recommendation.",
+      "bumper": "A short 6-second ad. Barely interrupts the viewing flow.",
+      "note": "Ad rates are set per 1,000 impressions (CPM), and<b> the share rate varies</b> by where the video appears (Home, Cinema, OTT). Rates may change with market conditions and advertiser policy."
     },
     "subscription": {
       "title": "How the subscription share is calculated",
@@ -2165,17 +2256,36 @@
       "formula1": "My earnings = (my OTT effective watch-time / total OTT watch-time) × creator pool",
       "formula2": "Creator pool = total subscription revenue × 50%",
       "exampleLabel": "📊 Example",
-      "cautionLabel": "⚠️ Note"
+      "cautionLabel": "⚠️ Note",
+      "exampleBody": "If your videos make up <b>5%</b> of total OTT watch time<br/>→ you receive <b>5%</b> of that month's creator pool.",
+      "cautionBody": "<b>Only effective views count</b>:<br/>watching <s>30% or more</s> of the video + no duplicate from the same IP within 24 hours."
     },
     "settlement": {
       "title": "Payout policy",
-      "subtitle": "Each month on the 1st we calculate and pay out the previous month's earnings."
+      "subtitle": "Each month on the 1st we calculate and pay out the previous month's earnings.",
+      "cycleLabel": "Payout cycle",
+      "cycleValue": "On the 1st of each month (previous month's earnings totaled)",
+      "minimumLabel": "Minimum payout",
+      "minimumValue": "₩10,000 — rolls over to next month if below",
+      "taxIndividualLabel": "Tax (non-business)",
+      "taxIndividualValue": "3.3% withheld automatically at payout (3% income + 0.3% local)",
+      "taxBusinessLabel": "Tax (business)",
+      "taxBusinessValue": "Issue a separate tax invoice (business registration number required)",
+      "newVideoHoldLabel": "New-video hold",
+      "newVideoHoldValue": "Ad revenue isn't counted for 48 hours after upload (anti-abuse)",
+      "methodLabel": "Payout method",
+      "methodValue": "To your registered account within 1–2 business days (My Page → Settings)"
     },
     "maximize": {
-      "title": "💡 To maximize your earnings"
+      "title": "💡 To maximize your earnings",
+      "tip1": "Regularly posting <b>OTT videos of 10+ minutes</b> lets you earn all three: license, ads, and subscription share.",
+      "tip2": "A single video's <b>completion rate (how far people watch)</b> matters more than the number of videos.",
+      "tip3": "Posting <b>related videos</b> consistently keeps viewers watching back-to-back within one channel → compounding watch time.",
+      "tip4": "License prices are <b>set freely</b> per video. You can gradually raise prices on popular videos."
     },
     "disclaimer": {
-      "body": "The share rates and policies in this guide may change as operations require, with advance notice before any change."
+      "body": "The share rates and policies in this guide may change as operations require, with advance notice before any change.",
+      "terms": "For full details, see the <link>Terms of Service</link>."
     },
     "cta": "Got it"
   },
@@ -2259,6 +2369,7 @@
     "subtitle": "Guides to AI video production, genre direction, creator earnings, and making-of stories — deeper reads for AI cinema.",
     "moreStories": "More stories to read",
     "readMin": "{{count}} min",
-    "backToList": "Back to magazine"
+    "backToList": "Back to magazine",
+    "read": "Read"
   }
 }
