@@ -1,23 +1,32 @@
 # 02. 홈 피드(Discovery) — 상세 명세
 
 > 본 문서는 추측이 아니라 실제 코드를 읽고 작성됨. 근거는 `파일:줄` 형식으로 표기한다.
+>
+> **📌 개정 2026-07-08 — 페이지네이션 "순서 고정(frozen order)" 전환 반영.**
+> 이전 판은 `get_home_feed(p_limit, p_offset, p_filter)`(limit/offset 페이징)을 기준으로 서술했으나,
+> 현행 코드는 **세션 시작 시 랭킹된 id 배열을 1회 확정**(`get_home_feed_order`)하고 그 순서를 클라가
+> 고정 보관하며 12개씩 잘라 상세를 배치 조회(`get_home_feed_by_ids`, 입력 순서 보존)하는 방식이다
+> (`home_feed_frozen_order_20260704.sql`). 이로써 페이지 경계 누락·중복이 수학적으로 0이 됨. 광고
+> 집계도 raw RPC 대신 Edge `/ad-event`(`sendAdEvent`) 경유로 바뀜(위조/키회전 방어). 아래 §4.2·§5·§14·§15
+> 는 현행 기준이며, 인용 라인은 개정일자 시점의 근사치(파일이 계속 자라 미세 오차 가능 — 표/함수명이 정본).
+>
 > 핵심 구현 파일:
-> - `src/app/components/DiscoveryFeed.tsx` (전체 1766줄)
-> - `supabase/get_home_feed_safe_columns_20260620.sql` (현행 `get_home_feed` + `v_home_feed_public`)
-> - `supabase/home_feed_chip_filter_20260611.sql` (칩 필터 로직 정본 + `get_home_feed_count(text)`)
-> - `supabase/home_feed_count_20260611.sql` (구버전 무인자 count — 칩 버전이 이를 대체)
+> - `src/app/components/DiscoveryFeed.tsx` (전체 ~1974줄)
+> - `supabase/home_feed_frozen_order_20260704.sql` (**현행 페이지네이션 정본** — `get_home_feed_order(text)` + `get_home_feed_by_ids(text[])`)
+> - `supabase/get_home_feed_safe_columns_20260620.sql` (`v_home_feed_public` 안전 뷰 정의 + 구버전 `get_home_feed(limit/offset)` — **프론트 미사용**, 랭킹식 근거로만 참조)
+> - `supabase/home_feed_chip_filter_20260611.sql` (`get_home_feed_count(text)` 배지 카운트 정본)
 > - `supabase/ads_public_view_20260620.sql` (`ads_public` 안전 뷰)
-> - `supabase/ad_charge_dedup_phase3_20260614.sql` (`increment_ad_impressions` dedup)
-> - `supabase/home_security_20260620.sql` (`increment_ad_clicks` dedup + `video_likes`/`comments` RLS)
+> - `src/app/utils/adEvent.ts` (`sendAdEvent` → Edge `/ad-event`. raw `increment_ad_*` RPC 는 anon 회수됨: `supabase/ad_fraud_hardening_edge_20260628.sql`)
+> - `supabase/ad_charge_dedup_phase3_20260614.sql`, `supabase/home_security_20260620.sql` (광고 노출/클릭 dedup 원자로직 — 현재는 Edge 가 이 함수들을 호출) + `video_likes`/`comments` RLS
 > - `src/app/components/CommentPanel.tsx`, `src/app/components/ExternalAdSlot.tsx`
 
 ---
 
 ## 1. 개요 / 목적
 
-홈 피드(Discovery)는 CREAITE의 첫 화면이자 모든 공개 영상의 "하이라이트 코너"다. 컴포넌트는 `DiscoveryFeed`(`src/app/components/DiscoveryFeed.tsx:759`).
+홈 피드(Discovery)는 CREAITE의 첫 화면이자 모든 공개 영상의 "하이라이트 코너"다. 컴포넌트는 `DiscoveryFeed`(`src/app/components/DiscoveryFeed.tsx:814`).
 
-- 목적: `show_on_home=true`인 모든 공개 영상을 우선순위(개인화/인기/최신)대로 끊김 없이 노출한다. 주석 명시: "홈 피드는 모든 영상의 하이라이트 코너이므로 100편이든 10000편이든 전부 노출"(`DiscoveryFeed.tsx:866`).
+- 목적: `show_on_home=true`인 모든 공개 영상을 우선순위(개인화/인기/최신)대로 끊김 없이 노출한다. 주석 명시: "홈 피드는 모든 영상의 하이라이트 코너이므로 100편이든 10000편이든 전부 노출"(`DiscoveryFeed.tsx:930`).
 - 두 가지 레이아웃을 한 컴포넌트가 CSS 미디어쿼리(≥1024px)로 분기한다: 모바일 = TikTok식 세로 스냅 피드(`mobile-feed-container`, `DiscoveryFeed.tsx:1219`), 데스크탑 = 카드 그리드(`desktop-feed-container`, `DiscoveryFeed.tsx:1264`). 표시 전환은 순수 CSS이며 둘 다 DOM에 렌더링된다(`DiscoveryFeed.tsx:1445`-`1449`).
 - 수익화: 영상 사이에 광고를 주기적으로 삽입한다. 정책 플래그 `HOME_FEED_SELF_ADS=false`(`DiscoveryFeed.tsx:54`)로 현재는 외부 네트워크(애드핏/애드센스)만 사용한다.
 
@@ -27,7 +36,7 @@
 
 ## 2. 사용자 스토리
 
-- 방문자(비로그인)로서, 첫 화면에서 인기+최신 기반 영상을 바로 스크롤해 보고 싶다(개인화 이력 없으면 인기/최신 폴백, `get_home_feed_safe_columns_20260620.sql:91`).
+- 방문자(비로그인)로서, 첫 화면에서 인기+최신 기반 영상을 바로 스크롤해 보고 싶다(개인화 이력 없으면 인기/최신 폴백, `home_feed_frozen_order_20260704.sql:62`).
 - 로그인 사용자로서, 내 좋아요·시청·팔로우 이력을 반영한 개인화 피드를 보고 싶다(`...:106`-`155`).
 - 시청자로서, 칩(전체/인기/최신/무료/소장가능/시네마급)으로 빠르게 필터링하고 싶다(`DiscoveryFeed.tsx:110`-`117`).
 - 시청자로서, 세로 스와이프로 자동재생되는 영상을 끊김 없이 넘기고 싶다(스냅 + 자동재생, `DiscoveryFeed.tsx:1221`, `490`-`532`).
@@ -68,21 +77,24 @@
 
 ## 4. 동작 흐름
 
-### 4.1 초기 로드 (`user.id`/`chip` 변경 시 재시작, `DiscoveryFeed.tsx:916`-`974`)
-1. 캐시 키 `${user?.id ?? "anon"}:${chip}` 계산(`...:920`).
-2. **모듈 캐시 히트 시**: 리로드/스피너 없이 즉시 복원(videos/ads/commentCounts/offset/hasMore/activeId 세팅, `loading=false`). 좋아요 상태만 백그라운드 갱신(`...:921`-`941`).
-3. 캐시 미스 시: state 리셋(offset 0, hasMore true, videos []) → `ads_public` 광고 조회 → 로그인 시 `video_likes` 조회 → `loadMore()` 첫 페이지(`...:942`-`972`).
-4. `cancelled` 플래그로 언마운트/재실행 시 stale setState 차단(`...:919`, `973`).
+### 4.1 초기 로드 (`user.id`/`chip` 변경 시 재시작, `DiscoveryFeed.tsx:1011`-`1077`)
+1. 캐시 키 `${user?.id ?? "anon"}:${chip}` 계산(`...:1013`).
+2. **모듈 캐시 히트 시(TTL 90초 이내)**: 리로드/스피너 없이 즉시 복원(videos/ads/commentCounts/offset/hasMore/**order**/activeId 세팅, `loading=false`). `sessionSeqRef++`로 in-flight loadMore 무효화. 좋아요/댓글수는 전역 `LikesContext`에 seed(별도 fetch 없음). `stateKeyRef=cacheKey`로 저장 가드 해제(`...:1015`-`1032`).
+3. 캐시 미스 시: `setLoading(true)` → `stateKeyRef=null` + `sessionSeqRef++` → state 리셋(offset 0, hasMore true, **order []**, videos []) → `ads_public` 광고 조회 → **`get_home_feed_order(chip)`로 이 세션의 랭킹 id 배열을 1회 확정(`orderRef`)** → `loadMore()` 첫 페이지 → 첫 페이지 성공 후 `stateKeyRef=cacheKey`(`...:1034`-`1074`).
+4. `cancelled` 플래그로 언마운트/재실행 시 stale setState 차단(`...:1012`, `1076`); `sessionSeqRef`로 유저/칩 전환 race 이중 차단.
 
-### 4.2 무한 스크롤 (`loadMore`, `DiscoveryFeed.tsx:867`-`914`)
-- 가드: `fetchingRef`(중복 호출 방지) + `hasMoreRef`(`...:868`). 요청 시점 칩을 `reqChip`로 스냅샷(`...:871`).
-- `supabase.rpc("get_home_feed", { p_limit: 12, p_offset: from, p_filter: reqChip })`(`...:876`-`880`).
-- 응답 후 `reqChip !== chipRef.current`면 결과 폐기(칩 전환 race 방지, `...:883`).
-- `offsetRef = from + rows.length`; rows < 12면 `hasMore=false`(`...:885`-`886`).
-- 매핑(`mapVideoRow`) 후 **id 기반 dedup**으로 누적(`seen` Set, `...:891`-`894`).
-- `activeId`가 비어있으면 첫 영상으로 세팅(`...:895`).
-- 새 페이지 영상에 대해서만 댓글 수 조회(`comments` where `parent_id is null`)해 누적 병합(`...:897`-`906`). 병합도 칩 변경 시 폐기(`...:901`).
-- sentinel(`.feed-load-sentinel`)이 `rootMargin:"800px 0px"`로 보이면 `loadMore` 트리거(`DiscoveryFeed.tsx:1014`-`1024`). sentinel은 모바일/데스크탑 각각 존재(`1255`, `1374`).
+### 4.2 무한 스크롤 (`loadMore`, `DiscoveryFeed.tsx:931`-`994`)
+- **순서 고정 슬라이싱**: 세션 시작 시 확정한 랭킹 id 배열 `orderRef`(§4.1·§5.2)에서 `from = offsetRef.current`부터 12개 id 를 잘라(`pageIds`) 상세를 배치 조회한다. limit/offset SQL 페이징이 아니라 "고정 배열 슬라이스"라 페이지 경계가 흔들리지 않는다(누락·중복 0).
+- 가드: `fetchingRef`(중복 호출 방지) + `hasMoreRef`(`...:932`). 요청 시점 칩을 `reqChip`, 세션을 `mySeq=sessionSeqRef`로 스냅샷(`...:935`-`936`).
+- `pageIds.length === 0`이면 `hasMore=false` 후 종료(`...:944`).
+- `supabase.rpc("get_home_feed_by_ids", { p_ids: pageIds })`(`...:945`). 이 RPC 는 `ORDER BY array_position(p_ids, id)`로 **입력 순서를 그대로 보존**(§5.1)하고, 그 사이 숨겨진 영상만 제외(→ 페이지가 12보다 짧을 수 있음).
+- 응답 후 `reqChip !== chipRef.current || mySeq !== sessionSeqRef.current`면 결과 폐기(칩 전환·유저 전환 race 방지, `...:949`).
+- `offsetRef = from + pageIds.length`(**반환 행수 아님 → 그 사이 숨겨진 영상도 한 번만 건너뜀**). `offset >= order.length`면 `hasMore=false`(`...:952`-`953`).
+- 매핑(`mapVideoRow`) 후 **id 기반 dedup**으로 누적(`seen` Set, `...:960`-`963`). 좋아요 수는 전역 `LikesContext`에 seed-once(`...:959`).
+- `activeId`가 비어있으면 첫 영상으로 세팅(`...:964`).
+- 새 페이지 영상에 대해서만 댓글 수 조회(`comments` where `parent_id is null`)해 누적 병합 + 스토어 seed(`...:966`-`977`). 병합도 칩/세션 변경 시 폐기(`...:970`).
+- 실패 시 무한 재시도 루프를 끊고 `feedError`(재시도 버튼) 표시(H5, `...:979`-`986`). 완료 처리도 세션 일치(`mySeq === sessionSeqRef.current`)일 때만 `fetchingRef/loadingMore` 정리(H10, `...:987`-`993`).
+- sentinel(`.feed-load-sentinel`)이 `rootMargin:"800px 0px"`로 보이면 `loadMore` 트리거(`DiscoveryFeed.tsx:1129`-`1138`). sentinel은 모바일/데스크탑 각각 존재(`1384`, `1509`).
 
 ### 4.3 자동재생 — 마운트 / dispose (모바일 `MovieSection`, `DiscoveryFeed.tsx:312`-`711`)
 - **지연 마운트(`inView`)**: 비가상화 피드라 모든 섹션이 동시에 플레이어를 만들면 메모리 폭발("Aw Snap" 크래시) → ±1화면 이내일 때만 플레이어 생성(`...:361`-`394`).
@@ -107,44 +119,54 @@
 ### 4.5 광고 삽입
 - **모바일**(`feedItems`, `DiscoveryFeed.tsx:1033`-`1052`): 주기 = self-ads ON이면 `interval_count`(기본 4), OFF면 고정 5(`...:1035`). `(i+1) % interval === 0`마다 슬롯. self-ad 우선(스위치 ON 시) → 없으면 `extad`(외부) → 둘 다 없으면 슬롯 생략(빈 섹션 방지, `...:1040`-`1049`).
 - **데스크탑**(`desktopItems`, `DiscoveryFeed.tsx:1060`-`1078`): 영상 6개마다 1개(`DESKTOP_AD_INTERVAL=6`, `...:1059`). 주기 7(=6영상+1광고)이 2/3/4열과 서로소라 광고가 같은 열에 쏠리지 않고 대각선 회전(`...:1054`-`1058`).
-- **노출 트래킹**(`handleAdImpression`, `DiscoveryFeed.tsx:1027`-`1029`): 카드가 화면에 들어오면(IntersectionObserver threshold 0.5, 1회만) `increment_ad_impressions(ad_id, p_viewer_key)`(`AdCard` `...:131`-`156`, 데스크탑 `DesktopAdCard` `1567`-`1585`).
-- **클릭**: `increment_ad_clicks(ad_id, p_viewer_key)` 후 `openAdLinkSafe`(http(s)만, `DiscoveryFeed.tsx:119`-`128`, `151`-`156`, `1587`-`1590`).
+- **노출 트래킹**(`handleAdImpression`, `DiscoveryFeed.tsx:1141`-`1143`): 카드가 화면에 들어오면(IntersectionObserver threshold 0.5, 1회만) `sendAdEvent("feed_impression", ad.id)` → **Edge `/ad-event`**(`AdCard` `...:185`-`204`, 데스크탑 `DesktopAdCard` `1716`-`1730`). raw RPC 직접호출이 아니라 Edge 가 신뢰 IP·`auth.uid` 식별·IP다양성 가드 후 내부에서 `increment_ad_impressions` dedup 집계(§9·§10).
+- **클릭**: `sendAdEvent("feed_click", ad.id)` → Edge 후 `openAdLinkSafe`(http(s)만, `DiscoveryFeed.tsx:123`-`131`; AdCard 클릭 `206`-`211`, DesktopAdCard 클릭 `1732`-`1735`).
 - 외부 광고는 `ExternalAdSlot`(애드핏/애드센스, 300×250 고정, index로 네트워크 로테이션, `ExternalAdSlot.tsx`).
 
 ---
 
 ## 5. 데이터 / RPC 계약
 
-### 5.1 `get_home_feed(p_limit, p_offset, p_filter)` — `get_home_feed_safe_columns_20260620.sql:42`
-- 인자: `p_limit integer DEFAULT 12`, `p_offset integer DEFAULT 0`, `p_filter text DEFAULT 'all'`(`...:43`-`46`). 프론트는 항상 12/offset/chip 전달(`DiscoveryFeed.tsx:876`-`880`).
-- 반환: `RETURNS SETOF public.v_home_feed_public`(`...:47`). 이 뷰는 `videos`의 공개 안전 컬럼만 투영하고 `moderation_*`(status/score/categories/error) 내부 운영필드는 제외(`...:23`-`33`). `seed/prompt/ai_model_version`은 AI 증빙으로 의도적 공개 유지(`...:10`-`11`).
-- 보안: `STABLE SECURITY DEFINER SET search_path='public'`(`...:48`), `GRANT EXECUTE ... TO anon, authenticated`(`...:159`). 뷰 자체는 anon에 GRANT 안 함(함수 내부에서만 읽음, `...:20`-`21`).
+### 5.1 페이지네이션 RPC 2종 — `home_feed_frozen_order_20260704.sql`
 
-#### 칩 필터 매핑 (`p_filter` → 분기)
-- 공통 WHERE(모든 분기): `show_on_home=true AND (visibility='public' OR NULL) AND COALESCE(is_hidden,false)=false AND (series_id IS NULL OR COALESCE(episode_number,1)=1)` — **시리즈는 1화만**(`...:58`-`59` 등).
-- `new`: 위 + `ORDER BY created_at DESC, id`(`...:55`-`63`).
-- `popular`/`free`/`paid`/`cinema`: 인기점수 정렬. `free` → `price_standard=0`, `paid` → `price_standard>0`, `cinema` → `show_on_ott=true`(`...:66`-`82`). 정렬식: `likes*1.0 + (최근 7일 유효 조회수)*2.0` DESC, created_at DESC, id(`...:74`-`79`).
-- `all`(기본) → 개인화(§ 6).
+현행 홈피드는 **"랭킹 순서 확정 → id 배열 슬라이스 → 배치 상세조회"** 2단계다. 랭킹 로직(칩 분기·개인화)은 구버전 `get_home_feed`(`get_home_feed_safe_columns_20260620.sql`)와 **100% 동일**하되, 그 함수는 프론트에서 더 이상 호출하지 않는다(랭킹식 근거로만 참조).
 
-### 5.2 개인화 정렬(`all`) — `get_home_feed_safe_columns_20260620.sql:84`-`155`
-- 이력 판단: `auth.uid()`가 있고 `video_likes` 또는 유효 `video_views`가 있으면 `v_has_history=true`(`...:85`-`89`).
-- 비로그인 OR 무이력 → 인기/최신 폴백(인기점수식 동일, `...:91`-`104`).
+#### (a) `get_home_feed_order(p_filter text DEFAULT 'all')` → `SETOF text` — `:19`
+- 현재 칩/개인화 랭킹으로 정렬된 **video_id 전체 목록(LIMIT 없음)**. 세션당 1회 호출로 클라가 이 순서를 고정(`orderRef`). id 만 반환이라 가볍다.
+- 프론트 호출: 초기 로드 `DiscoveryFeed.tsx:1057`, 에러 후 재확정 `:1002`.
+- 보안: `STABLE SECURITY DEFINER SET search_path='public'`(`:21`), `GRANT EXECUTE → anon, authenticated`(`:128`).
+
+#### (b) `get_home_feed_by_ids(p_ids text[])` → `SETOF v_home_feed_public` — `:134`
+- 주어진 id 배열의 상세를 `ORDER BY array_position(p_ids, id)`로 **입력 순서 그대로** 안전뷰로 반환(`:143`). 공개/비숨김 조건은 재확인(그 사이 숨겨진 영상은 제외 → 페이지가 살짝 짧을 수 있음, `:140`-`142`).
+- 반환 뷰 `v_home_feed_public`은 `videos`의 공개 안전 컬럼만 투영하고 `moderation_*`(status/score/categories/error) 내부필드는 제외. `seed/prompt/ai_model_version`은 AI 증빙으로 의도적 공개(뷰 정의 `get_home_feed_safe_columns_20260620.sql:10`-`33`).
+- 프론트 호출: `DiscoveryFeed.tsx:945`(12개 슬라이스마다).
+- 보안: `STABLE SECURITY DEFINER SET search_path='public'`(`:136`), `GRANT EXECUTE → anon, authenticated`(`:146`). 뷰 자체는 anon 에 GRANT 안 함(함수 내부에서만 읽음).
+
+#### 칩 필터 매핑 (`p_filter` → `get_home_feed_order` 분기, `:28`-`124`)
+- 공통 WHERE(모든 분기): `show_on_home=true AND (visibility='public' OR NULL) AND COALESCE(is_hidden,false)=false AND (series_id IS NULL OR COALESCE(episode_number,1)=1)` — **시리즈는 1화만**(`:31`-`32` 등).
+- `new`: 위 + `ORDER BY created_at DESC, id`(`:28`-`34`).
+- `popular`/`free`/`paid`/`cinema`: 인기점수 정렬. `free` → `price_standard=0`, `paid` → `price_standard>0`, `cinema` → `show_on_ott=true`(`:38`-`52`). 정렬식: `likes*1.0 + (최근 7일 유효 조회수)*2.0` DESC, created_at DESC, id(`:46`-`51`).
+- `all`(기본) → 개인화(§ 6, `:55`-`124`).
+
+### 5.2 개인화 정렬(`all`) — `home_feed_frozen_order_20260704.sql:55`-`124` (구 `get_home_feed_safe_columns_20260620.sql:84`-`155` 와 동일 로직)
+- 이력 판단: `auth.uid()`가 있고 `video_likes` 또는 유효 `video_views`가 있으면 `v_has_history=true`(`:56`-`60`).
+- 비로그인 OR 무이력 → 인기/최신 폴백(인기점수식 동일, `:62`-`74`).
 - 이력 있음 → CTE 4종 가중합:
-  - `cat_pref`: 좋아요 카테고리 +3, 조회 카테고리 +1(`...:107`-`114`).
-  - `genre_pref`: 좋아요 장르 +3, 조회 장르 +1(`...:116`-`123`).
-  - `creator_pref`: 좋아요 크리에이터 +3, **팔로우 크리에이터 +5**(`...:125`-`132`).
-  - `viewed`: 이미 본 영상(`...:134`-`137`).
-  - 최종 점수: `cat*1.0 + genre*1.0 + creator*1.0 + likes*0.05 - (본 영상이면 4)` DESC, created_at DESC, id(`...:148`-`154`). 본 영상은 -4로 강등.
+  - `cat_pref`: 좋아요 카테고리 +3, 조회 카테고리 +1(`:77`-`85`).
+  - `genre_pref`: 좋아요 장르 +3, 조회 장르 +1(`:86`-`94`).
+  - `creator_pref`: 좋아요 크리에이터 +3, **팔로우 크리에이터 +5**(`:95`-`103`).
+  - `viewed`: 이미 본 영상(`:104`-`107`).
+  - 최종 점수: `cat*1.0 + genre*1.0 + creator*1.0 + likes*0.05 - (본 영상이면 4)` DESC, created_at DESC, id(`:118`-`124`). 본 영상은 -4로 강등.
 
-### 5.3 `get_home_feed_count(p_filter)` — `home_feed_chip_filter_20260611.sql:131`
-- 현행 시그니처는 `(p_filter text DEFAULT 'all')`(`...:131`)로 프론트 호출 `rpc("get_home_feed_count", { p_filter: chip })`(`DiscoveryFeed.tsx:1007`)와 일치.
-- count WHERE: `show_on_home=true AND public(or null) AND not hidden AND (free→=0 / paid→>0 / cinema→ott)`(`...:133`-`139`).
-- 주의: `home_feed_count_20260611.sql`의 **무인자** 버전은 구버전이며, 칩 버전이 `DROP FUNCTION ... get_home_feed_count()` 후 이를 대체(`home_feed_chip_filter_20260611.sql:128`-`129`). 단, **2026-06-28 칩 버전 count 에도 시리즈 1화 필터(`series_id IS NULL OR episode_number=1`)를 추가**해 `get_home_feed` 본체와 조건을 일치시킴(`home_feed_chip_filter_20260611.sql`, 배지 과대표시 해결).
+### 5.3 `get_home_feed_count(p_filter)` — `home_feed_chip_filter_20260611.sql`
+- 시그니처 `(p_filter text DEFAULT 'all')` → 배지용 총 건수. 프론트 호출 `rpc("get_home_feed_count", { p_filter: chip })`(`DiscoveryFeed.tsx:1121`).
+- count WHERE 는 `get_home_feed_order`와 **동일 조건**: `show_on_home=true AND public(or null) AND not hidden AND 시리즈 1화만 AND (free→=0 / paid→>0 / cinema→ott)` → 배지 수 = 실제 피드 노출 수. (시리즈 1화 필터가 2026-06-28 count 에도 추가되어 배지 과대표시 해소.)
 
-### 5.4 페이지네이션 / dedup
-- 페이지 크기 `FEED_PAGE_SIZE = 12`(`DiscoveryFeed.tsx:752`). offset 누적은 **반환 행 수 기준**(`offsetRef = from + rows.length`, `...:885`) — 차단 영상 클라 필터로 인한 표시 수와 무관하게 DB 오프셋 정합.
-- 안정 정렬: 모든 분기가 마지막에 `id` 타이브레이커(중복/누락 방지).
-- 프론트 dedup: 누적 시 id Set으로 중복 제거(`...:891`-`894`).
+### 5.4 페이지네이션 / dedup (순서 고정)
+- 페이지 크기 `FEED_PAGE_SIZE = 12`(`DiscoveryFeed.tsx:805`). **offset 은 고정 배열 `orderRef` 인덱스** — `offsetRef = from + pageIds.length`(요청한 id 개수 기준, 반환 행수 아님, `...:952`). 그 사이 숨겨진 영상도 정확히 한 번만 건너뛴다.
+- 순서 안정성: 랭킹은 세션 시작 시 `orderRef`에 **얼려짐** → 실시간 7일 조회수·`now()` 변동에 페이지 경계가 흔들리지 않음. `get_home_feed_by_ids`가 `array_position`으로 페이지 내 순서 보존. **누락·중복 수학적으로 0**(새로고침 때만 순서 재확정).
+- 프론트 dedup(이중 안전): 누적 시 id Set으로 중복 제거(`...:960`-`963`).
+- 랭킹식 자체의 안정 정렬: 모든 분기가 마지막에 `id` 타이브레이커.
 
 ### 5.5 `mapVideoRow` 매핑 — `DiscoveryFeed.tsx:714`-`749`
 DB row(뷰 컬럼) → `Video` 인터페이스. 주요 매핑:
@@ -153,14 +175,14 @@ DB row(뷰 컬럼) → `Video` 인터페이스. 주요 매핑:
 - `tags`: 배열이면 그대로, 문자열이면 콤마 분리(`...:732`).
 - `age_rating` 기본 "all"(`...:730`), `highlightEnd` 기본 `highlightStart+30`(`...:746`), `seriesId` ← `series_id`(`...:747`).
 
-### 5.6 광고 조회 — `DiscoveryFeed.tsx:955`-`958`
-- `supabase.from("ads_public").select(...).or("ad_type.eq.feed_display,ad_type.is.null")`. `ads_public` 뷰가 승인·활성·노출기간 필터를 강제하고 민감컬럼(budget/spent/owner) 비노출(`ads_public_view_20260620.sql:20`-`30`).
+### 5.6 광고 조회 — `DiscoveryFeed.tsx:1051`-`1054`
+- `supabase.from("ads_public").select("id,title,advertiser,image_url,video_url,thumbnail_url,link_url,cta_text,interval_count,ad_type").or("ad_type.eq.feed_display,ad_type.is.null")`. `ads_public` 뷰가 승인·활성·노출기간 필터를 강제하고 민감컬럼(budget/spent/owner) 비노출(`ads_public_view_20260620.sql:20`-`30`). (현재 `HOME_FEED_SELF_ADS=false`라 자체광고는 노출 안 되고 외부 네트워크만 사용 — §6.)
 
 ---
 
 ## 6. 비즈니스 규칙
 
-- **개인화 가중치**(`all`, 이력 있음): 카테고리/장르/크리에이터 각 1.0 비중(좋아요 3 / 조회 1 / 팔로우 5 가중) + likes 0.05 − 기시청 4(`get_home_feed_safe_columns_20260620.sql:148`-`154`). 팔로우(5)가 단일 신호로는 최강.
+- **개인화 가중치**(`all`, 이력 있음): 카테고리/장르/크리에이터 각 1.0 비중(좋아요 3 / 조회 1 / 팔로우 5 가중) + likes 0.05 − 기시청 4(`home_feed_frozen_order_20260704.sql:118`-`124`). 팔로우(5)가 단일 신호로는 최강.
 - **인기점수**(popular/free/paid/cinema 및 폴백): `likes + 최근7일유효조회수×2`(`...:74`-`79`).
 - **시리즈 1화만**: `series_id IS NULL OR episode_number=1`인 영상만 피드에 노출(후속화 제외, `...:59`). 카드에 "시리즈" 배지(`DiscoveryFeed.tsx:589`-`593`, 데스크탑 `1691`-`1695`).
 - **길이 게이팅(페이월)**: 전체화면 진입 시 비구독자 + (길이 미상 또는 60초 초과) → 직접 재생 차단, ProductDetail로(`DiscoveryFeed.tsx:791`-`796`).
@@ -174,7 +196,7 @@ DB row(뷰 컬럼) → `Video` 인터페이스. 주요 매핑:
 ## 7. 엣지 케이스 & 에러 처리
 
 - **칩 전환 race**: 응답 시점 `reqChip !== chipRef.current`면 결과 폐기(영상·댓글수 둘 다, `DiscoveryFeed.tsx:883`, `901`). 칩 변경은 초기 effect가 새로 로드(`...:944`-`966`).
-- **중복 영상**: 누적 시 id Set으로 dedup(`...:891`-`894`); DB 정렬에 id 타이브레이커로 페이지 경계 안정(`get_home_feed_safe_columns_20260620.sql:154`).
+- **중복 영상**: 누적 시 id Set으로 dedup(`...:960`-`963`); 랭킹 정렬에 id 타이브레이커 + 순서 고정(`orderRef`)으로 페이지 경계 안정(`home_feed_frozen_order_20260704.sql:124`).
 - **빈 피드**: "표시할 영상이 없습니다."(`DiscoveryFeed.tsx:1187`); 광고 데이터 없으면 슬롯 생략(빈 섹션 방지, `...:1040`-`1049`).
 - **자동재생 실패**: code 2/4면 1.5초 후 2회 재시도 → 실패 시 "영상 처리 중..." 오버레이(`...:439`-`464`, `558`-`563`). `play()` 거부는 muted 강제 재시도 + seeked/canplay 보강(`...:512`-`523`).
 - **늦게 도착한 이벤트**: 비활성/언마운트 시 seeked/canplay 리스너 해제 → 빠른 스크롤 후 비활성 영상이 소리내는 것 방지(`...:524`-`531`).
@@ -199,11 +221,12 @@ DB row(뷰 컬럼) → `Video` 인터페이스. 주요 매핑:
 
 ## 9. 권한 / 보안
 
-- **안전 뷰**: `get_home_feed`는 `v_home_feed_public`만 반환 → `moderation_*` 내부필드 anon 비노출(`get_home_feed_safe_columns_20260620.sql:7`-`33`). 광고는 `ads_public` 뷰로 민감컬럼(budget/spent/owner) 차단하고 base `ads` 공개 SELECT 정책은 제거됨(`ads_public_view_20260620.sql:20`-`37`).
-- **viewer_key dedup**:
-  - 노출: `increment_ad_impressions(ad_id, p_viewer_key)` — `COALESCE(auth.uid(), 세션키)` + `date_trunc('hour')` 버킷, (광고,뷰어,1시간) 1회만 CPM 과금(`ad_charge_dedup_phase3_20260614.sql:22`-`48`). dedup 테이블은 RLS on + 정책 없음(DEFINER 함수만 기록, `...:18`-`20`).
-  - 클릭: `increment_ad_clicks(ad_id, p_viewer_key)` — 동일 dedup, 구 1-파라미터 함수는 DROP(우회 차단, `home_security_20260620.sql:50`-`70`).
-  - 세션키: `getViewerSessionKey()`(localStorage)로 비로그인도 식별(`DiscoveryFeed.tsx:153`, `1028`).
+- **안전 뷰**: `get_home_feed_by_ids`(및 구 `get_home_feed`)는 `v_home_feed_public`만 반환 → `moderation_*` 내부필드 anon 비노출(뷰 정의 `get_home_feed_safe_columns_20260620.sql:7`-`33`). 광고는 `ads_public` 뷰로 민감컬럼(budget/spent/owner) 차단하고 base `ads` 공개 SELECT 정책은 제거됨(`ads_public_view_20260620.sql:20`-`37`).
+- **광고 집계 경로(2026-06-28 이후)**: 클라는 raw RPC 를 직접 호출하지 않는다. `sendAdEvent` → **Edge `/ad-event`** 가 신뢰 IP·`auth.uid` 식별·IP다양성 가드 후 내부에서 dedup 집계 함수를 호출한다. raw `increment_ad_*` 는 anon 에서 EXECUTE 회수됨(`ad_fraud_hardening_edge_20260628.sql`) → 클라 우회 차단.
+- **viewer_key dedup(Edge 내부에서 호출)**:
+  - 노출: `increment_ad_impressions(...)` — `COALESCE(auth.uid(), 세션키)` + `date_trunc('hour')` 버킷, (광고,뷰어,1시간) 1회만 CPM 과금(`ad_charge_dedup_phase3_20260614.sql:22`-`48`). dedup 테이블은 RLS on + 정책 없음(DEFINER 함수만 기록, `...:18`-`20`).
+  - 클릭: `increment_ad_clicks(...)` — 동일 dedup, 구 1-파라미터 함수는 DROP(우회 차단, `home_security_20260620.sql:50`-`70`).
+  - 세션키: `getViewerSessionKey()`(localStorage)로 비로그인도 식별 → `sendAdEvent`가 `viewer_key`로 Edge 에 전달(`adEvent.ts:35`).
 - **video_likes RLS**: 본인 행만 select/insert/delete(`home_security_20260620.sql:24`-`33`).
 - **comments SELECT RLS**: 숨김 댓글은 작성자/관리자/영상소유자만 열람(`home_security_20260620.sql:90`-`100`).
 - **외부 링크 안전**: http(s) 스킴만 `window.open(... noopener,noreferrer)`(`DiscoveryFeed.tsx:119`-`128`).
@@ -212,18 +235,18 @@ DB row(뷰 컬럼) → `Video` 인터페이스. 주요 매핑:
 
 ## 10. 분석 / 이벤트
 
-- **광고 노출**: 카드 50% 가시 1회 → `increment_ad_impressions`(impressions+1, spent_krw += CEIL(CPM/1000), `ad_charge_dedup_phase3_20260614.sql:40`-`46`). CPM은 플랫폼 설정 `ad_cpm_krw`(기본 2000, `...:41`).
-- **광고 클릭**: `increment_ad_clicks`(clicks+1, dedup, `home_security_20260620.sql:66`-`68`).
-- **좋아요**: `video_likes` insert/delete(`DiscoveryFeed.tsx:1148`-`1153`).
-- **개인화 신호 원천**: `video_likes`, `video_views`(is_valid), `creator_followers` — `get_home_feed`가 이들을 읽어 랭킹(§ 5.2).
-- **인기 신호**: 최근 7일 `video_views.is_valid=true` 카운트(`get_home_feed_safe_columns_20260620.sql:76`-`78`).
+- **광고 노출**: 카드 50% 가시 1회 → `sendAdEvent("feed_impression")` → Edge → `increment_ad_impressions`(impressions+1, spent_krw += CEIL(CPM/1000), `ad_charge_dedup_phase3_20260614.sql:40`-`46`). CPM은 플랫폼 설정 `ad_cpm_krw`(기본 2000, `...:41`).
+- **광고 클릭**: `sendAdEvent("feed_click")` → Edge → `increment_ad_clicks`(clicks+1, dedup, `home_security_20260620.sql:66`-`68`).
+- **좋아요**: 전역 `LikesContext.toggleLike` 경유(낙관+롤백+중복방지) → `video_likes` insert/delete(`DiscoveryFeed.tsx:1247`-`1252`).
+- **개인화 신호 원천**: `video_likes`, `video_views`(is_valid), `creator_followers` — `get_home_feed_order`가 이들을 읽어 랭킹(§ 5.2).
+- **인기 신호**: 최근 7일 `video_views.is_valid=true` 카운트(`home_feed_frozen_order_20260704.sql:48`-`50`).
 - (홈피드 자체 영상 조회수 기록 호출은 본 컴포넌트엔 없음 — 조회 기록은 상세/플레이어 경로에서 발생. 본 피드는 자동재생 미리보기.)
 
 ---
 
 ## 11. 수용 기준 (체크리스트)
 
-- [ ] 비로그인 시 인기/최신 폴백, 로그인+이력 시 개인화 순서로 노출(`get_home_feed_safe_columns_20260620.sql:91`, `106`).
+- [ ] 비로그인 시 인기/최신 폴백, 로그인+이력 시 개인화 순서로 노출(`home_feed_frozen_order_20260704.sql:62`, `76`).
 - [ ] 칩 6종 각각 올바른 필터/정렬(new=최신, popular=인기, free=무료, paid=유료, cinema=ott, all=개인화).
 - [ ] 시리즈는 1화만 피드/카운트에 노출, 카드에 "시리즈" 배지.
 - [ ] 무한스크롤: 12개 단위 로드, 끝에서 "END OF FEED", 중복 영상 없음.
@@ -245,12 +268,13 @@ DB row(뷰 컬럼) → `Video` 인터페이스. 주요 매핑:
 
 ## 12. 알려진 제약 / 이월
 
-- **비가상화 피드**: DOM에 전 카드 유지 + 지연 마운트로 메모리만 방어. 향후 가상화(react-virtual 등) 전환 검토(`DiscoveryFeed.tsx:362`).
-- **자동재생 IO 미사용**: 지연 마운트는 `getBoundingClientRect`+scroll 리스너로 구현(IO root:null이 내부 스크롤에서 오작동했던 이력, `...:364`-`366`). 스크롤 컨테이너를 root로 지정한 IO 전환은 이월.
-- **(해결됨 2026-06-28) count 조건 일치**: 칩 버전 `get_home_feed_count` 에 시리즈 1화 필터를 추가해 `get_home_feed`(`get_home_feed_safe_columns_20260620.sql:59`)와 조건 일치 → 배지 과대표시 해소. (정본: `home_feed_chip_filter_20260611.sql`, count 전용으로 정리됨)
-- **모바일 칩 UI 부재**: 칩 바는 데스크탑 sticky 헤더에만 렌더(`DiscoveryFeed.tsx:1267`-`1338`). 모바일에서 칩 전환 UI는 미노출(코드상 `chip`은 변경 가능하나 트리거 없음) → 모바일 칩 필터 진입점 추가 검토.
-- **데스크탑 자동재생**: 호버 기반(터치 데스크탑/키보드 사용자 비호버 시 미리보기 없음, `...:1635`).
-- **댓글 수 정합**: 작성 시 +1 낙관 증가(`...:1484`), 삭제 반영은 없음(증분만) → 새로고침 전까지 과대 가능.
+- **비가상화 피드**: DOM에 전 카드 유지 + 지연 마운트로 메모리만 방어. 향후 가상화(react-virtual 등) 전환 검토(`DiscoveryFeed.tsx:415`).
+- **자동재생 IO 미사용**: 지연 마운트는 `getBoundingClientRect`+scroll 리스너로 구현(IO root:null이 내부 스크롤에서 오작동했던 이력, `...:418`-`420`). 스크롤 컨테이너를 root로 지정한 IO 전환은 이월.
+- **(해결됨) 순서 고정 페이지네이션**: 구 limit/offset 페이징의 페이지 경계 흔들림(누락)을 `get_home_feed_order`+`get_home_feed_by_ids`로 제거(§4.2·§5.4, `home_feed_frozen_order_20260704.sql`). 새로고침 때만 순서 재확정.
+- **(해결됨 2026-06-28) count 조건 일치**: `get_home_feed_count` 에 시리즈 1화 필터를 추가해 `get_home_feed_order`와 조건 일치 → 배지 과대표시 해소(정본 `home_feed_chip_filter_20260611.sql`).
+- **(해결됨 2026-07-08) 모바일 칩 UI**: 모바일 상단 칩 필터 바 추가(`DiscoveryFeed.tsx:1321`-`1339`). `lg:hidden`으로 <1024px 전 구간 노출(태블릿 768~1023px 사각지대 포함) — 데스크탑 그리드(≥1024px)는 자체 sticky 헤더 칩. 이전 "모바일 칩 부재" 이월 해소.
+- **데스크탑 자동재생**: 호버 기반(터치 데스크탑/키보드 사용자 비호버 시 미리보기 없음). 재호버 시 하이라이트 시작점부터 재생 재개(`...:1788`-`1835`).
+- **댓글 수 정합**: 작성 시 +1 낙관 증가(전역 `LikesContext`), 삭제 반영은 없음(증분만) → 새로고침 전까지 과대 가능.
 
 ---
 
@@ -375,31 +399,31 @@ sequenceDiagram
     participant DF as DiscoveryFeed
     participant C as homeFeedCache(모듈)
     participant SB as Supabase
-    participant RPC as get_home_feed
+    participant ORD as get_home_feed_order
+    participant IDS as get_home_feed_by_ids
 
     U->>DF: 마운트 / user.id·chip 변경
-    DF->>DF: cacheKey = `${user?.id ?? "anon"}:${chip}` (920)
+    DF->>DF: cacheKey = `${user?.id ?? "anon"}:${chip}` (1013)
     DF->>C: get(cacheKey)
-    alt 캐시 히트 (921-941)
-        C-->>DF: {videos, ads, commentCounts, offset, hasMore, activeId}
-        DF->>DF: 즉시 복원, loading=false (스피너 없음)
-        DF->>SB: (백그라운드) video_likes 조회 → 좋아요 상태 보정
-    else 캐시 미스 (942-972)
-        DF->>DF: state 리셋(offset 0, hasMore true, videos [])
-        DF->>SB: from("ads_public").or(feed_display/null) (955-958)
+    alt 캐시 히트 · TTL 90s 이내 (1015-1032)
+        C-->>DF: {videos, ads, commentCounts, offset, hasMore, order, activeId}
+        DF->>DF: 즉시 복원, sessionSeqRef++, loading=false (스피너 없음)
+        note over DF: 좋아요/댓글수는 전역 LikesContext 에 seed (별도 fetch 없음)
+    else 캐시 미스 (1034-1074)
+        DF->>DF: loading=true, sessionSeqRef++, state 리셋(offset 0, order [], videos [])
+        DF->>SB: from("ads_public").or(feed_display/null) (1051-1054)
         SB-->>DF: 승인·활성 광고 행
-        opt 로그인 시
-            DF->>SB: from("video_likes").select(video_id) (사용자 좋아요)
-            SB-->>DF: liked Set
-        end
-        DF->>RPC: loadMore() → rpc(p_limit:12, p_offset:0, p_filter:chip) (876-880)
-        RPC-->>DF: rows[]
-        DF->>DF: mapVideoRow → id dedup 누적, activeId=첫영상 (891-895)
-        DF->>SB: comments count(parent_id is null) — 신규 id만 (897-906)
-        SB-->>DF: commentCounts 병합
-        DF->>DF: loading=false
+        DF->>ORD: get_home_feed_order(p_filter:chip) (1057)
+        ORD-->>DF: 랭킹된 id 전체 배열 → orderRef 고정 (1061)
+        DF->>DF: loadMore() 첫 페이지 (1066)
+        DF->>IDS: get_home_feed_by_ids(orderRef.slice(0,12)) (945)
+        IDS-->>DF: rows[] (array_position 순서 보존)
+        DF->>DF: mapVideoRow → id dedup 누적, activeId=첫영상 (960-964)
+        DF->>SB: comments count(parent_id is null) — 신규 id만 (966-977)
+        SB-->>DF: commentCounts 병합 + 스토어 seed
+        DF->>DF: stateKeyRef=cacheKey, loading=false
     end
-    note over DF: cancelled 플래그로 언마운트/재실행 시 stale setState 차단 (919,973)
+    note over DF: cancelled + sessionSeqRef 로 언마운트/유저·칩 전환 시 stale setState 차단 (1012,1076)
 ```
 
 ### 14.2 무한 스크롤
@@ -409,23 +433,28 @@ sequenceDiagram
     autonumber
     participant IO as Sentinel IO(rootMargin 800px)
     participant DF as DiscoveryFeed.loadMore
-    participant RPC as get_home_feed
+    participant IDS as get_home_feed_by_ids
 
-    IO->>DF: sentinel 진입 → loadMore() (1014-1024)
-    DF->>DF: 가드 fetchingRef / hasMoreRef (868)
+    IO->>DF: sentinel 진입 → loadMore() (1129-1138)
+    DF->>DF: 가드 fetchingRef / hasMoreRef (932)
     alt 이미 fetch중 or hasMore=false
         DF-->>IO: return (무시)
     else 진행
-        DF->>DF: reqChip = chipRef.current 스냅샷 (871)
-        DF->>RPC: rpc(p_limit:12, p_offset:from, p_filter:reqChip) (876-880)
-        RPC-->>DF: rows[]
-        alt reqChip !== chipRef.current (883)
-            DF->>DF: 결과 폐기(칩 전환 race)
-        else 유효
-            DF->>DF: offsetRef = from + rows.length (885)
-            DF->>DF: rows < 12 → hasMore=false (886)
-            DF->>DF: mapVideoRow → seen Set dedup 누적 (891-894)
-            DF->>DF: 신규 id 댓글 수 병합(칩 변경 시 폐기) (897-906)
+        DF->>DF: reqChip=chipRef, mySeq=sessionSeqRef 스냅샷 (935-936)
+        DF->>DF: pageIds = orderRef.slice(from, from+12) (943)
+        alt pageIds.length === 0
+            DF->>DF: hasMore=false, return (944)
+        else
+            DF->>IDS: get_home_feed_by_ids(pageIds) (945)
+            IDS-->>DF: rows[] (array_position 순서 보존, 숨김분 제외)
+            alt reqChip 또는 mySeq 불일치 (949)
+                DF->>DF: 결과 폐기(칩·유저 전환 race)
+            else 유효
+                DF->>DF: offsetRef = from + pageIds.length (952)
+                DF->>DF: offset >= order.length → hasMore=false (953)
+                DF->>DF: mapVideoRow → seen Set dedup 누적 (960-963)
+                DF->>DF: 신규 id 댓글 수 병합(칩/세션 변경 시 폐기) (966-977)
+            end
         end
     end
 ```
@@ -544,17 +573,18 @@ sequenceDiagram
 
 | 호출 | 인자 | 반환 | 권한 | 정의 위치(file:line) | 호출부(file:line) |
 |---|---|---|---|---|---|
-| `get_home_feed` | `p_limit int=12`, `p_offset int=0`, `p_filter text='all'` | `SETOF v_home_feed_public` | `SECURITY DEFINER`, `GRANT EXECUTE → anon, authenticated` | `get_home_feed_safe_columns_20260620.sql:42`-`48`, `:159` | `DiscoveryFeed.tsx:876`-`880` |
-| `get_home_feed_count` | `p_filter text='all'` | `integer`(피드 총 건수) | `GRANT EXECUTE → anon, authenticated`(현행 칩 버전) | `home_feed_chip_filter_20260611.sql:131`-`139` | `DiscoveryFeed.tsx:1007` |
-| `ads_public` 조회 | `.select(...).or("ad_type.eq.feed_display,ad_type.is.null")` | 승인·활성·기간내 광고 행(민감컬럼 제외) | 안전 뷰(budget/spent/owner 비노출, base `ads` 공개 SELECT 제거) | `ads_public_view_20260620.sql:20`-`37` | `DiscoveryFeed.tsx:955`-`958` |
-| `increment_ad_impressions` | `ad_id`, `p_viewer_key` | `void`(impressions+1, spent_krw += CEIL(CPM/1000)) | `SECURITY DEFINER` dedup(광고,뷰어,1시간 1회) | `ad_charge_dedup_phase3_20260614.sql:22`-`48` | `DiscoveryFeed.tsx:141`(AdCard), `1567`-`1585`(DesktopAdCard) |
-| `increment_ad_clicks` | `ad_id`, `p_viewer_key` | `void`(clicks+1, dedup) | `SECURITY DEFINER` dedup, 구 1-파라미터 함수 DROP | `home_security_20260620.sql:50`-`70` | `DiscoveryFeed.tsx:153`, `1587`-`1590` |
-| `video_likes` insert/delete | `video_id`, `user_id`(insert) | 행 | RLS: 본인 행만 select/insert/delete | `home_security_20260620.sql:24`-`33` | `DiscoveryFeed.tsx:1148`-`1153` |
-| `comments` count | `.eq(video_id).is(parent_id, null)` | count | comments SELECT RLS(숨김은 작성자/관리자/소유자) | `home_security_20260620.sql:90`-`100` | `DiscoveryFeed.tsx:897`-`906` |
+| `get_home_feed_order` | `p_filter text='all'` | `SETOF text`(랭킹된 id 전체, LIMIT 없음) | `SECURITY DEFINER`, `GRANT EXECUTE → anon, authenticated` | `home_feed_frozen_order_20260704.sql:19`-`21`, `:128` | `DiscoveryFeed.tsx:1057`(초기), `:1002`(재시도) |
+| `get_home_feed_by_ids` | `p_ids text[]` | `SETOF v_home_feed_public`(입력 순서 보존 `array_position`) | `SECURITY DEFINER`, `GRANT EXECUTE → anon, authenticated` | `home_feed_frozen_order_20260704.sql:134`-`143`, `:146` | `DiscoveryFeed.tsx:945`(12개 슬라이스마다) |
+| `get_home_feed_count` | `p_filter text='all'` | `integer`(배지 총 건수) | `GRANT EXECUTE → anon, authenticated`(현행 칩 버전) | `home_feed_chip_filter_20260611.sql` | `DiscoveryFeed.tsx:1121` |
+| `ads_public` 조회 | `.select(...).or("ad_type.eq.feed_display,ad_type.is.null")` | 승인·활성·기간내 광고 행(민감컬럼 제외) | 안전 뷰(budget/spent/owner 비노출, base `ads` 공개 SELECT 제거) | `ads_public_view_20260620.sql:20`-`37` | `DiscoveryFeed.tsx:1051`-`1054` |
+| `sendAdEvent("feed_impression")` → Edge `/ad-event` | `{ad_id, type, viewer_key, ...}` | `void`(Edge 가 dedup 후 `increment_ad_impressions`: impressions+1, spent_krw += CEIL(CPM/1000)) | Edge 신뢰IP·auth.uid·IP다양성 가드. raw RPC 는 anon EXECUTE 회수 | `adEvent.ts:11`-`47`; dedup `ad_charge_dedup_phase3_20260614.sql:22`-`48` | `DiscoveryFeed.tsx:1141`(handleAdImpression) |
+| `sendAdEvent("feed_click")` → Edge `/ad-event` | `{ad_id, type, viewer_key}` | `void`(Edge → `increment_ad_clicks`: clicks+1, dedup) | 동상. 구 1-파라미터 함수 DROP | `adEvent.ts:11`-`47`; dedup `home_security_20260620.sql:50`-`70` | `DiscoveryFeed.tsx:206`-`211`(AdCard), `1732`-`1735`(DesktopAdCard) |
+| `video_likes` insert/delete (via `LikesContext`) | `video_id`, `user_id`(insert) | 행 | RLS: 본인 행만 select/insert/delete | `home_security_20260620.sql:24`-`33` | `DiscoveryFeed.tsx:1247`-`1252`(toggleLike) |
+| `comments` count | `.in(video_id).is(parent_id, null)` | rows→클라 카운트 | comments SELECT RLS(숨김은 작성자/관리자/소유자) | `home_security_20260620.sql:90`-`100` | `DiscoveryFeed.tsx:966`-`977` |
 
 비고:
-- `p_viewer_key`는 `getViewerSessionKey()`(localStorage). RPC 내부에서 `COALESCE(auth.uid(), 세션키)` + `date_trunc('hour')` 버킷으로 dedup(`DiscoveryFeed.tsx:153`, `1028`; `ad_charge_dedup_phase3_20260614.sql:22`-`48`).
-- `get_home_feed`의 `all` 필터는 `auth.uid()` 이력 유무로 개인화/폴백 분기(§ 5.2, `get_home_feed_safe_columns_20260620.sql:85`-`155`).
+- `viewer_key`는 `getViewerSessionKey()`(localStorage). `sendAdEvent`가 Edge 로 전달하고, Edge 내부 dedup 함수가 `COALESCE(auth.uid(), 세션키)` + `date_trunc('hour')` 버킷으로 (광고,뷰어,1시간) 1회 집계(`adEvent.ts:35`; `ad_charge_dedup_phase3_20260614.sql:22`-`48`).
+- `get_home_feed_order`의 `all` 필터는 `auth.uid()` 이력 유무로 개인화/폴백 분기(§ 5.2, `home_feed_frozen_order_20260704.sql:55`-`124`).
 
 ### 15.2 `mapVideoRow` 필드 매핑 표 — `DiscoveryFeed.tsx:714`-`749`
 
@@ -608,8 +638,8 @@ Feature: 홈 피드 정상 동작
     Given 로그인 사용자가 "전체" 칩의 홈 피드를 본다
     And 첫 페이지 12개 영상이 로드되어 있다
     When sentinel(.feed-load-sentinel)이 화면 800px 이내로 들어온다
-    Then loadMore가 get_home_feed(p_limit:12, p_offset:12, p_filter:"all")을 호출한다
-    And 새 12개가 id 기준 중복 없이 누적된다
+    Then loadMore가 orderRef.slice(12,24)의 id 로 get_home_feed_by_ids 를 호출한다
+    And 새 12개가 array_position 순서 그대로 id 기준 중복 없이 누적된다
     And offsetRef가 24로 갱신된다
     # 수용기준: §11 "무한스크롤: 12개 단위 로드 ... 중복 영상 없음"
 
@@ -631,7 +661,7 @@ Feature: 홈 피드 정상 동작
     Given 사용자가 "전체" 칩을 보고 있다
     When "🆓 무료시청" 칩을 클릭한다
     Then chip state가 "free"로 바뀌고 초기 effect가 재실행된다
-    And get_home_feed(p_filter:"free")로 price_standard=0 영상만 로드된다
+    And get_home_feed_order(p_filter:"free")로 price_standard=0 영상 순서를 확정 후 로드된다
     # 수용기준: §11 "칩 6종 각각 올바른 필터/정렬"
 
   Scenario: 광고 슬롯 주기 삽입
