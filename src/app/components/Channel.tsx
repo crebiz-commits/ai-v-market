@@ -319,7 +319,7 @@ function SubscribedTab({
   const { t } = useTranslation();
   if (!isAuthenticated) {
     return (
-      <div className="bg-[#121212] rounded-2xl border border-white/5 p-8 md:p-12 text-center">
+      <div className="bg-[#121212] rounded-2xl border border-white/5 p-8 md:p-12 text-center max-w-lg mx-auto">
         <div className="inline-flex w-16 h-16 rounded-2xl bg-[#6366f1]/10 items-center justify-center mb-4 border border-[#6366f1]/20">
           <Users className="w-8 h-8 text-[#6366f1]" />
         </div>
@@ -347,7 +347,7 @@ function SubscribedTab({
 
   if (videos.length === 0) {
     return (
-      <div className="bg-[#121212] rounded-2xl border border-white/5 p-8 md:p-12 text-center">
+      <div className="bg-[#121212] rounded-2xl border border-white/5 p-8 md:p-12 text-center max-w-lg mx-auto">
         <div className="inline-flex w-16 h-16 rounded-2xl bg-[#6366f1]/10 items-center justify-center mb-4 border border-[#6366f1]/20">
           <Users className="w-8 h-8 text-[#6366f1]" />
         </div>
@@ -440,7 +440,7 @@ function ExploreTab({
 
   if (creators.length === 0) {
     return (
-      <div className="bg-[#121212] rounded-2xl border border-white/5 p-8 md:p-12 text-center">
+      <div className="bg-[#121212] rounded-2xl border border-white/5 p-8 md:p-12 text-center max-w-lg mx-auto">
         <div className="inline-flex w-16 h-16 rounded-2xl bg-[#8b5cf6]/10 items-center justify-center mb-4 border border-[#8b5cf6]/20">
           <Compass className="w-8 h-8 text-[#8b5cf6]" />
         </div>
