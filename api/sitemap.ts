@@ -57,6 +57,8 @@ export default async function handler(_req: Request): Promise<Response> {
 
   // CREAITE 컬렉션 slug (src/app/data/collections.ts 와 동기화)
   const COLLECTION_SLUGS = ["first-watch", "night-tension", "heart-stays", "beyond-the-edge"];
+  // CREAITE 스포트라이트 slug (src/app/data/spotlights.ts 와 동기화)
+  const SPOTLIGHT_SLUGS = ["creaite-first-director"];
 
   const staticUrls = [
     { loc: `${SITE_URL}/`, changefreq: "daily", priority: "1.0" },
@@ -76,6 +78,11 @@ export default async function handler(_req: Request): Promise<Response> {
     { loc: `${SITE_URL}/?info=collections`, changefreq: "weekly", priority: "0.8" },
     ...COLLECTION_SLUGS.map((s) => ({
       loc: `${SITE_URL}/?info=collections&amp;c=${s}`, changefreq: "weekly", priority: "0.7",
+    })),
+    // 스포트라이트 (창작자 소개)
+    { loc: `${SITE_URL}/?info=spotlight`, changefreq: "weekly", priority: "0.7" },
+    ...SPOTLIGHT_SLUGS.map((s) => ({
+      loc: `${SITE_URL}/?info=spotlight&amp;s=${s}`, changefreq: "monthly", priority: "0.6",
     })),
   ];
 
