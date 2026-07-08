@@ -27,32 +27,62 @@ export function Footer({ onNavigate, mobile = false }: FooterProps) {
       className={`${mobile ? "block" : "hidden md:block"} border-t border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl mt-auto`}
     >
       <div className="max-w-[1800px] mx-auto px-5 md:px-10 py-6 md:py-8">
-        {/* CREAITE 매거진 — 원본 아티클(읽을거리). 쿠팡 배너 바로 위, 모바일에서도 노출 */}
+        {/* CREAITE 매거진 — 에디토리얼(대표 1 + 리스트 3). 쿠팡 배너 바로 위, 모바일도 노출 */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm md:text-base font-black text-white flex items-center gap-1.5">
-              <span>📖</span> CREAITE <span className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">매거진</span>
+            <h3 className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white text-[11px] font-black tracking-wider">📖 MAGAZINE</span>
+              <span className="hidden sm:inline text-white/40 font-semibold text-xs">AI 영상 제작 가이드 · 인사이트</span>
             </h3>
             <a href="?info=magazine" className="text-xs font-bold text-[#a78bfa] hover:text-white transition-colors">
               {t("footer.magazineMore", "전체보기")} →
             </a>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {MAGAZINE_ARTICLES.slice(0, 4).map((a) => (
-              <a
-                key={a.slug}
-                href={`?info=magazine&article=${a.slug}`}
-                className="group rounded-xl overflow-hidden bg-[#141414] border border-white/[0.08] hover:border-[#6366f1]/50 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] transition-all"
-              >
-                <div className={`aspect-[16/9] bg-gradient-to-br ${a.gradient} flex items-center justify-center`}>
-                  <span className="text-3xl group-hover:scale-110 transition-transform">{a.emoji}</span>
-                </div>
-                <div className="p-2.5">
-                  <div className="text-[10px] text-[#c4b5fd] font-bold mb-1">{a.category} · {a.readMinutes}분</div>
-                  <div className="text-xs font-bold text-white leading-snug line-clamp-2 group-hover:text-[#c4b5fd] transition-colors">{a.title}</div>
-                </div>
-              </a>
-            ))}
+
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            {/* 대표 기사 (커버 + 발췌 + CTA) */}
+            {(() => {
+              const f = MAGAZINE_ARTICLES[0];
+              return (
+                <a
+                  href={`?info=magazine&article=${f.slug}`}
+                  className="md:col-span-3 group relative rounded-2xl overflow-hidden border border-white/[0.08] hover:border-[#6366f1]/50 hover:shadow-[0_0_28px_rgba(99,102,241,0.2)] transition-all flex min-h-[168px]"
+                >
+                  <div className={`absolute inset-0 bg-gradient-to-br ${f.gradient}`} />
+                  <div className="absolute -right-6 -top-6 w-40 h-40 rounded-full bg-white/15 blur-2xl" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                  <span className="absolute top-3 right-4 text-6xl md:text-7xl opacity-80 group-hover:scale-110 group-hover:rotate-3 transition-transform">{f.emoji}</span>
+                  <div className="relative mt-auto p-4">
+                    <div className="inline-flex items-center gap-1.5 text-[11px] font-black text-white/95 mb-1.5">
+                      <span className="px-1.5 py-0.5 rounded bg-white/20 backdrop-blur-sm">{f.category}</span>
+                      <span className="text-white/70">{f.readMinutes}분 읽기</span>
+                    </div>
+                    <div className="text-base md:text-xl font-black text-white leading-tight mb-1 line-clamp-2 drop-shadow">{f.title}</div>
+                    <div className="text-xs text-white/75 line-clamp-2 mb-2">{f.excerpt}</div>
+                    <span className="text-xs font-bold text-white inline-flex items-center gap-1 group-hover:gap-2 transition-all">{t("magazine.read", "읽기")} <span>→</span></span>
+                  </div>
+                </a>
+              );
+            })()}
+
+            {/* 리스트 3편 */}
+            <div className="md:col-span-2 flex flex-col gap-2">
+              {MAGAZINE_ARTICLES.slice(1, 4).map((a) => (
+                <a
+                  key={a.slug}
+                  href={`?info=magazine&article=${a.slug}`}
+                  className="group flex items-center gap-3 p-2.5 rounded-xl bg-[#141414] border border-white/[0.08] hover:border-[#6366f1]/50 hover:bg-white/[0.03] transition-all flex-1"
+                >
+                  <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${a.gradient} flex items-center justify-center shrink-0 shadow-inner`}>
+                    <span className="text-2xl group-hover:scale-110 transition-transform">{a.emoji}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] text-[#c4b5fd] font-bold mb-0.5">{a.category} · {a.readMinutes}분</div>
+                    <div className="text-[13px] font-bold text-white leading-snug line-clamp-2 group-hover:text-[#c4b5fd] transition-colors">{a.title}</div>
+                  </div>
+                </a>
+              ))}
+            </div>
           </div>
         </div>
 
