@@ -62,6 +62,7 @@ const YouthProtectionPage = lazy(() => import("./components/StaticPages").then(m
 const FaqPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.FaqPage })));
 const NoticesPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.NoticesPage })));
 const MagazinePage = lazy(() => import("./components/Magazine").then(m => ({ default: m.MagazinePage })));
+const CollectionsPage = lazy(() => import("./components/Collections").then(m => ({ default: m.CollectionsPage })));
 const BugReportPage = lazy(() => import("./components/StaticPages").then(m => ({ default: m.BugReportPage })));
 const TopCreatorsPage = lazy(() => import("./components/TopCreators").then(m => ({ default: m.TopCreatorsPage })));
 const SupportPage = lazy(() => import("./components/SupportPage").then(m => ({ default: m.SupportPage })));
@@ -279,6 +280,13 @@ function AppContent() {
       return (
         <Suspense fallback={<PageLoading />}>
           <MagazinePage onBack={goBack} onNavigate={(tab) => { window.location.href = `${window.location.pathname}?tab=${tab}`; }} />
+        </Suspense>
+      );
+    }
+    if (infoParam === "collections") {
+      return (
+        <Suspense fallback={<PageLoading />}>
+          <CollectionsPage onBack={goBack} onNavigate={(tab) => { window.location.href = `${window.location.pathname}?tab=${tab}`; }} />
         </Suspense>
       );
     }

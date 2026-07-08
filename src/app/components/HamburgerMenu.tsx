@@ -1,7 +1,7 @@
 import { useState } from "react";
 // @ts-ignore — react-dom 타입 미설치, 런타임은 정상
 import { createPortal } from "react-dom";
-import { Menu, X, Briefcase, Building2, FileText, Shield, Mail, Coins, LifeBuoy, Crown, Megaphone, BookOpen } from "lucide-react";
+import { Menu, X, Briefcase, Building2, FileText, Shield, Mail, Coins, LifeBuoy, Crown, Megaphone, BookOpen, Clapperboard } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useBackButton } from "../hooks/useBackButton";
 import { useTranslation } from "react-i18next";
@@ -107,6 +107,19 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
                   <div className="flex-1 min-w-0">
                     <p className="text-[15px] font-bold text-white">{t("footer.magazine", "CREAITE 매거진")}</p>
                     <p className="text-xs text-[#c4b5fd]/80 mt-0.5">{t("hamburger.magazineSub", "AI 영상 제작 가이드 · 인사이트")}</p>
+                  </div>
+                </a>
+                {/* 컬렉션 — 에디터 큐레이션 */}
+                <a
+                  href="?info=collections"
+                  className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gradient-to-r from-[#8b5cf6]/15 to-[#ec4899]/10 border border-[#8b5cf6]/25 hover:from-[#8b5cf6]/25 transition-colors mb-1"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#8b5cf6] to-[#ec4899] flex items-center justify-center shrink-0">
+                    <Clapperboard className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] font-bold text-white">{t("footer.collections", "컬렉션")}</p>
+                    <p className="text-xs text-[#c4b5fd]/80 mt-0.5">{t("hamburger.collectionsSub", "에디터가 고른 AI 시네마 셀렉션")}</p>
                   </div>
                 </a>
 

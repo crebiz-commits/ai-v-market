@@ -220,6 +220,14 @@ export function Footer({ onNavigate, mobile = false }: FooterProps) {
                 </a>
               </li>
               <li>
+                <a
+                  href="?info=collections"
+                  className="text-sm font-semibold text-[#a78bfa] hover:text-white transition-colors"
+                >
+                  🎞️ {t("footer.collections", "컬렉션 · 에디터의 선택")}
+                </a>
+              </li>
+              <li>
                 <button
                   onClick={() => onNavigate("notices")}
                   className="text-sm text-gray-400 hover:text-white transition-colors"

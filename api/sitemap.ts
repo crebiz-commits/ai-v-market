@@ -55,6 +55,9 @@ export default async function handler(_req: Request): Promise<Response> {
     "find-your-style",
   ];
 
+  // CREAITE 컬렉션 slug (src/app/data/collections.ts 와 동기화)
+  const COLLECTION_SLUGS = ["first-watch", "night-tension", "heart-stays", "beyond-the-edge"];
+
   const staticUrls = [
     { loc: `${SITE_URL}/`, changefreq: "daily", priority: "1.0" },
     // 정보 페이지 (?info= 라우팅) — SEO 인덱싱 + 검색 유입
@@ -68,6 +71,11 @@ export default async function handler(_req: Request): Promise<Response> {
     { loc: `${SITE_URL}/?info=magazine`, changefreq: "weekly", priority: "0.8" },
     ...MAGAZINE_SLUGS.map((s) => ({
       loc: `${SITE_URL}/?info=magazine&amp;article=${s}`, changefreq: "monthly", priority: "0.7",
+    })),
+    // 컬렉션 (에디터 큐레이션 셀렉션)
+    { loc: `${SITE_URL}/?info=collections`, changefreq: "weekly", priority: "0.8" },
+    ...COLLECTION_SLUGS.map((s) => ({
+      loc: `${SITE_URL}/?info=collections&amp;c=${s}`, changefreq: "weekly", priority: "0.7",
     })),
   ];
 
