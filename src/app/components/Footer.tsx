@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { CoupangBanner } from "./CoupangBanner";
+import { MAGAZINE_ARTICLES } from "../data/magazineArticles";
 
 interface FooterProps {
   // 각 페이지에서 Footer 호출 시 페이지의 onNavigate prop 그대로 전달 가능하도록 string 타입
@@ -26,6 +27,35 @@ export function Footer({ onNavigate, mobile = false }: FooterProps) {
       className={`${mobile ? "block" : "hidden md:block"} border-t border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl mt-auto`}
     >
       <div className="max-w-[1800px] mx-auto px-5 md:px-10 py-6 md:py-8">
+        {/* CREAITE 매거진 — 원본 아티클(읽을거리). 쿠팡 배너 바로 위, 모바일에서도 노출 */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm md:text-base font-black text-white flex items-center gap-1.5">
+              <span>📖</span> CREAITE <span className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent">매거진</span>
+            </h3>
+            <a href="?info=magazine" className="text-xs font-bold text-[#a78bfa] hover:text-white transition-colors">
+              {t("footer.magazineMore", "전체보기")} →
+            </a>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {MAGAZINE_ARTICLES.slice(0, 4).map((a) => (
+              <a
+                key={a.slug}
+                href={`?info=magazine&article=${a.slug}`}
+                className="group rounded-xl overflow-hidden bg-[#141414] border border-white/[0.08] hover:border-[#6366f1]/50 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] transition-all"
+              >
+                <div className={`aspect-[16/9] bg-gradient-to-br ${a.gradient} flex items-center justify-center`}>
+                  <span className="text-3xl group-hover:scale-110 transition-transform">{a.emoji}</span>
+                </div>
+                <div className="p-2.5">
+                  <div className="text-[10px] text-[#c4b5fd] font-bold mb-1">{a.category} · {a.readMinutes}분</div>
+                  <div className="text-xs font-bold text-white leading-snug line-clamp-2 group-hover:text-[#c4b5fd] transition-colors">{a.title}</div>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+
         {/* 쿠팡파트너스 보조 배너 — env(VITE_COUPANG_ID/TRACKING) 설정 시에만 노출. 고지 문구 포함 */}
         <CoupangBanner className="mb-6" height={140} />
 
