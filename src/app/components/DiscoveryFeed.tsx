@@ -203,11 +203,11 @@ const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) 
     return () => observer.disconnect();
   }, [ad.id, onImpression]);
 
-  const handleClick = async () => {
-    try {
-      try { await sendAdEvent("feed_click", ad.id); } catch {}
-    } catch {}
+  const handleClick = () => {
+    // 사용자 제스처와 동기적으로 새 탭을 먼저 연다 — Safari/팝업차단이 await 이후의 window.open 을
+    // 막아 광고주 랜딩이 안 열리던 문제 방지. 클릭 집계는 fire-and-forget(keepalive).
     openAdLinkSafe(ad.link_url);
+    sendAdEvent("feed_click", ad.id).catch(() => {});
   };
 
   return (
@@ -254,7 +254,7 @@ const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) 
         <p className="text-white font-bold text-base leading-snug mb-3">{ad.title}</p>
         <button
           className="flex items-center gap-1.5 px-4 py-2 bg-white text-black text-xs font-bold rounded-full hover:bg-white/90 transition-colors"
-          onClick={handleClick}
+          onClick={(e) => { e.stopPropagation(); handleClick(); }}
         >
           {ad.cta_text}
           <ExternalLink className="w-3 h-3" />
@@ -452,7 +452,9 @@ const MovieSection = memo(({
   // (DesktopMovieCard 와 동일 패턴). inView=false 로 스크롤 벗어나면 dispose 되어 메모리 회수.
   useEffect(() => {
     const container = containerRef.current;
-    if (!inView || !container || !video.videoUrl) return;
+    // 19+ 미인증 잠금 영상은 플레이어를 만들지 않음(블러 뒤 자동재생·대역폭 소비 차단).
+    // 데스크탑 호버 재생(DesktopMovieCard)과 동일한 게이트 — 인증되면 isAgeLocked 가 풀려 재실행되며 생성.
+    if (!inView || !container || !video.videoUrl || isAgeLocked) return;
 
     setIsPlaying(false);
 
@@ -536,7 +538,7 @@ const MovieSection = memo(({
         playerRef.current = null;
       }
     };
-  }, [video.id, video.videoUrl, inView]); // inView 포함: false→true 시 플레이어 생성 / true→false 시 dispose(메모리 회수)
+  }, [video.id, video.videoUrl, inView, isAgeLocked]); // inView: false→true 생성 / true→false dispose. isAgeLocked: 인증 시 잠금 해제되면 재생성
 
   // Effect 2: 활성/비활성 전환
   // playerReady를 deps에 포함 → isActive=true일 때 플레이어가 아직 준비 안 됐으면
@@ -966,7 +968,7 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
         const ids = mapped.map((v) => v.id).filter((id) => !id.startsWith("demo-"));
         if (ids.length > 0) {
           const { data: countData } = await supabase.from("comments")
-            .select("video_id").in("video_id", ids).is("parent_id", null);
+            .select("video_id").in("video_id", ids).is("parent_id", null).eq("is_hidden", false);
           if (countData && reqChip === chipRef.current && mySeq === sessionSeqRef.current) {   // B2: 댓글수 병합도 칩/세션 변경 시 폐기(stale 방지)
             const counts: Record<string, number> = {};
             countData.forEach((c: any) => { counts[c.video_id] = (counts[c.video_id] || 0) + 1; });
@@ -1731,9 +1733,10 @@ const DesktopAdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: s
     return () => observer.disconnect();
   }, [ad.id, onImpression]);
 
-  const handleClick = async () => {
-    try { await sendAdEvent("feed_click", ad.id); } catch {}
+  const handleClick = () => {
+    // 제스처와 동기 오픈 먼저(팝업차단 회피) → 클릭 집계는 fire-and-forget.
     openAdLinkSafe(ad.link_url);
+    sendAdEvent("feed_click", ad.id).catch(() => {});
   };
 
   return (
@@ -1762,7 +1765,7 @@ const DesktopAdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: s
         )}
         <h3 className="font-extrabold text-lg text-white line-clamp-2 uppercase tracking-tight">{ad.title}</h3>
         <button
-          onClick={handleClick}
+          onClick={(e) => { e.stopPropagation(); handleClick(); }}
           className="mt-4 self-start flex items-center gap-1.5 px-4 py-2 bg-white text-black text-xs font-bold rounded-full hover:bg-white/90 transition-colors"
         >
           {ad.cta_text}

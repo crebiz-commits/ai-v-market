@@ -124,8 +124,11 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
   const { isBlocked, blockUser } = useBlockedUsers();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const deletingRef = useRef<Set<string>>(new Set());   // 삭제 in-flight 가드(더블탭 이중 차감 방지)
+  const fetchIdRef = useRef(0);                          // fetch 경쟁 방지(늦게 온 stale 응답 폐기)
 
   const fetchComments = useCallback(async () => {
+    const myId = ++fetchIdRef.current;   // 이 fetch 세션 id — 늦게 온 응답이 최신 상태를 덮지 않게
     setLoading(true);
     try {
       const cols = `
@@ -177,6 +180,7 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
         }
       }
 
+      if (myId !== fetchIdRef.current) return;   // 그 사이 videoId/postId 전환 → 이 응답 폐기
       setComments(enriched);
 
       // 현재 사용자의 좋아요 상태 일괄 조회
@@ -195,9 +199,9 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
       }
     } catch (err) {
       console.error("[CommentPanel] fetch error:", err);
-      setComments([]);
+      if (myId === fetchIdRef.current) setComments([]);
     } finally {
-      setLoading(false);
+      if (myId === fetchIdRef.current) setLoading(false);
     }
   }, [videoId, postId, isAuthenticated]);
 
@@ -310,6 +314,8 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
   };
 
   const handleDelete = async (commentId: string, parentId?: string) => {
+    if (deletingRef.current.has(commentId)) return;   // 더블탭 중복 삭제 방지(bumpComments 이중 -1 차단)
+    deletingRef.current.add(commentId);
     try {
       const { error } = await supabase.from("comments").delete().eq("id", commentId);
       if (error) throw error;
@@ -331,6 +337,8 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
       onCommentDeleted?.(removed);
     } catch {
       toast.error(t("commentPanel.deleteFailed"));
+    } finally {
+      deletingRef.current.delete(commentId);
     }
   };
 

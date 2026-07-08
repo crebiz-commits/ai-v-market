@@ -16,7 +16,8 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback, us
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "./AuthContext";
 
-export type ToggleResult = "liked" | "unliked" | "needAuth" | "error";
+// "busy" = 더블탭 등 in-flight 중복 호출(무시 대상 — 실패 아님). "error" 는 진짜 실패만.
+export type ToggleResult = "liked" | "unliked" | "needAuth" | "error" | "busy";
 
 interface LikesContextValue {
   ready: boolean;
@@ -109,7 +110,7 @@ export function LikesProvider({ children }: { children: ReactNode }) {
 
   const toggleLike = useCallback(async (videoId: string, base?: number | null): Promise<ToggleResult> => {
     if (!user) return "needAuth";
-    if (inFlight.current.has(videoId)) return "error";
+    if (inFlight.current.has(videoId)) return "busy";   // 더블탭 중복 — 실패 토스트 금지(무시)
     inFlight.current.add(videoId);
     toggledRef.current.add(videoId);   // H8: 이후 재시드가 이 영상의 낙관값을 덮지 않도록
 
