@@ -251,7 +251,7 @@ const VideoCard = memo(function VideoCard({ video, idx, onVideoClick, onAddToCar
           <div className="flex items-center gap-1.5 mt-1 md:mt-1.5 flex-wrap">
             {rating && (
               <span className="text-[9px] md:text-[11px] px-1.5 py-0.5 rounded border border-white/20 text-gray-300 font-semibold">
-                {rating === "all" ? "전체" : rating === "19" ? "19+" : `${rating}+`}
+                {rating === "all" ? t("ageBadge.all") : rating === "19" ? "19+" : `${rating}+`}
               </span>
             )}
             {video.category && (
@@ -335,7 +335,7 @@ export function VideoRowCarousel({
             onClick={onUpload}
             className="ml-auto flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-white/15 bg-white/[0.04] text-white/55 text-[11px] md:text-xs font-semibold hover:bg-white/10 hover:text-white/90 transition-colors"
           >
-            <Plus className="w-3 h-3" /> 영상 등록하기
+            <Plus className="w-3 h-3" /> {t("videoRow.uploadCta")}
           </button>
         )}
       </div>

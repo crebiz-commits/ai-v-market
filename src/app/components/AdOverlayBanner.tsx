@@ -3,6 +3,7 @@
 // 클릭 시 record_ad_click + 외부 링크 이동. X 클릭 시 즉시 숨김.
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { useTranslation } from "react-i18next";
 import { X, ExternalLink } from "lucide-react";
 import { recordAdClick, type AdRpcResult } from "../utils/adFetch";
 import { openExternal } from "../utils/openExternal";
@@ -14,6 +15,7 @@ interface AdOverlayBannerProps {
 }
 
 export function AdOverlayBanner({ ad, videoId, onDismiss }: AdOverlayBannerProps) {
+  const { t } = useTranslation();
   const duration = ad.duration_seconds || 10;
   const [remaining, setRemaining] = useState(duration);
   // 소재 이미지가 로드 실패(잘못된 URL·HTML 페이지 등)하면 깨진 이미지 대신 텍스트 배너로 폴백.
@@ -84,7 +86,7 @@ export function AdOverlayBanner({ ad, videoId, onDismiss }: AdOverlayBannerProps
                   onClick={handleClick}
                   className="self-start text-xs font-bold text-[#a78bfa] hover:text-[#c4b5fd] flex items-center gap-1 mt-1"
                 >
-                  {ad.cta_text || "자세히 보기"}
+                  {ad.cta_text || t("adPlayer.learnMore")}
                   <ExternalLink className="w-3 h-3" />
                 </button>
               )}
@@ -95,7 +97,7 @@ export function AdOverlayBanner({ ad, videoId, onDismiss }: AdOverlayBannerProps
               <button
                 onClick={onDismiss}
                 className="p-1 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-colors"
-                aria-label="광고 닫기"
+                aria-label={t("adPlayer.closeAd")}
               >
                 <X className="w-4 h-4" />
               </button>

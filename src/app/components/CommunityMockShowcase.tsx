@@ -100,7 +100,7 @@ export function CommunityMockShowcase({ onNavigate }: { onNavigate?: (tab: strin
     <div className="h-full overflow-y-auto bg-background relative">
       <div className="max-w-4xl mx-auto p-4 md:p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl md:text-3xl font-bold">{t("community.title")} <span className="text-xs text-muted-foreground align-middle">(mock 보존본)</span></h2>
+          <h2 className="text-2xl md:text-3xl font-bold">{t("community.title")} <span className="text-xs text-muted-foreground align-middle">{t("communityMock.mockSnapshotLabel")}</span></h2>
           <Button onClick={() => { if (!isAuthenticated) { toast.error(t("community.writeRequiresLogin")); return; } setShowWriteModal(true); }} className="gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 font-bold" size="sm"><Plus className="w-4 h-4" />{t("community.write")}</Button>
         </div>
         <Tabs defaultValue="posts" className="w-full">

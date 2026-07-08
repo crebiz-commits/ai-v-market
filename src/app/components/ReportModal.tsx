@@ -181,7 +181,7 @@ export function ReportModal({
 
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
                 <p className="text-[11px] text-amber-200/90 leading-relaxed">
-                  ⚠️ False reports may result in account penalties. You can only report the same content once.
+                  {t("reportModal.warningNote")}
                 </p>
               </div>
             </div>

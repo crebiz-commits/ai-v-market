@@ -300,7 +300,7 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
               <h1 className="text-2xl md:text-3xl font-black text-white">{profile.creator_name}</h1>
               {isCreatorOfMonth && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-400/40 text-amber-300 text-xs font-black shadow-[0_0_12px_rgba(251,191,36,0.25)]">
-                  👑 이달의 크리에이터
+                  {t("creatorChannel.creatorOfMonth")}
                 </span>
               )}
             </div>

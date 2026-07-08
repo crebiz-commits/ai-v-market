@@ -28,7 +28,7 @@ import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { getGenreLabel } from "../i18n/categoryLabels";
+import { getCategoryLabel, getGenreLabel } from "../i18n/categoryLabels";
 import { BETA_MODE } from "../config/beta";
 
 // ShowcaseVideo → CarouselVideo 변환
@@ -56,10 +56,10 @@ function showcaseToCarousel(s: ShowcaseVideo): CarouselVideo {
 // 형식 카테고리 행 — 장르(분위기)가 아닌 콘텐츠 형식. 장르 행에 안 잡히는 코너 노출용.
 // (영화·드라마·기타는 장르와 겹치거나 너무 광범위 → 제외)
 // position: "top" = 장르 행보다 위 / "bottom" = 장르 행 뒤·"기타" 바로 위
-const FORMAT_DEFS: { category: string; title: string; position: "top" | "bottom" }[] = [
-  { category: "애니메이션", title: "🎨 애니메이션", position: "top" },
-  { category: "다큐멘터리", title: "🎥 다큐멘터리", position: "bottom" },
-  { category: "뮤직비디오", title: "🎵 뮤직비디오", position: "bottom" },
+const FORMAT_DEFS: { category: string; emoji: string; position: "top" | "bottom" }[] = [
+  { category: "애니메이션", emoji: "🎨", position: "top" },
+  { category: "다큐멘터리", emoji: "🎥", position: "bottom" },
+  { category: "뮤직비디오", emoji: "🎵", position: "bottom" },
 ];
 
 // CarouselVideo (RPC 반환) → CoverFlow Video 매핑
@@ -145,7 +145,7 @@ type CinemaSnapshot = {
   trending: CarouselVideo[];
   newReleases: CarouselVideo[];
   top10: CarouselVideo[];
-  formatRows: { category: string; title: string; position: "top" | "bottom"; videos: CarouselVideo[] }[];
+  formatRows: { category: string; emoji: string; position: "top" | "bottom"; videos: CarouselVideo[] }[];
   categoryRows: CategoryRow[];
 };
 const cinemaCache: Record<string, CinemaSnapshot> = {};
@@ -166,7 +166,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
   const [top10, setTop10] = useState<CarouselVideo[]>(_initSnap?.top10 ?? []);
   const [categoryRows, setCategoryRows] = useState<CategoryRow[]>(_initSnap?.categoryRows ?? []);
   // 형식 카테고리 행 (애니메이션·다큐멘터리·뮤직비디오 — 장르가 아닌 category 기준, 2026-06-11)
-  const [formatRows, setFormatRows] = useState<{ category: string; title: string; position: "top" | "bottom"; videos: CarouselVideo[] }[]>(_initSnap?.formatRows ?? []);
+  const [formatRows, setFormatRows] = useState<{ category: string; emoji: string; position: "top" | "bottom"; videos: CarouselVideo[] }[]>(_initSnap?.formatRows ?? []);
   // 이벤트 배너 — DB(event_banners) 로드, 실패/미적용 시 하드코딩 폴백 (2026-06-11)
   const [banners, setBanners] = useState<BoardBanner[]>([]);
   useEffect(() => {
@@ -269,7 +269,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
         const keepRow = (len: number) => BETA_MODE || len > 0;
         const nextFormatRows = FORMAT_DEFS.map((f, i) => ({
           category: f.category,
-          title: f.title,
+          emoji: f.emoji,
           position: f.position,
           videos: merge(((formatResults[i] as any)?.data || []) as CarouselVideo[], { category: f.category }),
         })).filter((r) => keepRow(r.videos.length));
@@ -415,7 +415,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           {formatRows.filter((r) => r.position === "top").map((row) => (
             <VideoRowCarousel
               key={row.category}
-              title={row.title}
+              title={`${row.emoji} ${getCategoryLabel(row.category, t)}`}
               videos={row.videos}
               onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
@@ -441,7 +441,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           {formatRows.filter((r) => r.position === "bottom").map((row) => (
             <VideoRowCarousel
               key={row.category}
-              title={row.title}
+              title={`${row.emoji} ${getCategoryLabel(row.category, t)}`}
               videos={row.videos}
               onVideoClick={handleClick}
               onAddToCart={handleAddToCart}

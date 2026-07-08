@@ -416,9 +416,9 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
             <Clock className="w-3.5 h-3.5" /> {t("ott.programmingNow", "지금 이 시간의 편성")}
           </div>
           <h2 className="text-xl md:text-2xl font-black flex items-center gap-2">
-            <span>{band.emoji}</span> {band.name}
+            <span>{band.emoji}</span> {t(`ott.bands.${band.id}.name`)}
           </h2>
-          <p className="text-xs md:text-sm text-gray-400 mt-0.5">{band.tagline}</p>
+          <p className="text-xs md:text-sm text-gray-400 mt-0.5">{t(`ott.bands.${band.id}.tagline`)}</p>
         </div>
       )}
 
@@ -778,7 +778,7 @@ const CategoryRow = memo(function CategoryRow({
                       <div className="flex items-center gap-2.5 mt-1.5">
                         {g.rating && (
                           <span className={`text-[10px] md:text-[11px] px-1.5 py-0.5 rounded font-bold border ${g.rating === "19" ? "border-red-500/60 text-red-300" : "border-white/30 text-gray-200"}`}>
-                            {g.rating === "all" ? "전체" : g.rating === "19" ? "19+" : `${g.rating}+`}
+                            {g.rating === "all" ? t("ageBadge.all") : g.rating === "19" ? "19+" : `${g.rating}+`}
                           </span>
                         )}
                         {likesDisplayCount(v.id, v.likes) > 0 && (
@@ -842,7 +842,7 @@ const CategoryRow = memo(function CategoryRow({
           onClick={onUpload}
           className={`absolute top-2 z-30 inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-white/15 bg-black/40 backdrop-blur-sm text-white/60 text-[11px] md:text-xs font-semibold hover:bg-white/10 hover:text-white/90 transition-colors ${labelOnLeft ? "right-3 md:right-16" : "left-3 md:left-16"}`}
         >
-          <Plus className="w-3 h-3" /> 영상 등록하기
+          <Plus className="w-3 h-3" /> {t("videoRow.uploadCta")}
         </button>
       )}
 

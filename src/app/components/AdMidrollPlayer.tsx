@@ -7,6 +7,7 @@
 //   - video.js dispose() 가 src/listener/buffer 모두 자동 해제
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 import { ExternalLink, SkipForward, Volume2, VolumeX, Loader2 } from "lucide-react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
@@ -22,6 +23,7 @@ interface AdMidrollPlayerProps {
 }
 
 export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPlayerProps) {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<Player | null>(null);
   const completedRef = useRef(false);
@@ -175,7 +177,7 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
           <img src={ad.image_url} alt={ad.title} className="w-full h-full object-contain" />
         </button>
       ) : (
-        <div className="text-white">광고 로딩 실패</div>
+        <div className="text-white">{t("adPlayer.loadFailed")}</div>
       )}
 
       {/* 로딩 스피너 — 첫 재생 전까지(검은 화면 대신) */}
@@ -197,7 +199,7 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
       {ad.video_url && (
         <button
           onClick={handleToggleMute}
-          aria-label={muted ? "소리 켜기" : "소리 끄기"}
+          aria-label={muted ? t("adPlayer.unmute") : t("adPlayer.mute")}
           className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-md transition-colors"
         >
           {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
@@ -209,7 +211,7 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
           onClick={handleClick}
           className="absolute bottom-3 left-3 z-10 px-3 py-2 rounded-lg bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white text-sm font-bold flex items-center gap-1.5 shadow-xl"
         >
-          {ad.cta_text || "자세히 보기"}
+          {ad.cta_text || t("adPlayer.learnMore")}
           <ExternalLink className="w-3.5 h-3.5" />
         </button>
       )}
@@ -217,7 +219,7 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
       <div className="absolute bottom-3 right-3 z-10">
         {skipAfter == null ? (
           <span className="px-3 py-2 rounded-lg bg-black/60 text-white/80 text-xs font-bold">
-            SKIP 불가
+            {t("adPlayer.skipDisabled")}
           </span>
         ) : canSkip ? (
           <button
@@ -229,7 +231,7 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
           </button>
         ) : (
           <span className="px-3 py-2 rounded-lg bg-black/60 text-white/80 text-xs font-bold">
-            {Math.max(0, skipAfter - elapsed)}초 후 SKIP
+            {t("adPlayer.skipAfter", { seconds: Math.max(0, skipAfter - elapsed) })}
           </span>
         )}
       </div>

@@ -73,8 +73,7 @@ export function CommunityPostDetail({
   onPlayVideo,
   onCommentCountChange,
 }: CommunityPostDetailProps) {
-  const { t, i18n } = useTranslation();
-  const isKo = (i18n.language || "en").startsWith("ko");
+  const { t } = useTranslation();
   const { user } = useAuth();
   const isMine = !!post.ownerId && user?.id === post.ownerId;
   const [showComments, setShowComments] = useState(false);
@@ -84,7 +83,7 @@ export function CommunityPostDetail({
     if (!post.promptText) return;
     try {
       await navigator.clipboard.writeText(post.promptText);
-      toast.success(isKo ? "프롬프트를 복사했어요! 📋" : "Prompt copied! 📋");
+      toast.success(t("communityPostDetail.promptCopied"));
     } catch {
       toast.error(t("shareModal.copyFailed"));
     }
@@ -183,7 +182,7 @@ export function CommunityPostDetail({
           {post.isNotice && (
             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-[#f59e0b]/20 text-[#fbbf24] border border-[#f59e0b]/30">
               <Megaphone className="w-3 h-3" />
-              {isKo ? "공지" : "Notice"}
+              {t("community.noticeBadge")}
             </span>
           )}
           <span className={`px-3 py-1 rounded-full text-xs font-medium ${CATEGORY_COLOR[post.category] || "bg-[#6366f1]/20 text-[#6366f1]"}`}>
@@ -207,14 +206,14 @@ export function CommunityPostDetail({
             <div className="flex items-center justify-between px-4 py-2.5 bg-[#10b981]/10 border-b border-[#10b981]/20">
               <span className="flex items-center gap-1.5 text-xs font-bold text-[#34d399]">
                 <Terminal className="w-3.5 h-3.5" />
-                {isKo ? "프롬프트" : "Prompt"}
+                {t("communityCategory.prompt")}
               </span>
               <button
                 onClick={handleCopyPrompt}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-[#34d399] hover:bg-[#10b981]/20 transition-colors"
               >
                 <Copy className="w-3.5 h-3.5" />
-                {isKo ? "복사" : "Copy"}
+                {t("common.copy")}
               </button>
             </div>
             <pre className="px-4 py-3 text-sm text-[#a7f3d0] font-mono whitespace-pre-wrap break-words leading-relaxed">{post.promptText}</pre>

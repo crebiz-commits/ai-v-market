@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 // ════════════════════════════════════════════════════════════════════════════
 // 이벤트 배너 보드 — 끊김 없는 연속 흐름 + 수동 제어 (2026-06-16)
@@ -35,6 +36,7 @@ interface Props {
 }
 
 export function EventBannerBoard({ banners, onNavigate }: Props) {
+  const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(false);
 
@@ -167,7 +169,7 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
         <>
           <button
             type="button"
-            aria-label="이전 배너"
+            aria-label={t("eventBanner.prevBanner")}
             onClick={() => scrollByCard(-1)}
             className="flex absolute left-1 top-1/2 -translate-y-1/2 z-20 w-9 h-9 items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm border border-white/10 shadow-lg transition-colors"
           >
@@ -175,7 +177,7 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
           </button>
           <button
             type="button"
-            aria-label="다음 배너"
+            aria-label={t("eventBanner.nextBanner")}
             onClick={() => scrollByCard(1)}
             className="flex absolute right-1 top-1/2 -translate-y-1/2 z-20 w-9 h-9 items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm border border-white/10 shadow-lg transition-colors"
           >

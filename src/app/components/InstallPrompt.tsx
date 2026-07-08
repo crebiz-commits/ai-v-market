@@ -116,7 +116,7 @@ export function InstallBannerMobile() {
                 </p>
                 {!isIOSSafari && (
                   <p className="text-[11px] text-amber-300/80 mb-2 leading-relaxed">
-                    💡 Installation may take 1–3 min on Android (a real WebAPK is generated).
+                    💡 {t("installPrompt.androidInstallHintShort")}
                   </p>
                 )}
                 <div className="flex gap-2">
@@ -166,7 +166,7 @@ export function InstallGuideCard() {
           </div>
           <div>
             <h3 className="font-bold">{t("installPrompt.guideTitle")}</h3>
-            <p className="text-xs text-muted-foreground">Platform: {platformLabel}</p>
+            <p className="text-xs text-muted-foreground">{t("installPrompt.platformLabel", { platform: platformLabel })}</p>
           </div>
         </div>
 
@@ -180,15 +180,15 @@ export function InstallGuideCard() {
             <ul className="space-y-2 text-sm text-muted-foreground mb-4">
               <li className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-[#10b981] mt-0.5 flex-shrink-0" />
-                <span>Launch in 1 second from home screen</span>
+                <span>{t("installPrompt.benefit1")}</span>
               </li>
               <li className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-[#10b981] mt-0.5 flex-shrink-0" />
-                <span>Fullscreen — no browser address bar</span>
+                <span>{t("installPrompt.benefit2")}</span>
               </li>
               <li className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-[#10b981] mt-0.5 flex-shrink-0" />
-                <span>Auto-updates — no app store review</span>
+                <span>{t("installPrompt.benefit3")}</span>
               </li>
             </ul>
 
@@ -196,8 +196,8 @@ export function InstallGuideCard() {
             {isAndroid && canInstallProgrammatic && (
               <div className="mb-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
                 <p className="text-xs text-amber-100/90 leading-relaxed">
-                  💡 <strong>Installation may take 1–3 minutes.</strong>
-                  Android Chrome generates a real WebAPK from Google's servers. You can use other apps during install; it continues in the background.
+                  💡 <strong>{t("installPrompt.androidNoteBold")}</strong>{" "}
+                  {t("installPrompt.androidNoteRest")}
                 </p>
               </div>
             )}
@@ -225,7 +225,7 @@ export function InstallGuideCard() {
               </div>
             ) : !canShowInstall ? (
               <div className="p-3 rounded-lg bg-white/5 border border-white/10 text-xs text-muted-foreground">
-                Current browser does not support PWA installation. Use the latest Chrome / Edge / Safari to see the install option.
+                {t("installPrompt.noPwaSupport")}
               </div>
             ) : null}
           </>
@@ -266,9 +266,9 @@ function IOSInstallGuideModal({ open, onClose }: { open: boolean; onClose: () =>
             >
               <X className="w-4 h-4" />
             </button>
-            <h3 className="font-bold text-lg mb-1">📱 Install on iOS</h3>
+            <h3 className="font-bold text-lg mb-1">📱 {t("installPrompt.iosModalTitle")}</h3>
             <p className="text-xs text-muted-foreground mb-5">
-              Install in 3 steps from Safari. (Instant.)
+              {t("installPrompt.iosModalSubtitle")}
             </p>
 
             <ol className="space-y-4">
@@ -278,7 +278,7 @@ function IOSInstallGuideModal({ open, onClose }: { open: boolean; onClose: () =>
                   <p className="text-sm font-semibold mb-0.5 flex items-center gap-2">
                     Tap the <Share2 className="w-4 h-4 inline" /> share button at bottom
                   </p>
-                  <p className="text-xs text-muted-foreground">Square + arrow icon at Safari's bottom center</p>
+                  <p className="text-xs text-muted-foreground">{t("installPrompt.iosStep1Desc")}</p>
                 </div>
               </li>
               <li className="flex items-start gap-3">
@@ -287,14 +287,14 @@ function IOSInstallGuideModal({ open, onClose }: { open: boolean; onClose: () =>
                   <p className="text-sm font-semibold mb-0.5 flex items-center gap-2">
                     Select "<Plus className="w-3 h-3 inline" /> Add to Home Screen"
                   </p>
-                  <p className="text-xs text-muted-foreground">Scroll the menu down to find it</p>
+                  <p className="text-xs text-muted-foreground">{t("installPrompt.iosStep2Desc")}</p>
                 </div>
               </li>
               <li className="flex items-start gap-3">
                 <div className="w-7 h-7 rounded-full bg-[#6366f1]/20 border border-[#6366f1]/40 flex items-center justify-center text-sm font-bold text-[#a78bfa] flex-shrink-0">3</div>
                 <div>
-                  <p className="text-sm font-semibold mb-0.5">Tap "Add" at top right</p>
-                  <p className="text-xs text-muted-foreground">CREAITE icon will appear on your home screen</p>
+                  <p className="text-sm font-semibold mb-0.5">{t("installPrompt.iosStep3Title")}</p>
+                  <p className="text-xs text-muted-foreground">{t("installPrompt.iosStep3Desc")}</p>
                 </div>
               </li>
             </ol>

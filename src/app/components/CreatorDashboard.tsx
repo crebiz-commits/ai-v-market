@@ -65,7 +65,7 @@ function formatDay(iso: string, days: number): string {
 }
 
 export function CreatorDashboard() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [days, setDays] = useState(30);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [revenue, setRevenue] = useState<DailyRevenue[]>([]);
@@ -193,6 +193,9 @@ export function CreatorDashboard() {
     return `${m}m ${sec}s`;
   };
 
+  // 다음 정산 날짜를 현재 로케일(한/영)에 맞춰 표시
+  const localeTag = i18n.language?.startsWith("ko") ? "ko-KR" : "en-US";
+
   return (
     <div className="space-y-4">
       {/* KPI 4개 (누적) */}
@@ -200,7 +203,7 @@ export function CreatorDashboard() {
         <KpiCard icon={DollarSign} label={t("creatorDashboard.kpiRevenue")} value={`₩${(summary?.total_revenue ?? 0).toLocaleString()}`} color="text-[#6366f1]" bgColor="bg-[#6366f1]/10" />
         <KpiCard icon={Eye} label={t("creatorDashboard.kpiViews")} value={formatNumber(summary?.total_views ?? 0)} color="text-[#10b981]" bgColor="bg-[#10b981]/10" />
         <KpiCard icon={Heart} label={t("creatorDashboard.kpiLikes")} value={formatNumber(summary?.total_likes ?? 0)} color="text-[#ec4899]" bgColor="bg-[#ec4899]/10" />
-        <KpiCard icon={TrendingUp} label={t("creatorDashboard.kpiRpm")} value={`₩${(summary?.rpm ?? 0).toLocaleString()}`} color="text-amber-400" bgColor="bg-amber-400/10" tooltip="Average revenue per 1000 views" />
+        <KpiCard icon={TrendingUp} label={t("creatorDashboard.kpiRpm")} value={`₩${(summary?.rpm ?? 0).toLocaleString()}`} color="text-amber-400" bgColor="bg-amber-400/10" tooltip={t("creatorDashboard.tooltipRpm")} />
       </motion.div>
 
       {/* Phase 20: 시청자 인사이트 (선택 기간 기준) */}
@@ -211,14 +214,14 @@ export function CreatorDashboard() {
             label={t("creatorDashboard.kpiWatchRatio")}
             value={`${Math.round((audience.avg_watch_ratio || 0) * 100)}%`}
             color="text-cyan-400" bgColor="bg-cyan-400/10"
-            tooltip="Average ratio watched per valid view"
+            tooltip={t("creatorDashboard.tooltipWatchRatio")}
           />
           <KpiCard
             icon={CheckCircle2}
             label={t("creatorDashboard.kpiCompletion")}
             value={`${Math.round((audience.completion_rate || 0) * 100)}%`}
             color="text-[#10b981]" bgColor="bg-[#10b981]/10"
-            tooltip="Ratio watching 90%+ of the video"
+            tooltip={t("creatorDashboard.tooltipCompletion")}
           />
           <KpiCard
             icon={Users}
@@ -245,9 +248,9 @@ export function CreatorDashboard() {
             <p className="text-sm font-bold text-white mb-0.5">{t("creatorDashboard.nextPayoutTitle")}</p>
             <p className="text-xs text-gray-400">
               {summary.next_settlement_date && !isNaN(new Date(summary.next_settlement_date).getTime())
-                ? `${new Date(summary.next_settlement_date).toLocaleDateString("ko-KR", { month: "long", day: "numeric" })} · `
+                ? `${new Date(summary.next_settlement_date).toLocaleDateString(localeTag, { month: "long", day: "numeric" })} · `
                 : ""}
-              <span className="font-bold text-[#a78bfa] ml-1">₩{summary.pending_payout.toLocaleString()}</span> pending
+              <span className="font-bold text-[#a78bfa] ml-1">₩{summary.pending_payout.toLocaleString()}</span> {t("creatorDashboard.pendingSuffix")}
             </p>
           </div>
         </motion.div>
@@ -363,7 +366,7 @@ export function CreatorDashboard() {
             <BarChart3 className="w-4 h-4 text-cyan-400" />
             {t("creatorDashboard.retentionChartTitle")}
           </h4>
-          <p className="text-[10px] text-gray-500 mb-4">Which video lengths are watched to completion most</p>
+          <p className="text-[10px] text-gray-500 mb-4">{t("creatorDashboard.retentionSubtitle")}</p>
           {chartLoading && <div className="absolute right-5 top-5"><Loader2 className="w-4 h-4 animate-spin text-gray-500" /></div>}
           <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -378,7 +381,7 @@ export function CreatorDashboard() {
                   labelStyle={{ color: '#fff' }}
                   itemStyle={{ color: '#fff' }}
                   formatter={(v: any, _name: any, p: any) => [
-                    `${Math.round(Number(v) * 100)}% (${p.payload.view_count} views)`,
+                    `${Math.round(Number(v) * 100)}% (${t("creatorDashboard.viewCountLabel", { count: p.payload.view_count })})`,
                     t("creatorDashboard.kpiWatchRatio")
                   ]}
                 />

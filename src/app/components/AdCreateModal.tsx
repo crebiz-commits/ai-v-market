@@ -34,9 +34,8 @@ interface Props {
 }
 
 export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
-  const { i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user } = useAuth();
-  const isKo = (i18n.language || "en").startsWith("ko");
   const imgRef = useRef<HTMLInputElement>(null);
   const vidRef = useRef<HTMLInputElement>(null);
 
@@ -62,7 +61,7 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
   const [videoUrl, setVideoUrl] = useState(editAd?.video_url || "");
   const [thumbUrl, setThumbUrl] = useState("");
   const [linkUrl, setLinkUrl] = useState(editAd?.link_url || "");
-  const [ctaText, setCtaText] = useState(editAd?.cta_text || (isKo ? "자세히 보기" : "Learn more"));
+  const [ctaText, setCtaText] = useState(editAd?.cta_text || t("ads.create.ctaDefault"));
   const [advertiser, setAdvertiser] = useState("");
   const [busy, setBusy] = useState(false);
   const [imgUploading, setImgUploading] = useState(false);
@@ -72,8 +71,8 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
 
   const handleImageUpload = async (file: File | undefined) => {
     if (!file || !user?.id) return;
-    if (!file.type.startsWith("image/")) { toast.error(isKo ? "이미지 파일만 가능합니다." : "Images only."); return; }
-    if (file.size > 10 * 1024 * 1024) { toast.error(isKo ? "10MB 이하만 가능합니다." : "Max 10MB."); return; }
+    if (!file.type.startsWith("image/")) { toast.error(t("ads.create.imageOnly")); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error(t("ads.create.imageTooLarge")); return; }
     setImgUploading(true);
     try {
       const ext = (file.name.split(".").pop() || "png").toLowerCase();
@@ -81,23 +80,23 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
       const { error } = await supabase.storage.from("ad-images").upload(path, file, { upsert: true, contentType: file.type });
       if (error) throw error;
       setImageUrl(supabase.storage.from("ad-images").getPublicUrl(path).data.publicUrl);
-      toast.success(isKo ? "이미지를 업로드했어요." : "Uploaded.");
+      toast.success(t("ads.create.imageUploaded"));
     } catch (e: any) {
-      toast.error((isKo ? "업로드 실패: " : "Upload failed: ") + (e?.message || ""));
+      toast.error(t("ads.create.uploadFailed", { message: e?.message || "" }));
     } finally { setImgUploading(false); }
   };
 
   const handleVideoUpload = async (file: File | undefined) => {
     if (!file) return;
-    if (!file.type.startsWith("video/")) { toast.error(isKo ? "동영상 파일만 가능합니다." : "Video only."); return; }
-    if (file.size > 300 * 1024 * 1024) { toast.error(isKo ? "300MB 이하만 가능합니다." : "Max 300MB."); return; }
+    if (!file.type.startsWith("video/")) { toast.error(t("ads.create.videoOnly")); return; }
+    if (file.size > 300 * 1024 * 1024) { toast.error(t("ads.create.videoTooLarge")); return; }
     setVidUploading(true); setVidProgress(0);
     try {
       const { videoUrl: vu, thumbnailUrl: tu } = await uploadAdVideo(file, setVidProgress);
       setVideoUrl(vu); setThumbUrl(tu);
-      toast.success(isKo ? "영상을 업로드했어요. 인코딩 후 노출됩니다." : "Uploaded. Encoding…");
+      toast.success(t("ads.create.videoUploaded"));
     } catch (e: any) {
-      toast.error((isKo ? "영상 업로드 실패: " : "Video upload failed: ") + (e?.message || ""));
+      toast.error(t("ads.create.videoUploadFailed", { message: e?.message || "" }));
     } finally { setVidUploading(false); }
   };
 
@@ -106,7 +105,7 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
 
   const save = async (submit: boolean) => {
     if (!valid) {
-      toast.error(isKo ? "광고명·링크·소재(이미지/영상)는 필수입니다." : "Title, link, and creative are required.");
+      toast.error(t("ads.create.requiredFields"));
       return;
     }
     setBusy(true);
@@ -140,16 +139,16 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
       if (submit && adId) {
         const { error: subErr } = await supabase.rpc("advertiser_submit_ad", { p_ad_id: adId });
         if (subErr) throw subErr;
-        toast.success(isKo ? "광고를 심사 제출했어요. 승인 후 노출됩니다." : "Submitted for review.");
+        toast.success(t("ads.create.submitted"));
       } else if (reReview) {
-        toast.success(isKo ? "수정 사항을 저장했어요. 다시 심사를 거치며, 재승인되면 노출이 자동 재개됩니다." : "Saved. It will be re-reviewed; serving resumes once re-approved.");
+        toast.success(t("ads.create.savedReReview"));
       } else {
-        toast.success(isKo ? "저장했어요." : "Saved.");
+        toast.success(t("ads.create.saved"));
       }
       onSaved();
       onClose();
     } catch (e: any) {
-      toast.error((isKo ? "오류: " : "Error: ") + (e?.message || ""));
+      toast.error(t("ads.common.error", { message: e?.message || "" }));
     } finally { setBusy(false); }
   };
 
@@ -166,7 +165,7 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
             className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[151] mx-auto max-w-md max-h-[88vh] overflow-y-auto bg-card border border-border rounded-2xl shadow-2xl"
             onClick={(e) => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
-              <h3 className="font-bold text-base">{editAd ? (isKo ? "광고 수정" : "Edit ad") : (isKo ? "새 광고 만들기" : "New ad")}</h3>
+              <h3 className="font-bold text-base">{editAd ? t("ads.create.titleEdit") : t("ads.create.titleNew")}</h3>
               <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted"><X className="w-5 h-5" /></button>
             </div>
 
@@ -176,10 +175,10 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
                 <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-2">
                     {([
-                      ["overlay", isKo ? "오버레이 배너" : "Overlay", ImageIcon],
-                      ["feed_image", isKo ? "피드 이미지" : "Feed image", ImageIcon],
-                      ["feed_video", isKo ? "피드 영상" : "Feed video", Film],
-                      ["preroll", isKo ? "영상 프리롤" : "Preroll", Film],
+                      ["overlay", t("ads.create.kindOverlay"), ImageIcon],
+                      ["feed_image", t("ads.create.kindFeedImage"), ImageIcon],
+                      ["feed_video", t("ads.create.kindFeedVideo"), Film],
+                      ["preroll", t("ads.create.kindPreroll"), Film],
                     ] as const)
                       // 피드 자체광고 노출면(HOME_FEED_SELF_ADS)이 꺼진 동안엔 피드 상품 판매 중단
                       // — 노출면 없는 광고를 팔면 "결제됐는데 노출 0" 분쟁이 됨 (config/ads.ts 참조)
@@ -193,12 +192,12 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
                   </div>
                   <p className="text-[11px] text-gray-500 leading-relaxed">
                     {kind === "overlay"
-                      ? (isKo ? "영상 재생 중 하단에 뜨는 작은 배너(이미지)로만 노출됩니다." : "Small banner shown over playing videos only.")
+                      ? t("ads.create.kindOverlayDesc")
                       : kind === "feed_image"
-                      ? (isKo ? "홈 피드에 풀스크린 이미지 카드로만 노출됩니다." : "Full-screen image card in the home feed only.")
+                      ? t("ads.create.kindFeedImageDesc")
                       : kind === "feed_video"
-                      ? (isKo ? "홈 피드에 풀스크린 영상 카드(자동재생·무음)로만 노출됩니다." : "Full-screen autoplay video card in the home feed only.")
-                      : (isKo ? "본편 영상 시작 전 풀스크린 영상으로 재생됩니다." : "Full-screen video played before the main video.")}
+                      ? t("ads.create.kindFeedVideoDesc")
+                      : t("ads.create.kindPrerollDesc")}
                   </p>
                 </div>
               )}
@@ -206,30 +205,28 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
               {/* 비용 안내 — 노출당 단가 + 예산 충전제 설명 (전 형식 ₩2/노출 동일) */}
               <div className="rounded-lg border border-[#8b5cf6]/25 bg-[#8b5cf6]/5 px-3 py-2.5 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-[#c4b5fd]">{isKo ? "💰 비용" : "💰 Cost"}</span>
-                  <span className="text-[13px] font-black text-white">{isKo ? "노출당 ₩2" : "₩2 / imp"}</span>
+                  <span className="text-[11px] font-bold text-[#c4b5fd]">{t("ads.create.costTitle")}</span>
+                  <span className="text-[13px] font-black text-white">{t("ads.create.costPerImpression")}</span>
                 </div>
                 <p className="text-[11px] text-gray-400 leading-relaxed">
-                  {isKo ? "CPM ₩2,000 기준 노출 1회당 ₩2 차감 (모든 형식 동일). 클릭은 무료."
-                        : "₩2 per impression (CPM ₩2,000), same for all formats. Clicks are free."}
+                  {t("ads.create.costLine1")}
                 </p>
                 <p className="text-[11px] text-gray-500 leading-relaxed">
-                  {isKo ? "예) ₩10,000 충전 → 약 5,000회 노출. 승인 후 충전한 예산만큼만 노출되고, 소진되면 자동 중단됩니다."
-                        : "e.g. ₩10,000 → ~5,000 impressions. Serves only up to your topped-up budget; auto-stops when depleted."}
+                  {t("ads.create.costLine2")}
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-400 mb-1.5">{isKo ? "광고명" : "Ad name"}</label>
+                <label className="block text-xs font-bold text-gray-400 mb-1.5">{t("ads.create.nameLabel")}</label>
                 <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80}
-                  placeholder={isKo ? "예: 여름 세일 프로모션" : "e.g. Summer sale"} className={inputCls} />
+                  placeholder={t("ads.create.namePlaceholder")} className={inputCls} />
               </div>
 
               {!editAd && (
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 mb-1.5">{isKo ? "광고주명 (선택)" : "Advertiser (optional)"}</label>
+                  <label className="block text-xs font-bold text-gray-400 mb-1.5">{t("ads.create.advertiserLabel")}</label>
                   <input value={advertiser} onChange={(e) => setAdvertiser(e.target.value)} maxLength={60}
-                    placeholder={isKo ? "표시될 브랜드명" : "Brand name"} className={inputCls} />
+                    placeholder={t("ads.create.advertiserPlaceholder")} className={inputCls} />
                 </div>
               )}
 
@@ -237,30 +234,28 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
               {isImageKind && (
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-gray-400">{kind === "overlay" ? (isKo ? "배너 이미지" : "Banner image") : (isKo ? "피드 카드 이미지" : "Feed card image")}</label>
+                    <label className="block text-xs font-bold text-gray-400">{kind === "overlay" ? t("ads.create.bannerImageLabel") : t("ads.create.feedImageLabel")}</label>
                     <button type="button" onClick={() => imgRef.current?.click()} disabled={imgUploading}
                       className="text-[11px] font-bold text-[#a78bfa] hover:text-white flex items-center gap-1 disabled:opacity-50">
-                      {imgUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}{isKo ? "파일 업로드" : "Upload"}
+                      {imgUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}{t("ads.create.uploadFile")}
                     </button>
                     <input ref={imgRef} type="file" accept="image/*" className="hidden"
                       onChange={(e) => { handleImageUpload(e.target.files?.[0]); e.target.value = ""; }} />
                   </div>
                   <input value={imageUrl} onChange={(e) => { setImageUrl(e.target.value); setImgError(false); }}
-                    placeholder={kind === "overlay" ? (isKo ? "업로드 또는 이미지 URL (300×250 권장)" : "Upload or paste URL (300×250)") : (isKo ? "업로드 또는 이미지 URL (세로 9:16 권장)" : "Upload or paste URL (9:16)")} className={inputCls} />
+                    placeholder={kind === "overlay" ? t("ads.create.imageUrlPlaceholderOverlay") : t("ads.create.imageUrlPlaceholderFeed")} className={inputCls} />
                   {imageUrl.trim() ? (
                     imgError ? (
                       <p className="mt-2 text-[11px] text-red-300 bg-red-500/10 rounded-md px-2 py-2 leading-relaxed">
-                        {isKo
-                          ? "⚠️ 이미지를 불러올 수 없습니다. 웹페이지 주소가 아니라 실제 이미지 파일(.jpg/.png)이어야 합니다. 「파일 업로드」를 권장합니다."
-                          : "⚠️ Can't load image. It must be a direct image file (.jpg/.png), not a webpage URL. Use Upload instead."}
+                        {t("ads.create.imageLoadError")}
                       </p>
                     ) : (
                       <div className="mt-2 rounded-lg overflow-hidden border border-white/10 bg-black/30 aspect-[6/5] flex items-center justify-center">
-                        <img src={imageUrl} alt="preview" className="max-w-full max-h-full object-contain" onError={() => setImgError(true)} />
+                        <img src={imageUrl} alt={t("ads.create.previewAlt")} className="max-w-full max-h-full object-contain" onError={() => setImgError(true)} />
                       </div>
                     )
                   ) : (
-                    <p className="mt-1.5 text-[11px] text-gray-500 flex items-center gap-1"><ImageIcon className="w-3 h-3" />{kind === "overlay" ? (isKo ? "영상 위 작은 오버레이 배너로 노출됩니다." : "Shows as a small overlay banner over videos.") : (isKo ? "홈 피드에 풀스크린 이미지 카드로 노출됩니다." : "Shows as a full-screen image card in the feed.")}</p>
+                    <p className="mt-1.5 text-[11px] text-gray-500 flex items-center gap-1"><ImageIcon className="w-3 h-3" />{kind === "overlay" ? t("ads.create.imageHintOverlay") : t("ads.create.imageHintFeed")}</p>
                   )}
                 </div>
               )}
@@ -268,27 +263,27 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
               {/* 소재 — 영상 (피드 풀스크린 / 프리롤 공용 업로드) */}
               {isVideoKind && (
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 mb-1.5">{kind === "feed_video" ? (isKo ? "광고 영상 (피드 풀스크린)" : "Ad video (feed)") : (isKo ? "광고 영상 (프리롤)" : "Ad video (preroll)")}</label>
+                  <label className="block text-xs font-bold text-gray-400 mb-1.5">{kind === "feed_video" ? t("ads.create.videoLabelFeed") : t("ads.create.videoLabelPreroll")}</label>
                   <input ref={vidRef} type="file" accept="video/*" className="hidden"
                     onChange={(e) => { handleVideoUpload(e.target.files?.[0]); e.target.value = ""; }} />
                   {vidUploading ? (
                     <div className="p-4 rounded-lg border border-white/10 bg-white/5">
-                      <div className="flex items-center gap-2 text-sm text-gray-300 mb-2"><Loader2 className="w-4 h-4 animate-spin" />{isKo ? "업로드 중…" : "Uploading…"} {vidProgress}%</div>
+                      <div className="flex items-center gap-2 text-sm text-gray-300 mb-2"><Loader2 className="w-4 h-4 animate-spin" />{t("ads.create.uploadingPct", { pct: vidProgress })}</div>
                       <div className="h-1.5 rounded-full bg-white/10 overflow-hidden"><div className="h-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]" style={{ width: `${vidProgress}%` }} /></div>
                     </div>
                   ) : videoUrl ? (
                     <button type="button" onClick={() => vidRef.current?.click()}
                       className="w-full p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 flex items-center gap-2 text-sm text-emerald-300 hover:bg-emerald-500/15">
-                      <Check className="w-4 h-4" />{isKo ? "영상 업로드 완료 — 다시 올리려면 클릭" : "Uploaded — click to replace"}
+                      <Check className="w-4 h-4" />{t("ads.create.videoReplace")}
                     </button>
                   ) : (
                     <button type="button" onClick={() => vidRef.current?.click()}
                       className="w-full p-4 rounded-lg border-2 border-dashed border-white/15 hover:border-[#8b5cf6]/50 flex flex-col items-center gap-1 text-sm text-gray-400">
-                      <Upload className="w-6 h-6" />{isKo ? "광고 영상 업로드 (최대 300MB)" : "Upload ad video (≤300MB)"}
+                      <Upload className="w-6 h-6" />{t("ads.create.videoUploadCta")}
                       <span className="text-[11px] text-gray-500">
                         {kind === "feed_video"
-                          ? (isKo ? "세로 영상 권장 (9:16). 피드에서 자동재생·무음 루프로 노출됩니다." : "Vertical 9:16 recommended. Autoplays muted in feed.")
-                          : (isKo ? "짧은 프리롤 영상 권장 (15~30초). 영상 시작 전 재생됩니다." : "Short preroll recommended (15–30s).")}
+                          ? t("ads.create.videoHintFeed")
+                          : t("ads.create.videoHintPreroll")}
                       </span>
                     </button>
                   )}
@@ -296,24 +291,22 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
               )}
 
               <div>
-                <label className="block text-xs font-bold text-gray-400 mb-1.5">{isKo ? "클릭 시 이동할 링크" : "Click-through link"}</label>
+                <label className="block text-xs font-bold text-gray-400 mb-1.5">{t("ads.create.linkLabel")}</label>
                 <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://..." className={inputCls} />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-400 mb-1.5">{isKo ? "버튼 문구 (CTA)" : "CTA text"}</label>
+                <label className="block text-xs font-bold text-gray-400 mb-1.5">{t("ads.create.ctaLabel")}</label>
                 <input value={ctaText} onChange={(e) => setCtaText(e.target.value)} maxLength={20} className={inputCls} />
               </div>
 
               {reReview ? (
                 <p className="text-[11px] text-amber-300/90 bg-amber-500/10 rounded-md px-2.5 py-2 leading-relaxed">
-                  {isKo ? "⚠️ 승인된 광고를 수정하면 다시 심사를 거칩니다. 재승인 전까지 노출이 일시 중단되며, 재승인되면 자동으로 재개됩니다."
-                        : "⚠️ Editing an approved ad triggers re-review. Serving pauses until re-approved, then resumes automatically."}
+                  {t("ads.create.reReviewNotice")}
                 </p>
               ) : (
                 <p className="text-[11px] text-gray-500 leading-relaxed">
-                  {isKo ? "저장 후 「심사 제출」하면 운영팀 검토를 거쳐 승인됩니다. 승인 후 예산을 충전하면 노출이 시작됩니다."
-                        : "Submit for review after saving. Once approved, top up budget to start serving."}
+                  {t("ads.create.submitHint")}
                 </p>
               )}
             </div>
@@ -322,16 +315,16 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
               {reReview ? (
                 <Button onClick={() => save(false)} disabled={busy || !valid}
                   className="flex-1 gap-1.5 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold">
-                  {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" />{isKo ? "저장 후 재심사 요청" : "Save & re-review"}</>}
+                  {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" />{t("ads.create.saveReReview")}</>}
                 </Button>
               ) : (
                 <>
                   <Button onClick={() => save(false)} disabled={busy || !valid} variant="outline" className="flex-1">
-                    {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : (isKo ? "임시 저장" : "Save draft")}
+                    {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : t("ads.create.saveDraft")}
                   </Button>
                   <Button onClick={() => save(true)} disabled={busy || !valid}
                     className="flex-1 gap-1.5 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold">
-                    {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" />{isKo ? "저장 후 제출" : "Save & submit"}</>}
+                    {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" />{t("ads.create.saveSubmit")}</>}
                   </Button>
                 </>
               )}

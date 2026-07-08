@@ -88,7 +88,8 @@
     "notifications": "Notifications",
     "cart": "Cart",
     "viewCart": "View cart",
-    "remove": "Remove"
+    "remove": "Remove",
+    "loadError": "Couldn't load content. Please try again in a moment."
   },
   "app": {
     "videoNotFound": "Video not found",
@@ -297,7 +298,10 @@
     "deleteFailed": "Delete failed: {{message}}",
     "restoreFailed": "Restore failed: {{message}}",
     "alreadyAdded": "Already added",
-    "minLength": "Enter at least 2 characters"
+    "minLength": "Enter at least 2 characters",
+    "loadFailed": "Couldn't load the list.",
+    "filterAdded": "Added '{{word}}' to your filter words.",
+    "confirmRemoveWord": "Remove '{{word}}' from your filter words?"
   },
   "shareModal": {
     "title": "Share",
@@ -332,7 +336,9 @@
     "submitSuccess": "Report submitted. We'll review it shortly.",
     "submitFailed": "Failed to submit report.",
     "alreadyReported": "Already reported.",
-    "reasonRequired": "Please select a reason."
+    "reasonRequired": "Please select a reason.",
+    "reasonMisinformation": "Misinformation",
+    "warningNote": "⚠️ False reports may result in account penalties. You can only report the same content once."
   },
   "addToPlaylist": {
     "title": "Add to playlist",
@@ -446,7 +452,15 @@
     "title": "Notifications",
     "empty": "No notifications yet",
     "markAllRead": "Mark all read",
-    "viewAll": "View all"
+    "viewAll": "View all",
+    "sample": {
+      "welcomeTitle": "Welcome to CREAITE!",
+      "welcomeBody": "Sign in to receive personalized notifications.",
+      "challengeTitle": "New Challenge: Future City video contest",
+      "challengeBody": "Prize ₩5,000,000! Join now.",
+      "newVideosTitle": "15 new AI videos just uploaded",
+      "newVideosBody": "Check them out on the Home tab."
+    }
   },
   "cartPanel": {
     "title": "Cart",
@@ -512,7 +526,21 @@
     "guideTitle": "Install CREAITE as an App",
     "guideDesc": "Tap the install button below to enjoy CREAITE like a native app.",
     "guideInstalled": "App installed.",
-    "guideButton": "Install"
+    "guideButton": "Install",
+    "androidInstallHintShort": "Installation may take 1–3 min on Android (a real WebAPK is generated).",
+    "platformLabel": "Platform: {{platform}}",
+    "benefit1": "Launch in 1 second from home screen",
+    "benefit2": "Fullscreen — no browser address bar",
+    "benefit3": "Auto-updates — no app store review",
+    "androidNoteBold": "Installation may take 1–3 minutes.",
+    "androidNoteRest": "Android Chrome generates a real WebAPK from Google's servers. You can use other apps during install; it continues in the background.",
+    "noPwaSupport": "Current browser does not support PWA installation. Use the latest Chrome / Edge / Safari to see the install option.",
+    "iosModalTitle": "Install on iOS",
+    "iosModalSubtitle": "Install in 3 steps from Safari. (Instant.)",
+    "iosStep1Desc": "Square + arrow icon at Safari's bottom center",
+    "iosStep2Desc": "Scroll the menu down to find it",
+    "iosStep3Title": "Tap \"Add\" at top right",
+    "iosStep3Desc": "CREAITE icon will appear on your home screen"
   },
   "splash": {
     "tagline": "Browse AI cinema now",
@@ -554,7 +582,8 @@
     "delete": "Delete",
     "comments": "Comments",
     "share": "Share",
-    "like": "Like"
+    "like": "Like",
+    "promptCopied": "Prompt copied! 📋"
   },
   "communityChallengeDetail": {
     "back": "Back",
@@ -634,7 +663,58 @@
     "submitting": "Submitting...",
     "submitSuccess": "Inquiry submitted. We'll reply soon.",
     "submitFailed": "Failed to submit. Please try again.",
-    "requiredFields": "Please fill in all required fields."
+    "requiredFields": "Please fill in all required fields.",
+    "invalidEmail": "Invalid email format.",
+    "replyWithin": "We'll reply within 2–3 business days to",
+    "privacyNoteLine1": "Your information is used only for responding to your inquiry",
+    "privacyNoteLine2": "and will be deleted within 1 year after handling unless you consent to retention.",
+    "extra": {
+      "advertising": {
+        "budgetLabel": "Budget",
+        "budgetUnder5m": "Under ₩5M",
+        "budget5to20m": "₩5M–20M",
+        "budget20to50m": "₩20M–50M",
+        "budget50mPlus": "₩50M+",
+        "budgetTbd": "TBD",
+        "periodLabel": "Campaign period",
+        "periodPh": "e.g. 2 months / 2026 Q3",
+        "formatLabel": "Preferred format",
+        "formatPh": "e.g. in-video, feed card, brand channel"
+      },
+      "investment": {
+        "stageLabel": "Stage",
+        "stageSeed": "Seed",
+        "stagePreA": "Pre-A",
+        "stageA": "Series A",
+        "stageBPlus": "Series B+",
+        "stageOther": "Other",
+        "amountLabel": "Ticket size",
+        "amountPh": "e.g. $500K / TBD",
+        "investorLabel": "Investor type",
+        "investorVc": "VC",
+        "investorAngel": "Angel",
+        "investorPe": "PE",
+        "investorCvc": "Strategic (CVC)",
+        "investorIndividual": "Individual",
+        "investorOther": "Other"
+      },
+      "partnership": {
+        "typeLabel": "Partnership type",
+        "typeContent": "Content partner",
+        "typeChannel": "Channel collab",
+        "typeCoProduction": "Co-production",
+        "typeTech": "Tech partnership",
+        "typeOther": "Other",
+        "scopeLabel": "Scope",
+        "scopePh": "e.g. quarterly joint campaign"
+      },
+      "b2b": {
+        "scaleLabel": "Usage scale",
+        "scalePh": "e.g. 10 videos / 1 year",
+        "usageLabel": "Use case",
+        "usagePh": "e.g. internal training, ad creative, in-app embed"
+      }
+    }
   },
   "creatorDashboard": {
     "title": "Creator Analytics",
@@ -666,7 +746,14 @@
     "duration10plus": "10+ min",
     "newFollowers": "New",
     "cumulativeFollowers": "Total",
-    "back": "Back"
+    "back": "Back",
+    "tooltipRpm": "Average revenue per 1,000 views",
+    "tooltipWatchRatio": "Average ratio watched per valid view",
+    "tooltipCompletion": "Ratio watching 90%+ of the video",
+    "pendingSuffix": "pending",
+    "retentionSubtitle": "Which video lengths are watched to completion most",
+    "viewCountLabel": "{{count}} views",
+    "loadFailed": "Couldn't load dashboard stats. Please try again shortly."
   },
   "ageBadge": {
     "all": "ALL",
@@ -695,7 +782,8 @@
     "registeredVideos": "Uploaded videos",
     "sortLatest": "Latest",
     "sortOldest": "Oldest",
-    "noVideos": "No uploaded videos."
+    "noVideos": "No uploaded videos.",
+    "creatorOfMonth": "👑 Creator of the Month"
   },
   "header": {
     "language": "Language",
@@ -1014,6 +1102,24 @@
       "membership": "Membership",
       "support": "Support · Contact",
       "settings": "Settings"
+    },
+    "receivedComments": {
+      "title": "Received comments",
+      "subtitle": "Reply to or hide comments on your videos.",
+      "empty": "No comments yet.",
+      "loadFailed": "Couldn't load received comments.",
+      "reply": "Reply",
+      "hiddenBadge": "Hidden",
+      "replyAction": "Reply",
+      "restoreAction": "Unhide",
+      "hideAction": "Hide",
+      "replyPlaceholder": "Write a reply",
+      "send": "Post",
+      "loadMore": "Load more",
+      "replyFailed": "Failed to post reply.",
+      "replied": "Reply posted.",
+      "restored": "Comment is visible again.",
+      "hidden": "Comment hidden."
     }
   },
   "myPayments": {
@@ -1111,7 +1217,12 @@
       "refundCompletedDesc": "When your refund has been processed",
       "broadcastLabel": "Service announcement emails",
       "broadcastDesc": "Receive maintenance, event, and policy update announcements by email"
-    }
+    },
+    "pushEnabled": "You'll receive push notifications on this device.",
+    "pushDisabled": "Push notifications turned off.",
+    "pushError": "Failed to update push settings.",
+    "pushDeviceLabel": "Get push on this device",
+    "pushDeviceDesc": "Receive notifications on your lock screen and notification center (iOS requires adding to home screen)"
   },
   "share": {
     "title": "Share",
@@ -1180,7 +1291,13 @@
     "ageGateLockTitle": "19+ Verification Required",
     "ageGateLockHint": "Tap to verify",
     "notForSaleToast": "Free-to-watch only (license not for sale)",
-    "negotiationToast": "Contact us for pricing — see the detail page"
+    "negotiationToast": "Contact us for pricing — see the detail page",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "signInRequired": "Please sign in to continue",
+    "liked": "♥ Liked",
+    "unliked": "Like removed",
+    "likeFailed": "Couldn't update like"
   },
   "nextVideo": {
     "label": "Next video",
@@ -1276,7 +1393,10 @@
     "previous": "Previous",
     "next": "Next",
     "seriesBadge": "Series · {{count}} eps",
-    "addToCart": "Add to cart"
+    "addToCart": "Add to cart",
+    "play": "Play",
+    "like": "Like",
+    "uploadCta": "Add your video"
   },
   "language": {
     "korean": "Korean",
@@ -1493,7 +1613,31 @@
     "cinematicShort": "Cinematic Short",
     "nameless": "Unknown",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "programmingNow": "This hour's lineup",
+    "programmingPick": "Picked for right now",
+    "bands": {
+      "dawn": {
+        "name": "Sleepless Dawn",
+        "tagline": "Wide awake with the tension"
+      },
+      "morning": {
+        "name": "Easing Into Morning",
+        "tagline": "A calm way to start the day"
+      },
+      "day": {
+        "name": "Bright Afternoon",
+        "tagline": "Light and upbeat vibes"
+      },
+      "evening": {
+        "name": "Evening Together",
+        "tagline": "Time to share with someone"
+      },
+      "night": {
+        "name": "Immersive Night",
+        "tagline": "Sink deep into one story"
+      }
+    }
   },
   "searchPage": {
     "closeAriaLabel": "Close",
@@ -1726,6 +1870,9 @@
     },
     "dashboard": {
       "title": "Advertiser Center",
+      "signInRequired": "Please sign in.",
+      "signIn": "Sign in",
+      "newAd": "New ad",
       "loadFailed": "Failed to load: {{message}}",
       "submitted": "Submitted for review.",
       "status": {
@@ -1965,5 +2112,55 @@
       "body": "The share rates and policies in this guide may change as operations require, with advance notice before any change."
     },
     "cta": "Got it"
+  },
+  "communityMock": {
+    "mockSnapshotLabel": "(mock snapshot)"
+  },
+  "eventBanner": {
+    "prevBanner": "Previous banner",
+    "nextBanner": "Next banner"
+  },
+  "referral": {
+    "title": "Invite creators",
+    "invitedSoFar": "Invite friends to become distributors together. Invited so far: {{count}}",
+    "copySuccess": "Invite link copied",
+    "copyFailed": "Copy failed",
+    "shareText": "Upload your AI videos and earn — big platforms take, CREAITE gives it back.",
+    "rewardNote": "※ Rewards start as exposure & badges, expanding to cash after payments launch."
+  },
+  "adPlayer": {
+    "loadFailed": "Ad failed to load",
+    "unmute": "Unmute",
+    "mute": "Mute",
+    "learnMore": "Learn more",
+    "skipDisabled": "Can't skip",
+    "skipAfter": "Skip in {{seconds}}s",
+    "closeAd": "Close ad"
+  },
+  "coupang": {
+    "label": "Coupang picks",
+    "disclosure": "As a Coupang Partners affiliate, this site earns a commission from qualifying purchases."
+  },
+  "pushPrompt": {
+    "enabling": "Turning on notifications…",
+    "enabled": "Notifications are on. Get new updates right away.",
+    "failed": "Failed to set up notifications.",
+    "title": "Get notifications",
+    "description": "Get replies, announcements, payments and more right on your lock screen.",
+    "enable": "Turn on",
+    "later": "Later"
+  },
+  "passwordReset": {
+    "tooShort": "Password must be at least 6 characters.",
+    "mismatch": "Passwords do not match.",
+    "success": "Your password has been changed.",
+    "failed": "Change failed: ",
+    "title": "Set a new password",
+    "subtitle": "Enter the password you'd like to use.",
+    "successDesc": "Your password has been changed. You can now sign in with your new password.",
+    "goHome": "Get started",
+    "newPassword": "New password (6+ characters)",
+    "confirmPassword": "Confirm password",
+    "submit": "Change password"
   }
 }

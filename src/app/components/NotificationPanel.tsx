@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { X, Bell, Heart, MessageCircle, ShoppingBag, TrendingUp, Zap, CheckCheck, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
@@ -15,61 +15,6 @@ interface Notification {
   read: boolean;
   created_at: string;
 }
-
-// 미인증 시 보여줄 샘플 알림
-const SAMPLE_KO: Notification[] = [
-  {
-    id: "s1",
-    type: "system",
-    title: "CREAITE에 오신 것을 환영합니다!",
-    body: "로그인하면 맞춤 알림을 받을 수 있습니다.",
-    read: false,
-    created_at: new Date(Date.now() - 60000).toISOString(),
-  },
-  {
-    id: "s2",
-    type: "challenge",
-    title: "새 챌린지 시작: 미래 도시 영상 공모",
-    body: "우승 시 프리미엄 6개월 + 홈 히어로 노출! 지금 참여해보세요.",
-    read: false,
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: "s3",
-    type: "system",
-    title: "신규 AI 영상 15개가 업로드됐습니다",
-    body: "홈 탭에서 확인해보세요.",
-    read: true,
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-  },
-];
-
-const SAMPLE_EN: Notification[] = [
-  {
-    id: "s1",
-    type: "system",
-    title: "Welcome to CREAITE!",
-    body: "Sign in to receive personalized notifications.",
-    read: false,
-    created_at: new Date(Date.now() - 60000).toISOString(),
-  },
-  {
-    id: "s2",
-    type: "challenge",
-    title: "New Challenge: Future City video contest",
-    body: "Prize ₩5,000,000! Join now.",
-    read: false,
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: "s3",
-    type: "system",
-    title: "15 new AI videos just uploaded",
-    body: "Check them out on the Home tab.",
-    read: true,
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-  },
-];
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
   like: <Heart className="w-4 h-4 text-red-400" />,
@@ -103,7 +48,33 @@ interface NotificationPanelProps {
 export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: NotificationPanelProps) {
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
-  const SAMPLE = isKo ? SAMPLE_KO : SAMPLE_EN;
+  // 미인증 시 보여줄 샘플 알림
+  const SAMPLE = useMemo<Notification[]>(() => [
+    {
+      id: "s1",
+      type: "system",
+      title: t("notificationPanel.sample.welcomeTitle"),
+      body: t("notificationPanel.sample.welcomeBody"),
+      read: false,
+      created_at: new Date(Date.now() - 60000).toISOString(),
+    },
+    {
+      id: "s2",
+      type: "challenge",
+      title: t("notificationPanel.sample.challengeTitle"),
+      body: t("notificationPanel.sample.challengeBody"),
+      read: false,
+      created_at: new Date(Date.now() - 3600000).toISOString(),
+    },
+    {
+      id: "s3",
+      type: "system",
+      title: t("notificationPanel.sample.newVideosTitle"),
+      body: t("notificationPanel.sample.newVideosBody"),
+      read: true,
+      created_at: new Date(Date.now() - 86400000).toISOString(),
+    },
+  ], [t]);
   const { isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);

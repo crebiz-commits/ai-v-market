@@ -12,8 +12,7 @@ interface DayStat { day: string; impressions: number; clicks: number; }
 interface Props { open: boolean; adId: string; adTitle: string; onClose: () => void; }
 
 export function AdStatsModal({ open, adId, adTitle, onClose }: Props) {
-  const { i18n } = useTranslation();
-  const isKo = (i18n.language || "en").startsWith("ko");
+  const { t } = useTranslation();
   const [rows, setRows] = useState<DayStat[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -47,7 +46,7 @@ export function AdStatsModal({ open, adId, adTitle, onClose }: Props) {
             <div className="px-5 py-4 border-b border-border flex items-center justify-between sticky top-0 bg-card">
               <div className="flex items-center gap-2 min-w-0">
                 <BarChart3 className="w-5 h-5 text-[#a78bfa] flex-shrink-0" />
-                <h3 className="font-bold text-base truncate">{isKo ? "성과" : "Performance"} · {adTitle}</h3>
+                <h3 className="font-bold text-base truncate">{t("ads.stats.title")} · {adTitle}</h3>
               </div>
               <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted flex-shrink-0"><X className="w-5 h-5" /></button>
             </div>
@@ -56,12 +55,12 @@ export function AdStatsModal({ open, adId, adTitle, onClose }: Props) {
               {loading ? (
                 <div className="flex justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-[#8b5cf6]" /></div>
               ) : rows.length === 0 ? (
-                <p className="text-center py-16 text-gray-500 text-sm">{isKo ? "아직 집계된 노출이 없습니다." : "No data yet."}</p>
+                <p className="text-center py-16 text-gray-500 text-sm">{t("ads.stats.empty")}</p>
               ) : (
                 <>
                   <div className="flex gap-4 mb-4 text-sm">
-                    <div><span className="text-gray-400">{isKo ? "총 노출 " : "Imp "}</span><span className="font-black text-white">{totImp.toLocaleString()}</span></div>
-                    <div><span className="text-gray-400">{isKo ? "총 클릭 " : "Clicks "}</span><span className="font-black text-white">{totClk.toLocaleString()}</span></div>
+                    <div><span className="text-gray-400">{t("ads.stats.totalImpressions")} </span><span className="font-black text-white">{totImp.toLocaleString()}</span></div>
+                    <div><span className="text-gray-400">{t("ads.stats.totalClicks")} </span><span className="font-black text-white">{totClk.toLocaleString()}</span></div>
                     <div><span className="text-gray-400">CTR </span><span className="font-black text-white">{totImp > 0 ? ((totClk / totImp) * 100).toFixed(1) + "%" : "—"}</span></div>
                   </div>
                   <div className="space-y-1.5">
@@ -75,7 +74,7 @@ export function AdStatsModal({ open, adId, adTitle, onClose }: Props) {
                       </div>
                     ))}
                   </div>
-                  <p className="mt-3 text-[10px] text-gray-500">{isKo ? "막대=노출, 우측=노출·클릭 (최근 14일)" : "bar=imp, right=imp·clicks (14d)"}</p>
+                  <p className="mt-3 text-[10px] text-gray-500">{t("ads.stats.legend")}</p>
                 </>
               )}
             </div>

@@ -24,24 +24,23 @@ const PRESETS = [10000, 30000, 50000, 100000];
 const MIN = 10000;
 
 export function AdTopupModal({ open, adId, adTitle, cpm = 2, onClose }: Props) {
-  const { i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { startAdBudgetTopUp } = usePayment();
-  const isKo = (i18n.language || "en").startsWith("ko");
   const [amount, setAmount] = useState<number>(30000);
   const [busy, setBusy] = useState(false);
 
   const estImpressions = cpm > 0 ? Math.floor(amount / cpm) : 0;
 
   const pay = async () => {
-    if (amount < MIN) { toast.error(isKo ? `최소 충전액은 ₩${MIN.toLocaleString()} 입니다.` : `Minimum ₩${MIN.toLocaleString()}.`); return; }
+    if (amount < MIN) { toast.error(t("ads.topup.minAmount", { amount: MIN.toLocaleString() })); return; }
     setBusy(true);
     try {
       await startAdBudgetTopUp({ adId, amount, adTitle, email: user?.email, name: (user as any)?.name });
       // Toss 결제창으로 이동 — 이후 코드 실행 안 됨
     } catch (e: any) {
       setBusy(false);
-      if (e?.code !== "USER_CANCEL") toast.error((isKo ? "오류: " : "Error: ") + (e?.message || ""));
+      if (e?.code !== "USER_CANCEL") toast.error(t("ads.common.error", { message: e?.message || "" }));
     }
   };
 
@@ -60,7 +59,7 @@ export function AdTopupModal({ open, adId, adTitle, cpm = 2, onClose }: Props) {
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Wallet className="w-5 h-5 text-[#a78bfa]" />
-                <h3 className="font-bold text-base">{isKo ? "예산 충전" : "Top up budget"}</h3>
+                <h3 className="font-bold text-base">{t("ads.topup.title")}</h3>
               </div>
               <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted"><X className="w-5 h-5" /></button>
             </div>
@@ -78,29 +77,26 @@ export function AdTopupModal({ open, adId, adTitle, cpm = 2, onClose }: Props) {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-400 mb-1.5">{isKo ? "직접 입력 (₩)" : "Custom (₩)"}</label>
+                <label className="block text-xs font-bold text-gray-400 mb-1.5">{t("ads.topup.customLabel")}</label>
                 <input type="number" min={MIN} step={1000} value={amount}
                   onChange={(e) => setAmount(Math.max(0, parseInt(e.target.value || "0", 10)))} className={inputCls} />
               </div>
 
               <div className="text-[11px] text-gray-500 bg-white/5 rounded-lg px-3 py-2 leading-relaxed">
-                {isKo ? `예상 노출 약 ${estImpressions.toLocaleString()}회 (노출당 ₩${cpm}). 충전 후 즉시 노출에 반영됩니다.`
-                      : `~${estImpressions.toLocaleString()} impressions (₩${cpm}/imp). Applied immediately.`}
+                {t("ads.topup.estimate", { n: estImpressions.toLocaleString(), cpm })}
               </div>
 
               {/* 전자상거래법 — 충전금 환불 고지 (결제 전) */}
               <p className="text-[10px] text-gray-500 mt-2 leading-relaxed">
-                {isKo
-                  ? "노출 시작 전 충전일로부터 7일 내 전액 환불 가능, 노출 시작 후엔 잔액 한도 내 환불. 환불 정책: "
-                  : "Full refund within 7 days before serving; remaining balance refundable after. Refund policy: "}
-                <a href="?info=terms" className="underline hover:text-gray-300">{isKo ? "이용약관 제7조" : "Terms §7"}</a>
+                {t("ads.topup.refundNotice")}
+                <a href="?info=terms" className="underline hover:text-gray-300">{t("ads.topup.termsLink")}</a>
               </p>
             </div>
 
             <div className="px-5 py-4 border-t border-border">
               <Button onClick={pay} disabled={busy || amount < MIN}
                 className="w-full h-12 gap-2 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-black">
-                {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <>{isKo ? `₩${amount.toLocaleString()} 충전하기` : `Top up ₩${amount.toLocaleString()}`}</>}
+                {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <>{t("ads.topup.payButton", { amount: amount.toLocaleString() })}</>}
               </Button>
             </div>
           </motion.div>
