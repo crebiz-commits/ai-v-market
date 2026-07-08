@@ -120,7 +120,9 @@
     "noChannelsTitle": "No channels to display",
     "noChannelsHint": "Recommendations will start once more creators upload videos.",
     "videosCount": "{{count}} videos",
-    "followers": "Followers {{count}}"
+    "followers": "Followers {{count}}",
+    "spotlightLabel": "Creator to watch",
+    "spotlightCta": "Spotlight"
   },
   "community": {
     "title": "Community",
@@ -1435,7 +1437,9 @@
     "emptyCinemaTitle": "{{tier}} videos haven't been uploaded yet",
     "emptyCinemaSubtitleCinema": "Videos 3 minutes or longer will appear here",
     "emptyCinemaSubtitleOtt": "Videos 10 minutes or longer will appear here",
-    "loadingFailed": "Loading failed"
+    "loadingFailed": "Loading failed",
+    "collectionsTitle": "CREAITE Collections",
+    "collectionsSubtitle": "Editor selections woven by genre and mood"
   },
   "videoRow": {
     "empty": "No videos",
@@ -1716,7 +1720,9 @@
         "name": "Immersive Night",
         "tagline": "Sink deep into one story"
       }
-    }
+    },
+    "selectTitle": "🏆 CREAITE Select",
+    "selectSubtitle": "Official picks, editor-endorsed"
   },
   "searchPage": {
     "closeAriaLabel": "Close",
@@ -2385,5 +2391,9 @@
     "metaSuffix": "CREAITE Magazine",
     "metaListTitle": "CREAITE Magazine — AI video production & creator insights",
     "metaListDesc": "AI video prompt writing, genre directing guides, creator revenue models, and making-of stories — CREAITE's take on AI cinema."
+  },
+  "creaiteSelect": {
+    "label": "CREAITE Select",
+    "tooltip": "CREAITE Select — official pick"
   }
 }

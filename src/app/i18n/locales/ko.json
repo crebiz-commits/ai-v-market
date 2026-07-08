@@ -120,7 +120,9 @@
     "noChannelsTitle": "표시할 채널이 없어요",
     "noChannelsHint": "영상을 등록한 크리에이터가 늘어나면 이곳에서 추천이 시작됩니다.",
     "videosCount": "영상 {{count}}개",
-    "followers": "팔로워 {{count}}"
+    "followers": "팔로워 {{count}}",
+    "spotlightLabel": "주목할 창작자",
+    "spotlightCta": "스포트라이트"
   },
   "community": {
     "title": "커뮤니티",
@@ -1435,7 +1437,9 @@
     "emptyCinemaTitle": "{{tier}} 영상이 아직 없습니다",
     "emptyCinemaSubtitleCinema": "3분 이상의 영상이 업로드되면 표시됩니다",
     "emptyCinemaSubtitleOtt": "10분 이상의 장편 영상이 업로드되면 표시됩니다",
-    "loadingFailed": "로딩 실패"
+    "loadingFailed": "로딩 실패",
+    "collectionsTitle": "CREAITE 컬렉션",
+    "collectionsSubtitle": "장르와 무드로 엮은 에디터 셀렉션"
   },
   "videoRow": {
     "empty": "영상이 없습니다",
@@ -1716,7 +1720,9 @@
         "name": "몰입의 밤",
         "tagline": "깊이 빠져드는 한 편"
       }
-    }
+    },
+    "selectTitle": "🏆 CREAITE 셀렉트",
+    "selectSubtitle": "에디터가 보증하는 공식 선정작"
   },
   "searchPage": {
     "closeAriaLabel": "닫기",
@@ -2385,5 +2391,9 @@
     "metaSuffix": "CREAITE 매거진",
     "metaListTitle": "CREAITE 매거진 — AI 영상 제작·크리에이터 인사이트",
     "metaListDesc": "AI 영상 프롬프트 작성법, 장르별 연출 가이드, 크리에이터 수익 모델, 제작기까지. CREAITE가 전하는 AI 시네마 이야기."
+  },
+  "creaiteSelect": {
+    "label": "CREAITE 셀렉트",
+    "tooltip": "CREAITE 셀렉트 — 공식 선정작"
   }
 }
