@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { formatCompactNumber } from "../i18n/numberFormat";
 import { getCategoryLabel, getAiToolLabel } from "../i18n/categoryLabels";
 import { Footer } from "./Footer";
+import { SPOTLIGHTS } from "../data/spotlights";
 
 interface ChannelProps {
   onSignInClick?: () => void;
@@ -214,6 +215,30 @@ export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCre
             {t("channel.subtitle")}
           </p>
         </motion.div>
+
+        {/* ✦ 주목할 창작자 (스포트라이트) — 배급사가 소속 감독을 띄우듯 */}
+        {SPOTLIGHTS.length > 0 && (() => {
+          const s = SPOTLIGHTS[0];
+          return (
+            <a
+              href={`?info=spotlight&s=${s.slug}`}
+              className="group relative block rounded-2xl overflow-hidden border border-white/[0.08] hover:border-[#6366f1]/50 hover:shadow-[0_0_28px_rgba(99,102,241,0.2)] transition-all mb-6"
+            >
+              <div className={`absolute inset-0 bg-gradient-to-r ${s.gradient}`} />
+              <div className="absolute -right-10 -top-10 w-52 h-52 rounded-full bg-white/15 blur-3xl" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/40 to-transparent" />
+              <div className="relative flex items-center gap-4 p-5 md:p-6">
+                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/15 border-2 border-white/40 flex items-center justify-center text-3xl md:text-4xl shrink-0 group-hover:scale-105 transition-transform">{s.emoji}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="inline-flex items-center gap-1 text-[11px] font-black text-white/90 mb-1"><Sparkles className="w-3 h-3" /> {t("channel.spotlightLabel", "주목할 창작자")}</div>
+                  <div className="text-lg md:text-2xl font-black text-white leading-tight drop-shadow">{s.creatorName}</div>
+                  <div className="text-white/80 text-xs md:text-sm line-clamp-1">{s.tagline}</div>
+                </div>
+                <span className="hidden sm:inline-flex items-center gap-1 shrink-0 text-sm font-bold text-white group-hover:gap-2 transition-all">{t("channel.spotlightCta", "스포트라이트")} →</span>
+              </div>
+            </a>
+          );
+        })()}
 
         {/* 탭 */}
         <div className="flex items-center gap-2 mb-6 p-1 bg-[#1c1c1e] rounded-xl border border-white/5 max-w-md">
