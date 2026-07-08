@@ -10,6 +10,8 @@ import { CreatorAvatar } from "./CreatorAvatar";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../utils/supabaseClient";
 import { SPOTLIGHTS, getSpotlight } from "../data/spotlights";
+import { isCreaiteSelect } from "../data/collections";
+import { CreaiteSelectBadge } from "./CreaiteSelectBadge";
 
 interface SpotlightProps {
   onBack: () => void;
@@ -141,6 +143,7 @@ export function SpotlightPage({ onBack, onNavigate }: SpotlightProps) {
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <Play className="w-8 h-8 text-white fill-white" />
                         </div>
+                        {isCreaiteSelect(v.id) && <span className="absolute top-1.5 left-1.5"><CreaiteSelectBadge variant="corner" /></span>}
                         {v.duration && <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/70 text-[10px] font-bold text-white">{v.duration}</span>}
                       </div>
                       <div className="p-2.5">

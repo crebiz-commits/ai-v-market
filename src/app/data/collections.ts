@@ -17,7 +17,31 @@ export interface Collection {
   videoIds: string[];   // 큐레이션 순서 보존
 }
 
+// CREAITE 셀렉트 — "공식 선정작". 이 컬렉션에 든 작품은 영상 카드·상세에 셀렉트 배지 노출.
+//   (배급사의 '인정' 장치 — 영화제 Official Selection 처럼. 배지 SSOT = 이 컬렉션의 videoIds)
+export const CREAITE_SELECT_SLUG = "creaite-select";
+
 export const COLLECTIONS: Collection[] = [
+  {
+    slug: CREAITE_SELECT_SLUG,
+    title: "CREAITE 셀렉트",
+    tagline: "에디터 공식 선정작 · 명예의 전당",
+    emoji: "🏆",
+    gradient: "from-[#f59e0b] to-[#ec4899]",
+    date: "2026-07-08",
+    intro: `
+<p><strong>CREAITE 셀렉트</strong>는 우리가 자신 있게 내세우는 작품에 부여하는 공식 선정입니다. 영화제의 'Official Selection'처럼, 이 배지는 <strong>"CREAITE가 골랐다"</strong>는 인장입니다.</p>
+<p>완성도, 이야기의 힘, 그리고 AI 시네마의 가능성을 보여준 작품들이 이 명예의 전당에 오릅니다. 선정작에는 영상 카드와 상세 페이지에 <em>✦ CREAITE 셀렉트</em> 배지가 붙습니다. 창작자에게는 훈장이고, 관객에게는 "실패 없는 선택"의 표식입니다.</p>
+<p>무엇을 볼지 고민된다면, 여기서 시작하세요. CREAITE가 보증하는 작품들입니다.</p>
+`,
+    videoIds: [
+      "b74e4056-5dc8-4824-8807-3675cbe2b247", // 바다의 신비 (다큐)
+      "bee906d7-6d7b-4c7a-a302-f9155b16eba9", // 가장 가벼운 비행 (SF)
+      "bb0299c7-3b80-4dc4-833b-a265e78f4e97", // 스물, 사랑하다 (로맨스)
+      "a93224cf-2e62-4049-8e60-c2eed710ed2e", // 오마하의 새벽 (액션)
+      "269be30c-9fd1-4094-bc9a-6b0ef6512d69", // 라스트 킥오프 (SF)
+    ],
+  },
   {
     slug: "first-watch",
     title: "처음이라면, 이 다섯 편",
@@ -97,4 +121,12 @@ export const COLLECTIONS: Collection[] = [
 
 export function getCollection(slug: string): Collection | undefined {
   return COLLECTIONS.find((c) => c.slug === slug);
+}
+
+// CREAITE 셀렉트 선정작 id 집합 (배지 판별용 SSOT)
+const CREAITE_SELECT_IDS = new Set(
+  (COLLECTIONS.find((c) => c.slug === CREAITE_SELECT_SLUG)?.videoIds) ?? [],
+);
+export function isCreaiteSelect(videoId: string | null | undefined): boolean {
+  return !!videoId && CREAITE_SELECT_IDS.has(videoId);
 }

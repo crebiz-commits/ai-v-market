@@ -6,6 +6,8 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { CommentPanel } from "./CommentPanel";
+import { CreaiteSelectBadge } from "./CreaiteSelectBadge";
+import { isCreaiteSelect } from "../data/collections";
 import { useBackButton } from "../hooks/useBackButton";
 import { useAuth } from "../contexts/AuthContext";
 import { useSettings } from "../contexts/SettingsContext";
@@ -1397,6 +1399,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
           <div className="p-6">
             {/* Title & Creator */}
             <div className="mb-6">
+              {isCreaiteSelect(product.id) && <div className="mb-2"><CreaiteSelectBadge /></div>}
               <h2 className="text-2xl md:text-4xl font-black mb-2">{product.title}</h2>
 
               {/* 인라인 메타: 연도·등급·길이·OTT·조회수·좋아요 (Phase 31.4 + 31.6) */}

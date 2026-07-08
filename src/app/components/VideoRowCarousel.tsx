@@ -19,6 +19,8 @@ import { useTranslation } from "react-i18next";
 import { getCategoryLabel, getGenreLabel } from "../i18n/categoryLabels";
 import { formatCompactNumber } from "../i18n/numberFormat";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
+import { CreaiteSelectBadge } from "./CreaiteSelectBadge";
+import { isCreaiteSelect } from "../data/collections";
 import { useAuth } from "../contexts/AuthContext";
 import { isNegotiationOnly } from "../utils/licensePricing";
 import { useSettings } from "../contexts/SettingsContext";
@@ -134,6 +136,9 @@ const VideoCard = memo(function VideoCard({ video, idx, onVideoClick, onAddToCar
           <div className="absolute top-1 left-1 z-10 w-8 h-8 rounded bg-black/70 backdrop-blur-sm flex items-center justify-center">
             <span className="text-lg font-black text-white">{idx + 1}</span>
           </div>
+        )}
+        {isCreaiteSelect(video.id) && !isAgeLocked && (
+          <span className="absolute top-1 right-1 z-10"><CreaiteSelectBadge variant="corner" /></span>
         )}
         {video.thumbnail ? (
           <img

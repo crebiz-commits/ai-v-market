@@ -8,7 +8,8 @@ import { Footer } from "./Footer";
 import { BackButton } from "./BackButton";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../utils/supabaseClient";
-import { COLLECTIONS, getCollection } from "../data/collections";
+import { COLLECTIONS, getCollection, isCreaiteSelect } from "../data/collections";
+import { CreaiteSelectBadge } from "./CreaiteSelectBadge";
 
 interface CollectionsProps {
   onBack: () => void;
@@ -136,6 +137,7 @@ export function CollectionsPage({ onBack, onNavigate }: CollectionsProps) {
                           </div>
                         </div>
                         <span className="absolute top-2 left-2 w-6 h-6 rounded bg-black/70 backdrop-blur-sm flex items-center justify-center text-[11px] font-black text-white">{i + 1}</span>
+                        {isCreaiteSelect(v.id) && <span className="absolute top-2 right-2"><CreaiteSelectBadge variant="corner" /></span>}
                         {v.duration && <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/70 text-[10px] font-bold text-white">{v.duration}</span>}
                       </div>
                       <div className="p-3">
