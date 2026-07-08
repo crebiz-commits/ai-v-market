@@ -203,7 +203,8 @@
     "collabTypeRecruit": "팀원 모집",
     "collabTypeJoin": "참여 희망",
     "collabTypeHelp": "도움 요청",
-    "collabTypeOutsource": "외주 · 유료"
+    "collabTypeOutsource": "외주 · 유료",
+    "officialTeam": "CREAITE 운영팀"
   },
   "communityCategory": {
     "tip": "팁",
@@ -522,7 +523,8 @@
     "signOut": "로그아웃",
     "membershipSub": "월 ₩4,900 · 광고 없는 무제한",
     "advertiser": "광고주 센터",
-    "magazineSub": "AI 영상 제작 가이드 · 인사이트"
+    "magazineSub": "AI 영상 제작 가이드 · 인사이트",
+    "collectionsSub": "에디터가 고른 AI 시네마 셀렉션"
   },
   "footer": {
     "tagline": "세계 최초 AI 시네마 OTT",
@@ -555,7 +557,9 @@
     "affiliates": "계열사",
     "devOps": "🛠 개발·운영",
     "magazine": "CREAITE 매거진",
-    "magazineMore": "전체보기"
+    "magazineMore": "전체보기",
+    "collections": "컬렉션 · 에디터의 선택",
+    "spotlight": "스포트라이트 · 창작자를 만나다"
   },
   "emailConfirm": {
     "title": "이메일 인증이 필요합니다",

@@ -174,9 +174,9 @@ export function CommunityPostDetail({
       <article className="max-w-2xl mx-auto px-4 md:px-6 py-6 pb-40">
         {/* 작성자 정보 */}
         <div className="flex items-center gap-3 mb-5">
-          <UserAvatar src={post.avatar} name={post.author} className="w-12 h-12" />
+          <UserAvatar src={post.avatar} name={post.author === "CREAITE 운영팀" ? t("community.officialTeam") : post.author} className="w-12 h-12" />
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-foreground">{post.author}</p>
+            <p className="font-semibold text-foreground">{post.author === "CREAITE 운영팀" ? t("community.officialTeam") : post.author}</p>
             <p className="text-xs text-muted-foreground">{post.timestamp}</p>
           </div>
           {post.isNotice && (

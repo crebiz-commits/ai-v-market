@@ -203,7 +203,8 @@
     "collabTypeRecruit": "Recruiting",
     "collabTypeJoin": "Available",
     "collabTypeHelp": "Need help",
-    "collabTypeOutsource": "Hiring · paid"
+    "collabTypeOutsource": "Hiring · paid",
+    "officialTeam": "CREAITE Team"
   },
   "communityCategory": {
     "tip": "Tip",
@@ -522,7 +523,8 @@
     "signOut": "Sign out",
     "membershipSub": "₩4,900/mo · ad-free unlimited",
     "advertiser": "Advertiser Center",
-    "magazineSub": "AI video guides · insights"
+    "magazineSub": "AI video guides · insights",
+    "collectionsSub": "Editor-curated AI cinema selections"
   },
   "footer": {
     "tagline": "World's first AI Cinema OTT",
@@ -555,7 +557,9 @@
     "affiliates": "Affiliates",
     "devOps": "🛠 Dev & Ops",
     "magazine": "CREAITE Magazine",
-    "magazineMore": "View all"
+    "magazineMore": "View all",
+    "collections": "Collections · Editor's picks",
+    "spotlight": "Spotlight · Meet the creators"
   },
   "emailConfirm": {
     "title": "Please verify your email",

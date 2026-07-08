@@ -493,6 +493,60 @@ app.post("/generate-promo", async (c) => {
   }
 });
 
+// 공지/게시글 자동 영문 번역 — 운영팀 공식 공지를 영어로 번역해 저장용 {title_en, content_en} 반환.
+//   관리자 전용. ANTHROPIC_API_KEY 미설정 시 503 → 호출측은 무시하고 한글만 저장(영문모드 한글 폴백).
+app.post("/translate-post", async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const accessToken = authHeader?.split(' ')[1];
+    if (!accessToken) return c.json({ error: "인증 토큰이 필요합니다." }, 401);
+    const supabase = getSupabaseClient(true);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) return c.json({ error: "유효하지 않은 토큰입니다." }, 401);
+    const { data: prof } = await supabase.from('profiles').select('is_admin').eq('id', user.id).maybeSingle();
+    if (!prof?.is_admin) return c.json({ error: "관리자만 사용할 수 있습니다." }, 403);
+
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    if (!apiKey) return c.json({ error: "번역 기능이 아직 설정되지 않았습니다. (ANTHROPIC_API_KEY 미설정)" }, 503);
+
+    const body = await c.req.json().catch(() => ({}));
+    const title = String(body.title || '').slice(0, 300);
+    const content = String(body.content || '').slice(0, 8000);
+    if (!title.trim() && !content.trim()) return c.json({ error: "번역할 내용이 없습니다." }, 400);
+
+    const prompt = `You are a professional Korean→English translator for CREAITE, an AI cinema OTT platform. ` +
+      `Translate the following official announcement's title and body into natural, fluent English suitable for a product announcement. ` +
+      `Keep the brand name "CREAITE" as-is. Preserve emoji, line breaks, bullet symbols (·), and any URLs/emails exactly. ` +
+      `For Korean brand names (e.g. 메가커피), use a sensible English brand form (e.g. "Mega Coffee"). Convert ₩ amounts naturally (keep ₩). ` +
+      `Output ONLY JSON, no code fence, no commentary: {"title_en":"...","content_en":"..."}\n\n` +
+      `[TITLE]\n${title}\n\n[BODY]\n${content}`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      console.error('[translate-post] Anthropic 오류', res.status, t);
+      return c.json({ error: `번역 실패 (${res.status})` }, 502);
+    }
+    const data = await res.json();
+    const text = (data?.content?.[0]?.text || '').trim();
+    let parsed: any = null;
+    try { parsed = JSON.parse(text.replace(/^```json\s*|\s*```$/g, '')); } catch { /* raw 파싱 실패 시 아래서 처리 */ }
+    if (!parsed?.title_en && !parsed?.content_en) return c.json({ error: "번역 결과 파싱 실패" }, 502);
+    return c.json({ ok: true, title_en: parsed.title_en || null, content_en: parsed.content_en || null });
+  } catch (error: any) {
+    console.error('[translate-post] 예외:', error);
+    return c.json({ error: String(error?.message || error) }, 500);
+  }
+});
+
 app.post("/videos/:videoId/transcribe", async (c) => {
   try {
     const authHeader = c.req.header('Authorization');

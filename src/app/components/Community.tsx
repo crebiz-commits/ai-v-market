@@ -12,7 +12,7 @@ import { CommunityChallengeDetail, Challenge } from "./CommunityChallengeDetail"
 import { CollabInquiryModal } from "./CollabInquiryModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useBackButton } from "../hooks/useBackButton";
-import { supabase } from "../utils/supabaseClient";
+import { supabase, supabaseUrl, supabaseAnonKey } from "../utils/supabaseClient";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { timeAgo } from "../utils/timeAgo";
@@ -24,13 +24,15 @@ const OFFICIAL_AVATAR = "https://www.creaite.net/icon-192.png";
 
 // community_posts row → Post 매핑. (mock 데모는 CommunityMockShowcase.tsx 에 보존: ?preview=community-mock)
 function rowToPost(r: any, localeTag: string): Post {
+  const isKo = (localeTag || "ko").startsWith("ko");
   return {
     id: r.id,
     ownerId: r.user_id,
     author: r.author_name || "AI Creator",
     avatar: r.author_avatar || "",
-    title: r.title,
-    content: r.content,
+    // 공식 공지 등 title_en/content_en 이 채워진 글은 영어 모드에서 영문 노출(없으면 한글 폴백).
+    title: (isKo ? r.title : r.title_en) || r.title,
+    content: (isKo ? r.content : r.content_en) || r.content,
     category: r.category || "일반",
     likes: r.likes_count || 0,
     comments: r.comments_count || 0,
@@ -358,6 +360,8 @@ const challengesCache: Record<string, Challenge[]> = {};
 export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChallengeParticipate, onPlayVideo, initialCollabPostId, onInitialCollabPostConsumed, initialPostId, onInitialPostConsumed, initialChallengeId, onInitialChallengeConsumed }: CommunityProps = {}) {
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
+  // 공식 운영팀 명의는 표시만 언어화(로직 비교는 원래 값 유지). "CREAITE 운영팀" → "CREAITE Team"
+  const displayAuthor = (name?: string | null) => (name === OFFICIAL_AUTHOR_NAME ? t("community.officialTeam") : (name || ""));
   const { user, isAuthenticated, profile } = useAuth();
   const localeTag = isKo ? "ko-KR" : "en-US";
   const [activeTab, setActiveTab] = useState("posts");
@@ -759,6 +763,30 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     return v ? { ...post, videoTitle: v.title, videoThumbnail: v.thumbnail } : post;
   };
 
+  // 공식 공지 자동 영문화: 저장 후 서버(Claude)로 title/content 를 번역해 title_en/content_en 에 저장.
+  //   ANTHROPIC_API_KEY 미설정·실패 시 조용히 스킵(영문 모드에서 한글 폴백). 관리자만 호출됨.
+  const autoTranslateNotice = async (postId: string, ttl: string, body: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
+      const res = await fetch(`${supabaseUrl}/functions/v1/server/translate-post`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: supabaseAnonKey },
+        body: JSON.stringify({ title: ttl, content: body }),
+      });
+      if (!res.ok) return;
+      const j = await res.json().catch(() => null);
+      if (!j?.title_en && !j?.content_en) return;
+      await supabase.from("community_posts").update({ title_en: j.title_en, content_en: j.content_en }).eq("id", postId);
+      // 현재 화면이 영어면 즉시 반영
+      if (!isKo) {
+        setPosts(prev => prev.map(p => (p.id === postId ? { ...p, title: j.title_en || p.title, content: j.content_en || p.content } : p)));
+        setSelectedPost(prev => (prev && prev.id === postId ? { ...prev, title: j.title_en || prev.title, content: j.content_en || prev.content } : prev));
+      }
+    } catch { /* 번역 실패는 무시 — 한글본은 이미 저장됨 */ }
+  };
+
   const handleWritePost = async () => {
     if (!writeTitle.trim() || !writeContent.trim()) {
       toast.error(t("community.titleAndContentRequired"));
@@ -796,6 +824,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
         setPosts(prev => prev.map(p => (p.id === editingPostId ? updated : p)));
         setSelectedPost(prev => (prev && prev.id === editingPostId ? updated : prev));
         toast.success(t("community.postUpdated"));
+        if (officialIdentity) void autoTranslateNotice(editingPostId, payload.title, payload.content);
       } else {
         // H10(2026-05-31): 실제 community_posts 에 저장 (RLS: auth.uid()=user_id)
         const { data, error } = await supabase
@@ -811,6 +840,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
         if (error) throw error;
         setPosts(prev => [enrichVideoMeta(rowToPost(data, localeTag)), ...prev]);
         toast.success(t("community.submitSuccess"));
+        if (officialIdentity) void autoTranslateNotice(data.id, payload.title, payload.content);
       }
       resetWriteForm();
       setShowWriteModal(false);
@@ -1004,9 +1034,9 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                   >
                     <div className="p-4">
                       <div className="flex items-center gap-3 mb-3">
-                        <UserAvatar src={post.avatar} name={post.author} className="w-10 h-10" fallbackClassName="text-sm" />
+                        <UserAvatar src={post.avatar} name={displayAuthor(post.author)} className="w-10 h-10" fallbackClassName="text-sm" />
                         <div className="flex-1">
-                          <p className="font-medium">{post.author}</p>
+                          <p className="font-medium">{displayAuthor(post.author)}</p>
                           <p className="text-xs text-muted-foreground">{post.timestamp}</p>
                         </div>
                         {post.isNotice && (
