@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { X, ArrowLeft, Send, Loader2, MessageSquare, Lock, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../utils/supabaseClient";
 import { timeAgo } from "../utils/timeAgo";
 
@@ -59,6 +60,7 @@ interface Props {
 }
 
 export function CollabInquiryModal({ post, typeLabel, typeCls, meId, isKo, isAuthenticated, onClose, onRequireLogin, onToggleStatus, onDelete }: Props) {
+  const { t } = useTranslation();
   const isAuthor = !!meId && post.ownerId === meId;
   const closed = post.status === "closed";
 
@@ -127,13 +129,13 @@ export function CollabInquiryModal({ post, typeLabel, typeCls, meId, isKo, isAut
     if (error) console.warn("[Collab 문의] 스레드 목록 실패:", error.message);
     setThreads((data || []).map((r: any) => ({
       threadId: r.thread_id, otherId: r.other_id,
-      otherName: r.other_name || (isKo ? "크리에이터" : "Creator"),
+      otherName: r.other_name || t("collabInquiry.creatorFallback"),
       otherAvatar: r.other_avatar || null,
       lastMessage: r.last_message || null, lastMessageAt: r.last_message_at || null,
       unread: r.unread || 0,
     })));
     setLoadingThreads(false);
-  }, [post.id, isKo]);
+  }, [post.id, t]);
 
   // 작성자: 받은 문의 목록으로 / 비작성자: 내 문의 시작
   const goInquiries = () => { setView("list"); void loadThreads(); };
@@ -170,7 +172,7 @@ export function CollabInquiryModal({ post, typeLabel, typeCls, meId, isKo, isAut
     if (isAuthor) void loadThreads();
   };
 
-  const headerTitle = view === "thread" ? otherName : view === "list" ? (isKo ? "받은 문의" : "Inquiries") : (isKo ? "협업 상세" : "Collab");
+  const headerTitle = view === "thread" ? otherName : view === "list" ? t("collabInquiry.headerInquiries") : t("collabInquiry.headerDetail");
 
   return (
     <>
@@ -191,7 +193,7 @@ export function CollabInquiryModal({ post, typeLabel, typeCls, meId, isKo, isAut
           <div className="min-w-0">
             <p className="font-semibold text-white truncate leading-tight">{headerTitle}</p>
             {view === "thread" && (
-              <p className="text-[11px] text-gray-500 truncate flex items-center gap-1"><Lock className="w-2.5 h-2.5" />{isKo ? "비공개 문의" : "Private"} · 「{post.title}」</p>
+              <p className="text-[11px] text-gray-500 truncate flex items-center gap-1"><Lock className="w-2.5 h-2.5" />{t("collabInquiry.private")} · 「{post.title}」</p>
             )}
           </div>
           <div className="flex-1" />

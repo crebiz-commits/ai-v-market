@@ -27,7 +27,7 @@ interface ShareModalProps {
 
 interface ShareTarget {
   key: string;
-  label: string;
+  labelKey: string;
   bgColor: string;
   textColor?: string;
   icon: string;            // 이모지 또는 SVG (단순)
@@ -37,7 +37,7 @@ interface ShareTarget {
 const TARGETS: ShareTarget[] = [
   {
     key: "x",
-    label: "X (트위터)",
+    labelKey: "shareModal.targetX",
     bgColor: "bg-black",
     textColor: "text-white",
     icon: "𝕏",
@@ -46,7 +46,7 @@ const TARGETS: ShareTarget[] = [
   },
   {
     key: "facebook",
-    label: "페이스북",
+    labelKey: "shareModal.targetFacebook",
     bgColor: "bg-[#1877F2]",
     textColor: "text-white",
     icon: "f",
@@ -55,7 +55,7 @@ const TARGETS: ShareTarget[] = [
   },
   {
     key: "kakao",
-    label: "카카오톡",
+    labelKey: "shareModal.targetKakao",
     bgColor: "bg-[#FEE500]",
     textColor: "text-black",
     icon: "💬",
@@ -63,7 +63,7 @@ const TARGETS: ShareTarget[] = [
   },
   {
     key: "telegram",
-    label: "텔레그램",
+    labelKey: "shareModal.targetTelegram",
     bgColor: "bg-[#0088CC]",
     textColor: "text-white",
     icon: "✈️",
@@ -72,7 +72,7 @@ const TARGETS: ShareTarget[] = [
   },
   {
     key: "whatsapp",
-    label: "WhatsApp",
+    labelKey: "shareModal.targetWhatsApp",
     bgColor: "bg-[#25D366]",
     textColor: "text-white",
     icon: "📱",
@@ -193,20 +193,20 @@ export function ShareModal({ open, url, title, text, thumbnail, onClose }: Share
             <div className="px-5 py-4">
               <label className="block text-xs font-bold text-muted-foreground mb-2.5">{t("shareModal.title")}</label>
               <div className="grid grid-cols-5 gap-2">
-                {TARGETS.map((t) => (
+                {TARGETS.map((target) => (
                   <button
-                    key={t.key}
-                    onClick={() => handleShareClick(t)}
-                    className={`${t.bgColor} ${t.textColor || ""} flex flex-col items-center gap-1 p-3 rounded-xl hover:opacity-90 active:scale-95 transition-all`}
-                    title={t.label}
+                    key={target.key}
+                    onClick={() => handleShareClick(target)}
+                    className={`${target.bgColor} ${target.textColor || ""} flex flex-col items-center gap-1 p-3 rounded-xl hover:opacity-90 active:scale-95 transition-all`}
+                    title={t(target.labelKey)}
                   >
-                    <span className="text-lg font-bold leading-none">{t.icon}</span>
-                    <span className="text-[10px] font-bold leading-tight text-center">{t.label}</span>
+                    <span className="text-lg font-bold leading-none">{target.icon}</span>
+                    <span className="text-[10px] font-bold leading-tight text-center">{t(target.labelKey)}</span>
                   </button>
                 ))}
               </div>
               <p className="text-[10px] text-muted-foreground/70 mt-3 text-center">
-                💬 Kakao requires copying the link and pasting it manually
+                💬 {t("shareModal.kakaoHint")}
               </p>
             </div>
           </motion.div>

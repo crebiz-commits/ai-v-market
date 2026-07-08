@@ -291,13 +291,13 @@ interface CollabPost {
 
 // 상대 시간 ("3시간 전" / "3h ago")
 // collab_posts row → CollabPost
-function collabRowToPost(r: any, isKo: boolean): CollabPost {
+function collabRowToPost(r: any, isKo: boolean, fallbackAuthor: string): CollabPost {
   return {
     id: r.id,
     ownerId: r.user_id,
     type: r.type,
     title: r.title,
-    author: r.author_name || (isKo ? "크리에이터" : "Creator"),
+    author: r.author_name || fallbackAuthor,
     avatar: r.author_avatar || "",
     description: r.description || "",
     roles: Array.isArray(r.roles) ? r.roles : [],
@@ -308,11 +308,11 @@ function collabRowToPost(r: any, isKo: boolean): CollabPost {
   };
 }
 
-const COLLAB_TYPE_META: Record<CollabType, { ko: string; en: string; cls: string; Icon: any }> = {
-  recruit:   { ko: "팀원 모집", en: "Recruiting",   cls: "bg-[#8b5cf6]/20 text-[#a78bfa] border-[#8b5cf6]/40", Icon: UserPlus },
-  join:      { ko: "참여 희망", en: "Available",    cls: "bg-[#10b981]/20 text-[#34d399] border-[#10b981]/40", Icon: Handshake },
-  help:      { ko: "도움 요청", en: "Need help",    cls: "bg-[#f59e0b]/20 text-[#fbbf24] border-[#f59e0b]/40", Icon: HelpCircle },
-  outsource: { ko: "외주 · 유료", en: "Hiring · paid", cls: "bg-[#3b82f6]/20 text-[#60a5fa] border-[#3b82f6]/40", Icon: Briefcase },
+const COLLAB_TYPE_META: Record<CollabType, { key: string; cls: string; Icon: any }> = {
+  recruit:   { key: "community.collabTypeRecruit", cls: "bg-[#8b5cf6]/20 text-[#a78bfa] border-[#8b5cf6]/40", Icon: UserPlus },
+  join:      { key: "community.collabTypeJoin", cls: "bg-[#10b981]/20 text-[#34d399] border-[#10b981]/40", Icon: Handshake },
+  help:      { key: "community.collabTypeHelp", cls: "bg-[#f59e0b]/20 text-[#fbbf24] border-[#f59e0b]/40", Icon: HelpCircle },
+  outsource: { key: "community.collabTypeOutsource", cls: "bg-[#3b82f6]/20 text-[#60a5fa] border-[#3b82f6]/40", Icon: Briefcase },
 };
 
 const CATEGORIES = ["팁", "챌린지", "비교", "프롬프트", "튜토리얼", "일반", "질문"];
@@ -566,9 +566,9 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) console.warn("[Collab] 협업 글 조회 실패:", error.message);
-    else setCollabs((data || []).map((r) => collabRowToPost(r, isKo)));
+    else setCollabs((data || []).map((r) => collabRowToPost(r, isKo, t("community.creatorFallback"))));
     setLoadingCollab(false);
-  }, [isKo]);
+  }, [isKo, t]);
   useEffect(() => { void loadCollabs(); }, [loadCollabs]);
 
   // 협업 문의 알림 딥링크 — 협업 글 로드 완료 후 해당 글 상세 모달 자동 열기
@@ -597,7 +597,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
       }
       if (cancelled) return;
       if (target) setSelectedPost(target);
-      else toast.error(isKo ? "삭제되었거나 찾을 수 없는 글이에요." : "This post is gone or not found.");
+      else toast.error(t("community.postNotFound"));
       onInitialPostConsumed?.();
     })();
     return () => { cancelled = true; };
@@ -608,7 +608,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     if (!initialChallengeId || loadingChallenges) return;
     const found = challenges.find((c) => c.id === initialChallengeId);
     if (found) setSelectedChallenge(found);
-    else toast.error(isKo ? "종료되었거나 찾을 수 없는 챌린지예요." : "This challenge is gone or not found.");
+    else toast.error(t("community.challengeNotFound"));
     onInitialChallengeConsumed?.();
   }, [initialChallengeId, loadingChallenges]);  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -618,7 +618,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     const title = collabForm.title.trim();
     const description = collabForm.description.trim();
     if (title.length < 2 || description.length < 5) {
-      toast.error(isKo ? "제목(2자+)과 설명(5자+)을 입력해주세요." : "Enter a title (2+) and description (5+).");
+      toast.error(t("community.collabTitleDescRequired"));
       return;
     }
     setSubmittingCollab(true);
@@ -639,13 +639,13 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
         .select()
         .single();
       if (error) throw error;
-      setCollabs((prev) => [collabRowToPost(data, isKo), ...prev]);
+      setCollabs((prev) => [collabRowToPost(data, isKo, t("community.creatorFallback")), ...prev]);
       setShowCollabModal(false);
       setCollabForm({ type: "recruit", title: "", description: "", roles: "", reward: "" });
-      toast.success(isKo ? "협업 글이 등록되었어요! 🤝" : "Your collab listing is posted! 🤝");
+      toast.success(t("community.collabPostSuccess"));
     } catch (e: any) {
       console.warn("[Collab] 등록 실패:", e?.message);
-      toast.error(isKo ? "등록에 실패했어요. 다시 시도해주세요." : "Failed to post. Please try again.");
+      toast.error(t("community.collabPostFailed"));
     } finally {
       setSubmittingCollab(false);
     }
@@ -657,21 +657,21 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   // 협업 글 삭제 (작성자 또는 관리자 — RLS: collab_posts_delete / collab_posts_admin_delete)
   // 문의 스레드·메시지는 FK ON DELETE CASCADE 로 함께 삭제됨
   const handleDeleteCollab = async (c: CollabPost) => {
-    if (!confirm(isKo ? "이 협업 글을 삭제할까요? 받은 문의 대화도 함께 삭제되며 되돌릴 수 없어요." : "Delete this listing? Its inquiry threads are deleted too. This cannot be undone.")) return;
+    if (!confirm(t("community.collabDeleteConfirm"))) return;
     const { data, error } = await supabase.from("collab_posts").delete().eq("id", c.id).select("id");
     if (error) {
       console.warn("[Collab] 삭제 실패:", error.message);
-      toast.error(isKo ? `삭제에 실패했어요: ${error.message}` : `Failed: ${error.message}`);
+      toast.error(t("community.deleteFailedWithReason", { message: error.message }));
       return;
     }
     if (!data || data.length === 0) {
       // RLS 로 0행 — 본인 글 아님 + 관리자 아님 (또는 세션 만료)
-      toast.error(isKo ? "삭제 권한이 없어요. 본인 글인지 / 로그인 상태를 확인해주세요." : "Not allowed. Check that it's your post and you're logged in.");
+      toast.error(t("community.deleteNotAllowed"));
       return;
     }
     setCollabs((prev) => prev.filter((p) => p.id !== c.id));
     setInquiryPost(null);
-    toast.success(isKo ? "협업 글을 삭제했어요." : "Listing deleted.");
+    toast.success(t("community.collabDeleted"));
   };
 
   // 협업 글 마감/재오픈 (작성자 전용)
@@ -684,16 +684,16 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
       .select("id");
     if (error) {
       console.warn("[Collab] 상태 변경 실패:", error.message);
-      toast.error(isKo ? `변경에 실패했어요: ${error.message}` : `Failed: ${error.message}`);
+      toast.error(t("community.updateFailedWithReason", { message: error.message }));
       return;
     }
     if (!data || data.length === 0) {
       // RLS 로 0행 — 작성자 본인이 아니거나 세션 만료
-      toast.error(isKo ? "변경 권한이 없어요. 본인 글인지 / 로그인 상태를 확인해주세요." : "Not allowed. Check that it's your post and you're logged in.");
+      toast.error(t("community.updateNotAllowed"));
       return;
     }
     setCollabs((prev) => prev.map((p) => (p.id === c.id ? { ...p, status: next } : p)));
-    toast.success(next === "closed" ? (isKo ? "모집을 마감했어요." : "Marked as closed.") : (isKo ? "다시 열었어요." : "Reopened."));
+    toast.success(next === "closed" ? t("community.collabClosed") : t("community.collabReopened"));
   };
 
 
@@ -748,7 +748,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
         wasBookmarked ? next.add(postId) : next.delete(postId);
         return next;
       });
-      toast.error(isKo ? "북마크에 실패했어요." : "Bookmark failed.");
+      toast.error(t("community.bookmarkFailed"));
     }
   };
 
@@ -795,7 +795,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
         const updated = enrichVideoMeta(rowToPost(data, localeTag));
         setPosts(prev => prev.map(p => (p.id === editingPostId ? updated : p)));
         setSelectedPost(prev => (prev && prev.id === editingPostId ? updated : prev));
-        toast.success(isKo ? "글을 수정했어요." : "Post updated.");
+        toast.success(t("community.postUpdated"));
       } else {
         // H10(2026-05-31): 실제 community_posts 에 저장 (RLS: auth.uid()=user_id)
         const { data, error } = await supabase
@@ -838,7 +838,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
 
   // 본인 글 삭제 — R8(2026-06-11): RPC 로 댓글까지 함께 삭제 (고아 댓글 방지)
   const handleDeletePost = async (post: Post) => {
-    if (!confirm(isKo ? "이 글을 삭제할까요? 글의 댓글도 함께 삭제되며 되돌릴 수 없어요." : "Delete this post? Its comments are deleted too. This cannot be undone.")) return;
+    if (!confirm(t("community.postDeleteConfirm"))) return;
     let { error } = await supabase.rpc("delete_community_post", { p_post_id: post.id });
     if (error && /delete_community_post/i.test(error.message || "")) {
       // 마이그레이션(fixes_audit_20260611.sql) 미적용 환경 폴백 — 글만 삭제 (RLS: 본인만)
@@ -846,12 +846,12 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     }
     if (error) {
       console.warn("[Community] 글 삭제 실패:", error.message);
-      toast.error(isKo ? "삭제에 실패했어요." : "Failed to delete.");
+      toast.error(t("community.deleteFailed"));
       return;
     }
     setPosts(prev => prev.filter(p => p.id !== post.id));
     setSelectedPost(null);
-    toast.success(isKo ? "글을 삭제했어요." : "Post deleted.");
+    toast.success(t("community.postDeleted"));
   };
 
   // 댓글 등록 → 목록 카운트 즉시 반영 (DB는 트리거가 동기화)
@@ -944,7 +944,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                           }`}
                         >
                           {cat === "all"
-                            ? (isKo ? "전체" : "All")
+                            ? t("community.filterAll")
                             : cat === "프롬프트"
                             ? `⚡ ${COMMUNITY_CATEGORY_KEY[cat] ? t(COMMUNITY_CATEGORY_KEY[cat]) : cat}`
                             : COMMUNITY_CATEGORY_KEY[cat] ? t(COMMUNITY_CATEGORY_KEY[cat]) : cat}
@@ -954,9 +954,9 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                   </div>
                   <div className="flex items-center gap-1.5">
                     {([
-                      { id: "latest" as const, label: isKo ? "최신순" : "Latest" },
-                      { id: "popular" as const, label: isKo ? "인기순" : "Popular" },
-                      { id: "comments" as const, label: isKo ? "댓글순" : "Comments" },
+                      { id: "latest" as const, label: t("community.sortLatest") },
+                      { id: "popular" as const, label: t("community.sortPopular") },
+                      { id: "comments" as const, label: t("community.sortComments") },
                     ]).map((s) => (
                       <button
                         key={s.id}
@@ -977,13 +977,13 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
               {!loadingPosts && posts.length === 0 && (
                 <div className="text-center py-16 text-muted-foreground">
                   <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>{t("community.emptyPosts", "아직 게시글이 없습니다. 첫 글을 작성해보세요!")}</p>
+                  <p>{t("community.emptyPosts")}</p>
                 </div>
               )}
               {!loadingPosts && posts.length > 0 && visiblePosts.length === 0 && (
                 <div className="text-center py-16 text-muted-foreground">
                   <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>{isKo ? "이 카테고리의 글이 아직 없어요." : "No posts in this category yet."}</p>
+                  <p>{t("community.emptyCategoryPosts")}</p>
                 </div>
               )}
               {/* 외부 노출광고(애드핏/애드센스) — 프리미엄 포함 전체 노출(미설정 시 운영에선 null).
@@ -1012,7 +1012,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                         {post.isNotice && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-[#f59e0b]/20 text-[#fbbf24] border border-[#f59e0b]/30">
                             <Megaphone className="w-3 h-3" />
-                            {isKo ? "공지" : "Notice"}
+                            {t("community.noticeBadge")}
                           </span>
                         )}
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${CATEGORY_COLOR[post.category] || "bg-[#6366f1]/20 text-[#6366f1]"}`}>
@@ -1030,7 +1030,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                         <div className="mb-3 px-3 py-2 rounded-lg bg-[#10b981]/10 border border-[#10b981]/20">
                           <p className="flex items-center gap-1.5 text-[11px] font-bold text-[#34d399] mb-1">
                             <Terminal className="w-3 h-3" />
-                            {isKo ? "프롬프트" : "Prompt"}
+                            {t("communityCategory.prompt")}
                           </p>
                           <p className="text-xs font-mono text-[#a7f3d0]/90 line-clamp-2 break-words">{post.promptText}</p>
                         </div>
@@ -1106,22 +1106,20 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                 <div className="relative">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-white/10 border border-white/20 text-[#e9d5ff] backdrop-blur-sm">
                     <Trophy className="w-3.5 h-3.5 text-[#fbbf24]" />
-                    {isKo ? "매월 정기 콘테스트" : "Monthly Contest"}
+                    {t("community.monthlyContestBadge")}
                   </span>
                   <h2 className="mt-3 text-xl md:text-3xl font-black text-white leading-tight">
-                    {isKo ? "매달 열리는 AI 영상 챌린지" : "Monthly AI Video Challenge"}
+                    {t("community.monthlyContestTitle")}
                   </h2>
                   <p className="mt-1.5 text-sm text-purple-200/80 max-w-lg">
-                    {isKo
-                      ? "매월 새로운 테마가 열립니다. 누구나 무료로 참가하고, 우수작은 메인 피드에 노출돼요."
-                      : "A new theme every month. Free to enter — top entries get featured on the home feed."}
+                    {t("community.monthlyContestDesc")}
                   </p>
                   {/* 상금 티어 */}
                   <div className="mt-4 grid grid-cols-3 gap-2 md:gap-3 max-w-md">
                     {[
-                      { emoji: "🥇", rank: isKo ? "1등" : "1st", amount: isKo ? "프리미엄 6개월" : "6mo Premium", ring: "border-[#fbbf24]/40 bg-[#fbbf24]/10" },
-                      { emoji: "🥈", rank: isKo ? "2등" : "2nd", amount: isKo ? "프리미엄 3개월" : "3mo Premium", ring: "border-white/20 bg-white/5" },
-                      { emoji: "🥉", rank: isKo ? "3등" : "3rd", amount: isKo ? "프리미엄 1개월" : "1mo Premium", ring: "border-[#f59e0b]/30 bg-[#f59e0b]/10" },
+                      { emoji: "🥇", rank: t("community.rankFirst"), amount: t("community.premiumMonths", { count: 6 }), ring: "border-[#fbbf24]/40 bg-[#fbbf24]/10" },
+                      { emoji: "🥈", rank: t("community.rankSecond"), amount: t("community.premiumMonths", { count: 3 }), ring: "border-white/20 bg-white/5" },
+                      { emoji: "🥉", rank: t("community.rankThird"), amount: t("community.premiumMonths", { count: 1 }), ring: "border-[#f59e0b]/30 bg-[#f59e0b]/10" },
                     ].map((p) => (
                       <div key={p.rank} className={`rounded-xl border ${p.ring} px-2 py-2.5 text-center backdrop-blur-sm`}>
                         <div className="text-lg md:text-xl leading-none">{p.emoji}</div>
@@ -1141,10 +1139,10 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                 <div className="bg-card border border-dashed border-border rounded-2xl p-10 text-center">
                   <Trophy className="w-9 h-9 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-sm font-semibold text-foreground/80">
-                    {isKo ? "진행 중인 챌린지가 없어요" : "No challenges right now"}
+                    {t("community.noChallenges")}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {isKo ? "새로운 챌린지가 곧 열릴 예정이에요!" : "A new challenge is coming soon!"}
+                    {t("community.noChallengesHint")}
                   </p>
                 </div>
               )}
@@ -1152,9 +1150,9 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                 const status = getChallengeStatus(challenge);
                 const daysLeft = getDaysLeft(challenge.deadline);
                 const statusMeta = {
-                  ongoing: { label: isKo ? `진행중 · D-${daysLeft}` : `Open · D-${daysLeft}`, cls: "bg-[#10b981]/90 text-white" },
-                  upcoming: { label: isKo ? "오픈 예정" : "Coming soon", cls: "bg-[#6366f1]/90 text-white" },
-                  ended: { label: isKo ? "마감" : "Closed", cls: "bg-white/15 text-white/70 backdrop-blur-sm" },
+                  ongoing: { label: t("community.statusOngoing", { days: daysLeft }), cls: "bg-[#10b981]/90 text-white" },
+                  upcoming: { label: t("community.statusUpcoming"), cls: "bg-[#6366f1]/90 text-white" },
+                  ended: { label: t("community.statusEnded"), cls: "bg-white/15 text-white/70 backdrop-blur-sm" },
                 }[status];
                 return (
                 <div
@@ -1206,15 +1204,13 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                 <div className="relative">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-white/10 border border-white/20 text-[#c4b5fd] backdrop-blur-sm">
                     <Handshake className="w-3.5 h-3.5 text-[#34d399]" />
-                    {isKo ? "크리에이터 협업" : "Creator Collab"}
+                    {t("community.collabBadge")}
                   </span>
                   <h2 className="mt-3 text-xl md:text-3xl font-black text-white leading-tight">
-                    {isKo ? "혼자 만들지 마세요. 함께 만들어요" : "Don't create alone — create together"}
+                    {t("community.collabHeroTitle")}
                   </h2>
                   <p className="mt-1.5 text-sm text-gray-300/80 max-w-lg">
-                    {isKo
-                      ? "팀원을 모집하고, 재능을 나누고, 막히는 부분을 도와주는 크리에이터들의 협업 공간이에요."
-                      : "A space for creators to recruit teammates, offer skills, and help each other out."}
+                    {t("community.collabHeroDesc")}
                   </p>
                   <Button
                     onClick={() => {
@@ -1225,7 +1221,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                     size="sm"
                   >
                     <Plus className="w-4 h-4" />
-                    {isKo ? "협업 글 올리기" : "Post a listing"}
+                    {t("community.collabPostButton")}
                   </Button>
                 </div>
               </div>
@@ -1233,8 +1229,8 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
               {/* 타입 필터 */}
               <div className="flex flex-wrap gap-2">
                 {([
-                  { id: "all" as const, label: isKo ? "전체" : "All" },
-                  ...(Object.keys(COLLAB_TYPE_META) as CollabType[]).map((k) => ({ id: k, label: isKo ? COLLAB_TYPE_META[k].ko : COLLAB_TYPE_META[k].en })),
+                  { id: "all" as const, label: t("community.filterAll") },
+                  ...(Object.keys(COLLAB_TYPE_META) as CollabType[]).map((k) => ({ id: k, label: t(COLLAB_TYPE_META[k].key) })),
                 ]).map((f) => {
                   const active = collabFilter === f.id;
                   return (
@@ -1264,11 +1260,11 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                       <Handshake className="w-9 h-9 text-muted-foreground/40 mx-auto mb-3" />
                       <p className="text-sm font-semibold text-foreground/80">
                         {collabFilter === "all"
-                          ? (isKo ? "아직 협업 글이 없어요" : "No collab posts yet")
-                          : (isKo ? "이 유형의 글이 아직 없어요" : "No posts of this type yet")}
+                          ? t("community.noCollabPosts")
+                          : t("community.noCollabPostsOfType")}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {isKo ? "첫 번째 협업 글을 올려보세요!" : "Be the first to post a listing!"}
+                        {t("community.beFirstCollab")}
                       </p>
                     </div>
                   );
@@ -1293,16 +1289,16 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border ${meta.cls}`}>
                               <TypeIcon className="w-3 h-3" />
-                              {isKo ? meta.ko : meta.en}
+                              {t(meta.key)}
                             </span>
                             {closed && (
                               <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-white/10 text-white/60">
-                                {isKo ? "마감" : "Closed"}
+                                {t("community.statusEnded")}
                               </span>
                             )}
                             {isOwner && (
                               <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#6366f1]/15 text-[#a5b4fc]">
-                                {isKo ? "내 글" : "Mine"}
+                                {t("community.mine")}
                               </span>
                             )}
                             <span className="text-xs text-muted-foreground">· {c.timestamp}</span>
@@ -1326,14 +1322,14 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                           <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-border/60">
                             <div className="flex items-center gap-3 text-xs text-muted-foreground min-w-0">
                               {c.reward && <span className="flex items-center gap-1 truncate">🎁 {c.reward}</span>}
-                              <span className="flex items-center gap-1 flex-shrink-0"><MessageCircle className="w-3.5 h-3.5" />{isKo ? `문의 ${c.applicants}` : `${c.applicants}`}</span>
+                              <span className="flex items-center gap-1 flex-shrink-0"><MessageCircle className="w-3.5 h-3.5" />{t("community.inquiriesCount", { count: c.applicants })}</span>
                             </div>
                             <span className="text-xs font-bold text-[#a5b4fc] flex-shrink-0">
                               {isOwner
-                                ? (isKo ? "받은 문의 보기 ›" : "View inquiries ›")
+                                ? t("community.viewInquiries")
                                 : c.type === "help"
-                                ? (isKo ? "자세히·도와주기 ›" : "Details ›")
-                                : (isKo ? "자세히·문의하기 ›" : "Details ›")}
+                                ? t("community.detailsHelp")
+                                : t("community.detailsInquire")}
                             </span>
                           </div>
                         </div>
@@ -1620,7 +1616,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                       }`}
                     >
                       <MIcon className="w-4 h-4" />
-                      {isKo ? m.ko : m.en}
+                      {t(m.key)}
                     </button>
                   );
                 })}
@@ -1695,7 +1691,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
               applicants: inquiryPost.applicants,
               timestamp: inquiryPost.timestamp,
             }}
-            typeLabel={isKo ? COLLAB_TYPE_META[inquiryPost.type].ko : COLLAB_TYPE_META[inquiryPost.type].en}
+            typeLabel={t(COLLAB_TYPE_META[inquiryPost.type].key)}
             typeCls={COLLAB_TYPE_META[inquiryPost.type].cls}
             meId={user?.id || ""}
             isKo={isKo}

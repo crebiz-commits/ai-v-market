@@ -529,7 +529,7 @@ export function VideoFullscreen({
                                 : "text-white/80 hover:bg-white/10"
                             }`}
                           >
-                            {r}x {r === 1 && "(default)"}
+                            {r}x {r === 1 && t("videoFullscreen.rateDefault")}
                           </button>
                         ))}
                       </div>
@@ -556,8 +556,8 @@ export function VideoFullscreen({
                     className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
                       isDeviceFs ? "bg-[#6366f1]/30 text-[#8b5cf6]" : "text-white hover:bg-white/10"
                     }`}
-                    aria-label={t("videoFullscreen.deviceFullscreen", "전체화면")}
-                    title={t("videoFullscreen.deviceFullscreen", "전체화면")}
+                    aria-label={t("videoFullscreen.deviceFullscreen")}
+                    title={t("videoFullscreen.deviceFullscreen")}
                   >
                     <Maximize2 className="w-5 h-5" />
                   </button>

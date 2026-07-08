@@ -597,7 +597,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
       });
       if (error) throw error;
       const videoId = (data && data[0]?.video_id) || purchase.videoId;
-      if (!videoId) throw new Error('영상 ID 가 없습니다');
+      if (!videoId) throw new Error(t('mypage.purchases.noVideoId'));
       const libraryId = (import.meta as any).env?.VITE_BUNNY_LIBRARY_ID || '';
       const bunnyHostname = (import.meta as any).env?.VITE_BUNNY_HOSTNAME || `vz-${libraryId}.b-cdn.net`;
       // Bunny Free 인코딩은 소스 해상도까지만 mp4 렌디션 생성 → 영상마다 가용 해상도가 다름.
@@ -612,7 +612,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
           if (head.ok) { mp4Url = candidate; break; }
         } catch { /* 네트워크 오류 시 다음 해상도 시도 */ }
       }
-      if (!mp4Url) throw new Error("다운로드 가능한 영상 파일을 찾지 못했습니다 (인코딩 처리 중일 수 있습니다)");
+      if (!mp4Url) throw new Error(t("mypage.purchases.noDownloadableFile"));
       window.open(mp4Url, '_blank', 'noopener,noreferrer');
       toast.success(t('mypage.purchases.downloadStarted'));
     } catch (err: any) {
@@ -646,7 +646,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
           id: item.id,
           videoId: item.video_id,
           thumbnail: item.videos?.thumbnail || '',
-          title: item.videos?.title || 'Unknown Video',
+          title: item.videos?.title || t("mypage.watchHistory.noTitle"),
           license: item.license_type,
           price: item.amount,
           date: new Date(item.created_at).toLocaleDateString('ko-KR'),
@@ -1055,20 +1055,18 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
 
   const handleChangeEmail = async () => {
     const target = newEmail.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target)) { toast.error(isKo ? "올바른 이메일 형식이 아닙니다." : "Invalid email."); return; }
-    if (target === (user?.email || "").toLowerCase()) { toast.error(isKo ? "현재 이메일과 동일합니다." : "Same as current email."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target)) { toast.error(t("mypage.emailChange.invalid")); return; }
+    if (target === (user?.email || "").toLowerCase()) { toast.error(t("mypage.emailChange.sameAsCurrent")); return; }
     setEmailChanging(true);
     try {
       // Supabase: 새 주소로 확인 메일 발송 → 링크 클릭 시 변경 확정.
       const { error } = await supabase.auth.updateUser({ email: target });
       if (error) throw error;
-      toast.success(isKo
-        ? `확인 메일을 ${target} 로 보냈어요. 메일의 링크를 클릭하면 이메일 변경이 완료됩니다.`
-        : `Confirmation sent to ${target}. Click the link to finish changing your email.`);
+      toast.success(t("mypage.emailChange.confirmSent", { email: target }));
       setEmailEditMode(false);
       setNewEmail("");
     } catch (e: any) {
-      toast.error((isKo ? "이메일 변경 실패: " : "Failed: ") + (e?.message || ""));
+      toast.error(t("mypage.emailChange.failed", { message: e?.message || "" }));
     } finally {
       setEmailChanging(false);
     }
@@ -1402,7 +1400,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                             {t("mypage.subscription.expiresAt", { date: new Date(profile.subscription_expires_at).toLocaleDateString() })}
                             {daysLeft >= 0 && daysLeft <= 7 && (
                               <span className="ml-1.5">
-                                {daysLeft === 0 ? (isKo ? "· 오늘 만료!" : "· Expires today!") : (isKo ? `· D-${daysLeft}` : `· D-${daysLeft}`)}
+                                {daysLeft === 0 ? t("mypage.subscription.expiresToday") : `· D-${daysLeft}`}
                               </span>
                             )}
                           </p>
@@ -1426,7 +1424,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                         onClick={() => onNavigate?.("subscription")}
                         className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-lg text-sm font-bold border border-white/20 transition-colors shadow-sm"
                       >
-                        {isKo ? "구독 연장" : "Extend"}
+                        {t("mypage.subscription.extend")}
                       </motion.button>
                     )}
                   </div>
@@ -1466,12 +1464,12 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
 
                 {/* 빠른 링크 (넷플릭스식 — 흩어진 메뉴 한곳에서) */}
                 <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
-                  <h3 className="text-lg font-bold text-white mb-4">{isKo ? "빠른 링크" : "Quick links"}</h3>
+                  <h3 className="text-lg font-bold text-white mb-4">{t("mypage.quickLinks.title")}</h3>
                   <div className="space-y-2">
                     {[
-                      { icon: "👑", label: isKo ? "멤버십 관리" : "Membership", onClick: () => onNavigate?.("subscription") },
-                      { icon: "💬", label: isKo ? "고객센터 · 1:1 문의" : "Support · Contact", onClick: () => onNavigate?.("support") },
-                      { icon: "⚙️", label: isKo ? "설정 (알림 · 결제내역 · 보안)" : "Settings", onClick: () => setActiveTab("settings") },
+                      { icon: "👑", label: t("mypage.quickLinks.membership"), onClick: () => onNavigate?.("subscription") },
+                      { icon: "💬", label: t("mypage.quickLinks.support"), onClick: () => onNavigate?.("support") },
+                      { icon: "⚙️", label: t("mypage.quickLinks.settings"), onClick: () => setActiveTab("settings") },
                     ].map((it) => (
                       <button key={it.label} onClick={it.onClick}
                         className="w-full flex items-center gap-3 bg-[#1c1c1e] hover:bg-[#242427] p-4 rounded-xl border border-white/5 hover:border-white/10 transition-colors text-left">
@@ -2110,20 +2108,20 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
 
               <TabsContent value="settings" className="space-y-3 m-0">
                 {/* ── 초대(레퍼럴) ── */}
-                <p className="px-1 pt-1 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{isKo ? "초대" : "Invite"}</p>
+                <p className="px-1 pt-1 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{t("mypage.settings.sectionInvite")}</p>
                 <ReferralCard />
 
                 {/* ── 알림 ── */}
-                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{isKo ? "알림" : "Notifications"}</p>
+                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{t("mypage.settings.sectionNotifications")}</p>
                 <NotificationSettings />
 
                 {/* ── 결제 · 세금 ── */}
-                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{isKo ? "결제 · 세금" : "Billing · Tax"}</p>
+                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{t("mypage.settings.sectionBilling")}</p>
                 <MyPaymentsSection />
                 <TaxInfoSection />
 
                 {/* ── 보안 ── */}
-                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{isKo ? "보안" : "Security"}</p>
+                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{t("mypage.settings.sectionSecurity")}</p>
                 <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
                   <div className="space-y-3">
                     <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
@@ -2141,12 +2139,12 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                 </div>
 
                 {/* ── 개인정보 · 안전 ── */}
-                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{isKo ? "개인정보 · 안전" : "Privacy · Safety"}</p>
+                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{t("mypage.settings.sectionPrivacy")}</p>
                 <BlockedUsersSection />
                 <DataDownloadSection />
 
                 {/* ── 계정 ── */}
-                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{isKo ? "계정" : "Account"}</p>
+                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{t("mypage.settings.sectionAccount")}</p>
                 <div>
                   <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                     <Button

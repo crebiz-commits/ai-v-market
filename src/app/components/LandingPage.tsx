@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Play, Crown, Film, Wand2, ShieldCheck, Smartphone, ChevronDown, Sparkles } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
-import { useTranslation } from "react-i18next";
+import { useTranslation, Trans } from "react-i18next";
 import { Button } from "./ui/button";
 
 interface LandingPageProps {
@@ -49,68 +49,35 @@ const MOCK_POSTERS: Extract<PosterSlot, { kind: "mock" }>[] = [
 const VALUE_CARDS = [
   {
     icon: Film,
-    title: "무제한 AI 시네마",
-    desc: "AI로 제작된 영화·드라마·애니메이션·다큐멘터리를 한곳에서 무제한 시청.",
+    key: "cinema",
     color: "from-cyan-500/20 to-cyan-500/5",
     borderColor: "border-cyan-500/30",
     iconColor: "text-cyan-300",
   },
   {
     icon: Wand2,
-    title: "광고 없는 깔끔 시청",
-    desc: "프리미엄 구독 시 모든 광고 제거. 영화관처럼 몰입.",
+    key: "adFree",
     color: "from-purple-500/20 to-purple-500/5",
     borderColor: "border-purple-500/30",
     iconColor: "text-purple-300",
   },
   {
     icon: ShieldCheck,
-    title: "올인원 라이선스",
-    desc: "구매한 영상은 유튜브·SNS·기업 마케팅까지 광범위 활용 가능. 저작권 검증·에스크로 보장.",
+    key: "license",
     color: "from-emerald-500/20 to-emerald-500/5",
     borderColor: "border-emerald-500/30",
     iconColor: "text-emerald-300",
   },
   {
     icon: Smartphone,
-    title: "모든 기기에서 시청",
-    desc: "데스크탑·모바일·태블릿 어디서나. 앱 설치 없이 브라우저로 바로 시청.",
+    key: "devices",
     color: "from-amber-500/20 to-amber-500/5",
     borderColor: "border-amber-500/30",
     iconColor: "text-amber-300",
   },
 ];
 
-const FAQ_ITEMS = [
-  {
-    q: "CREAITE 는 무엇인가요?",
-    a: "AI 가 만든 영화·드라마·다큐멘터리를 모은 세계 최초의 AI 시네마 OTT 입니다. 시청과 동시에 크리에이터의 영상 라이선스를 구매해 본인의 콘텐츠로도 활용할 수 있습니다.",
-  },
-  {
-    q: "구독료는 얼마인가요?",
-    a: "월 ₩4,900 으로 모든 영상 무제한 시청 + 광고 제거. 비구독자도 모든 영상을 1분까지 미리보기 가능합니다.",
-  },
-  {
-    q: "AI 영상은 저작권이 어떻게 되나요?",
-    a: "업로드 시 크리에이터가 저작권 침해 없음을 보증합니다. CREAITE 는 Google Vision 자동 검사로 선정·폭력·유명인 도용 등을 차단하며, 위반 시 즉시 차단·법적 조치합니다.",
-  },
-  {
-    q: "라이선스 구매란 무엇인가요?",
-    a: "유료 영상을 구매하면 원본 파일 다운로드 + 유튜브·SNS·기업 마케팅 등 광범위한 상업 사용권을 얻습니다. 사용 기간 제한 없는 영구 라이선스입니다.",
-  },
-  {
-    q: "크리에이터는 어떻게 수익을 얻나요?",
-    a: "라이선스 판매 (80%) + 영상 광고 (영상 길이에 따라 50~60%) + OTT 구독료 풀 분배 (50%) 3가지 수익원이 있습니다. 자세한 정책은 푸터의 \"크리에이터 수익 정책\" 에서 확인 가능합니다.",
-  },
-  {
-    q: "환불은 가능한가요?",
-    a: "구독은 다음 결제일까지 자유롭게 해지 가능합니다. 영상 라이선스는 다운로드 가능한 디지털 상품 특성상 구매 후 환불이 제한됩니다 (전자상거래법상 청약 철회 예외).",
-  },
-  {
-    q: "비로그인으로도 영상을 볼 수 있나요?",
-    a: "네. 비로그인 사용자도 모든 영상을 1분까지 미리보기 가능합니다. 1분 이후 시청 + 라이선스 구매 + 댓글 등은 회원가입이 필요합니다.",
-  },
-];
+const FAQ_ITEMS = ["what", "price", "copyright", "licensePurchase", "creatorEarnings", "refund", "guest"] as const;
 
 function FaqItem({ q, a }: { q: string; a: string }) {
   return (
@@ -182,7 +149,7 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-md mb-6"
           >
             <Sparkles className="w-4 h-4 text-amber-300" />
-            <span className="text-xs font-bold text-amber-100">세계 최초 AI 시네마 OTT</span>
+            <span className="text-xs font-bold text-amber-100">{t("footer.tagline")}</span>
           </motion.div>
 
           <motion.h1
@@ -192,10 +159,10 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
             className="text-4xl md:text-6xl lg:text-7xl font-black mb-4 md:mb-6 leading-tight"
           >
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#a78bfa] via-[#ec4899] to-[#f59e0b]">
-              AI 가 만든 영화
+              {t("landing.hero.titleLine1")}
             </span>
             <br />
-            <span className="text-white">무제한으로 즐기세요.</span>
+            <span className="text-white">{t("landing.hero.titleLine2")}</span>
           </motion.h1>
 
           <motion.p
@@ -204,7 +171,7 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
             transition={{ duration: 0.7, delay: 0.2 }}
             className="text-lg md:text-xl text-gray-300 mb-6 md:mb-10 max-w-2xl mx-auto leading-relaxed"
           >
-            월 ₩4,900 으로 무제한 시청. 비회원도 모든 영상 1분 미리보기 가능.
+            {t("landing.hero.subtitle")}
           </motion.p>
 
           <motion.div
@@ -218,7 +185,7 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
               className="w-full sm:w-auto px-8 py-6 text-base font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white rounded-xl shadow-[0_10px_40px_-10px_rgba(99,102,241,0.6)] border border-white/10 gap-2"
             >
               <Crown className="w-5 h-5" />
-              {isAuthenticated ? "지금 시청하기" : "지금 시작하기"}
+              {isAuthenticated ? t("landing.hero.ctaWatch") : t("landing.hero.ctaStart")}
             </Button>
             <Button
               onClick={onExplore}
@@ -226,7 +193,7 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
               className="w-full sm:w-auto px-8 py-6 text-base font-bold bg-white/5 border-white/20 hover:bg-white/10 text-white rounded-xl gap-2"
             >
               <Play className="w-5 h-5" />
-              콘텐츠 둘러보기
+              {t("landing.hero.ctaExplore")}
             </Button>
           </motion.div>
         </div>
@@ -242,10 +209,10 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
           animate={{ opacity: 1 }}
           transition={{ delay: 1, duration: 1 }}
           className="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center gap-2 text-white hover:scale-110 transition-transform cursor-pointer"
-          aria-label="다음 섹션으로 스크롤"
+          aria-label={t("landing.hero.scrollAria")}
         >
           <span className="text-sm md:text-base font-bold drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
-            스크롤하여 더 보기
+            {t("landing.hero.scrollHint")}
           </span>
           <motion.div
             animate={{ y: [0, 10, 0] }}
@@ -267,7 +234,7 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
             transition={{ duration: 0.6 }}
             className="text-3xl md:text-5xl font-black text-white text-center mb-4"
           >
-            왜 CREAITE 인가요?
+            {t("landing.value.title")}
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -276,13 +243,13 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
             transition={{ duration: 0.6, delay: 0.1 }}
             className="text-base md:text-lg text-gray-400 text-center mb-12 max-w-2xl mx-auto"
           >
-            AI 가 만든 영화를 보는 것을 넘어, 활용하고 수익까지 얻는 새로운 플랫폼.
+            {t("landing.value.subtitle")}
           </motion.p>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             {VALUE_CARDS.map((card, i) => (
               <motion.div
-                key={card.title}
+                key={card.key}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -292,8 +259,8 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
                 <div className={`w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center mb-4 ${card.iconColor}`}>
                   <card.icon className="w-6 h-6" />
                 </div>
-                <h3 className="text-lg md:text-xl font-bold text-white mb-2">{card.title}</h3>
-                <p className="text-sm text-gray-400 leading-relaxed">{card.desc}</p>
+                <h3 className="text-lg md:text-xl font-bold text-white mb-2">{t(`landing.value.cards.${card.key}.title`)}</h3>
+                <p className="text-sm text-gray-400 leading-relaxed">{t(`landing.value.cards.${card.key}.desc`)}</p>
               </motion.div>
             ))}
           </div>
@@ -336,15 +303,15 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
           >
             <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-white mb-3 md:mb-4 leading-tight drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)]">
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#a78bfa] via-[#ec4899] to-[#f59e0b]">
-                수많은
+                {t("landing.posterWall.titleLine1")}
               </span>
               <br />
-              AI 시네마를 소장·시청하세요
+              {t("landing.posterWall.titleLine2")}
             </h2>
             <p className="text-sm md:text-lg text-gray-200 leading-relaxed drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
-              영화, 드라마, 애니메이션, 다큐멘터리
+              {t("landing.posterWall.descLine1")}
               <br />
-              무제한 시청, 마음에 든 영상은 라이선스 구매로 평생 소장.
+              {t("landing.posterWall.descLine2")}
             </p>
           </motion.div>
         </div>
@@ -361,7 +328,7 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
             transition={{ duration: 0.6 }}
             className="text-3xl md:text-5xl font-black text-white text-center mb-4"
           >
-            자주 묻는 질문
+            {t("landing.faq.title")}
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -370,32 +337,34 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
             transition={{ duration: 0.6, delay: 0.1 }}
             className="text-base text-gray-400 text-center mb-10"
           >
-            궁금하신 점이 있나요? 답변을 확인해 보세요.
+            {t("landing.faq.subtitle")}
           </motion.p>
 
           <div className="space-y-3">
-            {FAQ_ITEMS.map((item) => (
-              <FaqItem key={item.q} q={item.q} a={item.a} />
+            {FAQ_ITEMS.map((key) => (
+              <FaqItem key={key} q={t(`landing.faq.items.${key}.q`)} a={t(`landing.faq.items.${key}.a`)} />
             ))}
           </div>
 
           {/* 추가 안내 */}
           <p className="text-center text-sm text-gray-500 mt-8">
-            더 많은 정보는{" "}
-            <button
-              onClick={() => onNavigate?.("about")}
-              className="text-[#a78bfa] hover:underline font-semibold"
-            >
-              회사 소개
-            </button>
-            {" 또는 "}
-            <a
-              href="?info=creator-revenue"
-              className="text-[#a78bfa] hover:underline font-semibold"
-            >
-              크리에이터 수익 정책
-            </a>
-            {" 에서 확인 가능합니다."}
+            <Trans
+              i18nKey="landing.faq.moreInfo"
+              components={{
+                aboutLink: (
+                  <button
+                    onClick={() => onNavigate?.("about")}
+                    className="text-[#a78bfa] hover:underline font-semibold"
+                  />
+                ),
+                revenueLink: (
+                  <a
+                    href="?info=creator-revenue"
+                    className="text-[#a78bfa] hover:underline font-semibold"
+                  />
+                ),
+              }}
+            />
           </p>
         </div>
       </section>
@@ -411,12 +380,12 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
             className="bg-gradient-to-br from-[#6366f1]/15 via-[#a78bfa]/10 to-[#ec4899]/10 border border-[#a78bfa]/30 rounded-3xl p-8 md:p-12 backdrop-blur-md"
           >
             <h2 className="text-3xl md:text-5xl font-black text-white mb-4">
-              지금 바로 시작하세요
+              {t("landing.cta.title")}
             </h2>
             <p className="text-base md:text-lg text-gray-300 mb-8 leading-relaxed">
-              월 ₩4,900 · 광고 없는 무제한 AI 시네마.
+              {t("landing.cta.descLine1")}
               <br />
-              언제든 해지 가능 · 회원가입 후 바로 시청.
+              {t("landing.cta.descLine2")}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Button
@@ -424,7 +393,7 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
                 className="w-full sm:w-auto px-8 py-6 text-base font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white rounded-xl shadow-[0_10px_40px_-10px_rgba(99,102,241,0.6)] gap-2"
               >
                 <Crown className="w-5 h-5" />
-                {isAuthenticated ? "지금 시청하기" : "지금 시작하기"}
+                {isAuthenticated ? t("landing.hero.ctaWatch") : t("landing.hero.ctaStart")}
               </Button>
               <Button
                 onClick={onExplore}
@@ -432,34 +401,34 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
                 className="w-full sm:w-auto px-8 py-6 text-base font-bold bg-white/5 border-white/20 hover:bg-white/10 text-white rounded-xl gap-2"
               >
                 <Play className="w-5 h-5" />
-                먼저 둘러보기
+                {t("landing.cta.exploreFirst")}
               </Button>
             </div>
           </motion.div>
 
           {/* 미니 푸터 (필수 사업자 정보만) */}
           <p className="text-xs text-gray-400 mt-12 leading-relaxed">
-            © {new Date().getFullYear()} CREAITE · 세계 최초 AI 시네마 OTT
+            {t("landing.miniFooter.copyright", { year: new Date().getFullYear() })}
             <br />
             <button
               onClick={() => onNavigate?.("terms")}
               className="text-gray-500 hover:text-gray-300 underline mx-1"
             >
-              이용약관
+              {t("footer.terms")}
             </button>
             ·
             <button
               onClick={() => onNavigate?.("privacy")}
               className="text-gray-500 hover:text-gray-300 underline mx-1"
             >
-              개인정보처리방침
+              {t("footer.privacy")}
             </button>
             ·
             <button
               onClick={() => onNavigate?.("about")}
               className="text-gray-500 hover:text-gray-300 underline mx-1"
             >
-              회사 소개
+              {t("footer.about")}
             </button>
           </p>
         </div>

@@ -17,8 +17,7 @@ interface HamburgerMenuProps {
  * 도달하기 어려워, 상단 헤더에서도 동일 진입점을 제공한다.
  */
 export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
-  const { t, i18n } = useTranslation();
-  const isKo = i18n.language?.startsWith("ko");
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   useBackButton(open, () => setOpen(false));
 
@@ -93,7 +92,7 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
                   </div>
                   <div className="flex-1 min-w-0 text-left">
                     <p className="text-[15px] font-bold text-white">{t("nav.membership", "멤버십")}</p>
-                    <p className="text-xs text-amber-200/70 mt-0.5">월 ₩4,900 · 광고 없는 무제한</p>
+                    <p className="text-xs text-amber-200/70 mt-0.5">{t("hamburger.membershipSub")}</p>
                   </div>
                 </button>
 
@@ -106,7 +105,7 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
                 <div className="px-3 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">{t("footer.terms")}</div>
                 <MenuItem icon={FileText} label={t("footer.terms")} onClick={() => handleNav("terms")} />
                 <MenuItem icon={Shield} label={t("footer.privacy")} onClick={() => handleNav("privacy")} />
-                <MenuItem icon={Shield} label={isKo ? "청소년보호정책" : "Youth Protection"} onClick={() => handleNav("youth")} />
+                <MenuItem icon={Shield} label={t("footer.youth")} onClick={() => handleNav("youth")} />
                 <a
                   href="?info=creator-revenue"
                   className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors"

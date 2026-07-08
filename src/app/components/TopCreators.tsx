@@ -48,8 +48,7 @@ interface CardProps {
 }
 
 function TopCreatorCard({ c, rank, onViewCreator, onSignInClick }: CardProps) {
-  const { i18n } = useTranslation();
-  const isKo = (i18n.language || "en").startsWith("ko");
+  const { t } = useTranslation();
   const { user } = useAuth();
   const isSelf = !!user?.id && user.id === c.creator_id;
   const th = rankTheme(rank);
@@ -78,17 +77,17 @@ function TopCreatorCard({ c, rank, onViewCreator, onSignInClick }: CardProps) {
         <button onClick={() => onViewCreator?.(c.creator_id)} className="font-bold text-white text-[15px] leading-tight hover:text-[#a78bfa] transition-colors line-clamp-1 max-w-full mt-1.5">
           {c.creator_name}
         </button>
-        <p className="text-[11px] text-gray-500 mt-0.5">{isKo ? `영상 ${c.video_count}편` : `${c.video_count} videos`}</p>
+        <p className="text-[11px] text-gray-500 mt-0.5">{t("topCreators.videosCount", { count: c.video_count })}</p>
 
         {/* 스탯 칩 */}
         <div className="grid grid-cols-2 gap-1.5 w-full mt-3">
           <div className="rounded-lg bg-white/[0.04] border border-white/5 py-2">
             <p className="text-[15px] font-black text-white leading-none">{fmt(c.follower_count)}</p>
-            <p className="text-[9px] text-gray-500 mt-1 flex items-center justify-center gap-0.5"><Users className="w-2.5 h-2.5" />{isKo ? "구독자" : "Subs"}</p>
+            <p className="text-[9px] text-gray-500 mt-1 flex items-center justify-center gap-0.5"><Users className="w-2.5 h-2.5" />{t("topCreators.subscribers")}</p>
           </div>
           <div className="rounded-lg bg-white/[0.04] border border-white/5 py-2">
             <p className="text-[15px] font-black text-white leading-none">{fmt(c.total_views)}</p>
-            <p className="text-[9px] text-gray-500 mt-1 flex items-center justify-center gap-0.5"><Eye className="w-2.5 h-2.5" />{isKo ? "조회" : "Views"}</p>
+            <p className="text-[9px] text-gray-500 mt-1 flex items-center justify-center gap-0.5"><Eye className="w-2.5 h-2.5" />{t("topCreators.views")}</p>
           </div>
         </div>
 
@@ -99,7 +98,7 @@ function TopCreatorCard({ c, rank, onViewCreator, onSignInClick }: CardProps) {
               onClick={() => onViewCreator?.(c.creator_id)}
               className="w-full py-2 rounded-lg text-xs font-bold bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-colors"
             >
-              {isKo ? "내 채널" : "My channel"}
+              {t("topCreators.myChannel")}
             </button>
           ) : (
             <FollowButton creatorId={c.creator_id} onSignInClick={onSignInClick} />

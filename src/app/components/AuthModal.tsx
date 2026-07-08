@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X, User as UserIcon, Loader2, ChevronLeft, MailCheck } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -14,8 +14,7 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
-  const { t, i18n } = useTranslation();
-  const isKo = (i18n.language || "en").startsWith("ko");
+  const { t } = useTranslation();
   const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState("");
@@ -33,9 +32,9 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
     setResending(true);
     try {
       await resendConfirmEmail(verifySentTo);
-      toast.success(isKo ? "인증 메일을 다시 보냈어요. 메일함을 확인해주세요." : "Confirmation email resent. Check your inbox.");
+      toast.success(t("auth.resendConfirmSuccess"));
     } catch (err: any) {
-      toast.error(err?.message || (isKo ? "재발송에 실패했어요. 잠시 후 다시 시도해주세요." : "Failed to resend. Try again later."));
+      toast.error(err?.message || t("auth.resendConfirmFailed"));
     } finally {
       setResending(false);
     }
@@ -84,7 +83,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
       setLoading(true);
       await signInWithGoogle();
     } catch (err: any) {
-      const msg: string = err.message || "Google sign-in failed.";
+      const msg: string = err.message || t("auth.googleSignInFailed");
       const isWebViewError = msg.includes("in-app");
       toast.error(msg, { duration: isWebViewError ? 8000 : 4000 });
       setLoading(false);
@@ -96,7 +95,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
       setLoading(true);
       await signInWithKakao();
     } catch (err: any) {
-      toast.error(err.message || "Kakao sign-in failed.");
+      toast.error(err.message || t("auth.kakaoSignInFailed"));
       setLoading(false);
     }
   };
@@ -156,25 +155,17 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                   <MailCheck className="w-8 h-8 text-[#fe2c55]" />
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 mb-2">
-                  {isKo ? "인증 메일을 보냈어요" : "Check your inbox"}
+                  {t("auth.verifySentTitle")}
                 </h3>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  {isKo ? (
-                    <>
-                      <span className="font-semibold text-gray-900 break-all">{verifySentTo}</span> 으로<br />
-                      인증 메일을 보냈습니다.<br />
-                      메일 속 링크를 누르면 가입이 완료되고 바로 로그인됩니다.
-                    </>
-                  ) : (
-                    <>
-                      We sent a confirmation email to<br />
-                      <span className="font-semibold text-gray-900 break-all">{verifySentTo}</span>.<br />
-                      Click the link inside to finish signing up.
-                    </>
-                  )}
+                  <Trans
+                    i18nKey="auth.verifySentBody"
+                    values={{ email: verifySentTo }}
+                    components={{ mail: <span className="font-semibold text-gray-900 break-all" /> }}
+                  />
                 </p>
                 <p className="text-xs text-gray-400 mt-3">
-                  {isKo ? "메일이 안 보이면 스팸함도 확인해주세요." : "Don't see it? Check your spam folder."}
+                  {t("auth.verifySpamHint")}
                 </p>
                 <div className="mt-6 space-y-2">
                   <Button
@@ -184,14 +175,14 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                     variant="outline"
                     className="w-full h-11 border-gray-200 text-gray-700 font-bold rounded-sm"
                   >
-                    {resending ? <Loader2 className="w-4 h-4 animate-spin" /> : (isKo ? "인증 메일 재발송" : "Resend email")}
+                    {resending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("auth.resendEmail")}
                   </Button>
                   <Button
                     type="button"
                     onClick={() => { setVerifySentTo(null); setMode("signin"); setShowEmailForm(true); setPassword(""); }}
                     className="w-full h-11 bg-[#fe2c55] hover:bg-[#ef2950] text-white font-bold rounded-sm"
                   >
-                    {isKo ? "인증을 마쳤어요 — 로그인" : "I've verified — Sign in"}
+                    {t("auth.verifiedSignIn")}
                   </Button>
                 </div>
               </motion.div>

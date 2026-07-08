@@ -25,7 +25,7 @@ import { supabase, supabaseAnonKey, supabaseUrl } from "../utils/supabaseClient"
 import { tusUploadToBunny, type BunnyTusAuth } from "../utils/bunnyUpload";
 import { isNegotiationOnly } from "../utils/licensePricing";
 import { toast } from "sonner";
-import { useTranslation } from "react-i18next";
+import { useTranslation, Trans } from "react-i18next";
 import { getCategoryLabel, getGenreLabel, getAiToolLabel, getLanguageLabel } from "../i18n/categoryLabels";
 import { GENRES } from "../data/genres";  // 장르 단일 출처 (업로드/시네마/OTT 공유)
 
@@ -1421,18 +1421,18 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
 
               {/* 시리즈(연속물) — 선택 */}
               <div>
-                <Label htmlFor="series" className="mb-2 block">시리즈 (연속물, 선택)</Label>
+                <Label htmlFor="series" className="mb-2 block">{t("upload.seriesLabel")}</Label>
                 <select
                   id="series"
                   value={seriesId}
                   onChange={(e) => setSeriesId(e.target.value)}
                   className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm"
                 >
-                  <option value="">시리즈 아님 (단일 영상)</option>
+                  <option value="">{t("upload.seriesNone")}</option>
                   {seriesList.map((s) => (
-                    <option key={s.id} value={s.id}>{s.title} ({s.episode_count}화)</option>
+                    <option key={s.id} value={s.id}>{s.title} ({t("upload.seriesEpisodeCount", { count: s.episode_count })})</option>
                   ))}
-                  <option value="__new__">+ 새 시리즈 만들기</option>
+                  <option value="__new__">{t("upload.seriesCreateNew")}</option>
                 </select>
                 {seriesId === "__new__" && (
                   <input

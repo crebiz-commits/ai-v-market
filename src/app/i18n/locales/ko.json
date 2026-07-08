@@ -10,7 +10,8 @@
     "mypage": "마이",
     "search": "검색",
     "business": "비즈니스",
-    "admin": "관리자"
+    "admin": "관리자",
+    "membership": "멤버십"
   },
   "auth": {
     "signIn": "로그인",
@@ -41,7 +42,18 @@
     "namePlaceholder": "이름 입력",
     "emailPlaceholder": "이메일 입력",
     "passwordPlaceholder": "비밀번호 입력",
-    "agreementText": "계속 진행할 경우 당사의 서비스 약관에 동의하고 개인정보 처리방침을 읽었음을 인정하는 것입니다."
+    "agreementText": "계속 진행할 경우 당사의 서비스 약관에 동의하고 개인정보 처리방침을 읽었음을 인정하는 것입니다.",
+    "resendConfirmSuccess": "인증 메일을 다시 보냈어요. 메일함을 확인해주세요.",
+    "resendConfirmFailed": "재발송에 실패했어요. 잠시 후 다시 시도해주세요.",
+    "enterEmailFirst": "이메일을 먼저 입력해주세요.",
+    "resetEmailSent": "비밀번호 재설정 메일을 보냈습니다. 메일함을 확인해주세요.",
+    "resetEmailFailed": "재설정 메일 발송에 실패했습니다.",
+    "googleSignInFailed": "구글 로그인에 실패했어요. 다시 시도해주세요.",
+    "kakaoSignInFailed": "카카오 로그인에 실패했어요. 다시 시도해주세요.",
+    "verifySentTitle": "인증 메일을 보냈어요",
+    "verifySpamHint": "메일이 안 보이면 스팸함도 확인해주세요.",
+    "resendEmail": "인증 메일 재발송",
+    "verifiedSignIn": "인증을 마쳤어요 — 로그인"
   },
   "common": {
     "cancel": "취소",
@@ -75,7 +87,8 @@
     "settings": "설정",
     "notifications": "알림",
     "cart": "장바구니",
-    "viewCart": "장바구니 보기"
+    "viewCart": "장바구니 보기",
+    "remove": "제거"
   },
   "app": {
     "videoNotFound": "영상을 찾을 수 없습니다",
@@ -132,7 +145,61 @@
     "submitSuccess": "게시글이 등록됐습니다!",
     "submitFailed": "게시글 등록에 실패했습니다.",
     "anonymous": "익명",
-    "justNow": "방금 전"
+    "justNow": "방금 전",
+    "creatorFallback": "크리에이터",
+    "postNotFound": "삭제되었거나 찾을 수 없는 글이에요.",
+    "challengeNotFound": "종료되었거나 찾을 수 없는 챌린지예요.",
+    "collabTitleDescRequired": "제목(2자+)과 설명(5자+)을 입력해주세요.",
+    "collabPostSuccess": "협업 글이 등록되었어요! 🤝",
+    "collabPostFailed": "등록에 실패했어요. 다시 시도해주세요.",
+    "collabDeleteConfirm": "이 협업 글을 삭제할까요? 받은 문의 대화도 함께 삭제되며 되돌릴 수 없어요.",
+    "deleteFailedWithReason": "삭제에 실패했어요: {{message}}",
+    "deleteNotAllowed": "삭제 권한이 없어요. 본인 글인지 / 로그인 상태를 확인해주세요.",
+    "collabDeleted": "협업 글을 삭제했어요.",
+    "updateFailedWithReason": "변경에 실패했어요: {{message}}",
+    "updateNotAllowed": "변경 권한이 없어요. 본인 글인지 / 로그인 상태를 확인해주세요.",
+    "collabClosed": "모집을 마감했어요.",
+    "collabReopened": "다시 열었어요.",
+    "bookmarkFailed": "북마크에 실패했어요.",
+    "postUpdated": "글을 수정했어요.",
+    "postDeleteConfirm": "이 글을 삭제할까요? 글의 댓글도 함께 삭제되며 되돌릴 수 없어요.",
+    "deleteFailed": "삭제에 실패했어요.",
+    "postDeleted": "글을 삭제했어요.",
+    "filterAll": "전체",
+    "sortLatest": "최신순",
+    "sortPopular": "인기순",
+    "sortComments": "댓글순",
+    "emptyPosts": "아직 게시글이 없습니다. 첫 글을 작성해보세요!",
+    "emptyCategoryPosts": "이 카테고리의 글이 아직 없어요.",
+    "noticeBadge": "공지",
+    "monthlyContestBadge": "매월 정기 콘테스트",
+    "monthlyContestTitle": "매달 열리는 AI 영상 챌린지",
+    "monthlyContestDesc": "매월 새로운 테마가 열립니다. 누구나 무료로 참가하고, 우수작은 메인 피드에 노출돼요.",
+    "rankFirst": "1등",
+    "rankSecond": "2등",
+    "rankThird": "3등",
+    "premiumMonths": "프리미엄 {{count}}개월",
+    "noChallenges": "진행 중인 챌린지가 없어요",
+    "noChallengesHint": "새로운 챌린지가 곧 열릴 예정이에요!",
+    "statusOngoing": "진행중 · D-{{days}}",
+    "statusUpcoming": "오픈 예정",
+    "statusEnded": "마감",
+    "collabBadge": "크리에이터 협업",
+    "collabHeroTitle": "혼자 만들지 마세요. 함께 만들어요",
+    "collabHeroDesc": "팀원을 모집하고, 재능을 나누고, 막히는 부분을 도와주는 크리에이터들의 협업 공간이에요.",
+    "collabPostButton": "협업 글 올리기",
+    "noCollabPosts": "아직 협업 글이 없어요",
+    "noCollabPostsOfType": "이 유형의 글이 아직 없어요",
+    "beFirstCollab": "첫 번째 협업 글을 올려보세요!",
+    "mine": "내 글",
+    "inquiriesCount": "문의 {{count}}",
+    "viewInquiries": "받은 문의 보기 ›",
+    "detailsHelp": "자세히·도와주기 ›",
+    "detailsInquire": "자세히·문의하기 ›",
+    "collabTypeRecruit": "팀원 모집",
+    "collabTypeJoin": "참여 희망",
+    "collabTypeHelp": "도움 요청",
+    "collabTypeOutsource": "외주 · 유료"
   },
   "communityCategory": {
     "tip": "팁",
@@ -202,7 +269,8 @@
     "shortcutF": "F: 전체화면",
     "shortcutM": "M: 음소거",
     "shortcutP": "P: PiP",
-    "shortcutEsc": "Esc: 닫기"
+    "shortcutEsc": "Esc: 닫기",
+    "rateDefault": "(기본)"
   },
   "commentSettings": {
     "title": "댓글 관리",
@@ -241,7 +309,8 @@
     "shareToTelegram": "텔레그램으로 공유",
     "shareToWhatsApp": "WhatsApp으로 공유",
     "close": "닫기",
-    "copyFailed": "링크 복사 실패"
+    "copyFailed": "링크 복사 실패",
+    "kakaoHint": "카카오톡 공유는 앱에서 더 잘 작동해요"
   },
   "reportModal": {
     "title": "신고하기",
@@ -321,7 +390,9 @@
     "openingPayment": "결제창 여는 중...",
     "subscribeCTA": "구독하기 — 월 ₩4,900",
     "signInToSubscribe": "로그인하고 구독하기",
-    "later": "나중에 보기"
+    "later": "나중에 보기",
+    "subscribeOnWeb": "구독 결제는 웹(creaite.net)에서 진행됩니다. 브라우저로 이동합니다.",
+    "subscribeOnWebCTA": "웹에서 구독하기"
   },
   "paymentResult": {
     "successTitle": "결제 완료",
@@ -390,7 +461,9 @@
     "help": "도움말",
     "language": "언어",
     "signIn": "로그인",
-    "signOut": "로그아웃"
+    "signOut": "로그아웃",
+    "membershipSub": "월 ₩4,900 · 광고 없는 무제한",
+    "advertiser": "광고주 센터"
   },
   "footer": {
     "tagline": "세계 최초 AI 시네마 OTT",
@@ -416,7 +489,12 @@
       "hosting": "호스팅"
     },
     "notices": "공지사항",
-    "bugReport": "버그 제보 (커피 쿠폰)"
+    "bugReport": "버그 제보 (커피 쿠폰)",
+    "youth": "청소년보호정책",
+    "support1on1": "고객센터 · 1:1 문의",
+    "groupHq": "그룹 본사",
+    "affiliates": "계열사",
+    "devOps": "🛠 개발·운영"
   },
   "emailConfirm": {
     "title": "이메일 인증이 필요합니다",
@@ -485,7 +563,35 @@
     "participantsLabel": "참여자",
     "joinChallenge": "챌린지 참여",
     "comingSoon": "챌린지 응모는 곧 출시됩니다.",
-    "details": "상세 내용"
+    "details": "상세 내용",
+    "tier1Rank": "1등",
+    "tier1Prize": "프리미엄 6개월 + 홈 히어로 1개월",
+    "tier1Perk": "이달의 크리에이터 뱃지 · 공식 SNS 소개",
+    "tier2Rank": "2등",
+    "tier2Prize": "프리미엄 3개월",
+    "tier2Perk": "추천 행 2주 노출 · 우수상 뱃지",
+    "tier3Rank": "3등",
+    "tier3Prize": "프리미엄 1개월",
+    "tier3Perk": "다음 챌린지 우선 심사 · 입선 뱃지",
+    "rule1": "5분 이내 AI 생성 영상 제출",
+    "rule2": "이달의 테마에 맞는 창의적인 컨셉",
+    "rule3": "9:16 또는 16:9 비율, 1080p 이상 화질",
+    "rule4": "사용한 프롬프트 공유 (선택)",
+    "rule5": "1인당 최대 3편까지 출품 가능",
+    "rule6": "표절 / 저작권 침해 시 자동 실격",
+    "shareText": "CREAITE 챌린지: {{title}} - 상금 {{prize}}",
+    "opensSoonToast": "곧 오픈되는 챌린지예요. 조금만 기다려주세요!",
+    "monthlyContest": "매월 정기 콘테스트",
+    "ended": "마감",
+    "defaultDescription": "{{title}} 챌린지에 참여하세요!\n\nAI 영상 실력을 뽐내고 {{prize}}의 주인공이 되어보세요. 나만의 창작물로 다른 크리에이터들과 겨뤄보세요.\n\n우수작은 메인 피드에 노출되며, 1등은 마켓에서 일주일간 무료 프로모션을 받습니다.",
+    "rulesTitle": "참여 규칙",
+    "prizesTitle": "시상 내역",
+    "entriesTitle": "참여작",
+    "noEntries": "아직 참여작이 없어요",
+    "endedNotice": "마감된 챌린지입니다.",
+    "beFirstEntry": "첫 참여작의 주인공이 되어보세요!",
+    "closedButton": "마감되었습니다",
+    "upcomingButton": "오픈 예정 🔔"
   },
   "business": {
     "title": "비즈니스 문의",
@@ -559,7 +665,8 @@
     "duration5to10": "5~10분",
     "duration10plus": "10분 이상",
     "newFollowers": "신규",
-    "cumulativeFollowers": "누적"
+    "cumulativeFollowers": "누적",
+    "back": "돌아가기"
   },
   "ageBadge": {
     "all": "전체",
@@ -646,7 +753,8 @@
       "requestFailed": "요청에 실패했습니다.",
       "requestSuccess": "계정 삭제가 요청됐습니다. 30일 후 영구 삭제됩니다.",
       "cancelFailed": "취소에 실패했습니다.",
-      "cancelSuccess": "계정 삭제 요청을 취소했습니다."
+      "cancelSuccess": "계정 삭제 요청을 취소했습니다.",
+      "statusLoadFailed": "계정 상태를 불러오지 못했어요. 잠시 후 다시 시도해 주세요."
     },
     "blocks": {
       "title": "차단한 사용자",
@@ -687,7 +795,9 @@
       "upgrade": "업그레이드",
       "freeDesc": "하이라이트 미리보기",
       "basicDesc": "풀 영상 시청 가능",
-      "premiumDesc": "풀 영상 + 광고 제거"
+      "premiumDesc": "풀 영상 + 광고 제거",
+      "expiresToday": "· 오늘 만료!",
+      "extend": "구독 연장"
     },
     "account": {
       "title": "계정 정보",
@@ -716,7 +826,8 @@
         "submit": "저장",
         "success": "정산 계좌가 저장되었습니다.",
         "error": "저장 실패: "
-      }
+      },
+      "loadFailed": "정산 계좌 정보를 불러오지 못했습니다."
     },
     "purchases": {
       "totalSpent": "총 구매 금액",
@@ -725,7 +836,9 @@
       "downloadStarted": "다운로드를 시작합니다. 새 탭에서 영상이 열리면 우클릭 → \"다른 이름으로 저장\"을 사용하세요.",
       "downloadFailed": "다운로드 실패",
       "empty": "아직 구매한 내역이 없습니다.",
-      "statusAvailable": "다운로드 가능"
+      "statusAvailable": "다운로드 가능",
+      "noVideoId": "영상 ID 가 없습니다",
+      "noDownloadableFile": "다운로드 가능한 영상 파일을 찾지 못했습니다 (인코딩 처리 중일 수 있습니다)"
     },
     "sales": {
       "revenueGuideLabel": "수익 정책 자세히 보기",
@@ -828,7 +941,14 @@
       "twoFactorAuth": "2단계 인증 설정",
       "twoFactorComingSoon": "2단계 인증은 준비 중입니다.",
       "signOut": "로그아웃",
-      "signOutSuccess": "로그아웃 되었습니다."
+      "signOutSuccess": "로그아웃 되었습니다.",
+      "sectionInvite": "초대",
+      "sectionNotifications": "알림",
+      "sectionBilling": "결제",
+      "sectionSecurity": "보안",
+      "sectionPrivacy": "개인정보",
+      "sectionAccount": "계정",
+      "signOutFailed": "로그아웃에 실패했어요. 다시 시도해 주세요."
     },
     "loginRequiredTitle": "로그인이 필요합니다",
     "loginRequiredDescLine1": "마이페이지를 이용하려면 먼저 로그인해주세요.",
@@ -881,7 +1001,20 @@
     "statsProducts": "등록 상품",
     "statsRating": "평점",
     "statusOnSale": "판매중",
-    "chartMonth": "{{n}}월"
+    "chartMonth": "{{n}}월",
+    "emailChange": {
+      "invalid": "올바른 이메일 형식이 아닙니다.",
+      "sameAsCurrent": "현재 이메일과 동일합니다.",
+      "confirmSent": "확인 메일을 {{email}} 로 보냈어요. 메일의 링크를 클릭하면 이메일 변경이 완료됩니다.",
+      "failed": "이메일 변경 실패: {{message}}"
+    },
+    "statsLikes": "받은 좋아요",
+    "quickLinks": {
+      "title": "빠른 링크",
+      "membership": "멤버십 관리",
+      "support": "고객센터 · 1:1 문의",
+      "settings": "설정 (알림 · 결제내역 · 보안)"
+    }
   },
   "myPayments": {
     "title": "결제 내역",
@@ -1045,7 +1178,9 @@
     "notForSaleShort": "라이선스 미판매",
     "negotiationOnly": "별도 협의",
     "ageGateLockTitle": "19+ 인증 필요",
-    "ageGateLockHint": "탭하여 본인 인증"
+    "ageGateLockHint": "탭하여 본인 인증",
+    "notForSaleToast": "무료 시청 전용 영상입니다 (라이선스 미판매)",
+    "negotiationToast": "별도 협의 상품입니다 — 상세에서 문의해주세요"
   },
   "nextVideo": {
     "label": "다음 영상",
@@ -1140,7 +1275,8 @@
     "viewsPrefix": "조회",
     "previous": "이전",
     "next": "다음",
-    "seriesBadge": "시리즈 · {{count}}화"
+    "seriesBadge": "시리즈 · {{count}}화",
+    "addToCart": "장바구니"
   },
   "language": {
     "korean": "한국어",
@@ -1186,7 +1322,7 @@
     "customThumbnailButton": "커스텀 이미지 업로드",
     "customThumbnailChange": "커스텀 썸네일 변경",
     "highlightTitle": "하이라이트 구간",
-    "highlightHint": "(홈 피드/큐레이션에 노출될 5~30초)",
+    "highlightHint": "홈 피드·OTT 히어로에서 자동재생되는 미리보기 구간 (예: 0:05 ~ 0:35). 비워두면 변경 안 함.",
     "highlightDescription": "가장 인상적인 부분을 선택하면 클릭률이 올라갑니다.",
     "highlightStart": "시작",
     "highlightEnd": "종료",
@@ -1255,7 +1391,6 @@
     "visibilityPrivateDesc": "본인과 승인된 구매자만 볼 수 있음",
     "priceHeader": "라이선스 가격",
     "highlightHeader": "하이라이트 구간",
-    "highlightHint": "홈 피드·OTT 히어로에서 자동재생되는 미리보기 구간 (예: 0:05 ~ 0:35). 비워두면 변경 안 함.",
     "highlightInvalid": "하이라이트 구간 형식이 올바르지 않습니다 (예: 0:05)",
     "highlightOrderInvalid": "하이라이트 끝은 시작보다 커야 합니다",
     "priceDescription": "유튜브·SNS·기업 마케팅 등 모든 상업·비상업 용도에 사용 가능한 라이선스입니다. 구매 후 영구 사용 가능합니다.",
@@ -1318,8 +1453,31 @@
       "calculating": "계산 중...",
       "secondsShort": "{{n}}초",
       "minutesSeconds": "{{m}}분 {{s}}초",
-      "hoursMinutes": "{{h}}시간 {{m}}분"
-    }
+      "hoursMinutes": "{{h}}시간 {{m}}분",
+      "aiToolRequired": "사용한 AI 도구를 선택해주세요.",
+      "resolutionRequired": "해상도를 선택해주세요.",
+      "durationInvalid": "재생 시간 형식이 올바르지 않습니다 (예: 3:45)."
+    },
+    "challengeJoinTitle": "챌린지 참가",
+    "challengeJoinDesc": "이 영상은 챌린지 출품작으로 자동 등록됩니다.",
+    "challengeJoinCancel": "참가 취소",
+    "seriesLabel": "시리즈 (연속물, 선택)",
+    "seriesNone": "시리즈 아님 (단일 영상)",
+    "seriesEpisodeCount": "{{count}}화",
+    "seriesCreateNew": "+ 새 시리즈 만들기",
+    "ageRatingLabel": "시청 등급",
+    "ageAll": "전체관람가",
+    "ageAllHint": "모든 시청자",
+    "age12Hint": "가벼운 폭력·언어",
+    "age15Hint": "폭력·선정성 일부",
+    "ageRatingNote15Max": "* 최대 15세 이용가까지 등록할 수 있습니다 (성인 콘텐츠 불가).",
+    "sponsorHeader": "협찬·후원 정보",
+    "sponsorDescription": "협찬·후원이 있는 콘텐츠는 공정거래법에 따라 영상 시작 시 표시 문구를 노출합니다.",
+    "sponsorBrandLabel": "후원 브랜드명",
+    "sponsorBrandPlaceholder": "예: Samsung, Coca-Cola",
+    "sponsorDisclosureLabel": "표시 문구",
+    "sponsorLogoLabel": "후원 로고 URL (선택)",
+    "sponsorLinkLabel": "클릭 시 이동 URL (선택)"
   },
   "ott": {
     "noVideos": "표시할 영상이 없습니다.",
@@ -1370,7 +1528,9 @@
     "videos": "영상 {{count}}",
     "nameless": "이름 없음",
     "placeholder": "영상, 크리에이터, 태그 검색...",
-    "searchFailed": "영상 검색에 실패했습니다."
+    "searchFailed": "영상 검색에 실패했습니다.",
+    "loadingMore": "불러오는 중…",
+    "loadMore": "더 보기"
   },
   "productDetail": {
     "paywall": {
@@ -1389,7 +1549,10 @@
       "chapters": "챕터",
       "chaptersCount_one": "{{count}}개",
       "chaptersCount_other": "{{count}}개",
-      "subtitleAvailable": "자막 파일이 등록되어 있습니다 (CC)"
+      "subtitleAvailable": "자막 파일이 등록되어 있습니다 (CC)",
+      "genre": "장르",
+      "category": "카테고리",
+      "chaptersCount": "챕터 {{count}}개"
     },
     "license": {
       "title": "라이선스 구매",
@@ -1408,7 +1571,15 @@
       "purchaseWarning2": "결제 전 미리보기를 통해 충분히 확인해 주시기 바랍니다",
       "notForSale": "비매품",
       "freeViewOnly": "무료 시청",
-      "notForSaleDescription": "라이선스 없음 · 무료 시청만"
+      "notForSaleDescription": "라이선스 없음 · 무료 시청만",
+      "premiumTitle": "프리미엄 라이선스",
+      "premiumSubtitle": "고가 라이선스 · 1:1 협의 판매",
+      "collapseFeatures": "접기",
+      "moreFeatures": "{{count}}개 더 보기",
+      "inquiryButton": "1:1 라이선스 문의",
+      "negotiationNotice": "₩1,000만 이상 고가 라이선스는 사이트 직접 구매 대신 운영팀과 1:1 협의로 판매됩니다 (영화 배급 등).",
+      "withdrawalNotice": "구매 후 다운로드·시청을 시작하면 청약철회가 제한됩니다(전자상거래법 제17조). 환불·청약철회 정책: ",
+      "withdrawalPolicyLink": "이용약관 제7조"
     },
     "description": "상품 설명",
     "tags": "태그",
@@ -1456,7 +1627,24 @@
       "paymentFailed": "결제 시작 실패: ",
       "unknownError": "알 수 없는 오류"
     },
-    "jsonLdDescription": "AI 시네마 — {{creator}} | CREAITE"
+    "jsonLdDescription": "AI 시네마 — {{creator}} | CREAITE",
+    "sponsor": {
+      "paidPromotion": "유료 광고 포함"
+    },
+    "subscribeFullView": "구독하고 전체 보기",
+    "series": {
+      "fallbackTitle": "시리즈",
+      "totalEpisodes": "· 총 {{count}}화",
+      "nextEpisode": "다음 화 ▶",
+      "nowPlaying": "재생 중"
+    },
+    "attribution": {
+      "title": "출처·라이선스",
+      "originalCreator": "원작: {{name}}",
+      "sourceLink": "원본 출처"
+    },
+    "similarVideosTitle": "함께 시청된 콘텐츠",
+    "similarVideosSubtitle": "같은 크리에이터 · 카테고리 · 장르 기반 추천"
   },
   "search": {
     "placeholder": "영상, 크리에이터, 태그 검색...",
@@ -1475,5 +1663,307 @@
       "videos": "영상",
       "creators": "크리에이터"
     }
+  },
+  "ads": {
+    "common": {
+      "error": "오류: {{message}}"
+    },
+    "create": {
+      "titleNew": "새 광고 만들기",
+      "titleEdit": "광고 수정",
+      "kindOverlay": "오버레이 배너",
+      "kindFeedImage": "피드 이미지",
+      "kindFeedVideo": "피드 영상",
+      "kindPreroll": "영상 프리롤",
+      "kindOverlayDesc": "영상 재생 중 하단에 뜨는 작은 배너(이미지)로만 노출됩니다.",
+      "kindFeedImageDesc": "홈 피드에 풀스크린 이미지 카드로만 노출됩니다.",
+      "kindFeedVideoDesc": "홈 피드에 풀스크린 영상 카드(자동재생·무음)로만 노출됩니다.",
+      "kindPrerollDesc": "본편 영상 시작 전 풀스크린 영상으로 재생됩니다.",
+      "costTitle": "💰 비용",
+      "costPerImpression": "노출당 ₩2",
+      "costLine1": "CPM ₩2,000 기준 노출 1회당 ₩2 차감 (모든 형식 동일). 클릭은 무료.",
+      "costLine2": "예) ₩10,000 충전 → 약 5,000회 노출. 승인 후 충전한 예산만큼만 노출되고, 소진되면 자동 중단됩니다.",
+      "nameLabel": "광고명",
+      "namePlaceholder": "예: 여름 세일 프로모션",
+      "advertiserLabel": "광고주명 (선택)",
+      "advertiserPlaceholder": "표시될 브랜드명",
+      "bannerImageLabel": "배너 이미지",
+      "feedImageLabel": "피드 카드 이미지",
+      "uploadFile": "파일 업로드",
+      "imageUrlPlaceholderOverlay": "업로드 또는 이미지 URL (300×250 권장)",
+      "imageUrlPlaceholderFeed": "업로드 또는 이미지 URL (세로 9:16 권장)",
+      "imageLoadError": "⚠️ 이미지를 불러올 수 없습니다. 웹페이지 주소가 아니라 실제 이미지 파일(.jpg/.png)이어야 합니다. 「파일 업로드」를 권장합니다.",
+      "imageHintOverlay": "영상 위 작은 오버레이 배너로 노출됩니다.",
+      "imageHintFeed": "홈 피드에 풀스크린 이미지 카드로 노출됩니다.",
+      "previewAlt": "미리보기",
+      "videoLabelFeed": "광고 영상 (피드 풀스크린)",
+      "videoLabelPreroll": "광고 영상 (프리롤)",
+      "uploadingPct": "업로드 중… {{pct}}%",
+      "videoReplace": "영상 업로드 완료 — 다시 올리려면 클릭",
+      "videoUploadCta": "광고 영상 업로드 (최대 300MB)",
+      "videoHintFeed": "세로 영상 권장 (9:16). 피드에서 자동재생·무음 루프로 노출됩니다.",
+      "videoHintPreroll": "짧은 프리롤 영상 권장 (15~30초). 영상 시작 전 재생됩니다.",
+      "linkLabel": "클릭 시 이동할 링크",
+      "ctaLabel": "버튼 문구 (CTA)",
+      "ctaDefault": "자세히 보기",
+      "reReviewNotice": "⚠️ 승인된 광고를 수정하면 다시 심사를 거칩니다. 재승인 전까지 노출이 일시 중단되며, 재승인되면 자동으로 재개됩니다.",
+      "submitHint": "저장 후 「심사 제출」하면 운영팀 검토를 거쳐 승인됩니다. 승인 후 예산을 충전하면 노출이 시작됩니다.",
+      "saveReReview": "저장 후 재심사 요청",
+      "saveDraft": "임시 저장",
+      "saveSubmit": "저장 후 제출",
+      "imageOnly": "이미지 파일만 가능합니다.",
+      "imageTooLarge": "10MB 이하만 가능합니다.",
+      "imageUploaded": "이미지를 업로드했어요.",
+      "uploadFailed": "업로드 실패: {{message}}",
+      "videoOnly": "동영상 파일만 가능합니다.",
+      "videoTooLarge": "300MB 이하만 가능합니다.",
+      "videoUploaded": "영상을 업로드했어요. 인코딩 후 노출됩니다.",
+      "videoUploadFailed": "영상 업로드 실패: {{message}}",
+      "requiredFields": "광고명·링크·소재(이미지/영상)는 필수입니다.",
+      "submitted": "광고를 심사 제출했어요. 승인 후 노출됩니다.",
+      "savedReReview": "수정 사항을 저장했어요. 다시 심사를 거치며, 재승인되면 노출이 자동 재개됩니다.",
+      "saved": "저장했어요."
+    },
+    "dashboard": {
+      "title": "광고주 센터",
+      "loadFailed": "불러오기 실패: {{message}}",
+      "submitted": "심사 제출했어요.",
+      "status": {
+        "draft": "초안",
+        "pendingReview": "심사 중",
+        "approved": "승인됨",
+        "rejected": "반려됨",
+        "paused": "중지됨"
+      },
+      "empty": "아직 등록한 광고가 없습니다.",
+      "emptyHint": "위 버튼으로 첫 광고를 만들어 보세요.",
+      "impressions": "노출",
+      "clicks": "클릭",
+      "trend": "추이",
+      "rejectReason": "반려 사유: {{note}}",
+      "budgetUsed": "예산 소진",
+      "topupPrompt": "⚡ 예산을 충전하면 노출이 시작됩니다.",
+      "edit": "수정",
+      "submit": "심사 제출",
+      "topup": "충전",
+      "pause": "일시중지",
+      "resume": "재개",
+      "underReview": "운영팀 심사 중 (보통 1영업일)."
+    },
+    "topup": {
+      "title": "예산 충전",
+      "minAmount": "최소 충전액은 ₩{{amount}} 입니다.",
+      "customLabel": "직접 입력 (₩)",
+      "estimate": "예상 노출 약 {{n}}회 (노출당 ₩{{cpm}}). 충전 후 즉시 노출에 반영됩니다.",
+      "refundNotice": "노출 시작 전 충전일로부터 7일 내 전액 환불 가능, 노출 시작 후엔 잔액 한도 내 환불. 환불 정책: ",
+      "termsLink": "이용약관 제7조",
+      "payButton": "₩{{amount}} 충전하기"
+    },
+    "stats": {
+      "title": "성과",
+      "empty": "아직 집계된 노출이 없습니다.",
+      "totalImpressions": "총 노출",
+      "totalClicks": "총 클릭",
+      "legend": "막대=노출, 우측=노출·클릭 (최근 14일)"
+    }
+  },
+  "betaCard": {
+    "claimSlot": "이 칸을 선점하세요",
+    "uploadVideo": "영상 등록"
+  },
+  "collabInquiry": {
+    "creatorFallback": "크리에이터",
+    "headerInquiries": "받은 문의",
+    "headerDetail": "문의 상세",
+    "private": "비공개"
+  },
+  "discoveryFeed": {
+    "adBadge": "광고",
+    "videoProcessing": "영상 처리 중...",
+    "seriesBadge": "시리즈",
+    "likeFailed": "좋아요 처리에 실패했어요. 잠시 후 다시 시도해 주세요.",
+    "loadFailed": "영상을 불러오지 못했어요.",
+    "empty": "표시할 영상이 없습니다.",
+    "betaBanner": "CREAITE 베타 · 지금 등록하고 카테고리를 선점하세요",
+    "betaRegister": "등록하기",
+    "legalNav": "법적 고지",
+    "chipPrev": "이전 칩",
+    "chipNext": "다음 칩",
+    "searchPlaceholder": "영상·크리에이터 검색"
+  },
+  "landing": {
+    "hero": {
+      "titleLine1": "AI 가 만든 영화",
+      "titleLine2": "무제한으로 즐기세요.",
+      "subtitle": "월 ₩4,900 으로 무제한 시청. 비회원도 모든 영상 1분 미리보기 가능.",
+      "ctaWatch": "지금 시청하기",
+      "ctaStart": "지금 시작하기",
+      "ctaExplore": "콘텐츠 둘러보기",
+      "scrollAria": "다음 섹션으로 스크롤",
+      "scrollHint": "스크롤하여 더 보기"
+    },
+    "value": {
+      "title": "왜 CREAITE 인가요?",
+      "subtitle": "AI 가 만든 영화를 보는 것을 넘어, 활용하고 수익까지 얻는 새로운 플랫폼."
+    },
+    "posterWall": {
+      "titleLine1": "수많은",
+      "titleLine2": "AI 시네마를 소장·시청하세요",
+      "descLine1": "영화, 드라마, 애니메이션, 다큐멘터리",
+      "descLine2": "무제한 시청, 마음에 든 영상은 라이선스 구매로 평생 소장."
+    },
+    "faq": {
+      "title": "자주 묻는 질문",
+      "subtitle": "궁금하신 점이 있나요? 답변을 확인해 보세요."
+    },
+    "cta": {
+      "title": "지금 바로 시작하세요",
+      "descLine1": "월 ₩4,900 · 광고 없는 무제한 AI 시네마.",
+      "descLine2": "언제든 해지 가능 · 회원가입 후 바로 시청.",
+      "exploreFirst": "먼저 둘러보기"
+    },
+    "miniFooter": {
+      "copyright": "세계 최초 AI 시네마 OTT"
+    }
+  },
+  "topCreators": {
+    "videosCount": "영상 {{count}}편",
+    "subscribers": "구독자",
+    "views": "조회수",
+    "myChannel": "내 채널"
+  },
+  "subscriptionPage": {
+    "canceled": "취소했어요.",
+    "errorWithMessage": "오류: {{message}}",
+    "confirmCancelAutoRenew": "자동결제를 해지할까요? 현재 구독은 만료일까지 유지됩니다.",
+    "autoRenewResumed": "자동결제를 재개했어요.",
+    "autoRenewCanceled": "자동결제를 해지했어요. 만료일까지 이용 가능합니다.",
+    "freeFeature1": "무료 공개 영상 무제한 시청",
+    "freeFeature2": "모든 영상 1분 미리보기",
+    "freeFeature3": "라이선스 개별 구매 가능",
+    "freeFeature4": "광고 포함",
+    "premiumFeature1": "시네마·OTT 모든 영상 무제한 시청",
+    "premiumFeature2": "광고 완전 제거",
+    "premiumFeature3": "고화질(HD) 스트리밍",
+    "premiumFeature4": "매월 자동 갱신 · 언제든 해지",
+    "badge": "CREAITE 멤버십",
+    "title": "원하는 멤버십을 선택하세요",
+    "subtitle": "매월 자동 갱신 · 언제든 해지 가능",
+    "premiumActive": "프리미엄 이용 중",
+    "nextChargeDate": "다음 결제일 {{date}}",
+    "expiresDate": "만료일 {{date}}",
+    "card": "카드",
+    "autoRenewOn": "자동결제 ON",
+    "autoRenewOff": "자동결제 OFF",
+    "cancelAutoRenew": "자동결제 해지",
+    "resumeAutoRenew": "자동결제 재개",
+    "freePlanName": "무료",
+    "currentPlan": "현재 이용 중",
+    "freePlan": "무료 플랜",
+    "recommended": "추천",
+    "agreeRecurring": "매월 ₩4,900 자동결제(정기결제) 및 환불 정책에 동의합니다. 언제든 해지할 수 있습니다.",
+    "registeringCard": "카드 등록 중…",
+    "active": "이용 중",
+    "subscribeCTA": "프리미엄 구독하기",
+    "footNote": "매월 ₩4,900 자동 결제 · 언제든 해지 가능",
+    "notice1": "프리미엄은 매월 ₩4,900이 등록한 카드로 자동 결제(정기결제)됩니다. 「구독하기」를 누르면 자동결제에 동의하는 것으로 간주됩니다.",
+    "notice2": "자동결제는 이 페이지 또는 마이페이지에서 언제든 해지할 수 있으며, 해지 시 다음 결제일부터 청구되지 않습니다 (이미 결제한 기간은 만료일까지 이용 가능).",
+    "notice3": "프리미엄 구독 시 시네마·OTT 전체 영상을 광고 없이 무제한 시청할 수 있습니다.",
+    "notice4": "결제·환불 관련 문의는 고객센터(1:1 문의) 또는 support@creaite.net 으로 연락 주세요."
+  },
+  "supportPage": {
+    "errFillAll": "제목과 내용을 모두 입력해 주세요.",
+    "submitFailed": "문의 접수 실패: {{message}}",
+    "submitSuccess": "문의가 접수되었습니다. 답변은 알림과 '내 문의 내역'에서 확인하실 수 있어요.",
+    "signInTitle": "로그인 후 문의하실 수 있어요",
+    "signInDesc": "답변을 알림과 '내 문의 내역'에서 추적하려면 로그인이 필요합니다.",
+    "signInButton": "로그인 / 회원가입",
+    "emailHelpBefore": "로그인이 어려우시면 ",
+    "emailHelpAfter": " 으로도 문의하실 수 있어요.",
+    "desc": "궁금한 점·문제를 남겨주세요. 답변은 알림과 아래 '내 문의 내역'에서 확인하실 수 있어요.",
+    "categoryLabel": "문의 유형",
+    "subjectLabel": "제목",
+    "subjectPlaceholder": "문의 제목을 입력하세요",
+    "messageLabel": "내용",
+    "messagePlaceholder": "문의 내용을 자세히 적어주세요. (예: 결제 후 구독이 적용되지 않아요)",
+    "submitting": "접수 중…",
+    "submit": "문의 보내기",
+    "myInquiries": "내 문의 내역",
+    "empty": "아직 보낸 문의가 없어요.",
+    "adminReply": "CREAITE 답변"
+  },
+  "creatorRevenueGuide": {
+    "title": "크리에이터 수익 정책",
+    "subtitle": "CREAITE에서 AI 영상으로 어떻게 수익을 얻는지, 어떤 영상이 어떤 수익원을 받을 수 있는지 한눈에 알려드립니다.",
+    "when": {
+      "title": "📌 수익은 언제 발생하나요?"
+    },
+    "sources": {
+      "title": "3가지 수익원",
+      "subtitle": "CREAITE는 크리에이터에게 라이선스 판매·광고·구독 3가지 방식으로 수익을 분배합니다.",
+      "license": {
+        "title": "라이선스 판매",
+        "desc": "영상에 가격을 등록하면 구매자가 결제할 때마다 즉시 적립. 플랫폼 수수료 20%."
+      },
+      "ad": {
+        "title": "광고 수익",
+        "desc": "영상에 붙는 광고가 노출될 때마다 수익 발생. 영상 길이에 따라 분배율 차등."
+      },
+      "sub": {
+        "title": "구독료 분배",
+        "rate": "50% 풀",
+        "desc": "10분 이상 OTT 영상 시청 시간 비율로 매월 분배. 전체 구독 매출의 50%가 크리에이터 풀로 누적."
+      }
+    },
+    "tiers": {
+      "title": "영상 길이별 수익 가능 영역",
+      "subtitle": "올리는 영상의 길이에 따라 노출되는 위치와 받을 수 있는 수익이 달라집니다.",
+      "minutes1": "1분",
+      "minutes3to10": "3~10분",
+      "minutes10plus": "10분+",
+      "shorts": {
+        "title": "홈 피드 숏폼 (0~3분 미만)",
+        "desc": "홈 피드의 짧은 영상으로 노출됩니다. 라이선스 판매는 불가하며 광고 수익만 정산됩니다."
+      },
+      "cinema": {
+        "title": "시네마 (3분 이상)",
+        "desc": "시네마 탭에 노출. 비구독자도 1분까지 미리보기 가능 → 시청자가 끝까지 보려면 구독."
+      },
+      "ott": {
+        "title": "OTT (10분 이상)",
+        "badge": "⭐ 모든 수익원"
+      }
+    },
+    "badge": {
+      "licenseNo": "라이선스 ✕",
+      "license": "라이선스 ✓",
+      "ad": "광고 ✓",
+      "subNo": "구독 ✕",
+      "sub": "구독 ✓"
+    },
+    "ads": {
+      "title": "영상 광고 종류",
+      "subtitle": "영상에 다음 5가지 형식의 광고가 붙으며, 노출될 때마다 크리에이터에게 수익이 분배됩니다."
+    },
+    "subscription": {
+      "title": "구독료 분배는 어떻게 계산되나",
+      "subtitle": "OTT 영상(10분 이상)의 유효 시청 시간 비율로 매월 분배됩니다.",
+      "formulaLabel": "📐 분배 공식",
+      "formula1": "내 수익 = (내 OTT 영상 유효 시청 시간 / 전체 OTT 시청 시간) × 크리에이터 풀",
+      "formula2": "크리에이터 풀 = 전체 구독 매출 × 50%",
+      "exampleLabel": "📊 예시",
+      "cautionLabel": "⚠️ 주의"
+    },
+    "settlement": {
+      "title": "정산 정책",
+      "subtitle": "매월 1일에 전월 수익을 산출해 지급합니다."
+    },
+    "maximize": {
+      "title": "💡 수익을 극대화하려면"
+    },
+    "disclaimer": {
+      "body": "본 안내문의 분배 비율·정책은 운영상의 필요에 따라 변경될 수 있으며, 변경 시 사전 공지됩니다."
+    },
+    "cta": "확인했어요"
   }
 }

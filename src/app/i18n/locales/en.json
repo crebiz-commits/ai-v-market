@@ -10,7 +10,8 @@
     "mypage": "My",
     "search": "Search",
     "business": "Business",
-    "admin": "Admin"
+    "admin": "Admin",
+    "membership": "Membership"
   },
   "auth": {
     "signIn": "Sign in",
@@ -41,7 +42,18 @@
     "namePlaceholder": "Enter your name",
     "emailPlaceholder": "Enter your email",
     "passwordPlaceholder": "Enter your password",
-    "agreementText": "By continuing, you agree to our Terms of Service and acknowledge that you have read our Privacy Policy."
+    "agreementText": "By continuing, you agree to our Terms of Service and acknowledge that you have read our Privacy Policy.",
+    "resendConfirmSuccess": "Confirmation email resent. Check your inbox.",
+    "resendConfirmFailed": "Failed to resend. Try again later.",
+    "enterEmailFirst": "Enter your email first.",
+    "resetEmailSent": "Password reset email sent. Check your inbox.",
+    "resetEmailFailed": "Failed to send reset email.",
+    "googleSignInFailed": "Google sign-in failed. Please try again.",
+    "kakaoSignInFailed": "Kakao sign-in failed. Please try again.",
+    "verifySentTitle": "Check your inbox",
+    "verifySpamHint": "Don't see it? Check your spam folder.",
+    "resendEmail": "Resend email",
+    "verifiedSignIn": "I've verified — Sign in"
   },
   "common": {
     "cancel": "Cancel",
@@ -75,7 +87,8 @@
     "settings": "Settings",
     "notifications": "Notifications",
     "cart": "Cart",
-    "viewCart": "View cart"
+    "viewCart": "View cart",
+    "remove": "Remove"
   },
   "app": {
     "videoNotFound": "Video not found",
@@ -132,7 +145,61 @@
     "submitSuccess": "Post submitted!",
     "submitFailed": "Failed to submit post.",
     "anonymous": "Anonymous",
-    "justNow": "Just now"
+    "justNow": "Just now",
+    "creatorFallback": "Creator",
+    "postNotFound": "This post is gone or not found.",
+    "challengeNotFound": "This challenge is gone or not found.",
+    "collabTitleDescRequired": "Enter a title (2+) and description (5+).",
+    "collabPostSuccess": "Your collab listing is posted! 🤝",
+    "collabPostFailed": "Failed to post. Please try again.",
+    "collabDeleteConfirm": "Delete this listing? Its inquiry threads are deleted too. This cannot be undone.",
+    "deleteFailedWithReason": "Failed: {{message}}",
+    "deleteNotAllowed": "Not allowed. Check that it's your post and you're logged in.",
+    "collabDeleted": "Listing deleted.",
+    "updateFailedWithReason": "Failed: {{message}}",
+    "updateNotAllowed": "Not allowed. Check that it's your post and you're logged in.",
+    "collabClosed": "Marked as closed.",
+    "collabReopened": "Reopened.",
+    "bookmarkFailed": "Bookmark failed.",
+    "postUpdated": "Post updated.",
+    "postDeleteConfirm": "Delete this post? Its comments are deleted too. This cannot be undone.",
+    "deleteFailed": "Failed to delete.",
+    "postDeleted": "Post deleted.",
+    "filterAll": "All",
+    "sortLatest": "Latest",
+    "sortPopular": "Popular",
+    "sortComments": "Comments",
+    "emptyPosts": "No posts yet. Be the first to write one!",
+    "emptyCategoryPosts": "No posts in this category yet.",
+    "noticeBadge": "Notice",
+    "monthlyContestBadge": "Monthly Contest",
+    "monthlyContestTitle": "Monthly AI Video Challenge",
+    "monthlyContestDesc": "A new theme every month. Free to enter — top entries get featured on the home feed.",
+    "rankFirst": "1st",
+    "rankSecond": "2nd",
+    "rankThird": "3rd",
+    "premiumMonths": "{{count}}mo Premium",
+    "noChallenges": "No challenges right now",
+    "noChallengesHint": "A new challenge is coming soon!",
+    "statusOngoing": "Open · D-{{days}}",
+    "statusUpcoming": "Coming soon",
+    "statusEnded": "Closed",
+    "collabBadge": "Creator Collab",
+    "collabHeroTitle": "Don't create alone — create together",
+    "collabHeroDesc": "A space for creators to recruit teammates, share talent, and help each other through the tricky parts.",
+    "collabPostButton": "Post a listing",
+    "noCollabPosts": "No collab posts yet",
+    "noCollabPostsOfType": "No posts of this type yet",
+    "beFirstCollab": "Be the first to post a listing!",
+    "mine": "Mine",
+    "inquiriesCount": "{{count}}",
+    "viewInquiries": "View inquiries ›",
+    "detailsHelp": "Details ›",
+    "detailsInquire": "Details ›",
+    "collabTypeRecruit": "Recruiting",
+    "collabTypeJoin": "Available",
+    "collabTypeHelp": "Need help",
+    "collabTypeOutsource": "Hiring · paid"
   },
   "communityCategory": {
     "tip": "Tip",
@@ -202,7 +269,8 @@
     "shortcutF": "F: Fullscreen",
     "shortcutM": "M: Mute",
     "shortcutP": "P: Picture-in-picture",
-    "shortcutEsc": "Esc: Close"
+    "shortcutEsc": "Esc: Close",
+    "rateDefault": "(default)"
   },
   "commentSettings": {
     "title": "Comment Management",
@@ -241,7 +309,8 @@
     "shareToTelegram": "Share on Telegram",
     "shareToWhatsApp": "Share on WhatsApp",
     "close": "Close",
-    "copyFailed": "Failed to copy link"
+    "copyFailed": "Failed to copy link",
+    "kakaoHint": "KakaoTalk sharing works best in the app"
   },
   "reportModal": {
     "title": "Report",
@@ -321,7 +390,9 @@
     "openingPayment": "Opening payment...",
     "subscribeCTA": "Subscribe — ₩4,900/mo",
     "signInToSubscribe": "Sign in to subscribe",
-    "later": "Maybe later"
+    "later": "Maybe later",
+    "subscribeOnWeb": "Subscribe on the web (creaite.net). Opening browser…",
+    "subscribeOnWebCTA": "Subscribe on web"
   },
   "paymentResult": {
     "successTitle": "Payment Complete",
@@ -390,7 +461,9 @@
     "help": "Help",
     "language": "Language",
     "signIn": "Sign in",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "membershipSub": "₩4,900/mo · ad-free unlimited",
+    "advertiser": "Advertiser Center"
   },
   "footer": {
     "tagline": "World's first AI Cinema OTT",
@@ -416,7 +489,12 @@
       "hosting": "Hosting"
     },
     "notices": "Notices",
-    "bugReport": "Report a bug (coffee coupon)"
+    "bugReport": "Report a bug (coffee coupon)",
+    "youth": "Youth Protection",
+    "support1on1": "Support · Contact",
+    "groupHq": "Group HQ",
+    "affiliates": "Affiliates",
+    "devOps": "🛠 Dev & Ops"
   },
   "emailConfirm": {
     "title": "Please verify your email",
@@ -485,7 +563,35 @@
     "participantsLabel": "Participants",
     "joinChallenge": "Join challenge",
     "comingSoon": "Challenge submission is coming soon.",
-    "details": "Details"
+    "details": "Details",
+    "tier1Rank": "1st",
+    "tier1Prize": "6mo Premium + 1mo Home Hero",
+    "tier1Perk": "Creator of the Month badge · Official SNS feature",
+    "tier2Rank": "2nd",
+    "tier2Prize": "3mo Premium",
+    "tier2Perk": "2-week featured row · Excellence badge",
+    "tier3Rank": "3rd",
+    "tier3Prize": "1mo Premium",
+    "tier3Perk": "Priority review next challenge · Finalist badge",
+    "rule1": "Submit an AI-generated video up to 5 minutes",
+    "rule2": "A creative concept matching this month's theme",
+    "rule3": "9:16 or 16:9 ratio, 1080p or higher",
+    "rule4": "Share the prompts you used (optional)",
+    "rule5": "Up to 3 entries per person",
+    "rule6": "Auto-disqualified for plagiarism / copyright infringement",
+    "shareText": "CREAITE Challenge: {{title}} - Prize {{prize}}",
+    "opensSoonToast": "This challenge opens soon. Stay tuned!",
+    "monthlyContest": "Monthly Contest",
+    "ended": "Ended",
+    "defaultDescription": "Join {{title}}!\n\nShow off your AI video skills for a chance to win {{prize}}. Compete with other creators with your unique creations.\n\nTop entries get featured on the home feed; the 1st place gets a free week-long promo on the market.",
+    "rulesTitle": "Rules",
+    "prizesTitle": "Prizes",
+    "entriesTitle": "Entries",
+    "noEntries": "No entries yet",
+    "endedNotice": "This challenge has ended.",
+    "beFirstEntry": "Be the first to enter!",
+    "closedButton": "Closed",
+    "upcomingButton": "Coming soon 🔔"
   },
   "business": {
     "title": "Business Inquiry",
@@ -559,7 +665,8 @@
     "duration5to10": "5–10 min",
     "duration10plus": "10+ min",
     "newFollowers": "New",
-    "cumulativeFollowers": "Total"
+    "cumulativeFollowers": "Total",
+    "back": "Back"
   },
   "ageBadge": {
     "all": "ALL",
@@ -646,7 +753,8 @@
       "requestFailed": "Request failed.",
       "requestSuccess": "Account deletion requested. Permanent deletion in 30 days.",
       "cancelFailed": "Cancel failed.",
-      "cancelSuccess": "Account deletion request canceled."
+      "cancelSuccess": "Account deletion request canceled.",
+      "statusLoadFailed": "Couldn't load account status. Please try again shortly."
     },
     "blocks": {
       "title": "Blocked users",
@@ -687,7 +795,9 @@
       "upgrade": "Upgrade",
       "freeDesc": "Highlight preview",
       "basicDesc": "Full video viewing",
-      "premiumDesc": "Full video + ads removed"
+      "premiumDesc": "Full video + ads removed",
+      "expiresToday": "· Expires today!",
+      "extend": "Extend"
     },
     "account": {
       "title": "Account info",
@@ -716,7 +826,8 @@
         "submit": "Save",
         "success": "Payout account saved.",
         "error": "Save failed: "
-      }
+      },
+      "loadFailed": "Couldn't load payout account info."
     },
     "purchases": {
       "totalSpent": "Total spent",
@@ -725,7 +836,9 @@
       "downloadStarted": "Download started. If the video opens in a new tab, right-click and choose \"Save as\".",
       "downloadFailed": "Download failed",
       "empty": "No purchase history yet.",
-      "statusAvailable": "Available"
+      "statusAvailable": "Available",
+      "noVideoId": "No video ID",
+      "noDownloadableFile": "No downloadable video file found (it may still be encoding)"
     },
     "sales": {
       "revenueGuideLabel": "Revenue policy details",
@@ -828,7 +941,14 @@
       "twoFactorAuth": "Two-factor authentication",
       "twoFactorComingSoon": "Two-factor authentication is coming soon.",
       "signOut": "Sign out",
-      "signOutSuccess": "Signed out."
+      "signOutSuccess": "Signed out.",
+      "sectionInvite": "Invite",
+      "sectionNotifications": "Notifications",
+      "sectionBilling": "Billing",
+      "sectionSecurity": "Security",
+      "sectionPrivacy": "Privacy",
+      "sectionAccount": "Account",
+      "signOutFailed": "Sign-out failed. Please try again."
     },
     "loginRequiredTitle": "Sign in required",
     "loginRequiredDescLine1": "Sign in to use My Page.",
@@ -881,7 +1001,20 @@
     "statsProducts": "Products",
     "statsRating": "Rating",
     "statusOnSale": "On sale",
-    "chartMonth": "{{n}}"
+    "chartMonth": "{{n}}",
+    "emailChange": {
+      "invalid": "That's not a valid email format.",
+      "sameAsCurrent": "That's the same as your current email.",
+      "confirmSent": "We sent a confirmation to {{email}}. Click the link in the email to finish changing it.",
+      "failed": "Failed to change email: {{message}}"
+    },
+    "statsLikes": "Likes received",
+    "quickLinks": {
+      "title": "Quick links",
+      "membership": "Membership",
+      "support": "Support · Contact",
+      "settings": "Settings"
+    }
   },
   "myPayments": {
     "title": "Payment history",
@@ -1045,7 +1178,9 @@
     "notForSaleShort": "Not for sale",
     "negotiationOnly": "Negotiable",
     "ageGateLockTitle": "19+ Verification Required",
-    "ageGateLockHint": "Tap to verify"
+    "ageGateLockHint": "Tap to verify",
+    "notForSaleToast": "Free-to-watch only (license not for sale)",
+    "negotiationToast": "Contact us for pricing — see the detail page"
   },
   "nextVideo": {
     "label": "Next video",
@@ -1140,7 +1275,8 @@
     "viewsPrefix": "Views",
     "previous": "Previous",
     "next": "Next",
-    "seriesBadge": "Series · {{count}} eps"
+    "seriesBadge": "Series · {{count}} eps",
+    "addToCart": "Add to cart"
   },
   "language": {
     "korean": "Korean",
@@ -1186,7 +1322,7 @@
     "customThumbnailButton": "Upload custom image",
     "customThumbnailChange": "Change custom thumbnail",
     "highlightTitle": "Highlight clip",
-    "highlightHint": "(5–30 seconds shown on home feed/curation)",
+    "highlightHint": "The preview segment auto-played in the home feed / OTT hero (e.g. 0:05 ~ 0:35). Leave blank to keep unchanged.",
     "highlightDescription": "Choose your most striking moment to boost click-through.",
     "highlightStart": "Start",
     "highlightEnd": "End",
@@ -1255,7 +1391,6 @@
     "visibilityPrivateDesc": "Visible only to you and approved buyers",
     "priceHeader": "License Price",
     "highlightHeader": "Highlight Segment",
-    "highlightHint": "The preview segment auto-played in the home feed / OTT hero (e.g. 0:05 ~ 0:35). Leave blank to keep unchanged.",
     "highlightInvalid": "Invalid highlight format (e.g. 0:05)",
     "highlightOrderInvalid": "Highlight end must be greater than start",
     "priceDescription": "A license covering YouTube, social media, corporate marketing, and all commercial/non-commercial uses. Perpetual use after purchase.",
@@ -1318,8 +1453,31 @@
       "calculating": "Calculating...",
       "secondsShort": "{{n}}s",
       "minutesSeconds": "{{m}}m {{s}}s",
-      "hoursMinutes": "{{h}}h {{m}}m"
-    }
+      "hoursMinutes": "{{h}}h {{m}}m",
+      "aiToolRequired": "Please select the AI tool you used.",
+      "resolutionRequired": "Please select a resolution.",
+      "durationInvalid": "Invalid duration format (e.g. 3:45)."
+    },
+    "challengeJoinTitle": "Join challenge",
+    "challengeJoinDesc": "This video will be entered into the challenge automatically.",
+    "challengeJoinCancel": "Cancel entry",
+    "seriesLabel": "Series (optional)",
+    "seriesNone": "Not a series (single video)",
+    "seriesEpisodeCount": "{{count}} eps",
+    "seriesCreateNew": "+ Create new series",
+    "ageRatingLabel": "Age rating",
+    "ageAll": "All ages",
+    "ageAllHint": "For everyone",
+    "age12Hint": "Mild violence & language",
+    "age15Hint": "Some violence & suggestive content",
+    "ageRatingNote15Max": "* You can rate up to 15+ (adult content is not allowed).",
+    "sponsorHeader": "Sponsorship info",
+    "sponsorDescription": "Sponsored content shows a disclosure at the start of the video, per fair-trade regulations.",
+    "sponsorBrandLabel": "Sponsor brand",
+    "sponsorBrandPlaceholder": "e.g. Samsung, Coca-Cola",
+    "sponsorDisclosureLabel": "Disclosure text",
+    "sponsorLogoLabel": "Sponsor logo URL (optional)",
+    "sponsorLinkLabel": "Click-through URL (optional)"
   },
   "ott": {
     "noVideos": "No videos to display.",
@@ -1370,7 +1528,9 @@
     "videos": "Videos {{count}}",
     "nameless": "Unknown",
     "placeholder": "Search videos, creators, tags...",
-    "searchFailed": "Video search failed."
+    "searchFailed": "Video search failed.",
+    "loadingMore": "Loading…",
+    "loadMore": "Load more"
   },
   "productDetail": {
     "paywall": {
@@ -1389,7 +1549,10 @@
       "chapters": "Chapters",
       "chaptersCount_one": "{{count}} chapter",
       "chaptersCount_other": "{{count}} chapters",
-      "subtitleAvailable": "Subtitles available (CC)"
+      "subtitleAvailable": "Subtitles available (CC)",
+      "genre": "Genre",
+      "category": "Category",
+      "chaptersCount": "{{count}} chapters"
     },
     "license": {
       "title": "License",
@@ -1408,7 +1571,15 @@
       "purchaseWarning2": "Please review the preview thoroughly before payment",
       "notForSale": "Not for sale",
       "freeViewOnly": "Free viewing",
-      "notForSaleDescription": "No license · Free viewing only"
+      "notForSaleDescription": "No license · Free viewing only",
+      "premiumTitle": "Premium License",
+      "premiumSubtitle": "High-value license · sold via 1:1",
+      "collapseFeatures": "Collapse",
+      "moreFeatures": "Show {{count}} more",
+      "inquiryButton": "License inquiry (1:1)",
+      "negotiationNotice": "High-value licenses over ₩10M are sold through 1:1 consultation with our team instead of direct purchase (e.g. film distribution).",
+      "withdrawalNotice": "Once you start downloading/watching after purchase, withdrawal is restricted (E-Commerce Act Art. 17). Refund & withdrawal policy: ",
+      "withdrawalPolicyLink": "Terms §7"
     },
     "description": "Description",
     "tags": "Tags",
@@ -1456,7 +1627,24 @@
       "paymentFailed": "Failed to start payment: ",
       "unknownError": "Unknown error"
     },
-    "jsonLdDescription": "AI Cinema — {{creator}} | CREAITE"
+    "jsonLdDescription": "AI Cinema — {{creator}} | CREAITE",
+    "sponsor": {
+      "paidPromotion": "Paid promotion"
+    },
+    "subscribeFullView": "Subscribe to watch in full",
+    "series": {
+      "fallbackTitle": "Series",
+      "totalEpisodes": "· {{count}} episodes",
+      "nextEpisode": "Next ▶",
+      "nowPlaying": "Now playing"
+    },
+    "attribution": {
+      "title": "Source & License",
+      "originalCreator": "Original: {{name}}",
+      "sourceLink": "Source"
+    },
+    "similarVideosTitle": "Watched together",
+    "similarVideosSubtitle": "Recommended by the same creator · category · genre"
   },
   "search": {
     "placeholder": "Search videos, creators, tags...",
@@ -1475,5 +1663,307 @@
       "videos": "Videos",
       "creators": "Creators"
     }
+  },
+  "ads": {
+    "common": {
+      "error": "Error: {{message}}"
+    },
+    "create": {
+      "titleNew": "New ad",
+      "titleEdit": "Edit ad",
+      "kindOverlay": "Overlay banner",
+      "kindFeedImage": "Feed image",
+      "kindFeedVideo": "Feed video",
+      "kindPreroll": "Video preroll",
+      "kindOverlayDesc": "Shown only as a small banner over playing videos.",
+      "kindFeedImageDesc": "Shown only as a full-screen image card in the home feed.",
+      "kindFeedVideoDesc": "Shown only as a full-screen autoplay (muted) video card in the home feed.",
+      "kindPrerollDesc": "Plays as a full-screen video before the main video starts.",
+      "costTitle": "💰 Cost",
+      "costPerImpression": "₩2 per impression",
+      "costLine1": "₩2 deducted per impression (CPM ₩2,000), same for all formats. Clicks are free.",
+      "costLine2": "e.g. top up ₩10,000 → about 5,000 impressions. After approval, your ad serves only up to the topped-up budget and stops automatically when it runs out.",
+      "nameLabel": "Ad name",
+      "namePlaceholder": "e.g. Summer sale promotion",
+      "advertiserLabel": "Advertiser name (optional)",
+      "advertiserPlaceholder": "Brand name to display",
+      "bannerImageLabel": "Banner image",
+      "feedImageLabel": "Feed card image",
+      "uploadFile": "Upload file",
+      "imageUrlPlaceholderOverlay": "Upload or paste an image URL (300×250 recommended)",
+      "imageUrlPlaceholderFeed": "Upload or paste an image URL (9:16 vertical recommended)",
+      "imageLoadError": "⚠️ Can't load the image. It must be a direct image file (.jpg/.png), not a webpage URL. We recommend using \"Upload file\".",
+      "imageHintOverlay": "Shown as a small overlay banner over videos.",
+      "imageHintFeed": "Shown as a full-screen image card in the home feed.",
+      "previewAlt": "Preview",
+      "videoLabelFeed": "Ad video (full-screen feed)",
+      "videoLabelPreroll": "Ad video (preroll)",
+      "uploadingPct": "Uploading… {{pct}}%",
+      "videoReplace": "Video uploaded — click to replace",
+      "videoUploadCta": "Upload ad video (max 300MB)",
+      "videoHintFeed": "Vertical 9:16 recommended. Autoplays muted on loop in the feed.",
+      "videoHintPreroll": "Short preroll recommended (15–30s). Plays before the main video.",
+      "linkLabel": "Click-through link",
+      "ctaLabel": "Button text (CTA)",
+      "ctaDefault": "Learn more",
+      "reReviewNotice": "⚠️ Editing an approved ad triggers re-review. Serving pauses until re-approved, then resumes automatically.",
+      "submitHint": "After saving, submit for review to get approved by our team. Once approved, top up your budget to start serving.",
+      "saveReReview": "Save & request re-review",
+      "saveDraft": "Save draft",
+      "saveSubmit": "Save & submit",
+      "imageOnly": "Image files only.",
+      "imageTooLarge": "Max 10MB.",
+      "imageUploaded": "Image uploaded.",
+      "uploadFailed": "Upload failed: {{message}}",
+      "videoOnly": "Video files only.",
+      "videoTooLarge": "Max 300MB.",
+      "videoUploaded": "Video uploaded. It will serve after encoding.",
+      "videoUploadFailed": "Video upload failed: {{message}}",
+      "requiredFields": "Ad name, link, and creative (image/video) are required.",
+      "submitted": "Submitted for review. It will serve once approved.",
+      "savedReReview": "Changes saved. The ad will be re-reviewed; serving resumes automatically once re-approved.",
+      "saved": "Saved."
+    },
+    "dashboard": {
+      "title": "Advertiser Center",
+      "loadFailed": "Failed to load: {{message}}",
+      "submitted": "Submitted for review.",
+      "status": {
+        "draft": "Draft",
+        "pendingReview": "In review",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "paused": "Paused"
+      },
+      "empty": "No ads yet.",
+      "emptyHint": "Create your first ad with the button above.",
+      "impressions": "Imp",
+      "clicks": "Clicks",
+      "trend": "trend",
+      "rejectReason": "Rejection reason: {{note}}",
+      "budgetUsed": "Budget used",
+      "topupPrompt": "⚡ Top up your budget to start serving.",
+      "edit": "Edit",
+      "submit": "Submit",
+      "topup": "Top up",
+      "pause": "Pause",
+      "resume": "Resume",
+      "underReview": "Under review by our team (usually 1 business day)."
+    },
+    "topup": {
+      "title": "Top up budget",
+      "minAmount": "Minimum top-up is ₩{{amount}}.",
+      "customLabel": "Custom amount (₩)",
+      "estimate": "About {{n}} estimated impressions (₩{{cpm}} per impression). Applied to serving immediately after top-up.",
+      "refundNotice": "Full refund available within 7 days of top-up before serving starts; after serving starts, refunds are limited to the remaining balance. Refund policy: ",
+      "termsLink": "Terms §7",
+      "payButton": "Top up ₩{{amount}}"
+    },
+    "stats": {
+      "title": "Performance",
+      "empty": "No impressions recorded yet.",
+      "totalImpressions": "Total impressions",
+      "totalClicks": "Total clicks",
+      "legend": "Bar = impressions; right = impressions·clicks (last 14 days)"
+    }
+  },
+  "betaCard": {
+    "claimSlot": "Claim this slot",
+    "uploadVideo": "Upload"
+  },
+  "collabInquiry": {
+    "creatorFallback": "Creator",
+    "headerInquiries": "Inquiries",
+    "headerDetail": "Inquiry",
+    "private": "Private"
+  },
+  "discoveryFeed": {
+    "adBadge": "Ad",
+    "videoProcessing": "Processing video...",
+    "seriesBadge": "Series",
+    "likeFailed": "Couldn't register your like. Please try again shortly.",
+    "loadFailed": "Couldn't load videos.",
+    "empty": "No videos to show.",
+    "betaBanner": "CREAITE Beta · Register now and claim your category",
+    "betaRegister": "Register",
+    "legalNav": "Legal",
+    "chipPrev": "Previous",
+    "chipNext": "Next",
+    "searchPlaceholder": "Search videos & creators"
+  },
+  "landing": {
+    "hero": {
+      "titleLine1": "AI-made films,",
+      "titleLine2": "watch without limits.",
+      "subtitle": "Unlimited streaming for ₩4,900/mo. Non-members can preview every video for 1 minute.",
+      "ctaWatch": "Watch now",
+      "ctaStart": "Get started",
+      "ctaExplore": "Explore content",
+      "scrollAria": "Scroll to next section",
+      "scrollHint": "Scroll for more"
+    },
+    "value": {
+      "title": "Why CREAITE?",
+      "subtitle": "More than watching AI-made films — a new platform to use them and earn from them."
+    },
+    "posterWall": {
+      "titleLine1": "Own and watch",
+      "titleLine2": "countless AI cinema",
+      "descLine1": "Films, dramas, animation, documentaries",
+      "descLine2": "Watch without limits; own the ones you love forever with a license."
+    },
+    "faq": {
+      "title": "Frequently Asked Questions",
+      "subtitle": "Got questions? Find your answers here."
+    },
+    "cta": {
+      "title": "Get started right now",
+      "descLine1": "₩4,900/mo · ad-free unlimited AI cinema.",
+      "descLine2": "Cancel anytime · watch right after sign-up.",
+      "exploreFirst": "Explore first"
+    },
+    "miniFooter": {
+      "copyright": "The world's first AI cinema OTT"
+    }
+  },
+  "topCreators": {
+    "videosCount": "{{count}} videos",
+    "subscribers": "Subscribers",
+    "views": "Views",
+    "myChannel": "My channel"
+  },
+  "subscriptionPage": {
+    "canceled": "Canceled.",
+    "errorWithMessage": "Error: {{message}}",
+    "confirmCancelAutoRenew": "Cancel auto-pay? Subscription stays until expiry.",
+    "autoRenewResumed": "Resumed.",
+    "autoRenewCanceled": "Canceled.",
+    "freeFeature1": "Unlimited free videos",
+    "freeFeature2": "1-min preview of everything",
+    "freeFeature3": "Buy licenses individually",
+    "freeFeature4": "Includes ads",
+    "premiumFeature1": "Unlimited cinema & OTT",
+    "premiumFeature2": "Ad-free experience",
+    "premiumFeature3": "HD streaming",
+    "premiumFeature4": "Auto-renews monthly · cancel anytime",
+    "badge": "CREAITE Membership",
+    "title": "Choose your membership",
+    "subtitle": "Auto-renews monthly · cancel anytime.",
+    "premiumActive": "Premium active",
+    "nextChargeDate": "Next charge {{date}}",
+    "expiresDate": "Expires {{date}}",
+    "card": "Card",
+    "autoRenewOn": "Auto ON",
+    "autoRenewOff": "Auto OFF",
+    "cancelAutoRenew": "Cancel auto-pay",
+    "resumeAutoRenew": "Resume",
+    "freePlanName": "Free",
+    "currentPlan": "Current plan",
+    "freePlan": "Free plan",
+    "recommended": "Recommended",
+    "agreeRecurring": "I agree to ₩4,900/mo recurring billing & the refund policy. Cancel anytime.",
+    "registeringCard": "Opening…",
+    "active": "Active",
+    "subscribeCTA": "Subscribe to Premium",
+    "footNote": "₩4,900/mo auto-billed · cancel anytime",
+    "notice1": "Premium auto-bills ₩4,900/mo to your card. Subscribing means you agree to recurring billing.",
+    "notice2": "Cancel anytime here or in My Page; no further charges after cancellation (current period stays active).",
+    "notice3": "Premium unlocks all cinema & OTT, ad-free.",
+    "notice4": "For billing questions, contact support@creaite.net."
+  },
+  "supportPage": {
+    "errFillAll": "Please enter both a subject and a message.",
+    "submitFailed": "Failed to submit inquiry: {{message}}",
+    "submitSuccess": "Your inquiry was received. You can track replies in notifications and 'My inquiries'.",
+    "signInTitle": "Sign in to submit an inquiry",
+    "signInDesc": "Signing in lets you track replies in notifications and 'My inquiries'.",
+    "signInButton": "Sign in / Sign up",
+    "emailHelpBefore": "Can't sign in? You can also reach us at ",
+    "emailHelpAfter": ".",
+    "desc": "Leave your question or issue. Replies appear in notifications and 'My inquiries' below.",
+    "categoryLabel": "Inquiry type",
+    "subjectLabel": "Subject",
+    "subjectPlaceholder": "Enter a subject",
+    "messageLabel": "Message",
+    "messagePlaceholder": "Describe your inquiry in detail. (e.g. My subscription didn't apply after payment)",
+    "submitting": "Sending…",
+    "submit": "Send inquiry",
+    "myInquiries": "My inquiries",
+    "empty": "You haven't sent any inquiries yet.",
+    "adminReply": "CREAITE reply"
+  },
+  "creatorRevenueGuide": {
+    "title": "Creator Revenue Policy",
+    "subtitle": "A clear look at how you earn from AI videos on CREAITE, and which videos qualify for which revenue sources.",
+    "when": {
+      "title": "📌 When do earnings happen?"
+    },
+    "sources": {
+      "title": "3 revenue sources",
+      "subtitle": "CREAITE shares revenue with creators three ways: license sales, ads, and subscriptions.",
+      "license": {
+        "title": "License sales",
+        "desc": "Set a price on your video and earn instantly on every purchase. Platform fee 20%."
+      },
+      "ad": {
+        "title": "Ad revenue",
+        "desc": "Earn every time an ad on your video is shown. Share rate varies by video length."
+      },
+      "sub": {
+        "title": "Subscription share",
+        "rate": "50% pool",
+        "desc": "Shared monthly by watch-time on 10+ min OTT videos. 50% of all subscription revenue accrues to the creator pool."
+      }
+    },
+    "tiers": {
+      "title": "Revenue potential by video length",
+      "subtitle": "Where your video appears and what it can earn depends on its length.",
+      "minutes1": "1 min",
+      "minutes3to10": "3–10 min",
+      "minutes10plus": "10 min+",
+      "shorts": {
+        "title": "Home feed shorts (under 3 min)",
+        "desc": "Shown as short videos in the home feed. No license sales — ad revenue only."
+      },
+      "cinema": {
+        "title": "Cinema (3 min+)",
+        "desc": "Shown in the Cinema tab. Non-subscribers preview up to 1 min → viewers subscribe to watch to the end."
+      },
+      "ott": {
+        "title": "OTT (10 min+)",
+        "badge": "⭐ All revenue sources"
+      }
+    },
+    "badge": {
+      "licenseNo": "License ✕",
+      "license": "License ✓",
+      "ad": "Ads ✓",
+      "subNo": "Subscription ✕",
+      "sub": "Subscription ✓"
+    },
+    "ads": {
+      "title": "Types of video ads",
+      "subtitle": "Your video can carry these 5 ad formats; every impression shares revenue with the creator."
+    },
+    "subscription": {
+      "title": "How the subscription share is calculated",
+      "subtitle": "Shared monthly by your share of effective watch-time on OTT videos (10 min+).",
+      "formulaLabel": "📐 Distribution formula",
+      "formula1": "My earnings = (my OTT effective watch-time / total OTT watch-time) × creator pool",
+      "formula2": "Creator pool = total subscription revenue × 50%",
+      "exampleLabel": "📊 Example",
+      "cautionLabel": "⚠️ Note"
+    },
+    "settlement": {
+      "title": "Payout policy",
+      "subtitle": "Each month on the 1st we calculate and pay out the previous month's earnings."
+    },
+    "maximize": {
+      "title": "💡 To maximize your earnings"
+    },
+    "disclaimer": {
+      "body": "The share rates and policies in this guide may change as operations require, with advance notice before any change."
+    },
+    "cta": "Got it"
   }
 }

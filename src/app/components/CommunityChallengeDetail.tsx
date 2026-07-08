@@ -43,8 +43,7 @@ function getDaysLeft(deadline: string): number {
 }
 
 export function CommunityChallengeDetail({ challenge, onClose, onParticipate, onEntryClick }: CommunityChallengeDetailProps) {
-  const { t, i18n } = useTranslation();
-  const isKo = (i18n.language || "en").startsWith("ko");
+  const { t } = useTranslation();
   const daysLeft = getDaysLeft(challenge.deadline);
 
   // 참여작 — 영상 태그 'challenge:<tag>' 로 연결된 영상 조회 (좋아요순)
@@ -79,40 +78,25 @@ export function CommunityChallengeDetail({ challenge, onClose, onParticipate, on
   }, [challenge.tag]);
 
   // 매월 정기 콘테스트 — 고정 시상 구조 (1등 프리미엄6개월+홈히어로+뱃지 / 2등 프리미엄3개월 / 3등 프리미엄1개월)
-  const PRIZE_TIERS = isKo
-    ? [
-        { rank: "1등", emoji: "🥇", prize: "프리미엄 6개월 + 홈 히어로 1개월", perk: "이달의 크리에이터 뱃지 · 공식 SNS 소개" },
-        { rank: "2등", emoji: "🥈", prize: "프리미엄 3개월", perk: "추천 행 2주 노출 · 우수상 뱃지" },
-        { rank: "3등", emoji: "🥉", prize: "프리미엄 1개월", perk: "다음 챌린지 우선 심사 · 입선 뱃지" },
-      ]
-    : [
-        { rank: "1st", emoji: "🥇", prize: "6mo Premium + 1mo Home Hero", perk: "Creator of the Month badge · Official SNS feature" },
-        { rank: "2nd", emoji: "🥈", prize: "3mo Premium", perk: "2-week featured row · Excellence badge" },
-        { rank: "3rd", emoji: "🥉", prize: "1mo Premium", perk: "Priority review next challenge · Finalist badge" },
-      ];
+  const PRIZE_TIERS = [
+    { rank: t("communityChallengeDetail.tier1Rank"), emoji: "🥇", prize: t("communityChallengeDetail.tier1Prize"), perk: t("communityChallengeDetail.tier1Perk") },
+    { rank: t("communityChallengeDetail.tier2Rank"), emoji: "🥈", prize: t("communityChallengeDetail.tier2Prize"), perk: t("communityChallengeDetail.tier2Perk") },
+    { rank: t("communityChallengeDetail.tier3Rank"), emoji: "🥉", prize: t("communityChallengeDetail.tier3Prize"), perk: t("communityChallengeDetail.tier3Perk") },
+  ];
 
-  const RULES = isKo
-    ? [
-        "5분 이내 AI 생성 영상 제출",
-        "이달의 테마에 맞는 창의적인 컨셉",
-        "9:16 또는 16:9 비율, 1080p 이상 화질",
-        "사용한 프롬프트 공유 (선택)",
-        "1인당 최대 3편까지 출품 가능",
-        "표절 / 저작권 침해 시 자동 실격",
-      ]
-    : [
-        "Submit an AI-generated video up to 5 minutes",
-        "Creative concept matching this month's theme",
-        "9:16 or 16:9 resolution, at least 1080p quality",
-        "Submit original prompts (optional)",
-        "Up to 3 entries per person",
-        "Plagiarism / copyright infringement = auto disqualified",
-      ];
+  const RULES = [
+    t("communityChallengeDetail.rule1"),
+    t("communityChallengeDetail.rule2"),
+    t("communityChallengeDetail.rule3"),
+    t("communityChallengeDetail.rule4"),
+    t("communityChallengeDetail.rule5"),
+    t("communityChallengeDetail.rule6"),
+  ];
 
   const handleShare = async () => {
     // R3(2026-06-11): App.tsx 딥링크 핸들러와 일치하는 표준 형식 (단축형 ?challenge= 도 지원됨)
     const url = `${window.location.origin}/?tab=community&sub=challenges&challenge=${challenge.id}`;
-    const shareData = { title: challenge.title, text: `CREAITE Challenge: ${challenge.title} - Prize ${challenge.prize}`, url };
+    const shareData = { title: challenge.title, text: t("communityChallengeDetail.shareText", { title: challenge.title, prize: challenge.prize }), url };
     try {
       if (navigator.share && navigator.canShare?.(shareData)) {
         await navigator.share(shareData);
@@ -133,7 +117,7 @@ export function CommunityChallengeDetail({ challenge, onClose, onParticipate, on
 
   const handleParticipate = () => {
     if (status === "upcoming") {
-      toast.info(isKo ? "곧 오픈되는 챌린지예요. 조금만 기다려주세요!" : "This challenge opens soon. Stay tuned!", { duration: 3000 });
+      toast.info(t("communityChallengeDetail.opensSoonToast"), { duration: 3000 });
       return;
     }
     if (onParticipate) { onParticipate(challenge); return; }
@@ -176,7 +160,7 @@ export function CommunityChallengeDetail({ challenge, onClose, onParticipate, on
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
         <div className="absolute bottom-4 left-0 right-0 px-4 md:px-6 max-w-3xl mx-auto">
           <span className="inline-block px-3 py-1 bg-[#8b5cf6]/30 backdrop-blur-md border border-[#8b5cf6]/50 rounded-full text-xs font-bold text-white mb-2 tracking-wider">
-            🏆 {isKo ? "매월 정기 콘테스트" : "Monthly Contest"}
+            🏆 {t("communityChallengeDetail.monthlyContest")}
           </span>
           <h1 className="text-2xl md:text-4xl font-extrabold text-white leading-tight drop-shadow-lg">
             {challenge.title}
@@ -202,7 +186,7 @@ export function CommunityChallengeDetail({ challenge, onClose, onParticipate, on
             <Clock className={`w-5 h-5 mx-auto mb-1 ${daysLeft <= 3 ? "text-red-400" : "text-[#10b981]"}`} />
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{t("communityChallengeDetail.deadlineLabel")}</p>
             <p className={`font-extrabold ${daysLeft <= 3 ? "text-red-400" : "text-foreground"}`}>
-              {daysLeft > 0 ? `D-${daysLeft}` : daysLeft === 0 ? "D-Day" : (isKo ? "마감" : "Ended")}
+              {daysLeft > 0 ? `D-${daysLeft}` : daysLeft === 0 ? "D-Day" : t("communityChallengeDetail.ended")}
             </p>
           </div>
         </div>
@@ -221,7 +205,7 @@ export function CommunityChallengeDetail({ challenge, onClose, onParticipate, on
           </h2>
           <div className="text-base leading-relaxed text-foreground/90 whitespace-pre-line bg-card rounded-xl border border-border p-4">
             {challenge.description ||
-              `Join ${challenge.title}!\n\nShow off your AI video skills for a chance to win ${challenge.prize}. Compete with other creators with your unique creations.\n\nTop entries get featured on the home feed; the 1st place gets a free week-long promo on the market.`}
+              t("communityChallengeDetail.defaultDescription", { title: challenge.title, prize: challenge.prize })}
           </div>
         </section>
 
@@ -229,7 +213,7 @@ export function CommunityChallengeDetail({ challenge, onClose, onParticipate, on
         <section className="mb-6">
           <h2 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
             <Award className="w-5 h-5 text-amber-400" />
-            {isKo ? "참여 규칙" : "Rules"}
+            {t("communityChallengeDetail.rulesTitle")}
           </h2>
           <ul className="space-y-2 bg-card rounded-xl border border-border p-4">
             {RULES.map((rule, i) => (
@@ -247,7 +231,7 @@ export function CommunityChallengeDetail({ challenge, onClose, onParticipate, on
         <section>
           <h2 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
             <Trophy className="w-5 h-5 text-amber-400" />
-            {isKo ? "시상 내역" : "Prizes"}
+            {t("communityChallengeDetail.prizesTitle")}
           </h2>
           <div className="space-y-2">
             {PRIZE_TIERS.map((item) => (
@@ -266,7 +250,7 @@ export function CommunityChallengeDetail({ challenge, onClose, onParticipate, on
         <section className="mt-6">
           <h2 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
             <Film className="w-5 h-5 text-[#6366f1]" />
-            {isKo ? "참여작" : "Entries"}
+            {t("communityChallengeDetail.entriesTitle")}
             {entries.length > 0 && (
               <span className="text-sm font-medium text-muted-foreground">({entries.length})</span>
             )}
@@ -282,12 +266,12 @@ export function CommunityChallengeDetail({ challenge, onClose, onParticipate, on
             <div className="bg-card border border-dashed border-border rounded-xl p-8 text-center">
               <Film className="w-8 h-8 text-muted-foreground/50 mx-auto mb-3" />
               <p className="text-sm text-foreground/80 font-medium">
-                {isKo ? "아직 참여작이 없어요" : "No entries yet"}
+                {t("communityChallengeDetail.noEntries")}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {status === "ended"
-                  ? (isKo ? "마감된 챌린지입니다." : "This challenge has ended.")
-                  : (isKo ? "첫 참여작의 주인공이 되어보세요!" : "Be the first to enter!")}
+                  ? t("communityChallengeDetail.endedNotice")
+                  : t("communityChallengeDetail.beFirstEntry")}
               </p>
             </div>
           ) : (
@@ -328,9 +312,9 @@ export function CommunityChallengeDetail({ challenge, onClose, onParticipate, on
             className="w-full py-6 text-base font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 disabled:opacity-50 shadow-lg"
           >
             {status === "ended"
-              ? (isKo ? "마감되었습니다" : "Closed")
+              ? t("communityChallengeDetail.closedButton")
               : status === "upcoming"
-              ? (isKo ? "오픈 예정 🔔" : "Coming soon 🔔")
+              ? t("communityChallengeDetail.upcomingButton")
               : `🚀 ${t("communityChallengeDetail.joinChallenge")} (D-${daysLeft})`}
           </Button>
         </div>

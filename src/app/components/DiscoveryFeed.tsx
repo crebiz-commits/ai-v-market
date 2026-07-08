@@ -183,6 +183,7 @@ const AdVideoPlayer = memo(({ src, poster }: { src: string; poster?: string | nu
 AdVideoPlayer.displayName = "AdVideoPlayer";
 
 const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) => void }) => {
+  const { t } = useTranslation();
   const cardRef = useRef<HTMLDivElement>(null);
   const impressionTracked = useRef(false);
 
@@ -242,7 +243,7 @@ const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) 
 
       {/* 광고 배지 */}
       <div className="absolute top-3 left-3 z-10 px-2 py-0.5 bg-black/50 backdrop-blur-sm border border-white/20 rounded-full text-[10px] font-bold text-white/70 tracking-widest">
-        AD
+        {t("discoveryFeed.adBadge")}
       </div>
 
       {/* 콘텐츠 */}
@@ -612,7 +613,7 @@ const MovieSection = memo(({
           {hasError && (
             <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-center pointer-events-auto">
               <Loader2 className="w-8 h-8 text-[#6366f1] animate-spin mb-2" />
-              <p className="text-white text-xs">영상 처리 중...</p>
+              <p className="text-white text-xs">{t("discoveryFeed.videoProcessing")}</p>
             </div>
           )}
         </div>
@@ -642,13 +643,13 @@ const MovieSection = memo(({
         </span>
         {video.seriesId && (
           <span className="px-2.5 py-1 bg-[#6366f1]/80 backdrop-blur-md rounded-md text-white font-bold text-[10px] border border-white/20 pointer-events-none">
-            시리즈
+            {t("discoveryFeed.seriesBadge")}
           </span>
         )}
         <button
           onClick={(e) => { e.stopPropagation(); onToggleMute(); }}
           className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white pointer-events-auto"
-          aria-label={isMuted ? "음소거 해제" : "음소거"}
+          aria-label={isMuted ? t("videoFullscreen.unmute") : t("videoFullscreen.mute")}
         >
           {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
         </button>
@@ -811,8 +812,7 @@ const HOME_CACHE_MAX = 8;           // H9: 캐시 엔트리 상한(메모리 무
 const homeFeedCache: Record<string, HomeFeedSnapshot> = {};
 
 export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onViewCreator, onOpenSearch, onNavigate }: DiscoveryFeedProps) {
-  const { i18n } = useTranslation();
-  const isKo = (i18n.language || "en").startsWith("ko");
+  const { t } = useTranslation();
   // 댓글 패널 단일 마운트용 — 홈피드 모바일/데스크탑 분기(1024px=lg)와 일치.
   // (이전엔 모바일 시트+데스크탑 모달이 동시 마운트돼 댓글 이중 fetch·이중 구독 발생)
   const [isDesktop, setIsDesktop] = useState(
@@ -1248,8 +1248,8 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
     if (handleShowcaseClick(videoId)) return;
     const res = await toggleLikeStore(videoId, base);
     if (res === "needAuth" && onSignInClick) onSignInClick();
-    else if (res === "error") toast.error("좋아요 처리에 실패했어요. 잠시 후 다시 시도해 주세요.");
-  }, [onSignInClick, toggleLikeStore]);
+    else if (res === "error") toast.error(t("discoveryFeed.likeFailed"));
+  }, [onSignInClick, toggleLikeStore, t]);
 
   // 안정 참조 — DesktopMovieCard/MovieSection(memo) 리렌더 방지용(H12)
   const handleComment = useCallback((video: Video) => {
@@ -1279,11 +1279,11 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
     <div className="h-full flex flex-col items-center justify-center gap-3 bg-background text-center px-6">
       {feedError ? (
         <>
-          <p className="text-muted-foreground">영상을 불러오지 못했어요.</p>
-          <button onClick={retryLoad} className="px-4 py-2 rounded-lg bg-[#6366f1] hover:bg-[#5457e5] text-white text-sm font-bold transition-colors">다시 시도</button>
+          <p className="text-muted-foreground">{t("discoveryFeed.loadFailed")}</p>
+          <button onClick={retryLoad} className="px-4 py-2 rounded-lg bg-[#6366f1] hover:bg-[#5457e5] text-white text-sm font-bold transition-colors">{t("common.retry")}</button>
         </>
       ) : (
-        <p className="text-muted-foreground">표시할 영상이 없습니다.</p>
+        <p className="text-muted-foreground">{t("discoveryFeed.empty")}</p>
       )}
     </div>
   );
@@ -1301,19 +1301,19 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
           {/* 모바일: 마퀴(흐르는 텍스트)로 전체 노출 — truncate 로 잘리던 문구 해결. 2벌 복제 → -50% 무한루프 */}
           <div className="md:hidden flex-1 min-w-0 overflow-hidden">
             <div className="flex w-max banner-marquee" style={{ animationDuration: "14s" }}>
-              <span className="text-white text-[11px] font-bold whitespace-nowrap pr-10">CREAITE 베타 · 지금 등록하고 카테고리를 선점하세요</span>
-              <span aria-hidden="true" className="text-white text-[11px] font-bold whitespace-nowrap pr-10">CREAITE 베타 · 지금 등록하고 카테고리를 선점하세요</span>
+              <span className="text-white text-[11px] font-bold whitespace-nowrap pr-10">{t("discoveryFeed.betaBanner")}</span>
+              <span aria-hidden="true" className="text-white text-[11px] font-bold whitespace-nowrap pr-10">{t("discoveryFeed.betaBanner")}</span>
             </div>
           </div>
           {/* 데스크탑: 공간 충분 → 정적 표시 */}
           <p className="hidden md:block flex-1 min-w-0 text-white text-sm font-bold truncate">
-            CREAITE 베타 · 지금 등록하고 카테고리를 선점하세요
+            {t("discoveryFeed.betaBanner")}
           </p>
           <button
             onClick={() => onNavigate?.("upload")}
             className="shrink-0 inline-flex items-center gap-1 px-2.5 md:px-3.5 py-1 md:py-1.5 rounded-full bg-white text-[#6d28d9] text-[11px] md:text-sm font-black hover:bg-white/90 transition-colors"
           >
-            <Plus className="w-3.5 h-3.5" /> 등록하기
+            <Plus className="w-3.5 h-3.5" /> {t("discoveryFeed.betaRegister")}
           </button>
         </div>
       )}
@@ -1332,7 +1332,7 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
                   : "bg-white/5 text-white/60 border-white/10"
               }`}
             >
-              {isKo ? c.ko : c.en}
+              {t(`discoveryFeed.chips.${c.key}`)}
             </button>
           ))}
         </div>
@@ -1340,11 +1340,11 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
 
       {/* SEO + Google OAuth 브랜딩 인증용 약관 링크 (시각적 노출 X, 봇 인식 O)
           DiscoveryFeed 가 첫 화면이고 푸터가 없어서 약관 링크가 노출 안 됨 → 추가 */}
-      <nav aria-label="법적 고지" className="sr-only">
-        <a href="?info=privacy">개인정보처리방침</a>
-        <a href="?info=terms">이용약관</a>
-        <a href="?info=about">회사 소개</a>
-        <a href="?info=creator-revenue">크리에이터 수익 정책</a>
+      <nav aria-label={t("discoveryFeed.legalNav")} className="sr-only">
+        <a href="?info=privacy">{t("footer.privacy")}</a>
+        <a href="?info=terms">{t("footer.terms")}</a>
+        <a href="?info=about">{t("footer.about")}</a>
+        <a href="?info=creator-revenue">{t("footer.creatorRevenue")}</a>
       </nav>
       <div
         ref={containerRef}
@@ -1418,7 +1418,7 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
                         : "bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white"
                     }`}
                   >
-                    {isKo ? c.ko : c.en}
+                    {t(`discoveryFeed.chips.${c.key}`)}
                   </button>
                 ))}
               </div>
@@ -1427,7 +1427,7 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
                 <button
                   type="button"
                   onClick={() => scrollChips("left")}
-                  aria-label={isKo ? "이전 칩" : "Previous"}
+                  aria-label={t("discoveryFeed.chipPrev")}
                   className="absolute left-0 top-0 bottom-0 z-10 flex items-center pr-7 pl-0.5 bg-gradient-to-r from-[#0a0a0a] via-[#0a0a0a] to-transparent"
                 >
                   <span className="w-7 h-7 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition-colors">
@@ -1440,7 +1440,7 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
                 <button
                   type="button"
                   onClick={() => scrollChips("right")}
-                  aria-label={isKo ? "다음 칩" : "Next"}
+                  aria-label={t("discoveryFeed.chipNext")}
                   className="absolute right-0 top-0 bottom-0 z-10 flex items-center pl-7 pr-0.5 bg-gradient-to-l from-[#0a0a0a] via-[#0a0a0a] to-transparent"
                 >
                   <span className="w-7 h-7 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition-colors">
@@ -1460,8 +1460,8 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
                   <input
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
-                    placeholder={isKo ? "영상·크리에이터 검색" : "Search videos & creators"}
-                    aria-label={isKo ? "검색" : "Search"}
+                    placeholder={t("discoveryFeed.searchPlaceholder")}
+                    aria-label={t("common.search")}
                     className="bg-transparent outline-none text-sm text-white placeholder-white/40 w-full"
                   />
                 </form>

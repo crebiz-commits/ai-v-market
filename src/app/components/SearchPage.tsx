@@ -645,7 +645,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
                   disabled={loadingMore}
                   className="px-6 py-2.5 rounded-xl text-sm font-bold bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 disabled:opacity-50 transition-colors"
                 >
-                  {loadingMore ? t("searchPage.loadingMore", "불러오는 중…") : t("searchPage.loadMore", "더 보기")}
+                  {loadingMore ? t("searchPage.loadingMore") : t("searchPage.loadMore")}
                 </button>
               </div>
             )}

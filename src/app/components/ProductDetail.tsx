@@ -29,7 +29,7 @@ import { AddToPlaylistModal } from "./AddToPlaylistModal";
 import { supabase, supabaseAnonKey } from "../utils/supabaseClient";
 import { openExternal } from "../utils/openExternal";
 import { useTranslation } from "react-i18next";
-import { getCategoryLabel } from "../i18n/categoryLabels";
+import { getCategoryLabel, getGenreLabel, getAiToolLabel, getLanguageLabel } from "../i18n/categoryLabels";
 import { AdOverlayBanner } from "./AdOverlayBanner";
 import { AdMidrollPlayer } from "./AdMidrollPlayer";
 import { ExternalAdSlot, EXTERNAL_ADS_ACTIVE } from "./ExternalAdSlot";
@@ -130,8 +130,7 @@ interface ProductDetailProps {
 }
 
 export function ProductDetail({ product: productProp, onClose, onAddToCart, onSignInClick, onViewCreator, onNavigateToVideo, autoOpenComments, startFullscreen }: ProductDetailProps) {
-  const { t, i18n } = useTranslation();
-  const isKo = (i18n.language || "en").startsWith("ko");
+  const { t } = useTranslation();
   // 좋아요는 전역 스토어(LikesContext)로 통일 — 모든 피드 동시 반영
   const { isLiked: isLikedStore, displayCount: likesDisplayCount, seedCount: seedLikeCount, displayViews, seedViews, toggleLike: toggleLikeStore } = useLikes();
   const isLiked = isLikedStore(productProp.id);
@@ -1370,7 +1369,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
               {product.sponsorLogoUrl && (
                 <img src={product.sponsorLogoUrl} alt={product.sponsorBrand} className="w-4 h-4 rounded-full object-cover bg-white/20" />
               )}
-              <span>{product.sponsorDisclosure || "유료 광고 포함"}</span>
+              <span>{product.sponsorDisclosure || t("productDetail.sponsor.paidPromotion")}</span>
               <span className="opacity-80">· {product.sponsorBrand}</span>
             </motion.button>
           )}
@@ -1482,9 +1481,9 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                     setPaywallOpen(true);
                   }}
                   className="px-5 py-3 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold rounded-lg flex items-center gap-2 hover:opacity-90 flex-shrink-0 shadow-[0_0_25px_rgba(99,102,241,0.5)] transition-shadow hover:shadow-[0_0_35px_rgba(139,92,246,0.7)]"
-                  aria-label={t("productDetail.subscribeFullView", "구독하고 전체 보기")}
+                  aria-label={t("productDetail.subscribeFullView")}
                 >
-                  <Crown className="w-4 h-4" /> {t("productDetail.subscribeFullView", "구독하고 전체 보기")}
+                  <Crown className="w-4 h-4" /> {t("productDetail.subscribeFullView")}
                 </button>
               )}
 
@@ -1582,13 +1581,13 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                   )}
                   {product.genre && (
                     <div>
-                      <span className="text-xs text-gray-500">{t("upload.genreLabel", "장르")}: </span>
-                      <span className="text-foreground/80">{getCategoryLabel(product.genre, t)}</span>
+                      <span className="text-xs text-gray-500">{t("productDetail.meta.genre")}: </span>
+                      <span className="text-foreground/80">{getGenreLabel(product.genre, t)}</span>
                     </div>
                   )}
                   {product.category && (
                     <div>
-                      <span className="text-xs text-gray-500">{t("upload.categoryLabel", "카테고리")}: </span>
+                      <span className="text-xs text-gray-500">{t("productDetail.meta.category")}: </span>
                       <span className="text-foreground/80">{getCategoryLabel(product.category, t)}</span>
                     </div>
                   )}
@@ -1601,7 +1600,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-3 gap-2">
                   <h3 className="text-base font-bold text-white truncate">
-                    {seriesTitle || "시리즈"} <span className="text-gray-500 font-normal text-sm">· 총 {seriesEpisodes.length}화</span>
+                    {seriesTitle || t("productDetail.series.fallbackTitle")} <span className="text-gray-500 font-normal text-sm">· {t("productDetail.series.totalEpisodes", { count: seriesEpisodes.length })}</span>
                   </h3>
                   {seriesNextEp && (
                     <button
@@ -1609,7 +1608,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                       onClick={() => onNavigateToVideo?.(seriesNextEp.id)}
                       className="flex-shrink-0 px-3 py-1.5 rounded-full bg-[#6366f1] hover:bg-[#5558e3] text-white text-xs font-bold transition-colors"
                     >
-                      다음 화 ▶
+                      {t("productDetail.series.nextEpisode")} ▶
                     </button>
                   )}
                 </div>
@@ -1628,7 +1627,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                           <img src={ep.thumbnail} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                           {isCurrent && (
                             <div className="absolute inset-0 bg-[#6366f1]/30 flex items-center justify-center">
-                              <span className="text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded">재생 중</span>
+                              <span className="text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded">{t("productDetail.series.nowPlaying")}</span>
                             </div>
                           )}
                         </div>
@@ -1689,11 +1688,11 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                   <div className="p-5 rounded-lg border-2 border-[#6366f1] bg-[#6366f1]/5">
                     <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
                       <div>
-                        <p className="font-bold">{isNegotiationOnly(product.price) ? "프리미엄 라이선스" : "All-in-One License"}</p>
-                        <p className="text-sm text-muted-foreground">{isNegotiationOnly(product.price) ? "고가 라이선스 · 1:1 협의 판매" : t("productDetail.license.subtitle")}</p>
+                        <p className="font-bold">{isNegotiationOnly(product.price) ? t("productDetail.license.premiumTitle") : t("productDetail.cart.allInOneLicense")}</p>
+                        <p className="text-sm text-muted-foreground">{isNegotiationOnly(product.price) ? t("productDetail.license.premiumSubtitle") : t("productDetail.license.subtitle")}</p>
                       </div>
                       {isNegotiationOnly(product.price)
-                        ? <p className="text-lg font-black text-amber-400">별도 협의</p>
+                        ? <p className="text-lg font-black text-amber-400">{t("video.negotiationOnly")}</p>
                         : <p className="text-xl font-black text-[#6366f1]">₩{product.price.toLocaleString()}</p>}
                     </div>
                     {/* Phase 31.3 — 모바일은 4개 + "더 보기" / 데스크탑은 9개 전체 */}
@@ -1726,8 +1725,8 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                                 className="w-full mt-2 py-2 text-xs font-bold text-[#a5b4fc] hover:text-white"
                               >
                                 {licenseExpanded
-                                  ? t("productDetail.license.collapseFeatures", "접기")
-                                  : t("productDetail.license.moreFeatures", "5개 더 보기")}
+                                  ? t("productDetail.license.collapseFeatures")
+                                  : t("productDetail.license.moreFeatures", { count: features.length - 4 })}
                               </button>
                             )}
                           </ul>
@@ -1751,10 +1750,10 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                           href={licenseInquiryMailto(product.title, product.price)}
                           className="w-full h-12 rounded-xl flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black hover:opacity-90 transition-opacity"
                         >
-                          <Mail className="w-5 h-5" /> 1:1 라이선스 문의
+                          <Mail className="w-5 h-5" /> {t("productDetail.license.inquiryButton")}
                         </a>
                         <p className="text-[11px] text-amber-200/80 text-center leading-relaxed">
-                          ₩1,000만 이상 고가 라이선스는 사이트 직접 구매 대신 운영팀과 1:1 협의로 판매됩니다 (영화 배급 등).
+                          {t("productDetail.license.negotiationNotice")}
                         </p>
                       </div>
                     ) : (
@@ -1799,10 +1798,8 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                     </div>
                     {/* 전자상거래법 — 디지털콘텐츠 청약철회 제한 고지 (결제 전) */}
                     <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
-                      {isKo
-                        ? "구매 후 다운로드·시청을 시작하면 청약철회가 제한됩니다(전자상거래법 제17조). 환불·청약철회 정책: "
-                        : "Withdrawal is restricted once download/viewing begins. Refund & withdrawal policy: "}
-                      <a href="?info=terms" className="underline hover:text-foreground">{isKo ? "이용약관 제7조" : "Terms §7"}</a>
+                      {t("productDetail.license.withdrawalNotice")}
+                      <a href="?info=terms" className="underline hover:text-foreground">{t("productDetail.license.withdrawalPolicyLink")}</a>
                     </p>
                     </>
                     )}
@@ -1885,13 +1882,13 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                     {product.language && (
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">{t("productDetail.credits.language")}</p>
-                        <p className="text-sm font-medium">{product.language}</p>
+                        <p className="text-sm font-medium">{getLanguageLabel(product.language, t)}</p>
                       </div>
                     )}
                     {product.subtitleLanguage && (
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">{t("productDetail.credits.subtitles")}</p>
-                        <p className="text-sm font-medium">{product.subtitleLanguage}</p>
+                        <p className="text-sm font-medium">{getLanguageLabel(product.subtitleLanguage, t)}</p>
                       </div>
                     )}
                   </div>
@@ -1912,7 +1909,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">{t("productDetail.aiProduction.aiTools")}</p>
-                    <p className="text-sm font-medium">{product.tool}</p>
+                    <p className="text-sm font-medium">{getAiToolLabel(product.tool, t)}</p>
                   </div>
                   {product.aiModelVersion && (
                     <div>
@@ -1942,17 +1939,17 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
             {/* 출처·라이선스 (오픈 라이선스 시드 콘텐츠 — CC-BY 출처표기) */}
             {(product.attribution || product.originalCreator || (product.licenseType && product.licenseType !== "original")) && (
               <div className="mt-4">
-                <h3 className="mb-3">출처·라이선스</h3>
+                <h3 className="mb-3">{t("productDetail.attribution.title")}</h3>
                 <div className="bg-card p-4 rounded-lg border border-border space-y-2 text-sm">
                   {product.attribution
                     ? <p className="text-foreground/80">{product.attribution}</p>
-                    : product.originalCreator && <p className="text-foreground/80">원작: {product.originalCreator}</p>}
+                    : product.originalCreator && <p className="text-foreground/80">{t("productDetail.attribution.originalCreator", { name: product.originalCreator })}</p>}
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     {product.licenseType && product.licenseType !== "original" && (
                       <span className="px-1.5 py-0.5 rounded bg-[#6366f1]/15 text-[#a78bfa] font-semibold uppercase">{product.licenseType}</span>
                     )}
                     {product.licenseSourceUrl && (
-                      <a href={product.licenseSourceUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">원본 출처</a>
+                      <a href={product.licenseSourceUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">{t("productDetail.attribution.sourceLink")}</a>
                     )}
                   </div>
                 </div>
@@ -1974,8 +1971,8 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
           {similarVideos.length > 0 && (
             <div className="border-t border-white/5 mt-4 pt-2">
               <VideoRowCarousel
-                title={t("productDetail.similarVideosTitle", "함께 시청된 콘텐츠")}
-                subtitle={t("productDetail.similarVideosSubtitle", "같은 크리에이터 · 카테고리 · 장르 기반 추천")}
+                title={t("productDetail.similarVideosTitle")}
+                subtitle={t("productDetail.similarVideosSubtitle")}
                 videos={similarVideos}
                 onVideoClick={(v) => {
                   if (onNavigateToVideo) onNavigateToVideo(v.id);
