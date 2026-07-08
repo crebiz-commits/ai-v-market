@@ -1,7 +1,7 @@
 import { useState } from "react";
 // @ts-ignore — react-dom 타입 미설치, 런타임은 정상
 import { createPortal } from "react-dom";
-import { Menu, X, Briefcase, Building2, FileText, Shield, Mail, Coins, LifeBuoy, Crown, Megaphone } from "lucide-react";
+import { Menu, X, Briefcase, Building2, FileText, Shield, Mail, Coins, LifeBuoy, Crown, Megaphone, BookOpen } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useBackButton } from "../hooks/useBackButton";
 import { useTranslation } from "react-i18next";
@@ -95,6 +95,20 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
                     <p className="text-xs text-amber-200/70 mt-0.5">{t("hamburger.membershipSub")}</p>
                   </div>
                 </button>
+
+                {/* 매거진 — 눈에 띄게(보라 강조). ?info= URL 라우팅 */}
+                <a
+                  href="?info=magazine"
+                  className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gradient-to-r from-[#6366f1]/15 to-[#8b5cf6]/10 border border-[#6366f1]/25 hover:from-[#6366f1]/25 transition-colors mb-1"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center shrink-0">
+                    <BookOpen className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] font-bold text-white">{t("footer.magazine", "CREAITE 매거진")}</p>
+                    <p className="text-xs text-[#c4b5fd]/80 mt-0.5">{t("hamburger.magazineSub", "AI 영상 제작 가이드 · 인사이트")}</p>
+                  </div>
+                </a>
 
                 <div className="px-3 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">{t("hamburger.business")}</div>
                 <MenuItem icon={Briefcase} label={t("business.title")} sub={t("business.subtitle")} onClick={() => handleNav("business")} />
