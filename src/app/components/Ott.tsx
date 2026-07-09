@@ -429,6 +429,9 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
         <HeroBillboard
           video={heroes[heroIdx] ?? heroes[0]}
           src={heroSrc}
+          // 사용자 업로드 hero_clip 은 Bunny/Vision 검수를 안 거침 → admin 이 직접 지정(featured)한
+          //   히어로에서만 클립 재생 허용. 트렌딩 히어로는 검수된 본편 파생 폴백(preview/mp4)만.
+          allowClip={featured.some((f) => f.id === (heroes[heroIdx] ?? heroes[0])?.id)}
           ageGuard={ageGuard}
           muted={heroMuted}
           onToggleMute={toggleHeroMute}
@@ -505,6 +508,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
 const HeroBillboard = memo(function HeroBillboard({
   video,
   src,
+  allowClip,
   ageGuard,
   muted,
   onToggleMute,
@@ -514,6 +518,7 @@ const HeroBillboard = memo(function HeroBillboard({
 }: {
   video: CarouselVideo;
   src: { url: string; start: number; end: number; clipUrl?: string; previewUrl?: string; seekUrl?: string } | null;
+  allowClip: boolean;   // admin featured 히어로만 true — 사용자 업로드 미검수 클립 재생 게이트
   ageGuard: AgeGuard;
   muted: boolean;
   onToggleMute: () => void;
@@ -533,19 +538,21 @@ const HeroBillboard = memo(function HeroBillboard({
   //      구간 되감기 없음(2026-07-08 단순화: 10초 구간 영상이 30초 창에서 3번 반복되던 것 제거)
   //      → 30초 상한 타이머 또는 영상 종료(ended) 시 다음 히어로로.
   //   preview.webp 를 항상 베이스로 깔아둬 seek 이 버벅이거나 실패해도 화면이 비지 않음(안전 폴백).
-  const isClip = !!src?.clipUrl;
+  // 클립은 admin featured 히어로에서만 사용(미검수 콘텐츠 게이트). 트렌딩 등은 clipUrl 무시 → 본편 폴백.
+  const clipUrl = allowClip ? src?.clipUrl : undefined;
+  const isClip = !!clipUrl;
   // 본편 seek 재생용 렌디션 폴백 체인 — Bunny 가 소스에 따라 특정 렌디션을 안 만들 수 있음.
   //   예: "야인의 시대"(1080p)는 play_720p.mp4 가 없고 480/360/240 만 존재 → 720p 하드코딩이 404 나
   //   seek 영상이 실패해 저화질 preview 에 고착되던 버그. 720→480→360→240 순 시도, onError 시 다음으로
   //   폴백해 실제 존재하는 최고 화질을 재생. 전부 실패해야 preview.
   const seekRenditions = useMemo(() => {
-    if (!src?.url || src.clipUrl || !/\/playlist\.m3u8$/i.test(src.url)) return [] as string[];
+    if (!src?.url || clipUrl || !/\/playlist\.m3u8$/i.test(src.url)) return [] as string[];
     return [720, 480, 360, 240].map((r) => src.url.replace(/\/playlist\.m3u8$/i, `/play_${r}p.mp4`));
-  }, [src?.url, src?.clipUrl]);
+  }, [src?.url, clipUrl]);
   const [renIdx, setRenIdx] = useState(0);
   useEffect(() => { setRenIdx(0); }, [src?.url]);   // 새 히어로 = 720p 부터 다시 시도
   const isSeek = !isClip && seekRenditions.length > 0 && (src?.end ?? 0) > (src?.start ?? 0);
-  const playUrl = src?.clipUrl || (isSeek ? seekRenditions[renIdx] : undefined) || "";
+  const playUrl = clipUrl || (isSeek ? seekRenditions[renIdx] : undefined) || "";
   // 연령등급이 아직 로드 안 됐으면(g.rating == null) 재생/미리보기 보류(fail-closed).
   //   ageRatings 는 비동기 RPC(전체 id), heroSrc 는 단일행 조회라 src 가 먼저 오는 레이스에서
   //   19+ 히어로가 무블러+소리로 자동재생되던 청소년보호 구멍 차단 → 등급 확정 후 재생/잠금 결정.
