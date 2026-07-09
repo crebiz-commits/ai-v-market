@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════════════
 // OTT 페이지 — 재설계 (2026-06-01)
-//   1. 상단 히어로: 데스크탑 2등분 / 모바일 1개씩 5초 자동 슬라이드 (트렌딩 상위)
+//   1. 상단 히어로: 풀블리드 단일 빌보드 — (피처링+트렌딩) 상위 5편 순환(30초 상한/클립종료 시 조기전환)
 //   2. 하단 카테고리 행: 한 줄 우측·다음 줄 좌측으로 천천히 자동 흐름(마퀴),
 //      가로형 카드 + 제목/정보 카드 안. 마우스 올리면 정지. (쿠팡플레이 하단 스타일)
 //   ↳ 연령 게이트(블러/잠금) + 쇼케이스 합성 유지.
@@ -147,8 +147,8 @@ type OttSnapshot = {
   genreRows: GenreRow[];
 };
 const ottCache: Record<string, OttSnapshot> = {};
-// 히어로 영상 소스 캐시(heroId → src) — 20초 회전마다 같은 영상 video_url 재조회 방지
-type HeroSrc = { url: string; start: number; end: number; clipUrl?: string; previewUrl?: string; seekUrl?: string };
+// 히어로 영상 소스 캐시(heroId → src) — 30초(상한) 회전마다 같은 영상 video_url 재조회 방지
+type HeroSrc = { url: string; start: number; end: number; clipUrl?: string; previewUrl?: string };
 const heroSrcCache = new Map<string, HeroSrc>();
 // 히어로 프리뷰 seek 상한(초). play_720p.mp4 을 highlight_start 로 seek 하는데 너무 깊은 지점
 //   (예: "야인의 시대" 296초)은 버퍼링이 느려 선명 프레임이 안 떠 저화질 preview 에 고착됨
@@ -171,9 +171,9 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
   const [formatRows, setFormatRows] = useState<{ category: string; position: "top" | "bottom"; videos: CarouselVideo[] }[]>(_ottInit?.formatRows ?? []);
   // 풀블리드 히어로: 자동재생 영상 소스 + 음소거 토글.
   // clipUrl(미리 잘린 30초 하이라이트 클립)이 있으면 seek 없이 처음부터 재생(안정적).
-  const [heroSrc, setHeroSrc] = useState<HeroSrc | null>(null);   // seekUrl 포함(HeroSrc) — 이전 인라인 타입은 seekUrl 누락
+  const [heroSrc, setHeroSrc] = useState<HeroSrc | null>(null);   // previewUrl·clipUrl 등 포함(모듈 HeroSrc 타입)
   const [heroMuted, setHeroMuted] = useState(true);
-  const [heroIdx, setHeroIdx] = useState(0);   // 히어로 순환 인덱스 (20초마다)
+  const [heroIdx, setHeroIdx] = useState(0);   // 히어로 순환 인덱스 (30초 상한 / 클립종료 시 조기전환)
   const [featured, setFeatured] = useState<CarouselVideo[]>([]);  // 피처링(챌린지 우승작) — 히어로 최우선
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -304,12 +304,9 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
         const previewUrl = /\/[^/]+\.m3u8$/i.test(data.video_url)
           ? data.video_url.replace(/\/[^/]+$/, "/preview.webp")
           : undefined;
-        // 클립이 없을 때 하이라이트 구간을 반영하기 위한 seek용 mp4 URL
-        //   (HLS .m3u8 은 네이티브 <video> seek 이 불안정 → preroll 과 동일하게 play_720p.mp4 로).
-        const seekUrl = data.video_url.includes("/playlist.m3u8")
-          ? data.video_url.replace("/playlist.m3u8", "/play_720p.mp4")
-          : undefined;
-        const srcObj: HeroSrc = { url: data.video_url, start: hStart, end: hEnd, clipUrl: data.hero_clip_url || undefined, previewUrl, seekUrl };
+        // (seek 재생용 mp4 렌디션 URL 은 HeroBillboard 가 src.url 에서 직접 파생 — 720→480→360→240 폴백 체인.
+        //  이전엔 여기서 play_720p.mp4 단일 URL 을 넘겼으나 720p 미생성 영상에서 404 나던 문제로 제거.)
+        const srcObj: HeroSrc = { url: data.video_url, start: hStart, end: hEnd, clipUrl: data.hero_clip_url || undefined, previewUrl };
         heroSrcCache.set(heroId, srcObj);
         setHeroSrc(srcObj);
       }
@@ -517,7 +514,7 @@ const HeroBillboard = memo(function HeroBillboard({
   onEnded,
 }: {
   video: CarouselVideo;
-  src: { url: string; start: number; end: number; clipUrl?: string; previewUrl?: string; seekUrl?: string } | null;
+  src: HeroSrc | null;
   allowClip: boolean;   // admin featured 히어로만 true — 사용자 업로드 미검수 클립 재생 게이트
   ageGuard: AgeGuard;
   muted: boolean;

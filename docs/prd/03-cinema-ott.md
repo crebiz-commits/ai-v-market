@@ -117,11 +117,11 @@ CREAITE 의 영상 소비 화면은 길이 기반 3단(홈/시네마/OTT) 중 **
 - 화살표는 hover 가능 디바이스에서만 노출(`CoverFlow.tsx:66-72,407`).
 
 ### 4.3 히어로 순환 (OTT, `Ott.tsx:225-308`) — 2026-07-08: 20초 setInterval → 30초 상한 + 클립종료 조기전환
-- `heroes` = (피처링=챌린지 우승작 + 트렌딩) dedup 상위 5편(트렌딩 비면 장르 행 영상 폴백)(`Ott.tsx:228-236`).
+- `heroes` = (피처링=챌린지 우승작 + 트렌딩) dedup 상위 5편(트렌딩 비면 장르 행 영상 폴백)(`Ott.tsx:236-244`). **피처링(`featured_hero_until` 미래)은 tier/길이 게이트를 거치지 않는다** — 챌린지 우승작은 길이 무관하게 히어로에 노출된다(예: 10분 미만도 가능하며, 이 경우 히어로엔 뜨지만 show_on_ott 장르/형식 행에는 안 나올 수 있다). featured 로드 쿼리는 `visibility=public·status=ready·is_hidden=false` 만 필터(`Ott.tsx:257-283`).
 - **순환 규칙(현행)**: `heroIdx` 별 `setTimeout(...,30000)`(30초 상한), heroIdx 변경마다 타이머 리셋(`Ott.tsx:241-245`). 클립 영상은 `onEnded`(=`advanceHero`)로 재생이 끝나면 30초 전 조기 전환(같은 장면 반복 제거). 1편 이하면 순환/전환 없음(단일 히어로 clip은 loop).
   - (구 20초 setInterval + 10초 구간 되감기 제거 — 짧은 영상이 30초 창에서 반복되던 것 단순화.)
 - 히어로 영상 소스(`video_url`·`hero_clip_url` 등)는 RPC에 없어 `videos` 테이블에서 별도 조회(`Ott.tsx:276-308`). `heroSrcCache`(heroId→src)로 회전마다 재조회 방지(`Ott.tsx:152,279`).
-- 재생 우선순위: `hero_clip_url` 클립 있으면 자동재생(끝나면 다음), 없으면 하이라이트 시작점으로 seek 한 `play_720p.mp4` 연속재생, 둘 다 없으면 Bunny `preview.webp` 애니메이션, 그것도 없으면 썸네일 포스터(`Ott.tsx:526-531,564-606`).
+- 재생 우선순위: `hero_clip_url` 클립(=**featured 히어로 한정**, `allowClip` — 미검수 사용자 업로드 클립 게이트)이 있으면 자동재생(끝나면 다음), 없으면 하이라이트 시작점으로 seek 한 mp4 렌디션을 **720→480→360→240 폴백 체인**으로 재생(onError 시 다음 렌디션 — Bunny 가 소스에 따라 720p 를 안 만드는 영상의 404 대응), 둘 다 없으면 Bunny `preview.webp` 애니메이션, 그것도 없으면 썸네일 포스터(`Ott.tsx:542-563,637-641`). seek 지점은 `HERO_MAX_SEEK_SEC=90` 로 상한 clamp(딥 seek 저화질 고착 방지, `Ott.tsx:157,621-627`).
 - 화면 밖이면 IntersectionObserver 로 히어로 영상 일시정지(`Ott.tsx:542-551`).
 
 ### 4.4 마퀴 자동 흐름 (OTT, `Ott.tsx:599-624`)
@@ -257,7 +257,7 @@ OTT(`Ott.tsx:267-280`):
 - **모듈 캐시(stale-while-revalidate)**: `cinemaCache`(키=`user:tier:showcase`)(`Cinema.tsx:151,159,200-205,283`), `ottCache`(키=`showcase`)(`Ott.tsx:147,159,253-256,309`). 재방문 시 스피너 없이 직전 데이터 즉시 표시 후 백그라운드 갱신. 추천 누수 방지 위해 캐시 키에 user id 포함(`Cinema.tsx:157-159`).
 - **memo**: `VideoCard`(`VideoRowCarousel.tsx:97`), `CategoryRow`·`HeroBillboard`(`Ott.tsx:413,563`). 핸들러 `useCallback`/`useMemo` 안정화로 카드 리렌더 폭풍 방지(`Cinema.tsx:307-313`, `Ott.tsx:189-193`).
 - **화면 밖 회전/마퀴 정지**: CoverFlow IntersectionObserver→`visibleRef`(`CoverFlow.tsx:74-81,335`); OTT 마퀴 `visibleRef`(`Ott.tsx:627-636,609`); 히어로 영상 IO 일시정지(`Ott.tsx:453-463`); CoverFlow 는 `document.hidden` 도 검사(`CoverFlow.tsx:335`).
-- **히어로 RPC 캐시(OTT)**: `heroSrcCache`(heroId→src)로 20초 회전마다 같은 영상 `video_url` 재조회 방지(`Ott.tsx:150,219,237`).
+- **히어로 RPC 캐시(OTT)**: `heroSrcCache`(heroId→src)로 30초(상한) 회전마다 같은 영상 `video_url` 재조회 방지(`Ott.tsx:152,288,313`).
 - **연령/시리즈 일괄 조회 캐시**: module-level 캐시 single source, 캐시 miss id 만 RPC, useMemo 안정화(`useAgeRatings.ts:15,26-59`, `useSeriesCounts.ts:10,16-49`).
 - **이미지 lazy**: 카드 썸네일 `loading="lazy"`(`VideoRowCarousel.tsx:162`, `Ott.tsx:677`).
 - **마퀴 부동소수 누적**: `scrollLeft` 정수 반올림 대응으로 SPEED 누적 1px 단위 적용(`Ott.tsx:607-618`).
@@ -366,9 +366,9 @@ OTT(`Ott.tsx:267-280`):
 ```
 ┌══════════════════════════════════════════════════════════════════════┐
 │                                                                      ░│
-│ ░░░ HERO BILLBOARD (풀블리드, heroes 상위 5편 20초 순환) ░░░░░░░░░░░░░░ │  ← 352-362 / HeroBillboard 413-557
+│ ░░░ HERO BILLBOARD (풀블리드, heroes 상위 5편, 30초 상한 순환) ░░░░░░░░ │  ← 428-442 / HeroBillboard 508-697
 │ ░                                                                    ░│
-│ ░   [자동재생: hero_clip_url 30s → preview.webp → 썸네일 포스터]      ░│  ← 440-443
+│ ░   [자동재생: 클립(featured) → mp4 렌디션 720→…→240 → preview → 썸네일] ░│  ← 542-563
 │ ░                                                                    ░│
 │ ░   👑 작품 제목 (대형)                                               ░│
 │ ░   장르 · 길이 · ₩가격                                               ░│
@@ -503,43 +503,45 @@ sequenceDiagram
     end
 ```
 
-### OTT 히어로 20초 순환 + 소스 로딩 (`Ott.tsx:204-242`)
+### OTT 히어로 순환(30초 상한/클립종료 조기전환) + 소스 로딩 (`Ott.tsx:233-318`)
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant O as Ott.tsx
-    participant T as setInterval(20s)
+    participant T as setTimeout(30s 상한)
+    participant V as <video> onEnded
     participant Cache as heroSrcCache
     participant SB as supabase.from(videos)
 
-    O->>O: heroes = trending상위5 (비면 genreRows 폴백) :204-206
+    O->>O: heroes = [featured(챌린지우승·길이무관), ...트렌딩] dedup 상위5 (트렌딩 비면 genreRows 폴백) :236-244
     alt heroes.length <= 1
-        O-->>O: 순환 안 함 :210
+        O-->>O: 순환 안 함 (단일 clip 은 loop) :250
     else
-        loop 20초마다 :209-213
+        loop heroIdx 마다 30초 상한 :249-253
             T->>O: heroIdx = (i+1) % length
         end
+        V->>O: 클립 재생 종료 → advanceHero() 조기전환 :254-255,440
     end
 
-    Note over O,SB: heroId 바뀔 때 소스 로딩 :215-242
+    Note over O,SB: heroId 바뀔 때 소스 로딩 :285-318
     O->>O: setHeroSrc(null)
     alt heroId 없음 / demo- / showcase
-        O-->>O: return (소스 조회 건너뜀) :217
+        O-->>O: return (소스 조회 건너뜀) :287
     else cache hit
-        Cache-->>O: setHeroSrc(cached) (재조회 없음) :218-219
+        Cache-->>O: setHeroSrc(cached) (재조회 없음) :288-289
     else cache miss
-        O->>SB: select video_url, highlight, hero_clip_url where id :222-226
+        O->>SB: select video_url, highlight_*, hero_clip_url where id (is_hidden=false) :292-297
         SB-->>O: data
         alt data.video_url 있음
-            O->>O: previewUrl = m3u8→preview.webp 치환 :233-235
-            O->>Cache: heroSrcCache.set(heroId, srcObj) :237
+            O->>O: previewUrl = m3u8→preview.webp 치환 :304-306
+            O->>Cache: heroSrcCache.set(heroId, srcObj) :313
             O->>O: setHeroSrc(srcObj)
         end
     end
 
-    Note over O: 재생 우선순위 hero_clip_url → preview.webp → 썸네일 :440-443
-    Note over O: 화면밖이면 IO로 히어로 영상 일시정지 :453-463 / 연령잠금이면 재생차단 :441
+    Note over O: 재생 우선순위 hero_clip_url(featured 한정) → seek mp4 렌디션(720→480→360→240, onError 폴백) → preview.webp → 썸네일 :542-563,637-641
+    Note over O: 화면밖이면 IO로 히어로 영상 일시정지 :574-583 / 연령잠금·등급미확정이면 재생차단 :560-561
 ```
 
 ### 마퀴 자동 흐름 (`Ott.tsx:599-624`)
@@ -658,11 +660,11 @@ Feature: 시네마/OTT 행 렌더링 및 인터랙션
     When 화살표/드래그로 조작한다
     Then 3초 뒤 자동회전이 재개된다                           # :231-233
 
-  Scenario: OTT 히어로 20초 순환
-    Given 트렌딩 결과가 2편 이상이다
-    When OTT 탭에 진입해 20초가 경과한다
-    Then heroIdx 가 (i+1)%length 로 다음 작품으로 바뀐다       # Ott.tsx:209-213
-    And 히어로 소스는 hero_clip_url → preview.webp → 썸네일 순으로 선택된다  # :440-443
+  Scenario: OTT 히어로 순환 (30초 상한 / 클립종료 조기전환)
+    Given 히어로 후보가 2편 이상이다 (피처링+트렌딩, 트렌딩 비면 장르행 폴백)
+    When OTT 탭에 진입해 30초가 경과한다 (또는 클립 영상이 재생을 마친다)
+    Then heroIdx 가 (i+1)%length 로 다음 작품으로 바뀐다       # Ott.tsx:249-255
+    And 히어로 소스는 hero_clip_url(featured 한정) → seek mp4 렌디션(720→480→360→240) → preview.webp → 썸네일 순으로 선택된다  # :542-563
 
   Scenario: OTT 시간대 무드 편성
     Given 접속 시각이 21~02 (밤 밴드) 이다
@@ -749,6 +751,6 @@ Feature: 시네마/OTT 엣지 및 폴백
 - 시네마 18 RPC 병렬, 1개 실패해도 나머지 행 정상 렌더.
 - 추천 행은 로그인+이력 시 개인화, 없으면 인기 폴백, 항상 fillPopular 로 15까지 채움.
 - CoverFlow 자동회전·3초 재개·중앙 클릭 상세 이동·화면밖 정지.
-- OTT 히어로 20초 순환, 클립/preview/썸네일 폴백, 시간대 무드 정렬("기타" 맨 뒤), 마퀴 좌우 교차·hover 정지.
+- OTT 히어로 30초 상한(클립종료 시 조기전환) 순환, 클립(featured)/mp4 렌디션 seek(720→…→240)/preview/썸네일 폴백, 시간대 무드 정렬("기타" 맨 뒤), 마퀴 좌우 교차·hover 정지.
 - 19+ 미인증 블러+잠금, 본인 영상 면제. 좋아요 토글 멱등.
 - 길이 게이팅: 60초+ 시네마, 600초+ OTT. BETA ON 시 빈 행 8칸 채움. 재방문 캐시 즉시 표시.
