@@ -150,6 +150,11 @@ const ottCache: Record<string, OttSnapshot> = {};
 // 히어로 영상 소스 캐시(heroId → src) — 20초 회전마다 같은 영상 video_url 재조회 방지
 type HeroSrc = { url: string; start: number; end: number; clipUrl?: string; previewUrl?: string; seekUrl?: string };
 const heroSrcCache = new Map<string, HeroSrc>();
+// 히어로 프리뷰 seek 상한(초). play_720p.mp4 을 highlight_start 로 seek 하는데 너무 깊은 지점
+//   (예: "야인의 시대" 296초)은 버퍼링이 느려 선명 프레임이 안 떠 저화질 preview 에 고착됨
+//   (바다의 신비 88초는 정상). → 히어로 배경 프리뷰는 이 값까지만 seek(초과분 clamp).
+//   실제 highlight_start(상세페이지 하이라이트용)는 DB 그대로 불변 — 히어로 재생 지점만 얕게.
+const HERO_MAX_SEEK_SEC = 90;
 
 export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }: OttProps) {
   const { t } = useTranslation();
@@ -596,8 +601,10 @@ const HeroBillboard = memo(function HeroBillboard({
               onEnded={() => onEnded?.()}
               onLoadedMetadata={() => {
                 // seek 재생: 메타데이터 로드 후 하이라이트 시작점으로 이동(best-effort).
+                //   단, HERO_MAX_SEEK_SEC 로 상한 clamp — 너무 깊은 지점(296초 등)은 딥 seek 이 느려
+                //   선명 프레임이 안 떠 저화질 고착되던 것 방지(얕은 지점이라도 선명 재생 우선).
                 const v = videoRef.current;
-                if (v && isSeek && src) { try { v.currentTime = src.start; } catch { /* 무시 */ } }
+                if (v && isSeek && src) { try { v.currentTime = Math.min(src.start, HERO_MAX_SEEK_SEC); } catch { /* 무시 */ } }
               }}
               onTimeUpdate={() => {
                 const v = videoRef.current; if (!v) return;
