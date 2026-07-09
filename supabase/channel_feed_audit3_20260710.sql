@@ -178,24 +178,18 @@ $$;
 REVOKE ALL ON FUNCTION public.get_creator_daily_followers(INTEGER) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_creator_daily_followers(INTEGER) TO authenticated;
 
--- ── #3 videos.views 실측 반영 — video_views 유효조회 INSERT 시 +1(숫자값만, 시드 콤마 보존) ──
-CREATE OR REPLACE FUNCTION public.tg_bump_video_views()
-RETURNS TRIGGER
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $$
-BEGIN
-  IF NEW.is_valid THEN
-    UPDATE public.videos
-    SET views = (views::BIGINT + 1)::TEXT
-    WHERE id = NEW.video_id AND views ~ '^\d+$';   -- 숫자값만 증가(콤마 시드값은 그대로 보존)
-  END IF;
-  RETURN NULL;
-END;
-$$;
-DROP TRIGGER IF EXISTS video_views_bump ON public.video_views;
-CREATE TRIGGER video_views_bump
-  AFTER INSERT ON public.video_views
-  FOR EACH ROW EXECUTE FUNCTION public.tg_bump_video_views();
+-- ── #3 videos.views 실측 반영 ── [SSOT 이관: video_views_actual_count_sync_20260710.sql] ──
+--   ⚠️ 이 블록은 제거됨(2026-07-10 재조정). 이유: 같은 날 video_views_actual_count_sync_20260710.sql
+--      이 videos.views 를 유효조회수로 백필 + video_views 트리거(trg_sync_video_views_count)로 실측
+--      동기화를 이미 적용(라이브)했다. 그쪽이 정본이다:
+--        · INSERT +1 뿐 아니라 DELETE/UPDATE OF is_valid(무효화)까지 ±1 로 처리(더 완전),
+--        · 백필로 기존 값을 실측 카운트로 세팅(사용자 결정 "실측으로 통일" 반영).
+--      여기 있던 tg_bump_video_views/video_views_bump 는 INSERT +1 만 하는 중복이라, 둘 다 살아있으면
+--      새 유효조회마다 videos.views 가 +2 로 이중카운트된다. → videos.views 동기화는
+--      video_views_actual_count_sync_20260710.sql 에서만. 여기선 재정의 금지.
+--   (이미 이 파일을 실행했다면 라이브 DB 정리: DROP TRIGGER IF EXISTS video_views_bump ON public.video_views;
+--                                            DROP FUNCTION IF EXISTS public.tg_bump_video_views();)
+--   (#1·#2·#4 는 이 파일 소관 유지.)
 
 -- ── #4 display_name 사칭명 차단 + 길이 클램프 ──
 CREATE OR REPLACE FUNCTION public.tg_guard_profile_text()
