@@ -526,9 +526,14 @@ const HeroBillboard = memo(function HeroBillboard({
   const isClip = !!src?.clipUrl;
   const isSeek = !isClip && !!src?.seekUrl && (src?.end ?? 0) > (src?.start ?? 0);
   const playUrl = src?.clipUrl || (isSeek ? src?.seekUrl : undefined) || "";
-  const useVideo = !g.isAgeLocked && !!playUrl;
+  // 연령등급이 아직 로드 안 됐으면(g.rating == null) 재생/미리보기 보류(fail-closed).
+  //   ageRatings 는 비동기 RPC(전체 id), heroSrc 는 단일행 조회라 src 가 먼저 오는 레이스에서
+  //   19+ 히어로가 무블러+소리로 자동재생되던 청소년보호 구멍 차단 → 등급 확정 후 재생/잠금 결정.
+  //   (그 사이엔 썸네일 포스터만 노출.)
+  const ratingKnown = g.rating != null;
+  const useVideo = !g.isAgeLocked && ratingKnown && !!playUrl;
   // 클립이 없으면(=seek 이든 정지든) Bunny 애니메이션 미리보기(preview.webp)를 베이스로 표시.
-  const usePreview = !g.isAgeLocked && !isClip && !!src?.previewUrl;
+  const usePreview = !g.isAgeLocked && ratingKnown && !isClip && !!src?.previewUrl;
 
   // 네이티브 <video> 사용(배경 영상 표준). playUrl 변경 시 노출 초기화 → 포스터부터 다시.
   useEffect(() => { setVideoReady(false); }, [playUrl]);
@@ -703,25 +708,31 @@ const CategoryRow = memo(function CategoryRow({
   ];
   const doubled = [...baseItems, ...baseItems]; // 무한 루프용 2벌 복제 (베타 카드 포함분 기준)
 
-  // 기본 자동 흐름 (방향: dir) — hover 시 일시정지. scrollWidth/2 지점에서 되감아 끊김 없음.
+  // 기본 자동 흐름 (방향: dir) — hover 시 일시정지. 한 카피(주기) 지점에서 되감아 끊김 없음.
   // scrollLeft 는 정수 반올림되므로 소수 속도를 누적해 1px 이상 모일 때만 적용 (수동 스크롤과도 호환).
+  //   주기 = 한 카피 + 한 gap = (scrollWidth + GAP)/2 (doubled=2벌). scrollWidth/2 로 감으면 gap/2(6px)씩
+  //     덜 감아 매 바퀴 튀고, 한 카피가 뷰포트보다 좁으면(짧은 행) dir=left 는 오른끝에서 얼고 dir=right 는
+  //     매 바퀴 튐(BETA_MODE 8칸 패딩으로 가려졌던 잠재버그) → period 기준 + "한 카피>뷰포트일 때만" 로 교정.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    if (dir === "right") el.scrollLeft = el.scrollWidth / 2;
+    const GAP = 12; // gap-3 (px)
+    const period0 = (el.scrollWidth + GAP) / 2;   // 한 카피(+gap) 주기
+    if (dir === "right" && period0 > el.clientWidth + 4) el.scrollLeft = period0;
     let raf = 0;
     let acc = 0;
     const SPEED = 0.25; // px/frame (느린 흐름)
     const step = () => {
-      if (!pausedRef.current && visibleRef.current && el.scrollWidth > el.clientWidth + 4) {
+      const period = (el.scrollWidth + GAP) / 2;
+      // 한 카피가 뷰포트보다 넓을 때만 흐름 — 짧은 행은 정적(스크롤 불가한 것 억지로 감다 얼거나 튀는 것 방지)
+      if (!pausedRef.current && visibleRef.current && period > el.clientWidth + 4) {
         acc += SPEED;
         if (acc >= 1) {
           const inc = Math.floor(acc);
           acc -= inc;
-          const half = el.scrollWidth / 2;
           el.scrollLeft += dir === "left" ? inc : -inc;
-          if (el.scrollLeft >= half) el.scrollLeft -= half;
-          else if (el.scrollLeft <= 0) el.scrollLeft += half;
+          if (el.scrollLeft >= period) el.scrollLeft -= period;
+          else if (el.scrollLeft <= 0) el.scrollLeft += period;
         }
       }
       raf = requestAnimationFrame(step);
