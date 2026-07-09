@@ -10,14 +10,20 @@ const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer";
 const SUPABASE_ANON_KEY = "sb_publishable_K3wmxz8uqsvUdeYXUhJv2g_g09eNNR8";
 const SITE_URL = "https://www.creaite.net";
 
+// XML 텍스트 이스케이프 (video:title/description 안전)
+const esc = (s: string) =>
+  s.replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" }[c] as string));
+
 interface VideoLite {
   id: string;
   created_at: string;
+  title: string | null;
+  thumbnail: string | null;
 }
 
 async function fetchAllVideos(): Promise<VideoLite[]> {
   // 공개 + 숨김 아님 영상만 (최대 5만 건 — Vercel Edge 메모리 한도 고려)
-  const url = `https://${SUPABASE_PROJECT_ID}.supabase.co/rest/v1/videos?select=id,created_at&or=(visibility.eq.public,visibility.is.null)&is_hidden=is.false&order=created_at.desc&limit=50000`;
+  const url = `https://${SUPABASE_PROJECT_ID}.supabase.co/rest/v1/videos?select=id,created_at,title,thumbnail&or=(visibility.eq.public,visibility.is.null)&is_hidden=is.false&order=created_at.desc&limit=50000`;
   const res = await fetch(url, {
     headers: {
       apikey: SUPABASE_ANON_KEY,
@@ -87,21 +93,30 @@ export default async function handler(_req: Request): Promise<Response> {
     })),
   ];
 
-  const videoUrls = videos.map(v => ({
-    loc: `${SITE_URL}/?video=${encodeURIComponent(v.id)}`,
-    lastmod: v.created_at?.split("T")[0],
-    changefreq: "weekly",
-    priority: "0.8",
-  }));
+  const videoUrls = videos.map(v => {
+    const loc = `${SITE_URL}/?video=${encodeURIComponent(v.id)}`;
+    const title = (v.title || "CREAITE AI 영상").slice(0, 100);
+    // 썸네일: Bunny(핫링크 보호)면 same-origin 프록시(/api/thumb)로 → Googlebot 취득 가능. 외부면 그대로.
+    const rawThumb = v.thumbnail || "";
+    const thumbLoc = rawThumb.includes("b-cdn.net")
+      ? `${SITE_URL}/api/thumb?v=${encodeURIComponent(v.id)}`
+      : rawThumb;
+    // 비디오 사이트맵 마크업 — thumbnail_loc 는 필수라 썸네일 있을 때만 emit
+    const videoXml = thumbLoc
+      ? `\n    <video:video>\n      <video:thumbnail_loc>${esc(thumbLoc)}</video:thumbnail_loc>\n      <video:title>${esc(title)}</video:title>\n      <video:description>${esc(title)} — CREAITE AI 시네마</video:description>\n      <video:player_loc>${esc(loc)}</video:player_loc>\n    </video:video>`
+      : "";
+    return { loc, lastmod: v.created_at?.split("T")[0], changefreq: "weekly", priority: "0.8", videoXml };
+  });
 
   const all = [...staticUrls, ...videoUrls];
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
 ${all.map(u => `  <url>
     <loc>${u.loc}</loc>${(u as any).lastmod ? `\n    <lastmod>${(u as any).lastmod}</lastmod>` : ""}
     <changefreq>${u.changefreq}</changefreq>
-    <priority>${u.priority}</priority>
+    <priority>${u.priority}</priority>${(u as any).videoXml || ""}
   </url>`).join("\n")}
 </urlset>`;
 

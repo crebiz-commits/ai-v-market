@@ -276,12 +276,17 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     const uploadDate = product.createdAt && !isNaN(new Date(product.createdAt).getTime())
       ? new Date(product.createdAt).toISOString()
       : undefined;
+    // 썸네일이 Bunny(핫링크 보호)면 same-origin 프록시(/api/thumb)로 → Googlebot 취득 가능(색인).
+    //   외부 URL(쇼케이스 등)이면 그대로. 영상 파일은 프록시 안 함 = Bunny 보호 유지.
+    const seoThumbnail = product.thumbnail?.includes("b-cdn.net")
+      ? `https://www.creaite.net/api/thumb?v=${encodeURIComponent(product.id)}`
+      : product.thumbnail;
     const ld = {
       "@context": "https://schema.org",
       "@type": "VideoObject",
       name: product.title,
       description: t("productDetail.jsonLdDescription", { creator: creatorName }),
-      thumbnailUrl: product.thumbnail,
+      thumbnailUrl: seoThumbnail,
       ...(uploadDate ? { uploadDate } : {}),
       duration: isoDuration,
       contentUrl: `https://www.creaite.net/?video=${product.id}`,
