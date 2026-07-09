@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback, memo } from "react";
 import { Play, Info, Plus, Lock, Loader2, Volume2, VolumeX, Clock, ChevronLeft, ChevronRight, Heart, Eye, Layers } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
+import { BUNNY_HOST } from "../utils/bunnyHost";
 import { useAuth } from "../contexts/AuthContext";
 import { useLikes } from "../contexts/LikesContext";
 import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
@@ -291,7 +292,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
     (async () => {
       const { data } = await supabase
         .from("videos")
-        .select("video_url, highlight_start, highlight_end, hero_clip_url")
+        .select("video_url, highlight_start, highlight_end, hero_clip_id, hero_clip_status")
         .eq("id", heroId)
         .eq("is_hidden", false)   // 방어심층: 숨김 영상은 히어로 소스 미로딩(RLS 외 명시 필터)
         .maybeSingle();
@@ -306,7 +307,12 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
           : undefined;
         // (seek 재생용 mp4 렌디션 URL 은 HeroBillboard 가 src.url 에서 직접 파생 — 720→480→360→240 폴백 체인.
         //  이전엔 여기서 play_720p.mp4 단일 URL 을 넘겼으나 720p 미생성 영상에서 404 나던 문제로 제거.)
-        const srcObj: HeroSrc = { url: data.video_url, start: hStart, end: hEnd, clipUrl: data.hero_clip_url || undefined, previewUrl };
+        // 히어로 클립(방식 C): 검수 통과(passed)한 클립만 재생. clipUrl=클립 Bunny playlist(HeroBillboard 가
+        //   렌디션 폴백으로 재생). status!='passed'(pending/rejected/none)면 undefined → 본편 파생 폴백.
+        const clipUrl = (data.hero_clip_status === "passed" && data.hero_clip_id)
+          ? `https://${BUNNY_HOST}/${data.hero_clip_id}/playlist.m3u8`
+          : undefined;
+        const srcObj: HeroSrc = { url: data.video_url, start: hStart, end: hEnd, clipUrl, previewUrl };
         heroSrcCache.set(heroId, srcObj);
         setHeroSrc(srcObj);
       }
@@ -535,21 +541,28 @@ const HeroBillboard = memo(function HeroBillboard({
   //      구간 되감기 없음(2026-07-08 단순화: 10초 구간 영상이 30초 창에서 3번 반복되던 것 제거)
   //      → 30초 상한 타이머 또는 영상 종료(ended) 시 다음 히어로로.
   //   preview.webp 를 항상 베이스로 깔아둬 seek 이 버벅이거나 실패해도 화면이 비지 않음(안전 폴백).
-  // 클립은 admin featured 히어로에서만 사용(미검수 콘텐츠 게이트). 트렌딩 등은 clipUrl 무시 → 본편 폴백.
-  const clipUrl = allowClip ? src?.clipUrl : undefined;
-  const isClip = !!clipUrl;
+  // 클립은 admin featured 히어로 + 검수통과(passed)한 것만 재생(미검수 콘텐츠 게이트, 부모가 status 판정).
+  //   클립도 Bunny playlist 라 seek 과 동일하게 mp4 렌디션 폴백 체인으로 재생(네이티브 HLS 미지원 대비).
+  //   클립은 0초부터(하이라이트 이미 잘림), 본편 seek 은 highlight_start 로.
+  const clipBase = allowClip ? src?.clipUrl : undefined;
+  const clipRenditions = useMemo(() => {
+    if (!clipBase || !/\/playlist\.m3u8$/i.test(clipBase)) return [] as string[];
+    return [720, 480, 360, 240].map((r) => clipBase.replace(/\/playlist\.m3u8$/i, `/play_${r}p.mp4`));
+  }, [clipBase]);
+  const isClip = clipRenditions.length > 0;
   // 본편 seek 재생용 렌디션 폴백 체인 — Bunny 가 소스에 따라 특정 렌디션을 안 만들 수 있음.
   //   예: "야인의 시대"(1080p)는 play_720p.mp4 가 없고 480/360/240 만 존재 → 720p 하드코딩이 404 나
   //   seek 영상이 실패해 저화질 preview 에 고착되던 버그. 720→480→360→240 순 시도, onError 시 다음으로
   //   폴백해 실제 존재하는 최고 화질을 재생. 전부 실패해야 preview.
   const seekRenditions = useMemo(() => {
-    if (!src?.url || clipUrl || !/\/playlist\.m3u8$/i.test(src.url)) return [] as string[];
+    if (!src?.url || isClip || !/\/playlist\.m3u8$/i.test(src.url)) return [] as string[];
     return [720, 480, 360, 240].map((r) => src.url.replace(/\/playlist\.m3u8$/i, `/play_${r}p.mp4`));
-  }, [src?.url, clipUrl]);
+  }, [src?.url, isClip]);
   const [renIdx, setRenIdx] = useState(0);
   useEffect(() => { setRenIdx(0); }, [src?.url]);   // 새 히어로 = 720p 부터 다시 시도
   const isSeek = !isClip && seekRenditions.length > 0 && (src?.end ?? 0) > (src?.start ?? 0);
-  const playUrl = clipUrl || (isSeek ? seekRenditions[renIdx] : undefined) || "";
+  const activeRenditions = isClip ? clipRenditions : seekRenditions;
+  const playUrl = ((isClip || isSeek) ? activeRenditions[renIdx] : undefined) || "";
   // 연령등급이 아직 로드 안 됐으면(g.rating == null) 재생/미리보기 보류(fail-closed).
   //   ageRatings 는 비동기 RPC(전체 id), heroSrc 는 단일행 조회라 src 가 먼저 오는 레이스에서
   //   19+ 히어로가 무블러+소리로 자동재생되던 청소년보호 구멍 차단 → 등급 확정 후 재생/잠금 결정.
@@ -633,7 +646,7 @@ const HeroBillboard = memo(function HeroBillboard({
               onPlaying={() => { if ((videoRef.current?.currentTime ?? 0) > 0.05) setVideoReady(true); }}
               onError={() => {
                 // 이 렌디션이 없으면(404 등) 다음 렌디션으로 폴백(720→480→360→240). 다 실패해야 preview.
-                if (isSeek && renIdx < seekRenditions.length - 1) { setRenIdx((i) => i + 1); return; }
+                if ((isClip || isSeek) && renIdx < activeRenditions.length - 1) { setRenIdx((i) => i + 1); return; }
                 setVideoReady(false);   // 전부 실패 → preview.webp/포스터로 안전 폴백
               }}
             />

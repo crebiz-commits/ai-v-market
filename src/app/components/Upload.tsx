@@ -24,6 +24,7 @@ import { useSettings } from "../contexts/SettingsContext";
 import { supabase, supabaseAnonKey, supabaseUrl } from "../utils/supabaseClient";
 import { tusUploadToBunny, type BunnyTusAuth } from "../utils/bunnyUpload";
 import { BUNNY_HOST } from "../utils/bunnyHost";
+import { uploadHeroClip } from "../utils/heroClipUpload";
 import { isNegotiationOnly } from "../utils/licensePricing";
 import { toast } from "sonner";
 import { useTranslation, Trans } from "react-i18next";
@@ -157,7 +158,8 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
   const [videoDurationSec, setVideoDurationSec] = useState(0);
   const [highlight, setHighlight] = useState<{ start: number; end: number }>({ start: 0, end: 30 });
   // OTT 히어로 미리보기 클립(선택) — 10분+ 영상만. 나중에 히어로 노출 시 딥 seek 없이 0초부터 선명 재생.
-  const [heroClipUrl, setHeroClipUrl] = useState<string>("");
+  const [heroClipUrl, setHeroClipUrl] = useState<string>("");   // 등록됨 표시용(Bunny playlist)
+  const [heroClipId, setHeroClipId] = useState<string>("");     // 클립 Bunny GUID → save-metadata 로 전달
   const [heroClipUploading, setHeroClipUploading] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const fileObjectUrlRef = useRef<string | null>(null);
@@ -331,6 +333,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
     setVideoDurationSec(0);
     // 히어로 클립도 무효화 — 파일 바뀌면 이전 영상용 클립이 새 영상(비-OTT 포함)에 잘못 붙는 것 방지
     setHeroClipUrl("");
+    setHeroClipId("");
 
     // 이전 ObjectURL 정리 (미리보기 비디오용으로 유지하던 URL)
     if (fileObjectUrlRef.current) {
@@ -479,9 +482,9 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
     reader.readAsDataURL(file);
   };
 
-  // OTT 히어로 미리보기 클립 업로드 — 30초 내외 MP4 를 hero-clips 공개 버킷(자기 폴더)에 올려
-  //   hero_clip_url 로 저장. OTT(10분+) 영상이 나중에 히어로에 노출될 때 딥 seek 없이 이 클립을
-  //   0초부터 네이티브 재생해 선명한 화질 보장(깊은 하이라이트 저화질 고착 회피).
+  // OTT 히어로 미리보기 클립 업로드 — 30초 내외 MP4 를 본편과 동일하게 Bunny 에 올려 검수 파이프라인
+  //   (webhook/Vision)을 태운다. 통과(passed)해야 히어로에서 재생. OTT(10분+) 영상이 히어로에 노출될 때
+  //   딥 seek 없이 이 클립을 0초부터 재생해 선명한 화질 보장.
   const handleHeroClipFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";   // 같은 파일 재선택 허용
@@ -491,12 +494,10 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
     if (!user) { toast.error(t("upload.heroClip.loginRequired", "로그인이 필요합니다.")); return; }
     setHeroClipUploading(true);
     try {
-      const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp4`;
-      const { error } = await supabase.storage.from("hero-clips").upload(path, file, { contentType: "video/mp4", upsert: true });
-      if (error) throw error;
-      const url = supabase.storage.from("hero-clips").getPublicUrl(path).data.publicUrl;
-      setHeroClipUrl(url);
-      toast.success(t("upload.heroClip.uploaded", "히어로 클립이 등록되었습니다."));
+      const { clipId, clipUrl } = await uploadHeroClip(file);
+      setHeroClipId(clipId);
+      setHeroClipUrl(clipUrl);
+      toast.success(t("upload.heroClip.uploaded", "히어로 클립이 등록되었습니다. (검수 후 노출)"));
     } catch (err: any) {
       console.error("[Upload] hero clip upload error:", err);
       toast.error(t("upload.heroClip.failed", "히어로 클립 업로드에 실패했습니다."));
@@ -883,7 +884,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
         highlightStart: highlight.start,
         highlightEnd: highlight.end,
         // OTT 히어로 미리보기 클립(선택, 10분+ 영상만). 있으면 히어로가 이 클립을 0초부터 선명 재생.
-        heroClipUrl: heroClipUrl || null,
+        heroClipId: heroClipId || null,   // 방식 C: Bunny GUID(서버가 KV 소유권 검증 후 hero_clip_id 저장)
         // Phase 28: Sponsorship
         sponsorBrand: formData.sponsorBrand?.trim() || null,
         sponsorLogoUrl: formData.sponsorLogoUrl?.trim() || null,
@@ -986,6 +987,32 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
           }
         }
       })();
+
+      // 히어로 클립 검수 폴백 — 클립이 있으면 별도로 폴링(웹훅이 주 경로). passed/rejected 되면 중단.
+      if (heroClipId) {
+        const clipModUrl = `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/moderate-hero-clip`;
+        (async () => {
+          for (let attempt = 0; attempt < 10; attempt++) {
+            await new Promise((r) => setTimeout(r, attempt === 0 ? 8000 : 30000));
+            try {
+              const res = await fetch(clipModUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${freshToken}`,
+                  'apikey': supabaseAnonKey,
+                },
+                body: JSON.stringify({ video_id: videoId }),
+              });
+              const data = await res.json().catch(() => ({}));
+              console.log('[hero-clip 검수] 시도', attempt + 1, data.status, data.score ?? '');
+              if (res.ok && data.status && data.status !== 'pending') break;
+            } catch (err) {
+              console.warn('[hero-clip 검수] 폴백 예외:', err);
+            }
+          }
+        })();
+      }
     } catch (error: any) {
       console.error('Upload error:', error);
       toast.error(error.message || t("upload.toast.uploadError"));
@@ -1010,6 +1037,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
     setVideoDurationSec(0);
     setHighlight({ start: 0, end: 30 });
     setHeroClipUrl("");
+    setHeroClipId("");
     setHeroClipUploading(false);
     setShowPreview(false);
     if (fileObjectUrlRef.current) {
@@ -1398,11 +1426,10 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
                     className="hidden"
                     onChange={handleHeroClipFile}
                   />
-                  {heroClipUrl ? (
+                  {heroClipId ? (
                     <div className="flex items-center gap-2">
-                      <video src={heroClipUrl} className="w-24 aspect-video rounded bg-black object-cover" muted playsInline preload="metadata" />
-                      <span className="text-xs text-[#10b981] flex-1">{t("upload.heroClip.registered", "히어로 클립 등록됨 ✓")}</span>
-                      <Button type="button" variant="outline" size="sm" onClick={() => setHeroClipUrl("")}>{t("upload.heroClip.remove", "제거")}</Button>
+                      <span className="text-xs text-[#10b981] flex-1">{t("upload.heroClip.registered", "히어로 클립 등록됨 ✓ (검수 통과 후 노출)")}</span>
+                      <Button type="button" variant="outline" size="sm" onClick={() => { setHeroClipId(""); setHeroClipUrl(""); }}>{t("upload.heroClip.remove", "제거")}</Button>
                     </div>
                   ) : (
                     <Button
