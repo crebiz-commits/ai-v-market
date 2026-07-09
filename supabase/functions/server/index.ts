@@ -1699,11 +1699,34 @@ app.post('/send-email', async (c) => {
       ad_budget_low:           { type: 'system',   body: '광고 예산이 임박했습니다',          link: '/' },
       new_video_from_followed: { type: 'system',   body: '팔로우한 채널의 새 영상',          link: '/' },
     };
-    const inapp = INAPP[type] || { type: 'system', body: '탭하여 확인하세요', link: '/' };
+    // 복제(spread) — 아래 new_follower 개인화에서 body/link 를 변형해도 모듈 공유 INAPP 가 오염되지 않게.
+    const inapp = { ...(INAPP[type] || { type: 'system', body: '탭하여 확인하세요', link: '/' }) };
 
     // H1-2(2026-06-25): actor 타입(타 사용자에게 가는 알림)은 클라 subject/html/link 를 신뢰하지 않음 →
     //   서버 템플릿으로 고정(신뢰 도메인 mail.creaite.net 피싱 차단). self(본인)·admin(신뢰) 타입만 클라 콘텐츠 사용.
     const isActor = !SELF_TYPES.includes(type) && !ADMIN_TYPES.includes(type);
+
+    // N1/N2: new_follower 는 actor(=팔로워=인증된 caller)를 서버가 알고 있으므로, 팔로워 이름/채널
+    //   딥링크를 서버가 직접 구성한다(클라 link/html 불신 유지 → 피싱 안전). 동시에 최근 동일 팔로워
+    //   알림이 있으면 전체 스킵(언팔→재팔 반복 스팸 디듀프). 링크에 actor id 를 심어 그걸로 디듀프.
+    if (isActor && type === 'new_follower') {
+      const { data: actorProf } = await supabase
+        .from('profiles').select('display_name').eq('id', callerId).maybeSingle();
+      const followerName = String(actorProf?.display_name || '').slice(0, 30) || '누군가';
+      inapp.body = `${followerName}님이 회원님을 팔로우하기 시작했어요`;
+      inapp.link = `/?tab=channel&creator=${callerId}`;   // 팔로워 채널 직행(서버구성이라 안전)
+
+      const { data: recentDup } = await supabase
+        .from('notifications').select('id')
+        .eq('user_id', user_id)
+        .ilike('link', `%creator=${callerId}%`)
+        .gte('created_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+        .limit(1);
+      if (recentDup && recentDup.length > 0) {
+        return c.json({ success: true, skipped: true, reason: 'duplicate new_follower within 24h' });
+      }
+    }
+
     const ACTOR_SUBJECT: Record<string, string> = {
       comment_reply:           'CREAITE — 새 답글이 달렸어요',
       new_follower:            'CREAITE — 새 팔로워가 생겼어요',
