@@ -851,7 +851,7 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="h-[100dvh] flex items-center justify-center bg-background">
+      <div className="h-full flex items-center justify-center bg-background">
         <motion.div
           className="text-center"
           initial={{ opacity: 0, scale: 0.9 }}
@@ -1015,7 +1015,7 @@ function AppContent() {
     : "bg-background/80 backdrop-blur-xl border-b border-white/5 shadow-sm";
 
   return (
-    <div className="relative h-[100dvh] flex flex-col bg-background text-foreground overflow-hidden selection:bg-[#6366f1]/30">
+    <div className="relative h-full flex flex-col bg-background text-foreground overflow-hidden selection:bg-[#6366f1]/30">
 
       {/* Mobile Top Header */}
       <motion.header
@@ -1311,9 +1311,10 @@ function AppContent() {
       </div>
 
       {/* Mobile Bottom Navigation — 6탭 + 중앙 업로드 버튼 (좌 3 / 중앙 / 우 3)
-          진입 애니메이션(y:50 슬라이드업) 제거: 루트가 h-[100dvh] overflow-hidden 이라 마운트 시
-          아래로 밀린 네비 하단이 clip 되어, 첫 시작(무거운 JS)에 애니메이션이 지연되면 "절반 잘림"으로
-          멈춰 보이던 버그. 항상 최종 위치에 즉시 렌더해 잘림 원천 차단. */}
+          진입 애니메이션(y:50 슬라이드업) 제거: 루트가 overflow-hidden 이라 마운트 시 아래로 밀린 네비
+          하단이 clip 되어, 첫 시작(무거운 JS)에 애니메이션이 지연되면 "절반 잘림"으로 멈춰 보이던 버그.
+          항상 최종 위치에 즉시 렌더해 잘림 원천 차단. (루트 높이는 h-[100dvh]→h-full 로 통일해
+          html/body/#root 의 height:100% 고정과 정합 — dvh↔100% 불일치로 인한 하단 여백/잘림 제거.) */}
       <nav
         className="md:hidden shrink-0 border-t border-white/5 bg-background/80 backdrop-blur-xl sticky bottom-0 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]"
       >
