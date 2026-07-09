@@ -36,6 +36,7 @@ export function ReceivedCommentsSection() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  const [dbCount, setDbCount] = useState(0);   // DB 에서 로드한 실제 행 수(낙관적 답글 제외) — 다음 offset 기준
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -50,6 +51,7 @@ export function ReceivedCommentsSection() {
     } else {
       const rows = (data ?? []) as ReceivedComment[];
       setItems(prev => offset === 0 ? rows : [...prev, ...rows]);
+      setDbCount(offset + rows.length);   // 낙관적 답글과 무관한 실제 DB offset 추적
       setHasMore(rows.length === PAGE);
     }
     setL(false);
@@ -194,7 +196,7 @@ export function ReceivedCommentsSection() {
 
           {hasMore && (
             <button
-              onClick={() => load(items.length)}
+              onClick={() => load(dbCount)}
               disabled={loadingMore}
               className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-semibold text-gray-300 inline-flex items-center justify-center gap-2 disabled:opacity-50"
             >

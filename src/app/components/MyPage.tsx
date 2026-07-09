@@ -1094,6 +1094,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
         });
       if (profileErr) throw profileErr;
 
+      // 저장 후 본인 프로필 재조회 — upsert 커밋 전에 USER_UPDATED 리스너가 먼저 도는 레이스로
+      //   헤더/편집모달이 옛 값(bio/avatar/banner) 표시하던 stale 방지.
+      await refreshProfile();
       toast.success(t("mypage.profileEditModal.saveSuccess"));
       setShowProfileEdit(false);
     } catch (err: any) {
