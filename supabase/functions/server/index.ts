@@ -1751,8 +1751,12 @@ app.post('/send-email', async (c) => {
     const inappTitle = isActor
       ? (ACTOR_SUBJECT[type] || 'CREAITE 알림')
       : String(subject || '').replace(/^\[CREAITE\]\s*/, '').slice(0, 200);
+    // 인앱/푸시 link: actor 타입도 same-origin 상대경로(/로 시작, //·/\ 아님) 클라 링크는 허용.
+    //   (App.handleNotificationNavigate 가 화이트리스트 파라미터만 추출 → 외부이동 불가라 피싱 무관.
+    //    이메일 html 만 서버고정 유지.) new_follower 는 위에서 서버구성한 inapp.link 우선.
+    const isSafeRelLink = (l: unknown): l is string => typeof l === 'string' && /^\/(?![/\\])/.test(l);
     const inappLink = isActor
-      ? inapp.link
+      ? (type === 'new_follower' ? inapp.link : (isSafeRelLink(clientLink) ? clientLink.slice(0, 500) : inapp.link))
       : ((typeof clientLink === 'string' && clientLink) ? clientLink.slice(0, 500) : inapp.link);
     try {
       await supabase.from('notifications').insert({
