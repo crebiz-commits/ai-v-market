@@ -18,6 +18,8 @@
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ── 1) get_creator_profile — creator_of_month_until 추가 + 이메일폴백 제거 ──
+--   반환 컬럼(creator_of_month_until)이 늘어 반환타입이 바뀌므로 CREATE OR REPLACE 불가 → DROP 선행.
+DROP FUNCTION IF EXISTS public.get_creator_profile(UUID);
 CREATE OR REPLACE FUNCTION public.get_creator_profile(p_creator_id UUID)
 RETURNS TABLE (
   creator_id UUID, creator_name TEXT, avatar_url TEXT, banner_url TEXT, bio TEXT,
