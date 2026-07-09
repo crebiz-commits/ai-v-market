@@ -787,7 +787,12 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
       replies: (c.replies || []).filter((r) => !isBlocked(r.user_id)),
     }));
 
-  const totalCount = visibleComments.reduce((acc, c) => acc + 1 + (c.replies?.length || 0), 0);
+  // 헤더 "댓글 N" 을 각 컨텍스트의 피드 배지와 같은 의미로 맞춘다(불일치 해소):
+  //   · 영상 배지 = 최상위만(seedComments·bumpComments·DiscoveryFeed 전부 parent_id null 기준) → 답글 제외.
+  //   · 커뮤니티 배지 = 트리거가 답글 포함 전체 재계산 → 답글 포함.
+  const totalCount = videoId
+    ? visibleComments.length
+    : visibleComments.reduce((acc, c) => acc + 1 + (c.replies?.length || 0), 0);
 
   // CommentItemView(모듈 스코프)에 주입할 핸들러/상태 번들 — 인라인 재정의 제거로 리마운트 방지.
   // (매 렌더 새 객체지만 컴포넌트 타입은 고정 → 리렌더는 되어도 언마운트/리마운트는 안 일어남)
