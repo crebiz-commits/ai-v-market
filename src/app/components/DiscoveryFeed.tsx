@@ -810,9 +810,46 @@ const FEED_PAGE_SIZE = 12;
 // 탭 복귀 시 즉시 복원용 모듈 캐시(메모리, 세션 내). 키 = `${userId}:${chip}`.
 // 무한스크롤로 누적된 피드를 통째로 보관 → 복귀 시 리로드/스피너 없이 직전 상태 그대로.
 type HomeFeedSnapshot = { videos: Video[]; offset: number; hasMore: boolean; commentCounts: Record<string, number>; ads: Ad[]; order: string[]; ts: number };
-const HOME_CACHE_TTL_MS = 90_000;   // H9: 탭복귀 캐시 신선도 — 90초 지난 스냅샷은 폐기하고 새로 로드
+const HOME_CACHE_TTL_MS = 90_000;   // H9: 탭복귀 캐시 신선도 — 90초 이내는 재검증 없이 즉시 복원
+const HOME_STALE_TTL_MS = 30 * 60_000;  // SWR: 30분 이내 스테일 스냅샷은 "즉시 표시 후 배경 재검증"(콜드스타트 즉시 페인트)
 const HOME_CACHE_MAX = 8;           // H9: 캐시 엔트리 상한(메모리 무한 증가 방지)
+const HOME_LS_KEY = "aivm_homefeed_v1";
 const homeFeedCache: Record<string, HomeFeedSnapshot> = {};
+
+// 콜드 스타트(새로고침/앱 재실행) 즉시 페인트용 — 모듈 캐시를 localStorage 로 지속.
+//   모듈 로드 시 1회 hydrate(첫 페이지만, 소량). 이후 restore 로직이 이 스냅샷을 SWR 로 사용.
+(function hydrateHomeCacheFromLS() {
+  try {
+    const raw = typeof localStorage !== "undefined" && localStorage.getItem(HOME_LS_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as Record<string, HomeFeedSnapshot>;
+    for (const k in parsed) {
+      const s = parsed[k];
+      if (s && Array.isArray(s.videos) && s.videos.length > 0 && typeof s.ts === "number"
+          && Date.now() - s.ts < HOME_STALE_TTL_MS) {
+        homeFeedCache[k] = s;
+      }
+    }
+  } catch { /* 파싱/쿼터 오류 무시 */ }
+})();
+
+// 저장 — 최근 키 소량(첫 페이지만)만 지속해 쿼터/직렬화 비용 최소화.
+function persistHomeCacheToLS() {
+  try {
+    if (typeof localStorage === "undefined") return;
+    const keys = Object.keys(homeFeedCache).sort((a, b) => homeFeedCache[b].ts - homeFeedCache[a].ts).slice(0, 4);
+    const out: Record<string, HomeFeedSnapshot> = {};
+    for (const k of keys) {
+      const s = homeFeedCache[k];
+      const vids = s.videos.slice(0, FEED_PAGE_SIZE);   // 첫 페이지만
+      const ids = new Set(vids.map((v) => v.id));
+      const cc: Record<string, number> = {};
+      for (const [id, n] of Object.entries(s.commentCounts)) if (ids.has(id)) cc[id] = n as number;
+      out[k] = { videos: vids, offset: vids.length, hasMore: true, commentCounts: cc, ads: (s.ads || []).slice(0, 6), order: s.order || [], ts: s.ts };
+    }
+    localStorage.setItem(HOME_LS_KEY, JSON.stringify(out));
+  } catch { /* 쿼터 초과 등 무시 */ }
+}
 
 export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onViewCreator, onOpenSearch, onNavigate }: DiscoveryFeedProps) {
   const { t } = useTranslation();
@@ -965,6 +1002,8 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
         // 전역 스토어에 좋아요 수 시드(seed-once) → 모든 피드가 같은 값 공유
         mapped.forEach((v) => { if (!v.id.startsWith("demo-")) seedLikeCount(v.id, v.likes); });
         setVideos((prev) => {
+          // 첫 페이지(from===0)는 교체 — 일반 로드는 prev=[] 라 동일, 스테일 재검증 땐 스테일→신선 매끄러운 스왑.
+          if (from === 0) return mapped;
           const seen = new Set(prev.map((v) => v.id));
           return [...prev, ...mapped.filter((v) => !seen.has(v.id))];
         });
@@ -1025,13 +1064,17 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
     let cancelled = false;
     const cacheKey = `${user?.id ?? "anon"}:${chip}`;
     const snap = homeFeedCache[cacheKey];
-    if (snap && Date.now() - snap.ts < HOME_CACHE_TTL_MS) {   // H9: TTL 이내만 즉시 복원, 오래되면 새로 로드
-      sessionSeqRef.current++;   // H10: 캐시 복원도 새 세션 — 이전 in-flight loadMore 무효화
+    const age = snap ? Date.now() - snap.ts : Infinity;
+    const isFresh = !!snap && age < HOME_CACHE_TTL_MS;                 // 90초 이내 → 재검증 없이 확정
+    const isStale = !!snap && !isFresh && age < HOME_STALE_TTL_MS;     // 30분 이내 → SWR(즉시 표시 후 재검증)
+    if (snap && (isFresh || isStale)) {
+      // 즉시 복원(콜드스타트/탭복귀 스피너 없음). 스테일이면 아래 async 가 배경 재검증.
+      sessionSeqRef.current++;
       chipRef.current = chip;
       offsetRef.current = snap.offset;
       hasMoreRef.current = snap.hasMore;
       fetchingRef.current = false;
-      orderRef.current = snap.order || [];   // H3: 고정 순서 복원
+      orderRef.current = snap.order || [];
       setHasMore(snap.hasMore);
       setVideos(snap.videos);
       snap.videos.forEach((v) => { if (!v.id.startsWith("demo-")) seedLikeCount(v.id, v.likes); });
@@ -1039,25 +1082,29 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
       setCommentCounts(snap.commentCounts);
       Object.entries(snap.commentCounts).forEach(([id, n]) => seedCommentCount(id, n as number));
       setActiveId(snap.videos[0]?.id ?? null);
-      stateKeyRef.current = cacheKey;   // 복원된 state = 이 키의 데이터 (저장 가드 해제)
       setLoading(false);
-      // 좋아요 상태는 전역 LikesContext 가 유저 로그인 시 1회 로드해 공유 (여기서 별도 조회 불필요)
-      return () => { cancelled = true; };
+      if (isFresh) {
+        stateKeyRef.current = cacheKey;   // 신선 → 이 데이터로 확정(저장 허용), 재검증 안 함
+        return () => { cancelled = true; };
+      }
+      // 스테일 → stateKeyRef 는 아직 미확정(아래 async 가 null 로 두어 재검증 완료까지 저장 차단)
     }
+    const revalidating = !!(snap && isStale);
     (async () => {
-      setLoading(true);
-      stateKeyRef.current = null;   // 새 세션 로드 시작 — 완료 전까지 캐시 저장 금지(이전 세션 데이터 오염 방지)
-      // 페이지네이션 상태 리셋 (칩 필터 반영)
-      sessionSeqRef.current++;   // H10: 새 세션 시작 → 이전 세션의 in-flight loadMore 완료를 무효화
+      if (!revalidating) {   // 캐시 없음 → 일반 로드(스피너). 스테일 재검증이면 화면 유지·스피너 없음.
+        setLoading(true);
+        setVideos([]);
+        setActiveId(null);
+        setHasMore(true);
+      }
+      stateKeyRef.current = null;   // 로드/재검증 완료 전까지 저장 금지(오염 방지)
+      sessionSeqRef.current++;   // H10: 새 세션 시작 → 이전 in-flight loadMore 무효화
       chipRef.current = chip;
       offsetRef.current = 0;
       hasMoreRef.current = true;
       fetchingRef.current = false;
-      orderRef.current = [];   // H3: 세션 순서 초기화 (아래서 재확정)
-      setHasMore(true);
-      setFeedError(false);   // 칩/유저 전환 시 이전 에러 해제
-      setVideos([]);
-      setActiveId(null);
+      if (!revalidating) orderRef.current = [];   // 스테일 재검증이면 새 순서 도착 전까지 기존 순서 유지
+      setFeedError(false);
       try {
         // 홈 피드 광고: ads_public 뷰에서 조회 — 승인·활성·노출기간 필터를 뷰가 강제하고
         // 민감컬럼(budget_krw/spent_krw/owner_id 등)은 비노출. 여기선 노출형식(feed_display)만 거름.
@@ -1082,7 +1129,8 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
         if (!cancelled && chip === chipRef.current) stateKeyRef.current = cacheKey;
       } catch (error) {
         console.error("Error fetching discovery data:", error);
-        if (!cancelled) { setFeedError(true); hasMoreRef.current = false; setHasMore(false); }
+        // 재검증(스테일 표시 중) 실패는 화면 유지(에러 미표시) — 다음 세션에서 다시 시도. 일반 로드 실패만 에러 표시.
+        if (!cancelled && !revalidating) { setFeedError(true); hasMoreRef.current = false; setHasMore(false); }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -1107,6 +1155,7 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
         .slice(0, keys.length - HOME_CACHE_MAX)
         .forEach((k) => delete homeFeedCache[k]);
     }
+    persistHomeCacheToLS();   // 콜드스타트 즉시 페인트용으로 localStorage 에도 지속(첫 페이지만)
   }, [videos, ads, commentCounts, loading, user?.id, chip]);
 
   // 칩 바 좌우 화살표 표시 여부 (유튜브식: 넘칠 때만, 스크롤 위치 따라)
