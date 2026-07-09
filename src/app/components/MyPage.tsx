@@ -10,6 +10,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useBackButton } from "../hooks/useBackButton";
 import { toast } from "sonner";
 import { supabase } from "../utils/supabaseClient";
+import { BUNNY_HOST } from "../utils/bunnyHost";
 import { InstallGuideCard } from "./InstallPrompt";
 import { CommentSettings } from "./CommentSettings";
 import { ReceivedCommentsSection } from "./ReceivedCommentsSection";
@@ -598,8 +599,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
       if (error) throw error;
       const videoId = (data && data[0]?.video_id) || purchase.videoId;
       if (!videoId) throw new Error(t('mypage.purchases.noVideoId'));
-      const libraryId = (import.meta as any).env?.VITE_BUNNY_LIBRARY_ID || '';
-      const bunnyHostname = (import.meta as any).env?.VITE_BUNNY_HOSTNAME || `vz-${libraryId}.b-cdn.net`;
+      const bunnyHostname = BUNNY_HOST;
       // Bunny Free 인코딩은 소스 해상도까지만 mp4 렌디션 생성 → 영상마다 가용 해상도가 다름.
       // play_720p.mp4 하드코딩 시 480p 이하 영상은 404. 높은→낮은 순으로 실제 존재하는 mp4 선택.
       // (Bunny CDN 이 ACAO:* 를 주므로 cross-origin HEAD 로 상태 확인 가능)

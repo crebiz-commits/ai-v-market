@@ -8,6 +8,7 @@ import {
 import { Button } from "./ui/button";
 import { supabase, supabaseAnonKey } from "../utils/supabaseClient";
 import { tusUploadToBunny } from "../utils/bunnyUpload";
+import { BUNNY_HOST } from "../utils/bunnyHost";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -267,8 +268,7 @@ export function AdminDashboard() {
       });
 
       // 3. HLS URL 구성 후 폼에 자동 입력
-      const bunnyHostname = (import.meta as any).env?.VITE_BUNNY_HOSTNAME || `vz-${libraryId}.b-cdn.net`;
-      const hlsUrl = `https://${bunnyHostname}/${videoId}/playlist.m3u8`;
+      const hlsUrl = `https://${BUNNY_HOST}/${videoId}/playlist.m3u8`;
       setForm(f => ({ ...f, video_url: hlsUrl }));
 
       toast.success("광고 영상 업로드 완료! Bunny에 저장됐습니다 (마켓 노출 X)");

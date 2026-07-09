@@ -38,6 +38,7 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
   const { user } = useAuth();
   const imgRef = useRef<HTMLInputElement>(null);
   const vidRef = useRef<HTMLInputElement>(null);
+  const vidAbortRef = useRef<AbortController | null>(null);  // 업로드 중 모달 닫으면 취소
 
   // 광고 유형 4종 — 노출면(surface) 상호 배타. (오버레이가 피드에도 뜨던 충돌 제거)
   //   overlay    → 오버레이 배너  (format='overlay', ad_type='overlay')      : 영상 위 작은 배너 (이미지)
@@ -90,15 +91,25 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
     if (!file) return;
     if (!file.type.startsWith("video/")) { toast.error(t("ads.create.videoOnly")); return; }
     if (file.size > 300 * 1024 * 1024) { toast.error(t("ads.create.videoTooLarge")); return; }
+    vidAbortRef.current?.abort();  // 이전 업로드(교체 시) 중단 → Bunny 고아·경쟁 방지
+    const ctrl = new AbortController();
+    vidAbortRef.current = ctrl;
     setVidUploading(true); setVidProgress(0);
     try {
-      const { videoUrl: vu, thumbnailUrl: tu } = await uploadAdVideo(file, setVidProgress);
+      const { videoUrl: vu, thumbnailUrl: tu } = await uploadAdVideo(file, setVidProgress, ctrl.signal);
+      if (ctrl.signal.aborted) return;  // 취소됐으면 상태 반영 안 함(언마운트/교체)
       setVideoUrl(vu); setThumbUrl(tu);
       toast.success(t("ads.create.videoUploaded"));
     } catch (e: any) {
+      if (ctrl.signal.aborted) return;  // 취소로 인한 에러는 조용히
       toast.error(t("ads.create.videoUploadFailed", { message: e?.message || "" }));
-    } finally { setVidUploading(false); }
+    } finally {
+      if (vidAbortRef.current === ctrl) { vidAbortRef.current = null; setVidUploading(false); }
+    }
   };
+
+  // 모달 닫기 — 진행 중 업로드 취소(300MB 백그라운드 전송 방지) 후 닫음.
+  const handleClose = () => { vidAbortRef.current?.abort(); onClose(); };
 
   const mediaReady = isImageKind ? !!imageUrl.trim() : !!videoUrl.trim();
   const valid = title.trim() && linkUrl.trim() && mediaReady && !imgUploading && !vidUploading;
@@ -159,14 +170,14 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
       {open && (
         <>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={onClose} className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[150]" />
+            onClick={handleClose} className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[150]" />
           <motion.div initial={{ opacity: 0, scale: 0.96, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 20 }} transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[151] mx-auto max-w-md max-h-[88vh] overflow-y-auto bg-card border border-border rounded-2xl shadow-2xl"
             onClick={(e) => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
               <h3 className="font-bold text-base">{editAd ? t("ads.create.titleEdit") : t("ads.create.titleNew")}</h3>
-              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted"><X className="w-5 h-5" /></button>
+              <button onClick={handleClose} className="p-1.5 rounded-lg hover:bg-muted"><X className="w-5 h-5" /></button>
             </div>
 
             <div className="p-5 space-y-4">

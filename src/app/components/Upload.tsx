@@ -23,6 +23,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useSettings } from "../contexts/SettingsContext";
 import { supabase, supabaseAnonKey, supabaseUrl } from "../utils/supabaseClient";
 import { tusUploadToBunny, type BunnyTusAuth } from "../utils/bunnyUpload";
+import { BUNNY_HOST } from "../utils/bunnyHost";
 import { isNegotiationOnly } from "../utils/licensePricing";
 import { toast } from "sonner";
 import { useTranslation, Trans } from "react-i18next";
@@ -665,8 +666,9 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
       toast.error(t("upload.toast.resolutionRequired", "해상도를 선택해주세요."));
       return false;
     }
-    // duration 은 자동측정되지만 자유 입력이라 잘못된 형식 저장 방지(예: 3:45 또는 1:03:45)
-    if (!/^\d{1,3}:\d{2}(:\d{2})?$/.test((formData.duration || "").trim())) {
+    // duration 은 자동측정되지만 자유 입력이라 잘못된 형식 저장 방지(예: 3:45 또는 1:03:45).
+    // 초·분 파트는 00~59 강제(3:99 같은 값이 트리거 파싱에서 잘못된 초로 계산되던 것 차단).
+    if (!/^\d{1,3}:[0-5]\d(:[0-5]\d)?$/.test((formData.duration || "").trim())) {
       toast.error(t("upload.toast.durationInvalid", "재생 시간 형식이 올바르지 않습니다 (예: 3:45)."));
       return false;
     }
@@ -799,9 +801,8 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
 
       // 3. 메타데이터 저장 (Edge Function 호출로 변경 - KV 및 DB 동시 저장)
       console.log('Saving metadata via Edge Function...');
-      // @ts-ignore
-      const envHostname = (import.meta as any).env.VITE_BUNNY_HOSTNAME;
-      const bunnyHostname = envHostname || `vz-${libraryId}.b-cdn.net`;
+      // Bunny pull-zone 호스트 — env 미설정 시에도 올바른 GUID 호스트 폴백(vz-{libraryId} 는 틀린 호스트).
+      const bunnyHostname = BUNNY_HOST;
       console.log('Using Bunny Hostname:', bunnyHostname);
       
       const metadata = {
@@ -919,12 +920,14 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
       }
 
       // Phase 25 — 자동 모더레이션 (fire-and-forget, 실패해도 업로드 흐름 무관)
+      //   ⚠️ freshToken 사용 — 긴 업로드로 1h JWT 만료 시 currentToken 은 401 로 조용히 실패해
+      //      영상이 미검수(pending)로 계속 노출되던 버그(thumbnail·save-metadata 와 동일 처리).
       const moderateUrl = `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/moderate-video`;
       fetch(moderateUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentToken}`,
+          'Authorization': `Bearer ${freshToken}`,
           'apikey': supabaseAnonKey,
         },
         body: JSON.stringify({ video_id: videoId }),

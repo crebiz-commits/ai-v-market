@@ -5,10 +5,12 @@
 // ════════════════════════════════════════════════════════════════════════════
 import { supabase, supabaseUrl, supabaseAnonKey } from "./supabaseClient";
 import { tusUploadToBunny } from "./bunnyUpload";
+import { BUNNY_HOST } from "./bunnyHost";
 
 export async function uploadAdVideo(
   file: File,
   onProgress?: (pct: number) => void,
+  signal?: AbortSignal,
 ): Promise<{ videoUrl: string; thumbnailUrl: string }> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
@@ -26,14 +28,13 @@ export async function uploadAdVideo(
   }
   const { videoId, libraryId, tusSignature, tusExpire } = await res.json();
 
-  // 2) Bunny 로 직접 TUS 업로드
+  // 2) Bunny 로 직접 TUS 업로드 (signal 로 중단 가능 — 모달 닫으면 취소)
   await tusUploadToBunny(file, { videoId, libraryId, tusSignature, tusExpire }, (loaded, total) => {
     if (onProgress && total > 0) onProgress(Math.round((loaded / total) * 100));
-  });
+  }, signal);
 
-  const hostname = (import.meta as any).env?.VITE_BUNNY_HOSTNAME || `vz-${libraryId}.b-cdn.net`;
   return {
-    videoUrl: `https://${hostname}/${videoId}/playlist.m3u8`,
-    thumbnailUrl: `https://${hostname}/${videoId}/thumbnail.jpg`,
+    videoUrl: `https://${BUNNY_HOST}/${videoId}/playlist.m3u8`,
+    thumbnailUrl: `https://${BUNNY_HOST}/${videoId}/thumbnail.jpg`,
   };
 }

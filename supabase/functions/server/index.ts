@@ -768,9 +768,12 @@ app.post("/videos/save-metadata", async (c) => {
         ai_tool: metadata.aiTool || '',
         category: metadata.category || '',
         genre: metadata.genre || '',
-        age_rating: ['all', '13', '15'].includes(metadata.age_rating) ? metadata.age_rating : 'all',  // U-M3: 서버 화이트리스트(19/junk 차단, 광고정책)
+        // U-M3: 서버 화이트리스트(19/junk 차단, 광고정책). 안전필드라 폴백은 최상위가 아닌
+        //   최대 제한('15')으로 — 잘못된 값이 전체관람가(all)로 열리지 않게(청소년보호 방향).
+        age_rating: ['all', '13', '15'].includes(metadata.age_rating) ? metadata.age_rating : '15',
         prompt: metadata.prompt || '',
-        status: metadata.status || 'ready',
+        // status 서버 화이트리스트(임의 문자열 주입 차단). 알 수 없는 값은 'ready'.
+        status: ['ready', 'processing', 'draft'].includes(metadata.status) ? metadata.status : 'ready',
         resolution: metadata.resolution || '',
         // ━━━ 확장 컬럼 ━━━
         // AI 제작 증빙
