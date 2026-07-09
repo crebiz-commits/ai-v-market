@@ -532,8 +532,18 @@ const HeroBillboard = memo(function HeroBillboard({
   //      → 30초 상한 타이머 또는 영상 종료(ended) 시 다음 히어로로.
   //   preview.webp 를 항상 베이스로 깔아둬 seek 이 버벅이거나 실패해도 화면이 비지 않음(안전 폴백).
   const isClip = !!src?.clipUrl;
-  const isSeek = !isClip && !!src?.seekUrl && (src?.end ?? 0) > (src?.start ?? 0);
-  const playUrl = src?.clipUrl || (isSeek ? src?.seekUrl : undefined) || "";
+  // 본편 seek 재생용 렌디션 폴백 체인 — Bunny 가 소스에 따라 특정 렌디션을 안 만들 수 있음.
+  //   예: "야인의 시대"(1080p)는 play_720p.mp4 가 없고 480/360/240 만 존재 → 720p 하드코딩이 404 나
+  //   seek 영상이 실패해 저화질 preview 에 고착되던 버그. 720→480→360→240 순 시도, onError 시 다음으로
+  //   폴백해 실제 존재하는 최고 화질을 재생. 전부 실패해야 preview.
+  const seekRenditions = useMemo(() => {
+    if (!src?.url || src.clipUrl || !/\/playlist\.m3u8$/i.test(src.url)) return [] as string[];
+    return [720, 480, 360, 240].map((r) => src.url.replace(/\/playlist\.m3u8$/i, `/play_${r}p.mp4`));
+  }, [src?.url, src?.clipUrl]);
+  const [renIdx, setRenIdx] = useState(0);
+  useEffect(() => { setRenIdx(0); }, [src?.url]);   // 새 히어로 = 720p 부터 다시 시도
+  const isSeek = !isClip && seekRenditions.length > 0 && (src?.end ?? 0) > (src?.start ?? 0);
+  const playUrl = src?.clipUrl || (isSeek ? seekRenditions[renIdx] : undefined) || "";
   // 연령등급이 아직 로드 안 됐으면(g.rating == null) 재생/미리보기 보류(fail-closed).
   //   ageRatings 는 비동기 RPC(전체 id), heroSrc 는 단일행 조회라 src 가 먼저 오는 레이스에서
   //   19+ 히어로가 무블러+소리로 자동재생되던 청소년보호 구멍 차단 → 등급 확정 후 재생/잠금 결정.
@@ -615,7 +625,11 @@ const HeroBillboard = memo(function HeroBillboard({
                 // (구간 되감기 제거 — 그대로 연속 재생, 전환은 30초 타이머/ended 가 담당)
               }}
               onPlaying={() => { if ((videoRef.current?.currentTime ?? 0) > 0.05) setVideoReady(true); }}
-              onError={() => setVideoReady(false)}   // 재생 실패 시 preview.webp/포스터로 안전 폴백
+              onError={() => {
+                // 이 렌디션이 없으면(404 등) 다음 렌디션으로 폴백(720→480→360→240). 다 실패해야 preview.
+                if (isSeek && renIdx < seekRenditions.length - 1) { setRenIdx((i) => i + 1); return; }
+                setVideoReady(false);   // 전부 실패 → preview.webp/포스터로 안전 폴백
+              }}
             />
           </div>
         )}
