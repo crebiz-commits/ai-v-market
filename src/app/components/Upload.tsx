@@ -919,28 +919,33 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
         );
       }
 
-      // Phase 25 — 자동 모더레이션 (fire-and-forget, 실패해도 업로드 흐름 무관)
-      //   ⚠️ freshToken 사용 — 긴 업로드로 1h JWT 만료 시 currentToken 은 401 로 조용히 실패해
-      //      영상이 미검수(pending)로 계속 노출되던 버그(thumbnail·save-metadata 와 동일 처리).
+      // 모더레이션 파이프라인 — 신규 업로드는 검수 통과 전까지 숨김(서버 save-metadata).
+      //   주 경로: Bunny 인코딩완료 웹훅(/bunny/webhook)이 실제 프레임 검수 → 통과 시 공개.
+      //   폴백(웹훅 지연/미설정 대비): 클라가 인코딩 완료(썸네일 생성)까지 최대 6회(≈3분)
+      //     재시도 — status 가 pending 이 아니게 되면(판정 완료) 중단. freshToken 사용(JWT 만료 대비).
+      toast.info(t("upload.toast.moderationPending"));
       const moderateUrl = `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/moderate-video`;
-      fetch(moderateUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${freshToken}`,
-          'apikey': supabaseAnonKey,
-        },
-        body: JSON.stringify({ video_id: videoId }),
-      }).then(async (res) => {
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          console.warn('[Phase 25] 자동 모더레이션 실패:', data);
-        } else {
-          console.log('[Phase 25] 자동 모더레이션 결과:', data.score, '/', data.status);
+      (async () => {
+        for (let attempt = 0; attempt < 6; attempt++) {
+          await new Promise((r) => setTimeout(r, attempt === 0 ? 8000 : 30000));
+          try {
+            const res = await fetch(moderateUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${freshToken}`,
+                'apikey': supabaseAnonKey,
+              },
+              body: JSON.stringify({ video_id: videoId }),
+            });
+            const data = await res.json().catch(() => ({}));
+            console.log('[moderation] 폴백 시도', attempt + 1, data.status, data.score ?? '');
+            if (res.ok && data.status && data.status !== 'pending') break;  // 판정 완료 → 중단
+          } catch (err) {
+            console.warn('[moderation] 폴백 예외:', err);
+          }
         }
-      }).catch((err) => {
-        console.warn('[Phase 25] 자동 모더레이션 예외:', err);
-      });
+      })();
     } catch (error: any) {
       console.error('Upload error:', error);
       toast.error(error.message || t("upload.toast.uploadError"));

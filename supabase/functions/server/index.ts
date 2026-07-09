@@ -811,6 +811,14 @@ app.post("/videos/save-metadata", async (c) => {
       return c.json({ error: `DB 저장 실패: ${dbError.message}` }, 500);
     }
 
+    // ── 업로드 모더레이션 파이프라인: 검수 통과 전까지 숨김(피드 미노출) ──
+    //   pending 인 행만 숨김 → 편집/이미 통과(passed)한 영상은 재숨김 안 됨.
+    //   Bunny 인코딩완료 웹훅(/bunny/webhook) 또는 클라 폴백이 실제 프레임 검수 → 통과 시 공개.
+    await supabaseAdmin.from('videos')
+      .update({ is_hidden: true })
+      .eq('id', videoId)
+      .eq('moderation_status', 'pending');
+
     // 사용자별 비디오 목록에도 추가 (KV)
     const userVideosKey = `user:${user.id}:videos`;
     const userVideos = await kv.get(userVideosKey) || [];
@@ -1902,7 +1910,93 @@ app.post('/broadcast-push', async (c) => {
 //   2. Google Vision SafeSearch API 호출
 //   3. 5단계 likelihood → 0~100 점수 변환
 //   4. score = max(adult, violence, racy) [spoof/medical 무시]
-//   5. update_video_moderation RPC 호출 → DB가 status 자동 결정
+//   5. apply_moderation_result RPC 호출 → 통과 시 공개(is_hidden=false), 그 외 숨김 유지
+
+// ── 공유 모더레이션 헬퍼 ────────────────────────────────────────────────────
+//   Bunny 가 인코딩한 실제 썸네일({host}/{id}/thumbnail.jpg)을 서버가 직접 바이트로 가져와
+//   base64 로 Vision 에 전달 → (1) 클라가 넘긴 썸네일 URL 위조 차단, (2) Bunny referrer
+//   화이트리스트(creaite.net)는 Referer 헤더로 통과, (3) Vision 의 referrer 무관.
+//   apply_moderation_result 는 pending 에서만 전이 → 통과=공개, 실패=pending 유지(fail-closed).
+async function moderateVideoById(
+  supabase: any,
+  videoId: string,
+): Promise<{ ok: boolean; score?: number; status?: string; error?: string }> {
+  const apiKey = Deno.env.get('GOOGLE_VISION_API_KEY');
+  if (!apiKey) {
+    console.error('[moderate] GOOGLE_VISION_API_KEY 미설정');
+    return { ok: false, error: 'Vision API key not configured' };
+  }
+  const bunnyHost = Deno.env.get('BUNNY_CDN_HOSTNAME') || 'vz-6e85411f-96a.b-cdn.net';
+  const thumbUrl = `https://${bunnyHost}/${videoId}/thumbnail.jpg`;
+
+  const fail = async (msg: string) => {
+    // 분석 실패 → pending 유지(재시도 가능), 숨김 유지(fail-closed)
+    await supabase.rpc('apply_moderation_result', {
+      p_video_id: videoId, p_score: null, p_categories: null, p_error: msg,
+    });
+    return { ok: false, error: msg };
+  };
+
+  // 1. Bunny 썸네일 바이트 페치 (Referer 로 화이트리스트 통과). 인코딩 미완이면 404 → pending.
+  let b64: string;
+  try {
+    const imgRes = await fetch(thumbUrl, { headers: { Referer: 'https://www.creaite.net' } });
+    if (!imgRes.ok) return await fail(`thumbnail fetch ${imgRes.status}`);
+    const buf = new Uint8Array(await imgRes.arrayBuffer());
+    if (buf.byteLength === 0) return await fail('empty thumbnail');
+    let bin = '';
+    const CHUNK = 0x8000;  // 대용량 base64 스택오버플로 방지
+    for (let i = 0; i < buf.length; i += CHUNK) {
+      bin += String.fromCharCode.apply(null, buf.subarray(i, i + CHUNK) as any);
+    }
+    b64 = btoa(bin);
+  } catch (e: any) {
+    return await fail('thumbnail fetch error: ' + (e?.message || e));
+  }
+
+  // 2. Google Vision SafeSearch (base64 content)
+  let visionData: any;
+  try {
+    const visionRes = await fetch(
+      `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requests: [{ image: { content: b64 }, features: [{ type: 'SAFE_SEARCH_DETECTION' }] }],
+        }),
+      },
+    );
+    visionData = await visionRes.json();
+    if (!visionRes.ok) return await fail(visionData?.error?.message || 'Vision API error');
+  } catch (e: any) {
+    return await fail('vision error: ' + (e?.message || e));
+  }
+
+  const safeSearch = visionData?.responses?.[0]?.safeSearchAnnotation;
+  if (!safeSearch) return await fail('No safeSearchAnnotation in Vision response');
+
+  const LIKELIHOOD_SCORE: Record<string, number> = {
+    VERY_UNLIKELY: 0, UNLIKELY: 25, POSSIBLE: 50, LIKELY: 75, VERY_LIKELY: 100, UNKNOWN: 0,
+  };
+  const categories = {
+    adult: LIKELIHOOD_SCORE[safeSearch.adult] ?? 0,
+    violence: LIKELIHOOD_SCORE[safeSearch.violence] ?? 0,
+    racy: LIKELIHOOD_SCORE[safeSearch.racy] ?? 0,
+    spoof: LIKELIHOOD_SCORE[safeSearch.spoof] ?? 0,
+    medical: LIKELIHOOD_SCORE[safeSearch.medical] ?? 0,
+  };
+  const score = Math.max(categories.adult, categories.violence, categories.racy);
+
+  const { data: updated, error: updErr } = await supabase.rpc('apply_moderation_result', {
+    p_video_id: videoId, p_score: score, p_categories: categories,
+  });
+  if (updErr) {
+    console.error('[moderate] DB 업데이트 실패:', updErr);
+    return { ok: false, error: 'DB update failed', score };
+  }
+  return { ok: true, score, status: updated?.moderation_status };
+}
 
 app.post('/moderate-video', async (c) => {
   try {
@@ -1921,10 +2015,10 @@ app.post('/moderate-video', async (c) => {
       return c.json({ error: 'Missing video_id' }, 400);
     }
 
-    // 1. 영상 정보 조회 (thumbnail URL + 소유자)
+    // 소유권 확인용 최소 조회 (썸네일은 헬퍼가 Bunny 실제 프레임으로 직접 검수)
     const { data: video, error: vidErr } = await supabase
       .from('videos')
-      .select('id, thumbnail, creator_id')
+      .select('id, creator_id')
       .eq('id', video_id)
       .single();
 
@@ -1938,108 +2032,97 @@ app.post('/moderate-video', async (c) => {
       if (!prof?.is_admin) return c.json({ error: '권한이 없습니다' }, 403);
     }
 
-    if (!video.thumbnail) {
-      // 썸네일 없음 — 분석 불가. pending 유지
-      await supabase.rpc('update_video_moderation', {
-        p_video_id: video_id,
-        p_score: null,
-        p_categories: null,
-        p_error: 'No thumbnail available',
-      });
-      return c.json({ error: 'No thumbnail available', skipped: true }, 400);
+    // 실제 Bunny 썸네일 기반 검수 (헬퍼가 apply_moderation_result 로 공개/숨김 결정)
+    const result = await moderateVideoById(supabase, video_id);
+    if (result.error === 'Vision API key not configured') {
+      return c.json({ error: result.error }, 500);
     }
-
-    // 2. Google Vision SafeSearch 호출
-    const apiKey = Deno.env.get('GOOGLE_VISION_API_KEY');
-    if (!apiKey) {
-      console.error('[moderate-video] GOOGLE_VISION_API_KEY 미설정');
-      return c.json({ error: 'Vision API key not configured' }, 500);
-    }
-
-    const visionRes = await fetch(
-      `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requests: [{
-            image: { source: { imageUri: video.thumbnail } },
-            features: [{ type: 'SAFE_SEARCH_DETECTION' }],
-          }],
-        }),
-      }
-    );
-
-    const visionData = await visionRes.json();
-
-    if (!visionRes.ok) {
-      const errMsg = visionData?.error?.message || 'Vision API error';
-      console.error('[moderate-video] Vision API 실패:', errMsg);
-      await supabase.rpc('update_video_moderation', {
-        p_video_id: video_id,
-        p_score: null,
-        p_categories: null,
-        p_error: errMsg,
-      });
-      return c.json({ error: errMsg, details: visionData }, 500);
-    }
-
-    const safeSearch = visionData?.responses?.[0]?.safeSearchAnnotation;
-
-    if (!safeSearch) {
-      const errMsg = 'No safeSearchAnnotation in Vision response';
-      console.error('[moderate-video] ', errMsg, visionData);
-      await supabase.rpc('update_video_moderation', {
-        p_video_id: video_id,
-        p_score: null,
-        p_categories: null,
-        p_error: errMsg,
-      });
-      return c.json({ error: errMsg }, 500);
-    }
-
-    // 3. 5단계 likelihood → 0~100 점수 변환
-    const LIKELIHOOD_SCORE: Record<string, number> = {
-      VERY_UNLIKELY: 0,
-      UNLIKELY: 25,
-      POSSIBLE: 50,
-      LIKELY: 75,
-      VERY_LIKELY: 100,
-      UNKNOWN: 0,
-    };
-
-    const categories = {
-      adult: LIKELIHOOD_SCORE[safeSearch.adult] ?? 0,
-      violence: LIKELIHOOD_SCORE[safeSearch.violence] ?? 0,
-      racy: LIKELIHOOD_SCORE[safeSearch.racy] ?? 0,
-      spoof: LIKELIHOOD_SCORE[safeSearch.spoof] ?? 0,
-      medical: LIKELIHOOD_SCORE[safeSearch.medical] ?? 0,
-    };
-
-    // 4. score = max(adult, violence, racy) — spoof/medical 무시
-    const score = Math.max(categories.adult, categories.violence, categories.racy);
-
-    // 5. DB 업데이트 (RPC가 점수 기반으로 status + is_hidden 자동 결정)
-    const { data: updatedVideo, error: updErr } = await supabase.rpc('update_video_moderation', {
-      p_video_id: video_id,
-      p_score: score,
-      p_categories: categories,
-    });
-
-    if (updErr) {
-      console.error('[moderate-video] DB 업데이트 실패:', updErr);
-      return c.json({ error: 'DB update failed', details: updErr }, 500);
-    }
-
+    // 썸네일 미생성(인코딩 중)·Vision 일시오류는 200 + status='pending' — 클라 폴백이 재시도.
     return c.json({
-      success: true,
-      score,
-      status: updatedVideo?.moderation_status,
-      categories,
+      success: result.ok,
+      score: result.score,
+      status: result.status ?? 'pending',
+      error: result.error,
     });
   } catch (err: any) {
     console.error('[moderate-video] 예외:', err);
     return c.json({ error: '모더레이션 처리 중 서버 오류: ' + (err?.message || err) }, 500);
+  }
+});
+
+// ============================================
+// Bunny Stream 인코딩 완료 웹훅 → 서버강제 모더레이션 + 실제 길이 반영
+// ============================================
+//   Bunny 대시보드 → Stream 라이브러리 → Webhook URL 등록:
+//     https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/bunny/webhook?secret=<BUNNY_WEBHOOK_SECRET>
+//   payload: { VideoLibraryId, VideoGuid, Status }
+//     Status 3=Finished, 4=ResolutionFinished, 5=Failed (그 외=인코딩중)
+//   Bunny 는 서명 헤더가 없어 URL 쿼리 시크릿으로 인증.
+app.post('/bunny/webhook', async (c) => {
+  try {
+    // 1. 시크릿 검증
+    const expected = Deno.env.get('BUNNY_WEBHOOK_SECRET');
+    if (!expected || c.req.query('secret') !== expected) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+
+    const body = await c.req.json().catch(() => ({}));
+    const guid = body?.VideoGuid || body?.videoGuid;
+    const status = body?.Status ?? body?.status;
+    const libId = String(body?.VideoLibraryId ?? body?.videoLibraryId ?? '');
+    if (!guid) return c.json({ error: 'missing VideoGuid' }, 400);
+
+    // 우리 라이브러리만
+    const ourLib = Deno.env.get('BUNNY_LIBRARY_ID');
+    if (ourLib && libId && libId !== String(ourLib)) {
+      return c.json({ ok: true, ignored: 'other library' });
+    }
+
+    // Finished(3)/ResolutionFinished(4) 만 처리
+    if (status !== 3 && status !== 4) {
+      return c.json({ ok: true, ignored: `status ${status}` });
+    }
+
+    const supabase = getSupabaseClient(true);
+
+    // 영상 존재 + 이미 검수됐는지 확인 (다중 해상도 웹훅으로 Vision 중복 호출 방지)
+    const { data: vrow } = await supabase
+      .from('videos').select('moderation_status').eq('id', guid).maybeSingle();
+    if (!vrow) {
+      // save-metadata 전에 웹훅 도착(레이스) 또는 우리 영상 아님 → 클라 폴백이 이후 처리
+      return c.json({ ok: true, ignored: 'video row not found yet' });
+    }
+
+    // 2. Bunny 실제 length → duration_seconds 갱신 (트리거가 티어 재분류, duration 위조 무력화)
+    try {
+      const apiKey = Deno.env.get('BUNNY_API_KEY');
+      if (apiKey && ourLib) {
+        const metaRes = await fetch(
+          `https://video.bunnycdn.com/library/${ourLib}/videos/${guid}`,
+          { headers: { AccessKey: apiKey, accept: 'application/json' } },
+        );
+        if (metaRes.ok) {
+          const meta = await metaRes.json();
+          const lenSec = Math.round(Number(meta?.length) || 0);
+          if (lenSec > 0) {
+            await supabase.from('videos').update({ duration_seconds: lenSec }).eq('id', guid);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[bunny-webhook] length 조회 실패:', e);
+    }
+
+    // 3. 이미 판정난 영상은 재검수 안 함(비용 절감). pending 만 검수 → 통과 시 공개.
+    if (vrow.moderation_status !== 'pending') {
+      return c.json({ ok: true, guid, already: vrow.moderation_status });
+    }
+    const result = await moderateVideoById(supabase, guid);
+    console.log('[bunny-webhook] moderation', guid, result.score, result.status, result.error || '');
+    return c.json({ ok: true, guid, score: result.score, status: result.status });
+  } catch (err: any) {
+    console.error('[bunny-webhook] 예외:', err);
+    return c.json({ error: 'webhook error: ' + (err?.message || err) }, 500);
   }
 });
 

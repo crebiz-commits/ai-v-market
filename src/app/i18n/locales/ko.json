@@ -1624,6 +1624,7 @@
       "thumbnailUploadFailed": "썸네일 업로드 실패 — 자동 생성 썸네일이 사용됩니다.",
       "saveError": "데이터 저장 실패 ({{status}})",
       "uploadSuccess": "영상이 성공적으로 업로드되었습니다!",
+      "moderationPending": "업로드 완료 — 콘텐츠 검수 통과 후 공개됩니다 (보통 수 분 내).",
       "uploadError": "업로드 중 오류가 발생했습니다.",
       "calculating": "계산 중...",
       "secondsShort": "{{n}}초",
