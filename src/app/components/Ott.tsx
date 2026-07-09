@@ -195,8 +195,11 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
     formatRows.forEach((r) => r.videos.forEach((v) => ids.add(v.id)));
     genreRows.forEach((r) => r.videos.forEach((v) => ids.add(v.id)));
     selectVideos.forEach((v) => ids.add(v.id));
+    // featured(챌린지 우승작)는 히어로 최우선 노출인데 여기 빠져 있어 연령등급이 조회되지 않았음 →
+    //   19+ featured 히어로가 블러 안 되던 청소년보호 구멍 + ratingKnown 게이트로 재생 막히던 것 해소.
+    featured.forEach((v) => ids.add(v.id));
     return Array.from(ids).filter((id) => !id.startsWith("demo-"));
-  }, [trending, formatRows, genreRows, selectVideos]);
+  }, [trending, formatRows, genreRows, selectVideos, featured]);
   const ageRatings = useAgeRatings(allVideoIds);
   const seriesCounts = useSeriesCounts(allVideoIds);
 
