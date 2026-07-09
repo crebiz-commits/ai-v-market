@@ -164,15 +164,18 @@ AS $$
   WITH base AS (
     SELECT v.id, v.creator_id
     FROM public.videos v
-    WHERE (v.visibility='public' OR v.visibility IS NULL)
-      AND COALESCE(v.is_hidden,false)=false
-      AND v.creator_id IS NOT NULL
+    WHERE v.creator_id IS NOT NULL
+      AND COALESCE(v.visibility, 'public') = 'public'
+      AND COALESCE(v.is_hidden, false) = false
   ),
   agg AS (
-    SELECT b.creator_id,
-      COUNT(vv.id) FILTER (WHERE vv.is_valid AND vv.created_at >= now() - make_interval(days => p_days)) AS weekly_v,
-      COUNT(vv.id) FILTER (WHERE vv.is_valid) AS total_v,
-      COUNT(DISTINCT b.id) AS vc
+    SELECT
+      b.creator_id,
+      COUNT(DISTINCT b.id)::BIGINT AS vc,
+      COUNT(vv.id) FILTER (WHERE vv.is_valid)::BIGINT AS total_v,
+      COUNT(vv.id) FILTER (
+        WHERE vv.is_valid AND vv.occurred_at >= now() - make_interval(days => p_days)
+      )::BIGINT AS weekly_v
     FROM base b
     LEFT JOIN public.video_views vv ON vv.video_id = b.id
     GROUP BY b.creator_id
