@@ -89,8 +89,9 @@ export function CommunityPostDetail({
     }
   };
 
-  // 뒤로가기로 댓글 패널 → 상세 페이지 → 목록 순서로 닫힘
+  // 뒤로가기로 댓글 패널/신고 모달 → 상세 페이지 → 목록 순서로 닫힘
   useBackButton(showComments, () => setShowComments(false));
+  useBackButton(showReport, () => setShowReport(false));   // 신고 모달도 하드웨어 백으로 닫기(없으면 상세가 통째로 닫히던 것)
 
   const handleShare = async () => {
     // R3(2026-06-11): App.tsx 딥링크 핸들러와 일치하는 표준 형식 (단축형 ?post= 도 지원됨)
@@ -154,7 +155,7 @@ export function CommunityPostDetail({
             </button>
           )}
           <button
-            onClick={() => setShowReport(true)}
+            onClick={() => { if (!user) { toast.error(t("auth.loginRequired")); return; } setShowReport(true); }}
             className="p-2 rounded-full hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
             aria-label={t("common.report", "신고")}
           >

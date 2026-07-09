@@ -58,6 +58,7 @@ export function CommunityChallengeDetail({ challenge, onClose, onParticipate, on
         .from("videos")
         .select("id,title,thumbnail,creator,likes,tags")
         .contains("tags", [`challenge:${challenge.tag}`])
+        .eq("is_hidden", false)   // 검수 미통과/관리자 숨김 영상 제외 (videos.is_hidden 은 RLS 미강제 → 명시 필터 필수)
         .or("visibility.eq.public,visibility.is.null")
         .order("likes", { ascending: false })
         .limit(12);

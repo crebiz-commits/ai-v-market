@@ -394,7 +394,7 @@ function CommentItemView({ comment, isReply = false, parentId, ctx }: { comment:
   );
 }
 
-export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onCommentPosted, onCommentDeleted, onViewCreator, mode = "sheet" }: CommentPanelProps) {
+export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, onCommentPosted, onCommentDeleted, onViewCreator, mode = "sheet" }: CommentPanelProps) {
   const { t, i18n } = useTranslation();
   const isKo = i18n.language?.startsWith("ko");
   const { user, isAuthenticated, profile } = useAuth();
@@ -566,7 +566,9 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
 
       const newComment: Comment = {
         ...inserted,
-        author_name: profile?.display_name || user!.name,
+        // 낙관적 표시명도 payload(위)와 동일한 익명 폴백을 둔다 — display_name·name 이 모두 비면
+        //   author_name 이 undefined 가 되어 getInitials(undefined) 가 크래시하던 것 방지.
+        author_name: profile?.display_name || user!.name || t("community.anonymous"),
         replies: [],
       };
 
@@ -804,11 +806,15 @@ export function CommentPanel({ videoId, postId, videoCreatorId, onClose, onComme
     <div className={containerClass}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <MessageCircle className="w-5 h-5 text-[#8b5cf6]" />
-          <span className="font-semibold text-white">
-            {t("commentPanel.title")} {!loading && totalCount > 0 ? totalCount : ""}
-          </span>
+        <div className="flex items-center gap-2 min-w-0">
+          <MessageCircle className="w-5 h-5 text-[#8b5cf6] flex-shrink-0" />
+          <div className="min-w-0">
+            <span className="font-semibold text-white">
+              {t("commentPanel.title")} {!loading && totalCount > 0 ? totalCount : ""}
+            </span>
+            {/* 어떤 글/영상의 댓글인지 맥락 표시 (caller 가 title 을 넘김 — 이전엔 destructure 누락으로 사장) */}
+            {title && <p className="text-[11px] text-gray-500 truncate leading-tight max-w-[220px]">{title}</p>}
+          </div>
         </div>
         <button
           onClick={onClose}

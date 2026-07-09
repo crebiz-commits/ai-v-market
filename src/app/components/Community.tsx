@@ -528,6 +528,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
             .from("videos")
             .select("id", { count: "exact", head: true })
             .contains("tags", [`challenge:${r.tag}`])
+            .eq("is_hidden", false)   // 숨김/검수미통과 영상은 참여작 수에서 제외 (CommunityChallengeDetail 참여작 목록과 정합)
             .or("visibility.eq.public,visibility.is.null");
           return count || 0;
         })
