@@ -581,6 +581,16 @@ function AppContent() {
     try { return sessionStorage.getItem("aivm_explored") === "1"; } catch { return false; }
   });
 
+  // 성능: auth getSession 이 TWA 웹뷰/다중탭에서 hang(2~4초)하면 앱 전체가 블랭크 스피너에 갇힌다.
+  //   ~700ms 지나도 세션 미해결이면 일단 콘텐츠(anon)를 렌더하고, 로그인 상태는 해결되는 대로 채운다.
+  //   (빠른 auth 는 그 전에 loading 이 풀려 이 타임아웃과 무관 → 평상시 깜빡임 없음.)
+  const [authGateTimedOut, setAuthGateTimedOut] = useState(false);
+  useEffect(() => {
+    if (!loading) return;
+    const id = window.setTimeout(() => setAuthGateTimedOut(true), 700);
+    return () => window.clearTimeout(id);
+  }, [loading]);
+
   // R4(2026-06-11): 구독 만료 임박(D-3) 안내 — 자동갱신이 없어 조용히 free 로 떨어지는 것 방지.
   // 같은 만료일에 대해 1회만 (localStorage 가드), 클릭 시 마이페이지로 이동해 연장.
   useEffect(() => {
@@ -849,7 +859,7 @@ function AppContent() {
     return () => clearTimeout(tmr);
   }, []);
 
-  if (loading) {
+  if (loading && !authGateTimedOut) {
     return (
       <div className="h-full flex items-center justify-center bg-background">
         <motion.div

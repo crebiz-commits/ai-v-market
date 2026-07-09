@@ -975,15 +975,18 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
           // 수용된 제약(2026-07-08): 한 페이지(≤12영상)의 최상위·비숨김 댓글 행을 받아 클라에서 카운트.
           //   PostgREST 기본 1000행 상한이 있어 12개 영상의 최상위 댓글 합이 1000을 넘으면 과소집계 가능
           //   (현재 규모에선 미발동). 스케일 시 grouped-count RPC(video_id별 count) 로 전환 권장.
-          const { data: countData } = await supabase.from("comments")
-            .select("video_id").in("video_id", ids).is("parent_id", null).eq("is_hidden", false);
-          if (countData && reqChip === chipRef.current && mySeq === sessionSeqRef.current) {   // B2: 댓글수 병합도 칩/세션 변경 시 폐기(stale 방지)
-            const counts: Record<string, number> = {};
-            countData.forEach((c: any) => { counts[c.video_id] = (counts[c.video_id] || 0) + 1; });
-            setCommentCounts((prev) => ({ ...prev, ...counts }));
-            // 전역 스토어에 댓글수 시드(seed-once) → 모든 피드 "댓글 N" 통일
-            Object.entries(counts).forEach(([id, n]) => seedCommentCount(id, n));
-          }
+          // 댓글수는 비블로킹 — 영상은 이미 setVideos 됐으니 첫 페인트를 막지 않고 뒤채운다(왕복 1회 제거).
+          void (async () => {
+            const { data: countData } = await supabase.from("comments")
+              .select("video_id").in("video_id", ids).is("parent_id", null).eq("is_hidden", false);
+            if (countData && reqChip === chipRef.current && mySeq === sessionSeqRef.current) {   // B2: 칩/세션 변경 시 폐기(stale 방지)
+              const counts: Record<string, number> = {};
+              countData.forEach((c: any) => { counts[c.video_id] = (counts[c.video_id] || 0) + 1; });
+              setCommentCounts((prev) => ({ ...prev, ...counts }));
+              // 전역 스토어에 댓글수 시드(seed-once) → 모든 피드 "댓글 N" 통일
+              Object.entries(counts).forEach(([id, n]) => seedCommentCount(id, n));
+            }
+          })();
         }
       }
     } catch (e) {
@@ -1058,10 +1061,11 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
       try {
         // 홈 피드 광고: ads_public 뷰에서 조회 — 승인·활성·노출기간 필터를 뷰가 강제하고
         // 민감컬럼(budget_krw/spent_krw/owner_id 등)은 비노출. 여기선 노출형식(feed_display)만 거름.
-        const adResult = await supabase.from("ads_public")
+        // 광고는 첫 영상 페인트에 불필요(피드 interleaving 용) → 비블로킹 병렬(순서 조회 앞에서 await 안 함).
+        supabase.from("ads_public")
           .select("id,title,advertiser,image_url,video_url,thumbnail_url,link_url,cta_text,interval_count,ad_type")
-          .or("ad_type.eq.feed_display,ad_type.is.null");
-        if (!cancelled && adResult.data && adResult.data.length > 0) setAds(adResult.data as Ad[]);
+          .or("ad_type.eq.feed_display,ad_type.is.null")
+          .then(({ data }) => { if (!cancelled && data && data.length > 0) setAds(data as Ad[]); }, () => {});
 
         // H3: 이 세션의 랭킹 순서를 1회 확정(고정) → 이후 페이지는 이 순서에서 슬라이스만.
         const { data: orderData, error: orderErr } = await supabase.rpc("get_home_feed_order", { p_filter: chip });
