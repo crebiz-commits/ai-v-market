@@ -141,11 +141,11 @@ export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCre
     }
   }, [activeTab, fetchFollowingVideos, fetchPopularCreators]);
 
-  // 팔로우 토글 시 구독 탭이면 영상 목록 재조회 (팔로우 상태 자체는 useFollows 공유 캐시가 관리)
+  // 팔로우 토글 시(주로 탐색 탭) 구독 피드 캐시를 무효화 → 다음 구독탭 진입 때 stale 목록이 안 뜨고
+  //   새 팔로우 크리에이터 영상이 반영된다. (팔로우 상태 자체는 useFollows 공유 캐시가 관리.)
   const handleFollowChange = () => {
-    if (activeTab === "subscribed") {
-      fetchFollowingVideos();
-    }
+    if (user) delete followingVideosCache[user.id];
+    if (activeTab === "subscribed") fetchFollowingVideos();
   };
 
   if (authLoading) {

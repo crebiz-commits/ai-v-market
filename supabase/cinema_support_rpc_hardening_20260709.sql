@@ -31,55 +31,15 @@ AS $$
 $$;
 GRANT EXECUTE ON FUNCTION public.get_age_ratings_for_videos(TEXT[]) TO authenticated, anon;
 
--- ── ② get_popular_creators: 결정적 정렬(creator_id 2차키) ──────────────────────
-CREATE OR REPLACE FUNCTION public.get_popular_creators(p_limit INT DEFAULT 20)
-RETURNS TABLE (
-  creator_id UUID, creator_name TEXT, avatar_url TEXT, video_count BIGINT,
-  follower_count BIGINT, total_views BIGINT, recent_thumbnails TEXT[]
-)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
-AS $$
-  WITH creator_stats AS (
-    SELECT v.creator_id, COUNT(*) AS video_count,
-      SUM(CASE WHEN v.views ~ '^\d+$' THEN v.views::BIGINT ELSE 0 END) AS total_views
-    FROM public.videos v
-    WHERE (v.visibility='public' OR v.visibility IS NULL)
-      AND COALESCE(v.is_hidden,false)=false
-      AND v.creator_id IS NOT NULL
-    GROUP BY v.creator_id
-  ),
-  ranked_videos AS (
-    SELECT creator_id, thumbnail,
-      ROW_NUMBER() OVER (PARTITION BY creator_id ORDER BY created_at DESC) AS rn
-    FROM public.videos
-    WHERE (visibility='public' OR visibility IS NULL)
-      AND COALESCE(is_hidden,false)=false
-      AND creator_id IS NOT NULL AND thumbnail IS NOT NULL AND thumbnail <> ''
-  ),
-  recent_thumbs AS (
-    SELECT creator_id, ARRAY_AGG(thumbnail ORDER BY rn) AS thumbnails
-    FROM ranked_videos WHERE rn <= 3 GROUP BY creator_id
-  ),
-  follower_counts AS (
-    SELECT creator_id, COUNT(*) AS follower_count FROM public.creator_followers GROUP BY creator_id
-  )
-  SELECT cs.creator_id,
-    COALESCE(NULLIF(p.display_name,''), NULLIF(u.raw_user_meta_data->>'name',''),
-             NULLIF(u.raw_user_meta_data->>'full_name',''), NULLIF(split_part(u.email,'@',1),''),
-             'AI Creator') AS creator_name,
-    COALESCE(NULLIF(p.avatar_url,''), NULLIF(u.raw_user_meta_data->>'avatar_url',''),
-             NULLIF(u.raw_user_meta_data->>'picture','')) AS avatar_url,
-    cs.video_count, COALESCE(fc.follower_count,0) AS follower_count, cs.total_views,
-    COALESCE(rt.thumbnails, ARRAY[]::TEXT[]) AS recent_thumbnails
-  FROM creator_stats cs
-  LEFT JOIN public.profiles p ON p.id = cs.creator_id
-  LEFT JOIN auth.users u ON u.id = cs.creator_id
-  LEFT JOIN recent_thumbs rt ON rt.creator_id = cs.creator_id
-  LEFT JOIN follower_counts fc ON fc.creator_id = cs.creator_id
-  ORDER BY COALESCE(fc.follower_count,0) DESC, cs.total_views DESC, cs.video_count DESC, cs.creator_id
-  LIMIT p_limit;
-$$;
-GRANT EXECUTE ON FUNCTION public.get_popular_creators(INT) TO anon, authenticated;
+-- ── ② get_popular_creators ── [SSOT 이관: channel_feed_audit_20260709.sql] ─────
+--   ⚠️ 이 블록은 제거됨(2026-07-09 재조정). 이유: 같은 날짜 channel_feed_audit_20260709.sql 이
+--      get_popular_creators 를 동일 시그니처로 다시 정의하는데 그쪽이 "결정적 tiebreak(creator_id)
+--      + 정지 크리에이터(is_suspended) 제외 + 이메일 아이디 PII 폴백 제거"를 모두 담은 정본이다.
+--      여기 있던 옛 정의는 tiebreak 만 추가했고 is_suspended 필터가 없고 split_part(email) PII 폴백이
+--      남아 있어, 두 파일이 공존하면 파일명 알파벳순 리플레이(channel_feed_audit < cinema_support)에서
+--      이 파일이 마지막에 덮어 #3·#5 수정을 조용히 회귀시킨다(정지자 재노출 + 이메일 유출).
+--      → get_popular_creators 는 channel_feed_audit_20260709.sql 에서만 정의한다. 여기선 재정의 금지.
+--   (§① get_age_ratings_for_videos 는 이 파일 소관 유지.)
 
 -- ── 검증 ──────────────────────────────────────────────────────────────────────
 --   SELECT proname, proconfig FROM pg_proc WHERE proname IN ('get_age_ratings_for_videos','get_popular_creators');

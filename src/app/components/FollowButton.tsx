@@ -7,8 +7,6 @@ import { useTranslation } from "react-i18next";
 
 interface FollowButtonProps {
   creatorId: string;
-  /** 호환용 (안 씀). 팔로우 상태는 useFollows() 캐시에서 자동 조회 */
-  initialFollowing?: boolean;
   onSignInClick?: () => void;
   onChange?: (following: boolean) => void;
   size?: "sm" | "md";

@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../utils/supabaseClient";
 import { FollowButton } from "./FollowButton";
+import { seedFollowing } from "../hooks/useFollows";
 import { CommentSettings } from "./CommentSettings";
 import { ReportModal } from "./ReportModal";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
@@ -127,6 +128,12 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
     fetchAll();
   }, [fetchAll]);
 
+  // 서버 am_i_following 을 전역 팔로우 캐시에 seed → 콜드 딥링크로 채널 직행 시에도 FollowButton 즉시 정확
+  //   (예전엔 initialFollowing prop 으로 넘겼으나 FollowButton 이 안 써 사장됐던 RPC 값을 실제로 반영).
+  useEffect(() => {
+    if (profile) seedFollowing(creatorId, profile.am_i_following);
+  }, [profile, creatorId]);
+
   // 팔로우 토글 후 follower_count 즉시 반영
   const handleFollowChange = (following: boolean) => {
     setProfile((prev) =>
@@ -241,7 +248,6 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
                 <div className="flex items-center gap-2">
                   <FollowButton
                     creatorId={creatorId}
-                    initialFollowing={profile.am_i_following}
                     onSignInClick={onSignInClick}
                     onChange={handleFollowChange}
                     size="md"

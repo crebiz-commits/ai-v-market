@@ -11,6 +11,7 @@ import { sendNotification, buildNewFollowerEmail } from "../utils/sendNotificati
 
 let cache: Set<string> = new Set();
 let fetched = false;
+let fetchInFlight: string | null = null;   // 진행 중인 fetch 의 userId — 동시 중복 쿼리 차단
 const subscribers = new Set<(s: Set<string>) => void>();
 // 크리에이터별 토글 in-flight 가드(모듈 레벨) — 같은 크리에이터가 여러 피드 카드에 동시 노출될 때
 // 카드마다 독립적인 per-instance loading 으론 못 막는 크로스카드 중복 토글을 차단.
@@ -21,15 +22,33 @@ function notify() {
 }
 
 async function fetchFollowing(userId: string) {
-  const { data, error } = await supabase
-    .from("creator_followers")
-    .select("creator_id")
-    .eq("follower_id", userId);
-  if (!error && Array.isArray(data)) {
-    cache = new Set(data.map((r: any) => r.creator_id));
-    fetched = true;
-    notify();
+  // 탐색 그리드엔 FollowButton 이 ~20개 동시 마운트되고 각 인스턴스가 refresh→fetchFollowing 을 부른다.
+  //   같은 userId fetch 가 이미 진행 중이면 중복 쿼리를 건너뛴다(플래그는 await 앞에서 세팅 → 동일 tick 중복 차단).
+  if (fetchInFlight === userId) return;
+  fetchInFlight = userId;
+  try {
+    const { data, error } = await supabase
+      .from("creator_followers")
+      .select("creator_id")
+      .eq("follower_id", userId);
+    if (!error && Array.isArray(data)) {
+      cache = new Set(data.map((r: any) => r.creator_id));
+      fetched = true;
+      notify();
+    }
+  } finally {
+    fetchInFlight = null;
   }
+}
+
+// 서버 진실(get_creator_profile.am_i_following)로 팔로우 캐시를 즉시 반영 — 콜드 딥링크로 채널에
+//   바로 진입했을 때 전역 팔로우 캐시 fetch 완료 전에도 FollowButton 이 올바른 상태로 렌더(RPC 값 사장 방지).
+export function seedFollowing(creatorId: string, following: boolean) {
+  if (cache.has(creatorId) === following) return;
+  const next = new Set(cache);
+  if (following) next.add(creatorId); else next.delete(creatorId);
+  cache = next;
+  notify();
 }
 
 export function useFollows() {

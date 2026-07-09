@@ -75,30 +75,35 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
       created_at: new Date(Date.now() - 86400000).toISOString(),
     },
   ], [t]);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadTotal, setUnreadTotal] = useState(0);   // 정확한 미읽음 총계(30개 상한과 무관) — 헤더 배지·벨 리포트용
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = useCallback(async () => {
     if (!isAuthenticated) {
+      // 미인증에게만 샘플 티저. 로그인 유저는 실제 데이터만(0건이면 빈 상태) — 가짜 샘플/배지 불일치 방지.
       setNotifications(SAMPLE);
+      setUnreadTotal(SAMPLE.filter((n) => !n.read).length);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(30);
-
+      // 최근 30개 목록 + 정확한 미읽음 총계(별도 count) — 30개 상한 밖 미읽음도 벨에 정확히 반영.
+      const [{ data, error }, { count }] = await Promise.all([
+        supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(30),
+        supabase.from("notifications").select("id", { count: "exact", head: true }).eq("read", false),
+      ]);
       if (error) throw error;
       const notifs = (data as Notification[]) || [];
-      setNotifications(notifs.length > 0 ? notifs : SAMPLE);
-      onUnreadCountChange?.(notifs.filter((n) => !n.read).length);
+      setNotifications(notifs);
+      const exactUnread = count ?? notifs.filter((n) => !n.read).length;
+      setUnreadTotal(exactUnread);
+      onUnreadCountChange?.(exactUnread);
     } catch {
-      setNotifications(SAMPLE);
+      setNotifications([]);   // 에러 시에도 샘플 대신 빈 목록(로그인 유저)
+      setUnreadTotal(0);
     } finally {
       setLoading(false);
     }
@@ -108,9 +113,29 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
     fetchNotifications();
   }, [fetchNotifications]);
 
+  // 패널이 열려 있는 동안 새 알림 실시간 반영 — App 의 벨 카운트 구독(notif-<id>)과 별개 채널.
+  //   새 INSERT 를 목록 맨 위에 끼우고 미읽음 총계 +1(벨은 App 구독이 자체 +1 → 여기선 report 안 해 이중집계 방지).
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+    const channel = supabase
+      .channel(`notif-panel-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const n = payload.new as Notification;
+          setNotifications((prev) => (prev.some((x) => x.id === n.id) ? prev : [n, ...prev]));
+          if (!n.read) setUnreadTotal((c) => c + 1);
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [isAuthenticated, user?.id]);
+
   const markAllRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    onUnreadCountChange?.(0);
+    setUnreadTotal(0);
+    if (isAuthenticated) onUnreadCountChange?.(0);
     if (!isAuthenticated) return;
     try {
       await supabase
@@ -121,10 +146,15 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
   };
 
   const markRead = async (id: string) => {
+    const wasUnread = notifications.some((n) => n.id === id && !n.read);
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
-    onUnreadCountChange?.(notifications.filter((n) => !n.read && n.id !== id).length);
+    if (wasUnread) {
+      const next = Math.max(0, unreadTotal - 1);   // 총계에서 감산(30개 상한 밖이어도 벨 정확)
+      setUnreadTotal(next);
+      if (isAuthenticated) onUnreadCountChange?.(next);
+    }
     if (!isAuthenticated || id.startsWith("s")) return;
     try {
       await supabase.from("notifications").update({ read: true }).eq("id", id);
@@ -140,7 +170,7 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
     }
   };
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = unreadTotal;   // 헤더 배지·"모두 읽음" 노출은 정확한 총계 기준(목록 30개 상한과 무관)
 
   return (
     <div className="flex flex-col h-full bg-[#111] border-l border-white/10 w-80">
