@@ -7,7 +7,7 @@
 //   답글은 comments 테이블에 직접 insert (parent_id=최상위, 작성자는 트리거가 프로필로 강제)
 // ════════════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback } from "react";
-import { MessageSquare, Loader2, EyeOff, Eye, CornerDownRight, Send } from "lucide-react";
+import { MessageSquare, Loader2, EyeOff, Eye, CornerDownRight, Send, Lock } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { UserAvatar } from "./UserAvatar";
@@ -24,10 +24,17 @@ interface ReceivedComment {
   author_avatar: string | null;
   author_user_id: string;
   is_hidden: boolean;
+  hidden_reason: string | null;
   created_at: string;
 }
 
 const PAGE = 20;
+
+// 크리에이터가 직접 숨긴 사유만 복원 가능(차단/금칙어/수동숨김). admin·신고 숨김은 서버(creator_restore_comment
+//   화이트리스트, audit4)가 복원을 거부하므로 프론트에서도 복원버튼 대신 "관리자·신고 숨김" 을 표시.
+const CREATOR_HIDE_REASONS = ["크리에이터 차단", "크리에이터 금칙어 매칭", "크리에이터 숨김"];
+const canCreatorRestore = (c: ReceivedComment) =>
+  c.is_hidden && !!c.hidden_reason && CREATOR_HIDE_REASONS.includes(c.hidden_reason);
 
 export function ReceivedCommentsSection() {
   const { t } = useTranslation();
@@ -93,6 +100,7 @@ export function ReceivedCommentsSection() {
         author_avatar: profile?.avatar_url ?? null,
         author_user_id: user.id,
         is_hidden: false,
+        hidden_reason: null,
         created_at: data.created_at,
       };
       setItems((prev) => {
@@ -116,7 +124,10 @@ export function ReceivedCommentsSection() {
     );
     setBusyId(null);
     if (error) { toast.error(error.message); return; }
-    setItems(prev => prev.map(x => x.id === c.id ? { ...x, is_hidden: !c.is_hidden } : x));
+    // 낙관 갱신: 숨길 땐 hidden_reason='크리에이터 숨김'(복원 가능 상태), 복원 땐 null.
+    setItems(prev => prev.map(x => x.id === c.id
+      ? { ...x, is_hidden: !c.is_hidden, hidden_reason: !c.is_hidden ? "크리에이터 숨김" : null }
+      : x));
     toast.success(c.is_hidden ? t("mypage.receivedComments.restored", "댓글을 다시 표시했어요.") : t("mypage.receivedComments.hidden", "댓글을 숨겼어요."));
   };
 
@@ -159,14 +170,22 @@ export function ReceivedCommentsSection() {
                     >
                       {t("mypage.receivedComments.replyAction", "답글")}
                     </button>
-                    <button
-                      onClick={() => toggleHide(c)}
-                      disabled={busyId === c.id}
-                      className="text-xs font-semibold text-gray-400 hover:text-white inline-flex items-center gap-1 disabled:opacity-50"
-                    >
-                      {busyId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : (c.is_hidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />)}
-                      {c.is_hidden ? t("mypage.receivedComments.restoreAction", "다시 표시") : t("mypage.receivedComments.hideAction", "숨기기")}
-                    </button>
+                    {c.is_hidden && !canCreatorRestore(c) ? (
+                      // admin·신고 숨김 — 크리에이터 복원 불가(서버 거부)라 버튼 대신 상태 표시
+                      <span className="text-xs font-semibold text-gray-500 inline-flex items-center gap-1">
+                        <Lock className="w-3.5 h-3.5" />
+                        {t("mypage.receivedComments.adminHidden", "관리자·신고 숨김")}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => toggleHide(c)}
+                        disabled={busyId === c.id}
+                        className="text-xs font-semibold text-gray-400 hover:text-white inline-flex items-center gap-1 disabled:opacity-50"
+                      >
+                        {busyId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : (c.is_hidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />)}
+                        {c.is_hidden ? t("mypage.receivedComments.restoreAction", "다시 표시") : t("mypage.receivedComments.hideAction", "숨기기")}
+                      </button>
+                    )}
                   </div>
 
                   {replyingId === c.id && (

@@ -145,7 +145,8 @@ export function CommentSettings({ open, onClose }: CommentSettingsProps) {
     if (!confirm(t("mypage.blocks.confirmUnblock", { name: name || t("mypage.blocks.thisUser") }))) return;
     const { error } = await supabase.rpc("creator_unblock_user", { p_target_user_id: userId });
     if (error) {
-      toast.error(t("commentSettings.loadFailed", "목록을 불러오지 못했어요."));
+      // 조회 실패가 아니라 차단해제(mutation) 실패 → 서버 사유 그대로 노출(정확).
+      toast.error(error.message || t("commentSettings.loadFailed", "목록을 불러오지 못했어요."));
       return;
     }
     toast.success(t("common.unblock"));

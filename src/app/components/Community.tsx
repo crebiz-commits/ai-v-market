@@ -12,6 +12,7 @@ import { CommunityChallengeDetail, Challenge } from "./CommunityChallengeDetail"
 import { CollabInquiryModal } from "./CollabInquiryModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useBackButton } from "../hooks/useBackButton";
+import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { supabase, supabaseUrl, supabaseAnonKey } from "../utils/supabaseClient";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -363,6 +364,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   // 공식 운영팀 명의는 표시만 언어화(로직 비교는 원래 값 유지). "CREAITE 운영팀" → "CREAITE Team"
   const displayAuthor = (name?: string | null) => (name === OFFICIAL_AUTHOR_NAME ? t("community.officialTeam") : (name || ""));
   const { user, isAuthenticated, profile } = useAuth();
+  const { blockedIds, isBlocked } = useBlockedUsers();   // 차단한 사용자 글 숨김(영상·댓글과 동일)
   const localeTag = isKo ? "ko-KR" : "en-US";
   const [activeTab, setActiveTab] = useState("posts");
   // 외부에서 특정 탭으로 진입 (예: 시네마 콘테스트 공모전 배너 → 챌린지 탭)
@@ -893,14 +895,17 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
 
   // 카테고리 필터 + 정렬 (공지는 항상 최상단, 기본 정렬은 최신순 fetch 순서 유지)
   const visiblePosts = useMemo(() => {
-    const filtered = categoryFilter === "all" ? posts : posts.filter(p => p.category === categoryFilter);
+    const catFiltered = categoryFilter === "all" ? posts : posts.filter(p => p.category === categoryFilter);
+    // 차단한 사용자의 글 제외 — 차단 약속("영상·댓글·글 안 보임")을 글에도 적용(영상=DiscoveryFeed, 댓글=CommentPanel).
+    //   공지(isNotice)는 운영팀 글이라 차단 대상 아님(항상 노출).
+    const filtered = catFiltered.filter(p => p.isNotice || !p.ownerId || !isBlocked(p.ownerId));
     return [...filtered].sort((a, b) => {
       if (!!a.isNotice !== !!b.isNotice) return a.isNotice ? -1 : 1;
       if (sortKey === "popular") return b.likes - a.likes;
       if (sortKey === "comments") return b.comments - a.comments;
       return 0;
     });
-  }, [posts, categoryFilter, sortKey]);
+  }, [posts, categoryFilter, sortKey, blockedIds, isBlocked]);
 
   const commentPost = commentPostId ? posts.find(p => p.id === commentPostId) : null;
 
@@ -1342,8 +1347,8 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                           {/* 필요 역할 */}
                           {c.roles.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mt-3">
-                              {c.roles.map((role) => (
-                                <span key={role} className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#6366f1]/10 text-[#a5b4fc] border border-[#6366f1]/20">
+                              {c.roles.map((role, ri) => (
+                                <span key={`${role}-${ri}`} className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#6366f1]/10 text-[#a5b4fc] border border-[#6366f1]/20">
                                   {role}
                                 </span>
                               ))}

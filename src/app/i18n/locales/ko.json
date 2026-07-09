@@ -1162,6 +1162,7 @@
       "empty": "아직 받은 댓글이 없어요.",
       "loadFailed": "받은 댓글을 불러오지 못했어요.",
       "reply": "답글",
+      "adminHidden": "관리자·신고 숨김",
       "hiddenBadge": "숨김",
       "replyAction": "답글",
       "restoreAction": "다시 표시",
