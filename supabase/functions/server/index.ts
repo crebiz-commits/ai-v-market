@@ -837,6 +837,9 @@ app.post("/videos/save-metadata", async (c) => {
         // 하이라이트 구간
         highlight_start: highlightStartNum,
         highlight_end: highlightEndNum,
+        // OTT 히어로 미리보기 클립(30초 MP4, hero-clips 버킷). 있으면 히어로가 0초부터 네이티브 재생(선명).
+        //   딥 seek 화질고착 회피용. http(s) 만 저장(safeHttpUrl). 없으면 null → 풀영상 폴백.
+        hero_clip_url: safeHttpUrl(metadata.heroClipUrl) || null,
         // Phase 28: Sponsorship
         sponsor_brand: metadata.sponsorBrand || null,
         // U-M6: 이미지 src·클릭 링크는 http(s) 스킴만(javascript:/data: 저장형 XSS·피싱 차단)

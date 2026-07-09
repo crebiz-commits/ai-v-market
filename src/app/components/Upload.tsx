@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useEffect } from "react";
-import { Upload as UploadIcon, Video, FileText, CheckCircle2, Loader2, X, ImagePlus, Lock, Coins, ChevronDown } from "lucide-react";
+import { Upload as UploadIcon, Video, FileText, CheckCircle2, Loader2, X, ImagePlus, Lock, Coins, ChevronDown, Crown, Plus } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -145,6 +145,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
   // 자막 파일(.vtt) — 소프트섭(시청자 on/off 가능)
   const [subtitleFile, setSubtitleFile] = useState<File | null>(null);
   const subtitleFileRef = useRef<HTMLInputElement>(null);
+  const heroClipInputRef = useRef<HTMLInputElement>(null);   // OTT 히어로 클립 파일 input
 
   // 태그 칩(Pill) 입력
   const [tagInput, setTagInput] = useState("");
@@ -155,6 +156,9 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
   // 하이라이트 구간 (홈 피드/큐레이션 노출용 10~30초)
   const [videoDurationSec, setVideoDurationSec] = useState(0);
   const [highlight, setHighlight] = useState<{ start: number; end: number }>({ start: 0, end: 30 });
+  // OTT 히어로 미리보기 클립(선택) — 10분+ 영상만. 나중에 히어로 노출 시 딥 seek 없이 0초부터 선명 재생.
+  const [heroClipUrl, setHeroClipUrl] = useState<string>("");
+  const [heroClipUploading, setHeroClipUploading] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const fileObjectUrlRef = useRef<string | null>(null);
   const uploadAbortRef = useRef<AbortController | null>(null);  // 업로드 중 언마운트/취소 시 TUS 전송 중단
@@ -471,6 +475,32 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
       setSelectedThumbnailIndex(-1);
     };
     reader.readAsDataURL(file);
+  };
+
+  // OTT 히어로 미리보기 클립 업로드 — 30초 내외 MP4 를 hero-clips 공개 버킷(자기 폴더)에 올려
+  //   hero_clip_url 로 저장. OTT(10분+) 영상이 나중에 히어로에 노출될 때 딥 seek 없이 이 클립을
+  //   0초부터 네이티브 재생해 선명한 화질 보장(깊은 하이라이트 저화질 고착 회피).
+  const handleHeroClipFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";   // 같은 파일 재선택 허용
+    if (!file) return;
+    if (file.type !== "video/mp4") { toast.error(t("upload.heroClip.mp4Only", "MP4 파일만 업로드할 수 있습니다.")); return; }
+    if (file.size > 50 * 1024 * 1024) { toast.error(t("upload.heroClip.tooLarge", "히어로 클립은 50MB 이하여야 합니다.")); return; }
+    if (!user) { toast.error(t("upload.heroClip.loginRequired", "로그인이 필요합니다.")); return; }
+    setHeroClipUploading(true);
+    try {
+      const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp4`;
+      const { error } = await supabase.storage.from("hero-clips").upload(path, file, { contentType: "video/mp4", upsert: true });
+      if (error) throw error;
+      const url = supabase.storage.from("hero-clips").getPublicUrl(path).data.publicUrl;
+      setHeroClipUrl(url);
+      toast.success(t("upload.heroClip.uploaded", "히어로 클립이 등록되었습니다."));
+    } catch (err: any) {
+      console.error("[Upload] hero clip upload error:", err);
+      toast.error(t("upload.heroClip.failed", "히어로 클립 업로드에 실패했습니다."));
+    } finally {
+      setHeroClipUploading(false);
+    }
   };
 
   if (!user) {
@@ -850,6 +880,8 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
         // 하이라이트 구간 (홈 피드/큐레이션 노출용)
         highlightStart: highlight.start,
         highlightEnd: highlight.end,
+        // OTT 히어로 미리보기 클립(선택, 10분+ 영상만). 있으면 히어로가 이 클립을 0초부터 선명 재생.
+        heroClipUrl: heroClipUrl || null,
         // Phase 28: Sponsorship
         sponsorBrand: formData.sponsorBrand?.trim() || null,
         sponsorLogoUrl: formData.sponsorLogoUrl?.trim() || null,
@@ -975,6 +1007,8 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
     setTagInput("");
     setVideoDurationSec(0);
     setHighlight({ start: 0, end: 30 });
+    setHeroClipUrl("");
+    setHeroClipUploading(false);
     setShowPreview(false);
     if (fileObjectUrlRef.current) {
       URL.revokeObjectURL(fileObjectUrlRef.current);
@@ -1340,6 +1374,47 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
                   >
                     {t("upload.previewHighlight")}
                   </button>
+                </div>
+              )}
+
+              {/* OTT 히어로 미리보기 클립 등록 — 10분+(=OTT 등록) 영상만. 나중에 히어로 노출 시 딥 seek 없이
+                  이 클립을 0초부터 네이티브 재생 → 선명 화질 보장. 미등록이면 본편 폴백(깊은 하이라이트는 저화질). */}
+              {selectedFile && videoDurationSec >= 600 && (
+                <div className="bg-card p-4 rounded-lg border border-[#a78bfa]/30">
+                  <Label className="mb-1 flex items-center gap-1.5">
+                    <Crown className="w-4 h-4 text-[#a78bfa]" />
+                    {t("upload.heroClip.title", "OTT 히어로 미리보기 클립")}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/60 font-normal">{t("upload.heroClip.optional", "선택")}</span>
+                  </Label>
+                  <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+                    {t("upload.heroClip.description", "10분 이상 OTT 영상입니다. 이 영상이 나중에 OTT 히어로 섹션에 노출될 때, 하이라이트 장면을 30초 내외로 미리 잘라 등록하면 선명한 화질로 자동재생됩니다. 등록하지 않으면 본편에서 재생되는데, 하이라이트 지점이 깊으면 화질이 떨어질 수 있어요. (MP4, 50MB 이하)")}
+                  </p>
+                  <input
+                    ref={heroClipInputRef}
+                    type="file"
+                    accept="video/mp4"
+                    className="hidden"
+                    onChange={handleHeroClipFile}
+                  />
+                  {heroClipUrl ? (
+                    <div className="flex items-center gap-2">
+                      <video src={heroClipUrl} className="w-24 aspect-video rounded bg-black object-cover" muted playsInline preload="metadata" />
+                      <span className="text-xs text-[#10b981] flex-1">{t("upload.heroClip.registered", "히어로 클립 등록됨 ✓")}</span>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setHeroClipUrl("")}>{t("upload.heroClip.remove", "제거")}</Button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={heroClipUploading}
+                      onClick={() => heroClipInputRef.current?.click()}
+                      className="gap-2 w-fit"
+                    >
+                      {heroClipUploading
+                        ? <><Loader2 className="w-4 h-4 animate-spin" /> {t("upload.heroClip.uploading", "업로드 중...")}</>
+                        : <><Plus className="w-4 h-4" /> {t("upload.heroClip.select", "히어로 클립 선택 (MP4)")}</>}
+                    </Button>
+                  )}
                 </div>
               )}
 
