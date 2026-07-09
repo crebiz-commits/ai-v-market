@@ -76,12 +76,15 @@ BEGIN
   SET creator_of_month_until = now() + (p_badge_months || ' months')::interval
   WHERE id = v_uid;
 
-  -- ② 홈 히어로 (영상 지정 시): featured + OTT 노출 + 자동재생 클립 지정
+  -- ② 홈 히어로 (영상 지정 시): featured + OTT 노출
+  --   ⚠️ hero_clip_url 은 건드리지 않는다. 예전엔 COALESCE(v.hero_clip_url, v.video_url) 로
+  --      클립 없을 때 HLS playlist.m3u8 을 넣었는데, Ott 가 이를 클립으로 인식(isClip=true)해
+  --      네이티브 <video src=m3u8> 재생 → 크롬/안드로이드(HLS 미지원)에서 히어로 정지이미지 먹통 +
+  --      seek 렌디션 폴백까지 무력화. NULL 로 두면 Ott 가 play_720p.mp4 렌디션 폴백으로 정상 재생.
   IF p_video_id IS NOT NULL AND btrim(p_video_id) <> '' THEN
     UPDATE public.videos v
     SET featured_hero_until = now() + (p_hero_days || ' days')::interval,
-        show_on_ott = true,
-        hero_clip_url = COALESCE(v.hero_clip_url, v.video_url)
+        show_on_ott = true
     WHERE v.id = p_video_id
     RETURNING v.title INTO v_title;
     IF v_title IS NULL THEN RAISE EXCEPTION '영상을 찾을 수 없습니다: %', p_video_id; END IF;

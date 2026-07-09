@@ -94,6 +94,15 @@ const safeHttpUrl = (u: unknown): string => {
   }
 };
 
+// 히어로 클립 URL 은 반드시 "우리 hero-clips 공개버킷의 호출자 본인 폴더" 여야 함 —
+//   스킴만 검증하면 임의 외부 URL/타인 폴더를 홈 히어로에 자동재생시키는 위조 가능(피싱·유해).
+const safeHeroClipUrl = (u: unknown, userId: string): string => {
+  const base = safeHttpUrl(u);
+  if (!base || !userId) return '';
+  const prefix = `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/hero-clips/${userId}/`;
+  return base.startsWith(prefix) ? base : '';
+};
+
 // Enable logger
 app.use('*', logger(console.log));
 
@@ -839,7 +848,7 @@ app.post("/videos/save-metadata", async (c) => {
         highlight_end: highlightEndNum,
         // OTT 히어로 미리보기 클립(30초 MP4, hero-clips 버킷). 있으면 히어로가 0초부터 네이티브 재생(선명).
         //   딥 seek 화질고착 회피용. http(s) 만 저장(safeHttpUrl). 없으면 null → 풀영상 폴백.
-        hero_clip_url: safeHttpUrl(metadata.heroClipUrl) || null,
+        hero_clip_url: safeHeroClipUrl(metadata.heroClipUrl, user.id) || null,  // U-H2: 본인 hero-clips 폴더만
         // Phase 28: Sponsorship
         sponsor_brand: metadata.sponsorBrand || null,
         // U-M6: 이미지 src·클릭 링크는 http(s) 스킴만(javascript:/data: 저장형 XSS·피싱 차단)

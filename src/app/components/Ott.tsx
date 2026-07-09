@@ -263,6 +263,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
         .gt("featured_hero_until", new Date().toISOString())
         .eq("visibility", "public")
         .eq("status", "ready")
+        .eq("is_hidden", false)   // 방어심층: 검수 미통과/숨김 영상은 히어로 제외(RLS 외 명시 필터)
         .order("featured_hero_until", { ascending: false })
         .limit(3);
       if (cancelled || !Array.isArray(data)) return;
@@ -292,6 +293,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
         .from("videos")
         .select("video_url, highlight_start, highlight_end, hero_clip_url")
         .eq("id", heroId)
+        .eq("is_hidden", false)   // 방어심층: 숨김 영상은 히어로 소스 미로딩(RLS 외 명시 필터)
         .maybeSingle();
       if (!cancelled && data?.video_url) {
         const hStart = data.highlight_start || 0;
