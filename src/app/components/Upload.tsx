@@ -652,6 +652,11 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
       toast.error(t("upload.toast.genreRequired", "장르를 선택해주세요."));
       return false;
     }
+    // 설명 필수 — JSX required 가 step "다음"(type=button)에서 미발동해 빈 설명 저장되던 것 검증 추가
+    if (!formData.description.trim()) {
+      toast.error(t("upload.toast.descriptionRequired", "설명을 입력해주세요."));
+      return false;
+    }
     // Phase 31.1 — 시청 등급 필수
     if (!formData.ageRating) {
       toast.error(t("upload.toast.ageRatingRequired", "시청 등급을 선택해주세요."));
@@ -926,7 +931,8 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
       toast.info(t("upload.toast.moderationPending"));
       const moderateUrl = `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/moderate-video`;
       (async () => {
-        for (let attempt = 0; attempt < 6; attempt++) {
+        // 10회(8s + 30s×9 ≈ 4.6분) — 대용량/4K 인코딩 시간 커버. 주 경로는 Bunny 웹훅.
+        for (let attempt = 0; attempt < 10; attempt++) {
           await new Promise((r) => setTimeout(r, attempt === 0 ? 8000 : 30000));
           try {
             const res = await fetch(moderateUrl, {

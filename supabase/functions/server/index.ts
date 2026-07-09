@@ -76,6 +76,24 @@ const getSupabaseClient = (useServiceRole = false) => {
   return createClient(supabaseUrl, key);
 };
 
+// Bunny Stream pull-zone 호스트 — 단일 소스. env 이름 3종 혼재(BUNNY_CDN_HOSTNAME/BUNNY_HOSTNAME)를
+// 통일하고, 폴백은 잘못된 `vz-${libraryId}`(숫자 ID)가 아니라 실제 pull-zone GUID 로.
+const BUNNY_CDN_HOST =
+  Deno.env.get('BUNNY_CDN_HOSTNAME') ||
+  Deno.env.get('BUNNY_HOSTNAME') ||
+  'vz-6e85411f-96a.b-cdn.net';
+
+// URL 화이트리스트: http(s) 스킴만 허용(javascript:/data: 등 저장형 XSS·피싱 차단). 그 외 '' 반환.
+const safeHttpUrl = (u: unknown): string => {
+  if (typeof u !== 'string' || !u) return '';
+  try {
+    const p = new URL(u);
+    return (p.protocol === 'http:' || p.protocol === 'https:') ? u : '';
+  } catch {
+    return '';
+  }
+};
+
 // Enable logger
 app.use('*', logger(console.log));
 
@@ -581,6 +599,23 @@ app.post("/videos/:videoId/transcribe", async (c) => {
       }
     }
 
+    // U-M5: 정지계정 차단 + 레이트리밋(유료 Bunny transcribe 무제한 재큐잉 어뷰징 방지). create-upload 동일 패턴.
+    {
+      const { data: _rlProf } = await supabaseAdmin
+        .from('profiles').select('is_admin, is_suspended').eq('id', user.id).maybeSingle();
+      if (_rlProf?.is_suspended) {
+        return c.json({ error: "정지된 계정은 자막을 생성할 수 없습니다." }, 403);
+      }
+      if (!_rlProf?.is_admin) {
+        const { data: _rlOk } = await supabaseAdmin.rpc('rl_hit', {
+          p_key: `transcribe:${user.id}`, p_limit: 20, p_window_sec: 3600,
+        });
+        if (_rlOk === false) {
+          return c.json({ error: "자막 생성 요청이 너무 많습니다. 1시간 후 다시 시도해 주세요." }, 429);
+        }
+      }
+    }
+
     const libraryId = Deno.env.get('BUNNY_LIBRARY_ID');
     const apiKey = Deno.env.get('BUNNY_API_KEY');
     if (!libraryId || !apiKey) {
@@ -613,8 +648,7 @@ app.post("/videos/:videoId/transcribe", async (c) => {
     }
 
     // 완료는 비동기(수 분). 메타데이터에 자막 언어 표시 + 캡션 VTT URL 기록(완료 후 유효).
-    const hostname = Deno.env.get('BUNNY_HOSTNAME') || `vz-${libraryId}.b-cdn.net`;
-    const captionUrl = `https://${hostname}/${videoId}/captions/${sourceLanguage}.vtt`;
+    const captionUrl = `https://${BUNNY_CDN_HOST}/${videoId}/captions/${sourceLanguage}.vtt`;
     await supabaseAdmin.from('videos')
       .update({ subtitle_language: sourceLanguage, subtitle_url: captionUrl })
       .eq('id', videoId);
@@ -752,8 +786,13 @@ app.post("/videos/save-metadata", async (c) => {
         // 사용자가 CREAITE 에서 설정한 이름(예: '크리에잇')으로 저장 (표시 일관성)
         creator: _prof?.display_name || user.user_metadata?.name || user.email?.split('@')[0],
         creator_id: user.id,
-        thumbnail: metadata.thumbnailUrl || '',
-        video_url: metadata.hlsUrl || '',
+        // U-HIGH1: 재생·표시 URL 을 클라 입력(hlsUrl/thumbnailUrl)이 아니라 videoId(=Bunny GUID)로
+        //   서버 재구성 — 검수대상(GUID 실제 프레임) ≠ 노출대상(클라 임의 URL) 우회 차단.
+        thumbnail: `https://${BUNNY_CDN_HOST}/${videoId}/thumbnail.jpg`,
+        video_url: `https://${BUNNY_CDN_HOST}/${videoId}/playlist.m3u8`,
+        // U-HIGH2: 신규 업로드는 upsert 시점부터 숨김(검수 통과 전). 별도 후속 UPDATE(레이스+fail-open) 제거.
+        //   save-metadata 는 업로드 전용(편집은 VideoEditModal 직접 update)이라 재숨김 부작용 없음.
+        is_hidden: true,
         duration: metadata.duration || '0:00',
         // U1: Bunny 실제 length 있으면 명시 저장(트리거 재파생 차단). 없으면 null → 트리거가 문자열서 파생(폴백).
         duration_seconds: bunnyLenSec > 0 ? bunnyLenSec : null,
@@ -787,7 +826,7 @@ app.post("/videos/save-metadata", async (c) => {
         production_year: productionYearNum,
         language: metadata.language || '',
         subtitle_language: metadata.subtitleLanguage || '',
-        subtitle_url: metadata.subtitleUrl || null,
+        subtitle_url: safeHttpUrl(metadata.subtitleUrl) || null,  // U-M6: http(s)만
         // 공개 설정
         visibility: ['public', 'unlisted', 'private'].includes(metadata.visibility) ? metadata.visibility : 'public',
         // 라이선스/출처 (어드민 시드 콘텐츠용) — 비관리자는 서버에서 기본값 강제(#4-b). 클라 게이트만 믿지 않음.
@@ -800,9 +839,10 @@ app.post("/videos/save-metadata", async (c) => {
         highlight_end: highlightEndNum,
         // Phase 28: Sponsorship
         sponsor_brand: metadata.sponsorBrand || null,
-        sponsor_logo_url: metadata.sponsorLogoUrl || null,
+        // U-M6: 이미지 src·클릭 링크는 http(s) 스킴만(javascript:/data: 저장형 XSS·피싱 차단)
+        sponsor_logo_url: safeHttpUrl(metadata.sponsorLogoUrl) || null,
         sponsor_disclosure: metadata.sponsorDisclosure || null,
-        sponsor_link_url: metadata.sponsorLinkUrl || null,
+        sponsor_link_url: safeHttpUrl(metadata.sponsorLinkUrl) || null,
       });
 
     if (dbError) {
@@ -811,13 +851,7 @@ app.post("/videos/save-metadata", async (c) => {
       return c.json({ error: `DB 저장 실패: ${dbError.message}` }, 500);
     }
 
-    // ── 업로드 모더레이션 파이프라인: 검수 통과 전까지 숨김(피드 미노출) ──
-    //   pending 인 행만 숨김 → 편집/이미 통과(passed)한 영상은 재숨김 안 됨.
-    //   Bunny 인코딩완료 웹훅(/bunny/webhook) 또는 클라 폴백이 실제 프레임 검수 → 통과 시 공개.
-    await supabaseAdmin.from('videos')
-      .update({ is_hidden: true })
-      .eq('id', videoId)
-      .eq('moderation_status', 'pending');
+    // (숨김은 위 upsert 의 is_hidden:true 로 원자적 처리 — 별도 UPDATE 제거)
 
     // 사용자별 비디오 목록에도 추가 (KV)
     const userVideosKey = `user:${user.id}:videos`;
@@ -1926,8 +1960,7 @@ async function moderateVideoById(
     console.error('[moderate] GOOGLE_VISION_API_KEY 미설정');
     return { ok: false, error: 'Vision API key not configured' };
   }
-  const bunnyHost = Deno.env.get('BUNNY_CDN_HOSTNAME') || 'vz-6e85411f-96a.b-cdn.net';
-  const thumbUrl = `https://${bunnyHost}/${videoId}/thumbnail.jpg`;
+  const thumbUrl = `https://${BUNNY_CDN_HOST}/${videoId}/thumbnail.jpg`;
 
   const fail = async (msg: string) => {
     // 분석 실패 → pending 유지(재시도 가능), 숨김 유지(fail-closed)

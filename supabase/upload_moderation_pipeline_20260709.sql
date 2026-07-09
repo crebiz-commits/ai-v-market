@@ -70,6 +70,15 @@ BEGIN
 END;
 $$;
 
+-- ⚠️ 권한 잠금 (CRITICAL) — SECURITY DEFINER 함수는 CREATE 시 EXECUTE 가 PUBLIC(anon 포함)에
+--   기본 부여됨. 본문에 호출자 신원검증이 없어(pending 여부만 확인) 잠그지 않으면 anon 이
+--   PostgREST 로 직접 호출해 ① 자기 영상 self-approve(검수우회) ② 남의/기존 영상 강제
+--   rejected+숨김(대량검열) 가능. 전신 update_video_moderation 과 동일하게 service_role 만 허용.
+REVOKE ALL ON FUNCTION public.apply_moderation_result(TEXT, INTEGER, JSONB, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.apply_moderation_result(TEXT, INTEGER, JSONB, TEXT) FROM anon;
+REVOKE ALL ON FUNCTION public.apply_moderation_result(TEXT, INTEGER, JSONB, TEXT) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.apply_moderation_result(TEXT, INTEGER, JSONB, TEXT) TO service_role;
+
 -- ── 검증 ──────────────────────────────────────────────────────────────────────
 --   SELECT proname FROM pg_proc WHERE proname = 'apply_moderation_result';  -- 1행
 --   -- pending 영상에 통과(예: score 10) 적용 시 is_hidden=false, status='passed' 로 바뀌는지.
