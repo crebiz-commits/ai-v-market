@@ -24,7 +24,7 @@ interface ReceivedComment {
   author_avatar: string | null;
   author_user_id: string;
   is_hidden: boolean;
-  hidden_reason: string | null;
+  hidden_reason?: string | null;   // RPC 에 hidden_reason 추가 전(미배포)이면 undefined 로 올 수 있음
   created_at: string;
 }
 
@@ -32,9 +32,11 @@ const PAGE = 20;
 
 // 크리에이터가 직접 숨긴 사유만 복원 가능(차단/금칙어/수동숨김). admin·신고 숨김은 서버(creator_restore_comment
 //   화이트리스트, audit4)가 복원을 거부하므로 프론트에서도 복원버튼 대신 "관리자·신고 숨김" 을 표시.
+//   ※ RPC 가 아직 hidden_reason 을 안 주면(SQL 미적용) undefined → 종전 동작(복원버튼 노출)으로 폴백해
+//     크리에이터 자기 숨김이 잠기지 않게 함(admin 숨김은 서버가 여전히 안전하게 거부).
 const CREATOR_HIDE_REASONS = ["크리에이터 차단", "크리에이터 금칙어 매칭", "크리에이터 숨김"];
 const canCreatorRestore = (c: ReceivedComment) =>
-  c.is_hidden && !!c.hidden_reason && CREATOR_HIDE_REASONS.includes(c.hidden_reason);
+  c.is_hidden && (c.hidden_reason === undefined || (!!c.hidden_reason && CREATOR_HIDE_REASONS.includes(c.hidden_reason)));
 
 export function ReceivedCommentsSection() {
   const { t } = useTranslation();
