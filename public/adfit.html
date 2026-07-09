@@ -30,7 +30,8 @@
       document.body.appendChild(ins);
       var s = document.createElement('script');
       s.async = true;
-      s.src = '//t1.daumcdn.net/kas/static/ba.min.js';
+      // 2026-07-09 애드핏 공지: web SDK 도메인 t1.daumcdn.net → t1.kakaocdn.net (구 도메인 deprecated 예정)
+      s.src = '//t1.kakaocdn.net/kas/static/ba.min.js';
       document.body.appendChild(s);
     })();
   </script>
