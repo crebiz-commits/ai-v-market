@@ -31,7 +31,7 @@ const PAGE = 20;
 
 export function ReceivedCommentsSection() {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [items, setItems] = useState<ReceivedComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -61,15 +61,46 @@ export function ReceivedCommentsSection() {
     const text = replyText.trim();
     if (!text || !user) return;
     setBusyId(c.id);
-    // 답글은 최상위 댓글에 붙임 (받은 댓글이 이미 답글이면 그 부모에)
-    const { error } = await supabase.from("comments").insert({
+    // 답글은 최상위 댓글에 붙임 (받은 댓글이 이미 답글이면 그 부모에).
+    //   insert 응답(is_hidden 포함)을 받아 ①자동 모더레이션 숨김 여부 판정 ②낙관적 표시.
+    const { data, error } = await supabase.from("comments").insert({
       user_id: user.id,
       video_id: c.video_id,
       parent_id: c.parent_id ?? c.id,
       content: text,
-    });
+    }).select("id, parent_id, content, author_name, is_hidden, created_at").single();
     setBusyId(null);
     if (error) { toast.error(t("mypage.receivedComments.replyFailed", "답글 등록 실패")); return; }
+    // 자동 필터로 숨김되면 "등록 성공"이 아니라 필터 안내 (거짓 성공 방지)
+    if (data?.is_hidden) {
+      toast.error(t("comment.filtered", "부적절한 표현이 감지되어 숨김 처리되었습니다."));
+      setReplyingId(null);
+      setReplyText("");
+      return;
+    }
+    // 내 답글은 받은댓글 RPC(내가 쓴 건 제외)에 안 잡혀 새로고침해도 안 보이므로,
+    //   응답을 이 목록에 낙관적으로 끼워 원댓글 바로 아래 즉시 표시(대화 확인용).
+    if (data) {
+      const reply: ReceivedComment = {
+        id: data.id,
+        video_id: c.video_id,
+        video_title: c.video_title,
+        parent_id: data.parent_id,
+        content: data.content,
+        author_name: data.author_name ?? profile?.display_name ?? user.name ?? null,
+        author_avatar: profile?.avatar_url ?? null,
+        author_user_id: user.id,
+        is_hidden: false,
+        created_at: data.created_at,
+      };
+      setItems((prev) => {
+        const idx = prev.findIndex((x) => x.id === c.id);
+        if (idx < 0) return [reply, ...prev];
+        const next = [...prev];
+        next.splice(idx + 1, 0, reply);
+        return next;
+      });
+    }
     toast.success(t("mypage.receivedComments.replied", "답글을 등록했어요."));
     setReplyingId(null);
     setReplyText("");
