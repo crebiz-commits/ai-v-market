@@ -1,10 +1,13 @@
 -- ════════════════════════════════════════════════════════════════════════════
 -- 크리에이터 팔로우 + 채널 탭 RPC (Phase 6 — 2026-05-11)
 --
--- 🛑 경고(2026-07-05): 이 파일의 get_creator_profile / get_creator_videos / get_my_following_videos /
---   get_popular_creators 는 구버전(banner_url 없음 + is_hidden 미필터). 정본(SSOT) =
---   channel_hide_filter_20260705.sql. **이 함수 블록 재실행 금지**(배너 회귀 + 모더레이션
---   숨김영상 채널 재노출). 팔로우 테이블/RLS 부분은 유효.
+-- 🛑 경고(2026-07-09 갱신): 이 파일 전체 재실행 금지.
+--   · get_creator_profile / get_creator_videos / get_my_following_videos / get_popular_creators 구버전
+--     (banner_url·is_hidden·is_suspended·tiebreak·creator_of_month_until 누락). 정본(SSOT) =
+--     channel_feed_audit_20260709.sql. 재실행 시 모더레이션 숨김영상 채널 재노출 + 뱃지 죽음 회귀.
+--   · ⚠️ 아래 "creator_followers_select_all"(FOR SELECT USING(true)) RLS 도 구버전 —
+--     정본은 channel_feed_audit_20260709.sql 의 select_self(본인 팔로잉만). 재실행하면
+--     **팔로우 그래프가 anon 에 전면 노출되는 보안 회귀**. 테이블/인덱스/INSERT·DELETE 정책만 유효.
 --
 -- 목적:
 --   1. creator_followers 테이블 — 팔로워↔크리에이터 관계 저장

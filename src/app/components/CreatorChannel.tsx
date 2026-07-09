@@ -28,6 +28,7 @@ interface CreatorProfile {
   follower_count: number;
   total_views: number;
   am_i_following: boolean;
+  creator_of_month_until: string | null;   // 이달의 크리에이터 왕관(RPC 경유 — 직접 profiles select 금지)
 }
 
 type SortOrder = "latest" | "oldest";
@@ -81,17 +82,10 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const { isBlocked, blockUser, unblockUser } = useBlockedUsers();
   const blockedHere = isBlocked(creatorId);
-  // 이달의 크리에이터 뱃지 (creator_of_month_until 이 미래면 표시)
-  const [crownUntil, setCrownUntil] = useState<string | null>(null);
-  const isCreatorOfMonth = !!crownUntil && new Date(crownUntil).getTime() > Date.now();
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase.from("profiles").select("creator_of_month_until").eq("id", creatorId).maybeSingle();
-      if (!cancelled) setCrownUntil((data as any)?.creator_of_month_until ?? null);
-    })();
-    return () => { cancelled = true; };
-  }, [creatorId]);
+  // 이달의 크리에이터 뱃지 — get_creator_profile(SECURITY DEFINER)이 반환하는 creator_of_month_until 사용.
+  //   profiles 직접 select 는 컬럼 GRANT 화이트리스트 밖이라 permission denied → 뱃지 영구 미표시하던 버그 수정.
+  const isCreatorOfMonth = !!profile?.creator_of_month_until
+    && new Date(profile.creator_of_month_until).getTime() > Date.now();
 
   // 메뉴 외부 클릭 시 닫기
   useEffect(() => {

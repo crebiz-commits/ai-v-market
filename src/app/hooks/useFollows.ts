@@ -87,12 +87,15 @@ export function useFollows() {
           const { error } = await supabase
             .from("creator_followers")
             .insert({ follower_id: user.id, creator_id: creatorId });
-          // 23505 unique violation (이미 팔로우 중) → 무시
-          if (error && error.code !== "23505") throw error;
+          if (error) {
+            // 23505(이미 팔로우 중 — 딥링크 등 캐시 fetch 전 클릭) → 실제 변화 없음 → null 반환
+            //   (onChange 미호출 → follower_count 부풀림 차단). 캐시는 낙관적 following 이라 버튼은 정확.
+            if (error.code === "23505") return null;
+            throw error;   // 그 외 에러 → catch 롤백
+          }
 
-          // Phase 34 — 새 팔로워 알림 (fire-and-forget)
-          // INSERT 성공 시만 발송 (이미 팔로우 중인 23505 케이스는 skip)
-          if (!error) {
+          // Phase 34 — 새 팔로워 알림 (fire-and-forget) — INSERT 성공 시만
+          {
             try {
               const { subject, html } = buildNewFollowerEmail({
                 followerName: user.name || "익명",
