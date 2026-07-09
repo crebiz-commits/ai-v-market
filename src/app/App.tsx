@@ -1314,11 +1314,14 @@ function AppContent() {
           진입 애니메이션(y:50 슬라이드업) 제거: 루트가 overflow-hidden 이라 마운트 시 아래로 밀린 네비
           하단이 clip 되어, 첫 시작(무거운 JS)에 애니메이션이 지연되면 "절반 잘림"으로 멈춰 보이던 버그.
           항상 최종 위치에 즉시 렌더해 잘림 원천 차단. (루트 높이는 h-[100dvh]→h-full 로 통일해
-          html/body/#root 의 height:100% 고정과 정합 — dvh↔100% 불일치로 인한 하단 여백/잘림 제거.) */}
+          html/body/#root 의 height:100% 고정과 정합 — dvh↔100% 불일치로 인한 하단 여백/잘림 제거.)
+          pb-safe 를 <nav>(고정높이 없음)에 두어 아이콘 행(h-20) 아래로 safe-area 만큼 배경이 확장 →
+          viewport-fit=cover 로 edge-to-edge 시 홈 인디케이터/제스처바 영역을 nav 배경이 채워 검은 띠 방지.
+          안전영역 없는 기기(env=0)면 패딩 0 이라 무변화(부작용 없음). */}
       <nav
-        className="md:hidden shrink-0 border-t border-white/5 bg-background/80 backdrop-blur-xl sticky bottom-0 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]"
+        className="md:hidden shrink-0 border-t border-white/5 bg-background/80 backdrop-blur-xl sticky bottom-0 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] pb-safe"
       >
-        <div className="flex items-center justify-around h-20 px-1 pb-safe">
+        <div className="flex items-center justify-around h-20 px-1">
           {/* 좌측 3탭: 홈 / 시네마 / OTT */}
           {([
             { id: "discovery", label: t("nav.home"), icon: Home },

@@ -31,6 +31,13 @@
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
+/* iOS/Android safe-area 유틸 (viewport-fit=cover 와 함께 동작). Tailwind v4 코어엔 없어 직접 정의 —
+   pb-safe 미정의(no-op)면 하단 nav 가 홈 인디케이터/제스처바 영역을 못 채워 검은 여백/잘림 발생.
+   env() 로 실제 안전영역만큼 padding → nav 배경이 그 영역을 채우고 아이콘은 그 위로 올라옴.
+   안전영역 없는 기기(데스크탑/일반 안드로이드)는 env()=0 이라 영향 없음. */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+
 /* 이벤트 배너 끊김 없는 마퀴 (2벌 복제 → -50% 이동 = 한 벌, 무한 루프) */
 @keyframes banner-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .banner-marquee { animation: banner-marquee linear infinite; will-change: transform; }
