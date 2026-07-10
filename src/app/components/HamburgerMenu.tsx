@@ -1,7 +1,7 @@
 import { useState } from "react";
 // @ts-ignore — react-dom 타입 미설치, 런타임은 정상
 import { createPortal } from "react-dom";
-import { Menu, X, Briefcase, Building2, FileText, Shield, Mail, Coins, LifeBuoy, Crown, Megaphone, BookOpen, Clapperboard } from "lucide-react";
+import { Menu, X, Briefcase, Building2, FileText, Shield, Mail, Coins, LifeBuoy, Crown, Megaphone, BookOpen, Clapperboard, Sparkles, Newspaper, HelpCircle, Bug } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useBackButton } from "../hooks/useBackButton";
 import { useTranslation } from "react-i18next";
@@ -122,6 +122,18 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
                     <p className="text-xs text-[#c4b5fd]/80 mt-0.5">{t("hamburger.collectionsSub", "에디터가 고른 AI 시네마 셀렉션")}</p>
                   </div>
                 </a>
+                {/* 스포트라이트 — 창작자 조명(에디토리얼). ?info= URL 라우팅 */}
+                <a
+                  href="?info=spotlight"
+                  className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gradient-to-r from-[#ec4899]/15 to-[#f59e0b]/10 border border-[#ec4899]/25 hover:from-[#ec4899]/25 transition-colors mb-1"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#ec4899] to-[#f59e0b] flex items-center justify-center shrink-0">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] font-bold text-white">{t("footer.spotlight", "스포트라이트 · 창작자를 만나다")}</p>
+                  </div>
+                </a>
 
                 <div className="px-3 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">{t("hamburger.business")}</div>
                 <MenuItem icon={Briefcase} label={t("business.title")} sub={t("business.subtitle")} onClick={() => handleNav("business")} />
@@ -151,6 +163,9 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
 
                 <div className="px-3 py-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">{t("footer.support")}</div>
                 <MenuItem icon={LifeBuoy} label={t("footer.support1on1", "고객센터 · 1:1 문의")} onClick={() => handleNav("support")} />
+                <MenuItem icon={HelpCircle} label={t("footer.faq", "자주 묻는 질문")} onClick={() => handleNav("faq")} />
+                <MenuItem icon={Newspaper} label={t("footer.notices", "공지사항")} onClick={() => handleNav("notices")} />
+                <MenuItem icon={Bug} label={t("footer.bugReport", "버그 제보 (커피 쿠폰)")} onClick={() => handleNav("bug-report")} />
                 <a
                   href="mailto:support@creaite.net"
                   className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors"
