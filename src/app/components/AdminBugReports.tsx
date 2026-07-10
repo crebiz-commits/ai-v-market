@@ -4,7 +4,7 @@
 // 상태: new(신규) → reviewing(검토중) → valid(채택)/invalid(반려) → coupon_sent(쿠폰지급)
 // ════════════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, Bug, RefreshCw, Mail, Trash2, Coffee } from "lucide-react";
+import { Loader2, Bug, RefreshCw, Mail, Trash2, Coffee, StickyNote } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { toast } from "sonner";
 
@@ -136,6 +136,24 @@ export function AdminBugReports() {
     });
   };
 
+  // 내부 메모(admin_note) — 컬럼은 있었으나 편집 UI가 없어 팀 공유가 불가했음.
+  //   draft 로 편집분을 잡고, 저장 성공 시 items 반영 + draft 정리(저장값 기준 복귀).
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
+  const noteValue = (it: BugReport) => noteDrafts[it.id] ?? it.admin_note ?? "";
+  const noteDirty = (it: BugReport) => noteDrafts[it.id] !== undefined && noteDrafts[it.id] !== (it.admin_note ?? "");
+
+  const saveNote = async (it: BugReport) => {
+    const next = (noteDrafts[it.id] ?? "").trim() || null;
+    setSavingNoteId(it.id);
+    const { error } = await supabase.from("bug_reports").update({ admin_note: next }).eq("id", it.id);
+    setSavingNoteId(null);
+    if (error) { toast.error("메모 저장 실패: " + error.message); return; }
+    setItems((cur) => cur.map((x) => (x.id === it.id ? { ...x, admin_note: next } : x)));
+    setNoteDrafts((d) => { const c = { ...d }; delete c[it.id]; return c; });
+    toast.success("메모를 저장했어요.");
+  };
+
   const counts = STATUS.reduce((acc, s) => { acc[s.key] = items.filter((i) => i.status === s.key).length; return acc; }, {} as Record<string, number>);
   const filtered = filter === "all" ? items : items.filter((i) => i.status === filter);
 
@@ -219,6 +237,32 @@ export function AdminBugReports() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
+                </div>
+
+                {/* 내부 메모 — 어드민 전용, 채택/중복/재현 여부 등 팀 공유 */}
+                <div className="mt-3 border-t border-border/60 pt-3">
+                  <label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1 mb-1">
+                    <StickyNote className="w-3.5 h-3.5" /> 내부 메모 (어드민 전용, 제보자에게 안 보임)
+                  </label>
+                  <textarea
+                    value={noteValue(it)}
+                    onChange={(e) => setNoteDrafts((d) => ({ ...d, [it.id]: e.target.value }))}
+                    placeholder="검토 결과·재현 여부·중복 여부·지급 메모 등"
+                    rows={2}
+                    className="input-base w-full text-sm resize-y"
+                  />
+                  {noteDirty(it) && (
+                    <div className="flex justify-end gap-2 mt-1.5">
+                      <button onClick={() => setNoteDrafts((d) => { const c = { ...d }; delete c[it.id]; return c; })}
+                        className="px-3 py-1 rounded-md text-xs font-semibold border border-border text-muted-foreground hover:bg-muted">
+                        취소
+                      </button>
+                      <button onClick={() => void saveNote(it)} disabled={savingNoteId === it.id}
+                        className="px-3 py-1 rounded-md text-xs font-bold bg-[#6366f1] text-white inline-flex items-center gap-1 disabled:opacity-60">
+                        {savingNoteId === it.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "메모 저장"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );
