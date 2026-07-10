@@ -45,7 +45,6 @@ interface AuthContextType {
   resendConfirmEmail: (email: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithKakao: () => Promise<void>;
-  signInWithFacebook: () => Promise<void>;
   signOut: () => void;
   isAuthenticated: boolean;
   // H8: 비밀번호 재설정
@@ -419,24 +418,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signInWithFacebook = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'facebook',
-        options: {
-          redirectTo: window.location.origin,
-        },
-      });
-      if (error) {
-        console.error('OAuth error:', error);
-        throw error;
-      }
-    } catch (error: any) {
-      console.error('Facebook 로그인 에러:', error);
-      throw new Error(error.message || 'Facebook sign-in failed.');
-    }
-  };
-
   const subscriptionTier: SubscriptionTier = profile?.subscription_tier ?? 'free';
   // P9(2026-07-05): 만료일(expires_at) NULL = 비구독으로 통일(서버 재생게이트와 일치).
   //   영구 무료제공(관리자 컴프)은 NULL 대신 먼 미래 날짜(예: 2099-12-31)로 명시할 것.
@@ -474,7 +455,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     resendConfirmEmail,
     signInWithGoogle,
     signInWithKakao,
-    signInWithFacebook,
     signOut,
     isAuthenticated: !!user,
     passwordRecovery,

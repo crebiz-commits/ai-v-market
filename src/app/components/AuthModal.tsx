@@ -100,12 +100,6 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
     }
   };
 
-  // Facebook·Apple·Twitter·LINE: Supabase provider 미설정 — 연결 전까지 '준비 중' 안내.
-  //   활성화 시엔 signInWithOAuth({ provider }) 배선으로 교체(AuthContext.signInWithFacebook 준비돼 있음).
-  const handleComingSoon = (provider: string) => {
-    toast.info(t("auth.providerComingSoon", { provider, defaultValue: "{{provider}} 로그인은 곧 지원될 예정입니다." }));
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -236,56 +230,6 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                     </svg>
                   </div>
                   <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">{t("auth.continueWithGoogle")}</span>
-                </button>
-
-                {/* Facebook */}
-                <button
-                  onClick={() => handleComingSoon("Facebook")}
-                  className="w-full h-12 border border-gray-200 rounded-sm flex items-center px-4 hover:bg-gray-50 transition-colors relative"
-                >
-                  <div className="w-5 h-5 bg-[#1877F2] rounded-full flex items-center justify-center overflow-hidden">
-                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                    </svg>
-                  </div>
-                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">{t("auth.continueWithFacebook")}</span>
-                </button>
-
-                {/* Apple */}
-                <button
-                  onClick={() => handleComingSoon("Apple")}
-                  className="w-full h-12 border border-gray-200 rounded-sm flex items-center px-4 hover:bg-gray-50 transition-colors relative"
-                >
-                  <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M17.05 20.28c-.96.95-2.04 1.8-3.26 1.8-1.22 0-1.72-.82-3.15-.82-1.43 0-1.97.82-3.15.82-1.18 0-2.34-.95-3.31-1.8-2.61-2.52-3.92-6.42-3.92-9.61 0-3.19 1.31-7.09 3.92-9.61C5.19 1 6.36.05 7.53.05c1.18 0 1.72.82 3.15.82 1.43 0 1.97-.82 3.15-.82 1.18 0 2.34.95 3.31 1.8 2.61 2.52 1.31 7.09-1.31 9.61-2.62 2.52-1.3 7.09 1.31 9.61z"/>
-                  </svg>
-                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">{t("auth.continueWithApple")}</span>
-                </button>
-
-                {/* Twitter / X */}
-                <button
-                  onClick={() => handleComingSoon("Twitter")}
-                  className="w-full h-12 border border-gray-200 rounded-sm flex items-center px-4 hover:bg-gray-50 transition-colors relative"
-                >
-                  <div className="w-5 h-5 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                    </svg>
-                  </div>
-                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">{t("auth.continueWithX")}</span>
-                </button>
-
-                {/* LINE */}
-                <button
-                  onClick={() => handleComingSoon("LINE")}
-                  className="w-full h-12 border border-gray-200 rounded-sm flex items-center px-4 hover:bg-gray-50 transition-colors relative"
-                >
-                  <div className="w-5 h-5 bg-[#00B900] rounded-sm flex items-center justify-center overflow-hidden">
-                    <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M24 10.304c0-5.369-5.383-9.738-12-9.738-6.616 0-12 4.369-12 9.738 0 4.814 4.269 8.846 10.036 9.608.391.084.922.258 1.058.59.121.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975 1.706-1.841 2.547-3.784 2.547-5.968z"/>
-                    </svg>
-                  </div>
-                  <span className="flex-1 text-[15px] font-semibold text-gray-700 text-center pr-5">{t("auth.continueWithLine")}</span>
                 </button>
               </motion.div>
             ) : (
