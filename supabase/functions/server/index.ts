@@ -1774,90 +1774,64 @@ app.post('/send-email', async (c) => {
       }
     }
 
-    try {
-      await supabase.from('notifications').insert({
-        user_id,
-        type: inapp.type,
-        title: inappTitle,
-        body: inapp.body,
-        link: inappLink,
-        read: false,
-      });
-    } catch (e) {
-      console.warn('[send-email] 인앱 알림 기록 실패:', e);
+    // ── 벨(in-app): inapp 게이트 후 기록 (설정에서 이 타입 벨을 끄면 스킵) ──
+    //    inapp_<type> opt-out 컬럼 없는 타입은 should_send 가 fail-open=true 반환(발송 유지).
+    const { data: bellOn } = await supabase.rpc('should_send_notification',
+      { p_user_id: user_id, p_type: type, p_channel: 'inapp' });
+    if (bellOn) {
+      try {
+        await supabase.from('notifications').insert({
+          user_id, type: inapp.type, title: inappTitle, body: inapp.body, link: inappLink, read: false,
+        });
+      } catch (e) {
+        console.warn('[send-email] 인앱 알림 기록 실패:', e);
+      }
     }
 
-    // 1. 사용자 알림 설정 확인
-    const { data: shouldSend, error: checkError } = await supabase.rpc(
-      'should_send_notification',
-      { p_user_id: user_id, p_type: type, p_channel: 'email' }
-    );
+    // ── 이메일: email 게이트 (끔·오류·키없음이면 이메일만 스킵하고 푸시는 계속 진행) ──
+    let emailMessageId: string | null = null;
+    const { data: emailOn, error: checkError } = await supabase.rpc('should_send_notification',
+      { p_user_id: user_id, p_type: type, p_channel: 'email' });
+    if (checkError) console.error('[send-email] 이메일 설정 확인 실패:', checkError);
 
-    if (checkError) {
-      console.error('[send-email] 알림 설정 확인 실패:', checkError);
-      return c.json({ error: 'Failed to check preferences' }, 500);
-    }
-
-    if (!shouldSend) {
-      return c.json({ success: true, skipped: true, reason: 'User disabled this notification' });
-    }
-
-    // 2. Resend API 호출
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'noreply@mail.creaite.net';
-    const replyTo = Deno.env.get('RESEND_REPLY_TO') || 'support@creaite.net';
-
-    if (!resendApiKey) {
-      console.error('[send-email] RESEND_API_KEY 미설정');
-      return c.json({ error: 'Resend API key not configured' }, 500);
+    if (emailOn && resendApiKey) {
+      const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'noreply@mail.creaite.net';
+      const replyTo = Deno.env.get('RESEND_REPLY_TO') || 'support@creaite.net';
+      try {
+        const resendRes = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from: `CREAITE <${fromEmail}>`, to: [to], reply_to: replyTo, subject: emailSubject, html: emailHtml }),
+        });
+        const resendData = await resendRes.json();
+        if (!resendRes.ok) {
+          await supabase.rpc('log_notification', {
+            p_user_id: user_id, p_type: type, p_channel: 'email', p_recipient: to,
+            p_subject: subject, p_status: 'failed', p_error_message: JSON.stringify(resendData),
+          });
+        } else {
+          emailMessageId = resendData.id;
+          await supabase.rpc('log_notification', {
+            p_user_id: user_id, p_type: type, p_channel: 'email', p_recipient: to,
+            p_subject: subject, p_status: 'sent', p_resend_message_id: resendData.id,
+          });
+        }
+      } catch (e) {
+        console.error('[send-email] Resend 예외:', e);
+      }
+    } else if (!resendApiKey) {
+      console.error('[send-email] RESEND_API_KEY 미설정 — 이메일 스킵');
     }
 
-    const resendRes = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: `CREAITE <${fromEmail}>`,
-        to: [to],
-        reply_to: replyTo,
-        subject: emailSubject,
-        html: emailHtml,
-      }),
-    });
-
-    const resendData = await resendRes.json();
-
-    if (!resendRes.ok) {
-      await supabase.rpc('log_notification', {
-        p_user_id: user_id,
-        p_type: type,
-        p_channel: 'email',
-        p_recipient: to,
-        p_subject: subject,
-        p_status: 'failed',
-        p_error_message: JSON.stringify(resendData),
-      });
-      return c.json({ error: 'Resend API error', details: resendData }, 500);
+    // ── 웹푸시: push 게이트 독립 판단 (이메일과 분리 — 이메일을 꺼도 푸시는 push_<type> 기준) ──
+    const { data: pushOn } = await supabase.rpc('should_send_notification',
+      { p_user_id: user_id, p_type: type, p_channel: 'push' });
+    if (pushOn) {
+      await sendWebPushToUser(supabase, user_id, inappTitle, inapp.body, inappLink);
     }
 
-    // 3. 발송 성공 로그
-    await supabase.rpc('log_notification', {
-      p_user_id: user_id,
-      p_type: type,
-      p_channel: 'email',
-      p_recipient: to,
-      p_subject: subject,
-      p_status: 'sent',
-      p_resend_message_id: resendData.id,
-    });
-
-    // 4. 웹 푸시도 발송 — 구독 기기가 있으면 (구독 자체가 사용자 동의). 이메일과 동일 알림.
-    //    인앱 벨과 동일한 짧은 본문 + 딥링크(link) 사용 → 탭 시 해당 화면으로 이동.
-    await sendWebPushToUser(supabase, user_id, inappTitle, inapp.body, inappLink);
-
-    return c.json({ success: true, message_id: resendData.id });
+    return c.json({ success: true, message_id: emailMessageId });
   } catch (err: any) {
     console.error('[send-email] 예외:', err);
     return c.json({ error: '이메일 발송 중 서버 오류: ' + (err?.message || err) }, 500);

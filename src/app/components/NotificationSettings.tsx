@@ -22,7 +22,6 @@ interface NotificationPreferences {
   email_welcome: boolean;
   email_subscription_receipt: boolean;
   email_new_video_from_followed: boolean;
-  inapp_new_video_from_followed: boolean;   // 새 영상 벨(인앱) on/off — 실제 벨 게이트
   email_comment_reply: boolean;
   email_new_follower: boolean;
   email_revenue_settled: boolean;
@@ -39,7 +38,30 @@ interface NotificationPreferences {
   push_report_result: boolean;
   push_ad_budget_low: boolean;
   push_refund_completed: boolean;
+  // 벨(in-app) opt-out — 기본 true. 끄면 해당 타입 벨이 안 쌓임.
+  inapp_new_video_from_followed: boolean;
+  inapp_subscription_receipt: boolean;
+  inapp_comment_reply: boolean;
+  inapp_new_follower: boolean;
+  inapp_revenue_settled: boolean;
+  inapp_report_result: boolean;
+  inapp_refund_completed: boolean;
+  inapp_sale: boolean;
+  inapp_comment: boolean;
 }
+
+// 앱 내 벨 알림 on/off — 라벨/설명은 이메일 항목과 이벤트 공유(sale/comment 만 신규 키)
+const BELL_ITEMS: { inappKey: keyof NotificationPreferences; labelKey: string; descKey: string }[] = [
+  { inappKey: "inapp_new_video_from_followed", labelKey: "notificationSettings.items.newVideoFromFollowedLabel", descKey: "notificationSettings.items.newVideoFromFollowedDesc" },
+  { inappKey: "inapp_sale",                     labelKey: "notificationSettings.items.saleLabel",                descKey: "notificationSettings.items.saleDesc" },
+  { inappKey: "inapp_comment",                  labelKey: "notificationSettings.items.newCommentLabel",          descKey: "notificationSettings.items.newCommentDesc" },
+  { inappKey: "inapp_comment_reply",            labelKey: "notificationSettings.items.commentReplyLabel",        descKey: "notificationSettings.items.commentReplyDesc" },
+  { inappKey: "inapp_new_follower",             labelKey: "notificationSettings.items.newFollowerLabel",         descKey: "notificationSettings.items.newFollowerDesc" },
+  { inappKey: "inapp_revenue_settled",          labelKey: "notificationSettings.items.revenueSettledLabel",      descKey: "notificationSettings.items.revenueSettledDesc" },
+  { inappKey: "inapp_subscription_receipt",     labelKey: "notificationSettings.items.subscriptionReceiptLabel", descKey: "notificationSettings.items.subscriptionReceiptDesc" },
+  { inappKey: "inapp_report_result",            labelKey: "notificationSettings.items.reportResultLabel",        descKey: "notificationSettings.items.reportResultDesc" },
+  { inappKey: "inapp_refund_completed",         labelKey: "notificationSettings.items.refundCompletedLabel",     descKey: "notificationSettings.items.refundCompletedDesc" },
+];
 
 interface NotificationItem {
   emailKey: keyof NotificationPreferences;
@@ -62,13 +84,6 @@ const ITEMS: NotificationItem[] = [
     pushKey: "push_subscription_receipt",
     labelKey: "notificationSettings.items.subscriptionReceiptLabel",
     descKey: "notificationSettings.items.subscriptionReceiptDesc",
-  },
-  {
-    // 실제 벨 게이트는 inapp_new_video_from_followed(기본 ON). 이메일 컬럼은 미사용이라 벨 컬럼을 직접 제어.
-    emailKey: "inapp_new_video_from_followed",
-    pushKey: "push_new_video_from_followed",
-    labelKey: "notificationSettings.items.newVideoFromFollowedLabel",
-    descKey: "notificationSettings.items.newVideoFromFollowedDesc",
   },
   {
     emailKey: "email_comment_reply",
@@ -265,6 +280,32 @@ export function NotificationSettings() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* 앱 내 벨 알림 그룹 — 종 아이콘 알림함에 쌓이는 알림 on/off (이메일과 독립) */}
+      <div className="mb-2">
+        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">
+          {t("notificationSettings.inappSection", "앱 내 알림 (벨)")}
+        </h4>
+        <p className="text-[11px] text-gray-600 mb-3">{t("notificationSettings.inappSectionDesc", "종 모양 알림함에 표시되는 알림입니다. 이메일 설정과 별개예요.")}</p>
+        <div className="space-y-1">
+          {BELL_ITEMS.map((item) => (
+            <div
+              key={item.inappKey}
+              className="flex items-start justify-between gap-4 py-3 border-b border-white/5 last:border-b-0"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white">{t(item.labelKey)}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{t(item.descKey)}</p>
+              </div>
+              <Switch
+                checked={prefs[item.inappKey]}
+                onCheckedChange={(v) => handleToggle(item.inappKey, v)}
+                disabled={saving.has(item.inappKey)}
+              />
+            </div>
+          ))}
         </div>
       </div>
 
