@@ -1247,23 +1247,29 @@ export function VideoEditModal({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-white/10 flex-shrink-0 bg-[#0a0a0a]">
-            <Button
-              onClick={onClose}
-              variant="outline"
-              className="bg-white/5 text-gray-300 border-white/10 hover:bg-white/10"
-              disabled={saving}
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white font-bold gap-2"
-            >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {uploadingThumbnail || uploadingSubtitle || saving ? t("videoEditModal.saving") : t("videoEditModal.save")}
-            </Button>
+          <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-white/10 flex-shrink-0 bg-[#0a0a0a]">
+            <p className="text-[11px] text-amber-300/80 flex items-center gap-1 min-w-0">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate">{t("videoEditModal.reviewNote", "제목·설명·썸네일·태그를 바꾸면 재검수 전까지 비공개로 전환됩니다.")}</span>
+            </p>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                onClick={onClose}
+                variant="outline"
+                className="bg-white/5 text-gray-300 border-white/10 hover:bg-white/10"
+                disabled={saving}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white font-bold gap-2"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {uploadingThumbnail || uploadingSubtitle || saving ? t("videoEditModal.saving") : t("videoEditModal.save")}
+              </Button>
+            </div>
           </div>
         </motion.div>
       </motion.div>

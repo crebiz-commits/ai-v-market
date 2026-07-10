@@ -460,6 +460,7 @@
     "save": "저장",
     "saving": "저장 중...",
     "cancel": "취소",
+    "reviewNote": "제목·설명·썸네일·태그를 바꾸면 재검수 전까지 비공개로 전환됩니다.",
     "saveSuccess": "저장됐습니다.",
     "saveFailed": "저장 실패.",
     "thumbnailTooLarge": "썸네일은 5MB 이하만 가능합니다.",
