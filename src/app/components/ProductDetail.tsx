@@ -22,7 +22,7 @@ import { Loader2 } from "lucide-react";
 import { ReportModal } from "./ReportModal";
 import { FollowButton } from "./FollowButton";
 import { VideoEditModal } from "./VideoEditModal";
-import { Pencil, Clock as ClockIcon } from "lucide-react";
+import { Pencil, Clock as ClockIcon, Play, Pause } from "lucide-react";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { AgeGateModal } from "./AgeGateModal";
 import { ShareModal } from "./ShareModal";
@@ -440,6 +440,9 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   const [cinemaCutoffTriggered, setCinemaCutoffTriggered] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);   // autoplay=true → 기본 재생중. 화면 탭 시 pause 토글용.
+  const [tapFeedback, setTapFeedback] = useState<"play" | "pause" | null>(null);   // 유튜브식 탭 피드백(팝→페이드)
+  const tapFeedbackKey = useRef(0);
+  const tapFeedbackTimerRef = useRef<number | null>(null);
   // 미리보기 컷오프 보조 타이머(능동 재구독 인터벌 + 월클록 백스톱) 핸들 — 누수 방지용
   const cutoffTimersRef = useRef<{ interval?: number; wall?: number }>({});
 
@@ -781,10 +784,18 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   }, [iframeBlocked, bunnyEmbedUrl]);
 
   // 화면 탭 → 재생/일시정지 토글 (현재 isPlaying 기준). 낙관적 갱신 후 player.js 이벤트가 확정.
+  //   + 유튜브식 ephemeral 아이콘 피드백(중앙에 ▶/⏸ 팝→페이드, ~0.6s 후 사라짐).
   const handleTogglePlay = useCallback(() => {
-    postBunnyCommand(iframeRef.current, isPlaying ? "pause" : "play");
-    setIsPlaying((p) => !p);
+    const willPlay = !isPlaying;
+    postBunnyCommand(iframeRef.current, willPlay ? "play" : "pause");
+    setIsPlaying(willPlay);
+    tapFeedbackKey.current += 1;
+    setTapFeedback(willPlay ? "play" : "pause");
+    if (tapFeedbackTimerRef.current) window.clearTimeout(tapFeedbackTimerRef.current);
+    tapFeedbackTimerRef.current = window.setTimeout(() => setTapFeedback(null), 550);
   }, [isPlaying]);
+
+  useEffect(() => () => { if (tapFeedbackTimerRef.current) window.clearTimeout(tapFeedbackTimerRef.current); }, []);
 
   // OTT "지금 보기" 진입 → 플레이어 자동 전체화면 (클릭 직후라 transient activation 유효)
   const fsRequestedRef = useRef(false);
@@ -1406,6 +1417,25 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
               className="absolute inset-x-0 top-0 bottom-14 z-[5]"
             />
           )}
+
+          {/* 유튜브식 탭 피드백 — 중앙에 ▶/⏸ 아이콘이 팝했다 페이드아웃 (고정 아님) */}
+          <AnimatePresence>
+            {tapFeedback && (
+              <motion.div
+                key={tapFeedbackKey.current}
+                initial={{ opacity: 0.85, scale: 0.75 }}
+                animate={{ opacity: 0, scale: 1.45 }}
+                transition={{ duration: 0.55, ease: "easeOut" }}
+                className="pointer-events-none absolute inset-0 flex items-center justify-center z-[6]"
+              >
+                <div className="w-[72px] h-[72px] rounded-full bg-black/55 backdrop-blur-sm flex items-center justify-center">
+                  {tapFeedback === "play"
+                    ? <Play className="w-9 h-9 text-white fill-white" />
+                    : <Pause className="w-9 h-9 text-white fill-white" />}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* AUTOPLAY 인디케이터 (Phase 31.4 — Bunny iframe 자동재생 표시) */}
           {/* pointer-events-none: 장식 배지가 Bunny 상단 UI/탭을 가로채지 않게 */}
