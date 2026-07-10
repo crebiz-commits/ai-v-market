@@ -784,7 +784,8 @@ function AppContent() {
       licenseType,
       price,
     };
-    setCartItems(prev => [...prev, newItem]);
+    // 로드 경합으로 이미 들어와 있을 수 있음 → id 중복 append 방지(React key 중복 회피)
+    setCartItems(prev => prev.some(i => i.id === newItem.id) ? prev : [...prev, newItem]);
     toast.success(t("app.cartAddSuccess"), {
       action: {
         label: t("common.viewCart"),
@@ -809,26 +810,40 @@ function AppContent() {
       setCartItems([]);
       return;
     }
+    // 로그아웃/유저전환 중 늦게 도착한 응답이 이전 유저 장바구니를 되살리는 것 방지
+    let cancelled = false;
     (async () => {
       const { data, error } = await supabase
         .from("cart_items")
         .select("id, video_id, license_type, price, videos(title, creator, thumbnail)")
-        .eq("user_id", user.id);
+        .eq("user_id", user.id)
+        .order("added_at", { ascending: false });
+      if (cancelled) return;
       if (error) {
         console.error("[loadCart]", error);
         return;
       }
-      const items: CartItem[] = (data || []).map((row: any) => ({
-        id: row.id,
-        videoId: row.video_id,
-        thumbnail: row.videos?.thumbnail || "",
-        title: row.videos?.title || "",
-        creator: row.videos?.creator || "",
-        licenseType: row.license_type,
-        price: row.price,
-      }));
-      setCartItems(items);
+      const items: CartItem[] = (data || [])
+        // 숨김·비공개·삭제된 영상은 videos 조인이 null(RLS) → 빈 카드가 되므로 표시에서 제외
+        .filter((row: any) => row.videos)
+        .map((row: any) => ({
+          id: row.id,
+          videoId: row.video_id,
+          thumbnail: row.videos?.thumbnail || "",
+          title: row.videos?.title || "",
+          creator: row.videos?.creator || "",
+          licenseType: row.license_type,
+          price: row.price,
+        }));
+      // 로그인 직후 '보류 항목 자동추가'(INSERT)가 이 로드(SELECT)와 경합할 수 있음
+      //   → id 기준 병합으로 방금 담은 항목이 사라지지 않게 보존.
+      setCartItems((prev) => {
+        const byId = new Map<string, CartItem>(items.map((i) => [i.id, i]));
+        for (const local of prev) if (!byId.has(local.id)) byId.set(local.id, local);
+        return Array.from(byId.values());
+      });
     })();
+    return () => { cancelled = true; };
   }, [isAuthenticated, user?.id]);
 
   // 로그인 후 보류된 장바구니 항목 자동 추가
