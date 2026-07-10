@@ -7,7 +7,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { Check, X, Loader2, Home, Crown } from "lucide-react";
+import { Check, X, Loader2, Home, Crown, RotateCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { supabase, supabaseAnonKey } from "../utils/supabaseClient";
 import { useTranslation } from "react-i18next";
@@ -25,8 +25,68 @@ export function BillingResult({ onClose }: Props) {
   const isKo = (i18n.language || "en").startsWith("ko");
   const [status, setStatus] = useState<Status>("processing");
   const [message, setMessage] = useState<string>("");
-  // C5(2026-06-14): 이중 청구 방지 — 한 번만 처리(StrictMode 재호출/재마운트 가드)
+  // 실패 시 "다시 시도" 노출 여부 (세션 미복원·네트워크·일시 오류 등 재시도로 회복 가능한 경우)
+  const [canRetry, setCanRetry] = useState(false);
+  // C5(2026-06-14): 이중 청구 방지 — 한 번만 자동 처리(StrictMode 재호출/재마운트 가드)
   const processedRef = useRef(false);
+  // 재시도용: authKey 를 URL 에서 제거한 뒤에도 재확인 가능하도록 보관.
+  //   서버가 멱등(billing-auth-confirm: P5 활성구독 스킵 + Idempotency-Key)이라 재호출해도 이중청구 없음.
+  const credsRef = useRef<{ authKey: string; customerKey: string } | null>(null);
+
+  // 토스 리다이렉트 복귀 직후엔 Supabase SDK 가 세션을 아직 복원하지 못했을 수 있음 →
+  //   토큰이 잡힐 때까지 잠깐 재시도(최대 ~2초). 못 잡으면 undefined 반환.
+  //   토큰 없이 서버를 부르면 401 로 "설정 실패" 오판 → 카드가 등록됐는데도 실패로 보이는 버그를 예방.
+  const getAccessTokenWithRetry = async (tries = 6, delayMs = 350): Promise<string | undefined> => {
+    for (let i = 0; i < tries; i++) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) return session.access_token;
+      if (i < tries - 1) await new Promise((r) => setTimeout(r, delayMs));
+    }
+    return undefined;
+  };
+
+  const confirmBilling = async () => {
+    const creds = credsRef.current;
+    if (!creds) return;
+    setStatus("processing");
+    setCanRetry(false);
+    setMessage("");
+    try {
+      const accessToken = await getAccessTokenWithRetry();
+      if (!accessToken) {
+        // 세션 미복원 — 서버가 인증을 거부하므로 아예 호출하지 않고 재시도 유도(카드는 안전).
+        setStatus("failed");
+        setCanRetry(true);
+        setMessage(isKo
+          ? "로그인 세션을 불러오지 못했습니다. 카드는 안전하게 처리되니 잠시 후 다시 시도해 주세요."
+          : "Couldn't load your login session. Your card is safe — please try again in a moment.");
+        return;
+      }
+      const res = await fetch(BILLING_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(creds),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus("failed");
+        // 서버가 멱등이라 재시도가 이중청구를 유발하지 않음 → 실패 시 항상 재시도 허용.
+        setCanRetry(true);
+        setMessage(body?.error || (isKo ? "자동결제 설정에 실패했습니다." : "Setup failed."));
+        return;
+      }
+      setStatus("success");
+      setMessage(body?.message || (isKo ? "자동결제가 설정되었습니다. 매월 자동으로 갱신됩니다." : "Auto-pay is set up."));
+    } catch (err: any) {
+      setStatus("failed");
+      setCanRetry(true);
+      setMessage(err?.message || String(err));
+    }
+  };
 
   useEffect(() => {
     if (processedRef.current) return;
@@ -50,35 +110,11 @@ export function BillingResult({ onClose }: Props) {
         setMessage(isKo ? "잘못된 접근입니다." : "Invalid request.");
         return;
       }
+      credsRef.current = { authKey, customerKey };
       // authKey 를 URL 에서 즉시 제거 — 새로고침 시 재처리(이중 청구) 방지.
       // 처리 중 화면은 state 로 유지되고, 새로고침하면 쿼리가 없어 일반 앱 홈으로.
       window.history.replaceState({}, "", window.location.pathname);
-      (async () => {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          const accessToken = session?.access_token;
-          const res = await fetch(BILLING_ENDPOINT, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: supabaseAnonKey,
-              ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-            },
-            body: JSON.stringify({ authKey, customerKey }),
-          });
-          const body = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            setStatus("failed");
-            setMessage(body?.error || (isKo ? "자동결제 설정에 실패했습니다." : "Setup failed."));
-            return;
-          }
-          setStatus("success");
-          setMessage(body?.message || (isKo ? "자동결제가 설정되었습니다. 매월 자동으로 갱신됩니다." : "Auto-pay is set up."));
-        } catch (err: any) {
-          setStatus("failed");
-          setMessage(err?.message || String(err));
-        }
-      })();
+      confirmBilling();
       return;
     }
 
@@ -117,6 +153,11 @@ export function BillingResult({ onClose }: Props) {
             </div>
             <p className="text-xl font-black text-white mb-1">{isKo ? "설정 실패" : "Failed"}</p>
             <p className="text-sm text-muted-foreground mb-6">{message}</p>
+            {canRetry && (
+              <Button onClick={confirmBilling} className="w-full gap-2 mb-3 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white font-bold">
+                <RotateCw className="w-4 h-4" /> {isKo ? "다시 시도" : "Try again"}
+              </Button>
+            )}
             <Button onClick={onClose} variant="outline" className="w-full gap-2">
               <Home className="w-4 h-4" /> {isKo ? "홈으로" : "Home"}
             </Button>

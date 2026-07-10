@@ -36,6 +36,8 @@ export function SubscriptionModal({
   const { isAuthenticated, user } = useAuth();
   const { startAutoBilling } = usePayment();
   const [paying, setPaying] = useState(false);
+  // 정기결제 명시적 동의 (전자상거래법) — 로그인한 웹 사용자 결제 개시 전 필수
+  const [agreed, setAgreed] = useState(false);
 
   const messages = {
     ott_block: {
@@ -169,10 +171,26 @@ export function SubscriptionModal({
                   </div>
                 </div>
 
+                {/* 정기결제 명시적 동의 (전자상거래법) — 로그인한 웹 사용자에게만.
+                    앱래퍼는 웹(creaite.net) 랜딩의 구독 페이지에서 동의를 수집하므로 여기선 생략. */}
+                {isAuthenticated && !isAppWrapper() && (
+                  <label className="flex items-start gap-2 mb-3 cursor-pointer text-left">
+                    <input
+                      type="checkbox"
+                      checked={agreed}
+                      onChange={(e) => setAgreed(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 accent-amber-500 shrink-0"
+                    />
+                    <span className="text-[11px] text-gray-400 leading-snug">
+                      {t("subscriptionPage.agreeRecurring")}
+                    </span>
+                  </label>
+                )}
+
                 {/* CTA 버튼 */}
                 <Button
                   onClick={handleSubscribe}
-                  disabled={paying}
+                  disabled={paying || (isAuthenticated && !isAppWrapper() && !agreed)}
                   className="w-full h-12 gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white font-black text-base shadow-lg shadow-amber-500/20 rounded-xl border border-white/10 disabled:opacity-60"
                 >
                   {paying ? (
