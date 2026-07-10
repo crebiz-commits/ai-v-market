@@ -22,6 +22,7 @@ interface NotificationPreferences {
   email_welcome: boolean;
   email_subscription_receipt: boolean;
   email_new_video_from_followed: boolean;
+  inapp_new_video_from_followed: boolean;   // 새 영상 벨(인앱) on/off — 실제 벨 게이트
   email_comment_reply: boolean;
   email_new_follower: boolean;
   email_revenue_settled: boolean;
@@ -63,11 +64,11 @@ const ITEMS: NotificationItem[] = [
     descKey: "notificationSettings.items.subscriptionReceiptDesc",
   },
   {
-    emailKey: "email_new_video_from_followed",
+    // 실제 벨 게이트는 inapp_new_video_from_followed(기본 ON). 이메일 컬럼은 미사용이라 벨 컬럼을 직접 제어.
+    emailKey: "inapp_new_video_from_followed",
     pushKey: "push_new_video_from_followed",
     labelKey: "notificationSettings.items.newVideoFromFollowedLabel",
     descKey: "notificationSettings.items.newVideoFromFollowedDesc",
-    // 인앱 벨 알림으로 동작 (이메일 X). 토글로 새 영상 알림 on/off.
   },
   {
     emailKey: "email_comment_reply",

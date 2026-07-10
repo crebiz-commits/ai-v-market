@@ -57,6 +57,49 @@ CREATE TRIGGER trg_notify_followers_new_video
   AFTER INSERT OR UPDATE OF is_hidden, visibility ON public.videos
   FOR EACH ROW EXECUTE FUNCTION public.tg_notify_followers_new_video();
 
+-- ── 새 영상 벨 opt-out 토글 저장 지원 — update RPC 에 inapp_new_video_from_followed 반영 ──
+--   (get 은 RETURNS notification_preferences + SELECT * 라 신규 컬럼 자동 반환 → 수정 불필요)
+CREATE OR REPLACE FUNCTION public.update_my_notification_preferences(p_settings JSONB)
+RETURNS public.notification_preferences
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID;
+  v_row public.notification_preferences;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  INSERT INTO public.notification_preferences (user_id)
+  VALUES (v_user_id) ON CONFLICT (user_id) DO NOTHING;
+
+  UPDATE public.notification_preferences SET
+    email_welcome                 = COALESCE((p_settings->>'email_welcome')::BOOLEAN, email_welcome),
+    email_subscription_receipt    = COALESCE((p_settings->>'email_subscription_receipt')::BOOLEAN, email_subscription_receipt),
+    email_new_video_from_followed = COALESCE((p_settings->>'email_new_video_from_followed')::BOOLEAN, email_new_video_from_followed),
+    email_comment_reply           = COALESCE((p_settings->>'email_comment_reply')::BOOLEAN, email_comment_reply),
+    email_new_follower            = COALESCE((p_settings->>'email_new_follower')::BOOLEAN, email_new_follower),
+    email_revenue_settled         = COALESCE((p_settings->>'email_revenue_settled')::BOOLEAN, email_revenue_settled),
+    email_report_result           = COALESCE((p_settings->>'email_report_result')::BOOLEAN, email_report_result),
+    email_ad_budget_low           = COALESCE((p_settings->>'email_ad_budget_low')::BOOLEAN, email_ad_budget_low),
+    inapp_new_video_from_followed = COALESCE((p_settings->>'inapp_new_video_from_followed')::BOOLEAN, inapp_new_video_from_followed),
+    push_welcome                  = COALESCE((p_settings->>'push_welcome')::BOOLEAN, push_welcome),
+    push_subscription_receipt     = COALESCE((p_settings->>'push_subscription_receipt')::BOOLEAN, push_subscription_receipt),
+    push_new_video_from_followed  = COALESCE((p_settings->>'push_new_video_from_followed')::BOOLEAN, push_new_video_from_followed),
+    push_comment_reply            = COALESCE((p_settings->>'push_comment_reply')::BOOLEAN, push_comment_reply),
+    push_new_follower             = COALESCE((p_settings->>'push_new_follower')::BOOLEAN, push_new_follower),
+    push_revenue_settled          = COALESCE((p_settings->>'push_revenue_settled')::BOOLEAN, push_revenue_settled),
+    push_report_result            = COALESCE((p_settings->>'push_report_result')::BOOLEAN, push_report_result),
+    push_ad_budget_low            = COALESCE((p_settings->>'push_ad_budget_low')::BOOLEAN, push_ad_budget_low),
+    updated_at                    = now()
+  WHERE user_id = v_user_id
+  RETURNING * INTO v_row;
+
+  RETURN v_row;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.update_my_notification_preferences(JSONB) TO authenticated;
+
 -- ── 검증 ──────────────────────────────────────────────────────────────────────
 --   -- 트리거가 INSERT+UPDATE 로 걸렸는지(tgtype 비트: INSERT=4, UPDATE=16 → 둘 다면 event 다수):
 --   SELECT tgname, pg_get_triggerdef(oid) FROM pg_trigger
