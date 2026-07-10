@@ -747,8 +747,10 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   // 영상 변경 시 1회만 fetch (광고 종료 후 재 fetch 안 함).
   const [prerollAd, setPrerollAd] = useState<AdRpcResult | null>(null);
   const prerollFetchedRef = useRef(false);
+  const prerollShownRef = useRef(false);   // 이 영상 세션에 프리롤이 표시됐는지 — 종료 후 범퍼가 이어붙어 광고 2연속 되는 것 방지
   useEffect(() => {
     prerollFetchedRef.current = false;
+    prerollShownRef.current = false;
     setPrerollAd(null);
   }, [product.id]);
   useEffect(() => {
@@ -771,6 +773,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       const videoUrl = rawUrl.includes("/playlist.m3u8")
         ? rawUrl.replace("/playlist.m3u8", "/play_720p.mp4")
         : rawUrl;
+      prerollShownRef.current = true;   // 프리롤 표시 → 종료 후 범퍼 스킵(2연속 방지)
       setPrerollAd({
         ad_id: ad.id,
         title: ad.title || "",
@@ -1057,11 +1060,13 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   useEffect(() => {
     if (iframeBlocked) return;
     if (isPremium) return;  // Premium은 광고 제거
+    if (prerollShownRef.current) return;  // 이미 프리롤을 본 세션 — 범퍼 이어붙어 광고 2연속 방지
     if (!product.id) return;
     let cancelled = false;
     (async () => {
       const ad = await fetchAdForVideo(product.id, "bumper");
-      if (cancelled || !ad) return;
+      // fetch 중 프리롤이 잡혔으면(레이스) 범퍼 세팅 안 함 — 종료 후 2연속 방지
+      if (cancelled || !ad || prerollShownRef.current) return;
       // Tier별 SKIP 정책 override
       const skipOverride = subscriptionTier === "basic" ? 5 : null;  // free=null(SKIP 불가)
       postBunnyCommand(iframeRef.current, "pause");
