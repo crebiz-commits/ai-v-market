@@ -36,6 +36,8 @@ const ACTION_META: Record<string, { label: string; icon: typeof User; color: str
   report_dismiss:         { label: "신고 무효 처리",        icon: Flag,       color: "text-gray-400" },
   sponsor_approve:        { label: "협찬 표시 승인",        icon: Sparkles,   color: "text-emerald-400" },
   sponsor_reject:         { label: "협찬 표시 반려",        icon: Sparkles,   color: "text-red-400" },
+  clawback_add:           { label: "클로백 등록",          icon: RotateCcw,  color: "text-red-400" },
+  clawback_resolve:       { label: "클로백 처리",          icon: RotateCcw,  color: "text-amber-300" },
 };
 
 const ACTIONS_FILTER = [

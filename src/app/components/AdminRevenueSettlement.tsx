@@ -25,6 +25,22 @@ interface Distribution {
   payout_holder?: string | null;
 }
 
+// F3: 정산 클로백(지급완료 월 환불 → 수동 차감) 원장 행
+interface Clawback {
+  id: number;
+  creator_id: string | null;
+  creator_name: string | null;
+  period_start: string;
+  amount: number;
+  source_type: string;
+  source_ref: string | null;
+  reason: string | null;
+  status: string;
+  note: string | null;
+  created_at: string;
+  resolved_at: string | null;
+}
+
 const TAX_TYPE_LABEL: Record<string, string> = {
   individual: "비사업자",
   business_simple: "간이과세자",
@@ -64,6 +80,8 @@ export function AdminRevenueSettlement() {
   const [running, setRunning] = useState(false);
   const [downloadingCsv, setDownloadingCsv] = useState(false);
   const [payingId, setPayingId] = useState<number | null>(null);
+  const [clawbacks, setClawbacks] = useState<Clawback[]>([]);
+  const [resolvingId, setResolvingId] = useState<number | null>(null);
 
   // Phase 32 — 연말정산 CSV 다운로드 (현재 선택된 연도 기준)
   const handleDownloadCsv = async () => {
@@ -125,6 +143,31 @@ export function AdminRevenueSettlement() {
   };
 
   useEffect(() => { loadDistributions(year, month); }, [year, month]);
+
+  // F3: 지급완료 월 환불로 등록된 클로백(수동 차감 대기) 조회
+  const loadClawbacks = async () => {
+    const { data, error } = await supabase.rpc("admin_list_clawbacks", { p_status: "pending" });
+    if (error) { console.warn("[AdminRevenueSettlement] 클로백 조회 실패:", error.message); return; }
+    setClawbacks((data as Clawback[]) || []);
+  };
+  useEffect(() => { loadClawbacks(); }, []);
+
+  const resolveClawback = async (c: Clawback, status: "applied" | "waived") => {
+    const label = status === "applied" ? "차감 반영 완료" : "면제";
+    let note: string | null = null;
+    if (status === "waived") {
+      const r = window.prompt("면제 사유 (선택):", "");
+      if (r === null) return;              // 취소
+      note = r.trim() || null;
+    }
+    if (!confirm(`[${c.creator_name || "크리에이터"}] ₩${c.amount.toLocaleString()} 클로백을 '${label}' 처리할까요?`)) return;
+    setResolvingId(c.id);
+    const { error } = await supabase.rpc("admin_resolve_clawback", { p_id: c.id, p_status: status, p_note: note });
+    setResolvingId(null);
+    if (error) { toast.error("처리 실패: " + error.message); return; }
+    toast.success(`클로백 ${label} 처리됨`);
+    setClawbacks((cur) => cur.filter((x) => x.id !== c.id));
+  };
 
   const runSettlement = async () => {
     if (!confirm(`${year}년 ${month}월 정산을 실행하시겠습니까?\n(재실행 안전 — 이미 지급된 항목은 보존됩니다)`)) {
@@ -269,6 +312,49 @@ export function AdminRevenueSettlement() {
           </ul>
         </div>
       </div>
+
+      {/* F3: 클로백 대기 — 지급완료 월에 환불 발생 → 다음 정산에서 수동 차감 */}
+      {clawbacks.length > 0 && (
+        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/5 p-3">
+          <p className="text-sm font-bold text-red-300 flex items-center gap-1.5 mb-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            클로백 대기 {clawbacks.length}건 — 지급완료 월에 환불 발생, 다음 정산에서 차감 필요
+          </p>
+          <div className="space-y-2">
+            {clawbacks.map((c) => (
+              <div key={c.id} className="flex items-center gap-2 flex-wrap bg-card border border-border rounded-lg p-2.5 text-xs">
+                <span className="font-semibold">{c.creator_name || (c.creator_id ? c.creator_id.slice(0, 8) : "—")}</span>
+                <span className="text-muted-foreground">
+                  {new Date(c.period_start).toLocaleDateString("ko-KR", { year: "numeric", month: "long" })}
+                </span>
+                <span className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-bold">{c.source_type}</span>
+                <span className="font-mono font-bold text-red-300">-{won(c.amount)}</span>
+                {c.reason && <span className="text-muted-foreground/80 truncate max-w-[220px]">{c.reason}</span>}
+                <div className="ml-auto flex gap-1.5">
+                  <Button
+                    size="sm" variant="outline" disabled={resolvingId === c.id}
+                    onClick={() => resolveClawback(c, "applied")}
+                    className="h-7 gap-1 text-green-400 border-green-500/30"
+                  >
+                    {resolvingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    차감 완료
+                  </Button>
+                  <Button
+                    size="sm" variant="outline" disabled={resolvingId === c.id}
+                    onClick={() => resolveClawback(c, "waived")}
+                    className="h-7 text-muted-foreground"
+                  >
+                    면제
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-red-200/70 mt-2">
+            [차감 완료] = 다음 지급 시 이 금액만큼 차감해 반영했음. [면제] = 회수하지 않고 플랫폼 부담.
+          </p>
+        </div>
+      )}
 
       {/* 요약 통계 */}
       <div className="grid grid-cols-3 gap-3 mb-4">
