@@ -466,9 +466,12 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
   );
 
   // Phase 26 보강: 카드용 age_rating 일괄 조회
+  // ⚠️ 영상이 표시되는 모든 소스를 포함해야 함 — 누락 시 등급 미조회(undefined) → shouldBlur fail-open(19금 무블러 노출).
   const allVideoIds = useMemo(
-    () => [...visibleVideos, ...trendingVideos].map((v) => v.id).filter((id) => !id.startsWith("demo-")),
-    [visibleVideos, trendingVideos],
+    () => [...visibleVideos, ...trendingVideos, ...categoryRows.flatMap((r) => r.videos), ...previewVideos, ...watchHistory]
+      .map((v) => v.id)
+      .filter((id) => !id.startsWith("demo-")),
+    [visibleVideos, trendingVideos, categoryRows, previewVideos, watchHistory],
   );
   const ageRatings = useAgeRatings(allVideoIds);
 
@@ -545,22 +548,28 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
                   {/* 입력 중: 매칭 영상 썸네일 미리보기(유튜브식) */}
                   {query.trim().length >= 2 && previewVideos.length > 0 && (
                     <div className="py-1 border-t border-white/5">
-                      {previewVideos.map((v) => (
-                        <button
-                          key={`pv-${v.id}`}
-                          type="button"
-                          onMouseDown={(e) => { e.preventDefault(); setShowDropdown(false); handleClickVideo(v); }}
-                          className="w-full flex items-center gap-3 px-3 py-2 hover:bg-white/5 transition-colors text-left"
-                        >
-                          <div className="w-16 aspect-video rounded bg-black overflow-hidden flex-shrink-0">
-                            {v.thumbnail ? <img src={v.thumbnail} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Play className="w-4 h-4 text-gray-700" /></div>}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-gray-200 truncate">{v.title}</p>
-                            <p className="text-[11px] text-gray-500 truncate">{v.creator_display_name || v.creator}</p>
-                          </div>
-                        </button>
-                      ))}
+                      {previewVideos.map((v) => {
+                        const rating = ageRatings[v.id];
+                        const isMyVideo = !!user?.id && !!v.creator_id && user.id === v.creator_id;
+                        const isAgeLocked = !isMyVideo && shouldBlur(rating, ageVerified);
+                        return (
+                          <button
+                            key={`pv-${v.id}`}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); setShowDropdown(false); handleClickVideo(v); }}
+                            className="w-full flex items-center gap-3 px-3 py-2 hover:bg-white/5 transition-colors text-left"
+                          >
+                            <div className="relative w-16 aspect-video rounded bg-black overflow-hidden flex-shrink-0">
+                              {v.thumbnail ? <img src={v.thumbnail} alt="" className={`w-full h-full object-cover ${isAgeLocked ? "blur-md scale-110" : ""}`} /> : <div className="w-full h-full flex items-center justify-center"><Play className="w-4 h-4 text-gray-700" /></div>}
+                              {isAgeLocked && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><span className="text-[9px] font-bold text-white/90">19+</span></div>}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-gray-200 truncate">{v.title}</p>
+                              <p className="text-[11px] text-gray-500 truncate">{v.creator_display_name || v.creator}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
 
@@ -727,15 +736,21 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
               <section>
                 <p className="text-sm font-bold text-white mb-3 flex items-center gap-1.5"><Clock className="w-4 h-4" /> {t("searchPage.continueWatching", "이어보기")}</p>
                 <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {watchHistory.map((v) => (
-                    <button key={v.id} onClick={() => handleClickVideo(v)} className="flex-shrink-0 w-40 text-left group">
-                      <div className="relative aspect-video rounded-lg bg-black overflow-hidden mb-1.5">
-                        {v.thumbnail ? <img src={v.thumbnail} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" /> : <div className="w-full h-full flex items-center justify-center"><Play className="w-6 h-6 text-gray-700" /></div>}
-                      </div>
-                      <p className="text-xs text-gray-200 line-clamp-2">{v.title}</p>
-                      <p className="text-[11px] text-gray-500 truncate mt-0.5">{v.creator_display_name || v.creator}</p>
-                    </button>
-                  ))}
+                  {watchHistory.map((v) => {
+                    const rating = ageRatings[v.id];
+                    const isMyVideo = !!user?.id && !!v.creator_id && user.id === v.creator_id;
+                    const isAgeLocked = !isMyVideo && shouldBlur(rating, ageVerified);
+                    return (
+                      <button key={v.id} onClick={() => handleClickVideo(v)} className="flex-shrink-0 w-40 text-left group">
+                        <div className="relative aspect-video rounded-lg bg-black overflow-hidden mb-1.5">
+                          {v.thumbnail ? <img src={v.thumbnail} alt="" className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${isAgeLocked ? "blur-xl scale-110" : ""}`} /> : <div className="w-full h-full flex items-center justify-center"><Play className="w-6 h-6 text-gray-700" /></div>}
+                          {isAgeLocked && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><span className="text-[11px] font-bold text-white/90 px-2 py-0.5 rounded-full bg-black/60">19+</span></div>}
+                        </div>
+                        <p className="text-xs text-gray-200 line-clamp-2">{v.title}</p>
+                        <p className="text-[11px] text-gray-500 truncate mt-0.5">{v.creator_display_name || v.creator}</p>
+                      </button>
+                    );
+                  })}
                 </div>
               </section>
             )}
@@ -1046,36 +1061,6 @@ function CreatorRow({ creator, onClick }: { creator: CreatorResult; onClick: () 
         </div>
       </div>
     </motion.button>
-  );
-}
-
-function EmptyInitial({ popular, onPick }: { popular: PopularQuery[]; onPick: (q: string) => void }) {
-  const { t } = useTranslation();
-  return (
-    <div className="py-12 text-center">
-      <Search className="w-12 h-12 text-gray-700 mx-auto mb-3" />
-      <p className="text-sm text-gray-500 mb-6">{t("searchPage.introHelper")}</p>
-      {popular.length > 0 && (
-        <div className="max-w-md mx-auto text-left">
-          <p className="text-[11px] font-bold text-gray-500 uppercase mb-2 flex items-center gap-1.5">
-            <TrendingUp className="w-3.5 h-3.5" /> {t("searchPage.trendingHeader")}
-          </p>
-          <div className="space-y-1">
-            {popular.slice(0, 5).map((p, i) => (
-              <button
-                key={p.query}
-                onClick={() => onPick(p.query)}
-                className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 transition-colors flex items-center gap-3"
-              >
-                <span className="text-sm font-bold text-[#8b5cf6] w-4">{i + 1}</span>
-                <span className="text-sm text-gray-300 flex-1 truncate">{p.query}</span>
-                <span className="text-[10px] text-gray-600">{t("searchPage.hitCount", { count: p.hit_count })}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 
