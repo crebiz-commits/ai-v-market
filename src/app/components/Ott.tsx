@@ -51,6 +51,7 @@ interface Product {
 interface OttProps {
   onProductClick: (product: Product) => void;
   onPlayProduct?: (product: Product) => void;   // 히어로 "지금 보기" → 상세 + 전체화면 재생
+  onAddToCart?: (product: Product) => void;     // 카드 '+' → 라이선스 담기 (OTT도 마켓 대상)
   onNavigate?: (tab: string) => void;
   // 풀블리드 히어로 스크롤 시 글로벌 헤더 배경 토글 (App.tsx)
   onHeroScroll?: (scrolled: boolean) => void;
@@ -157,7 +158,7 @@ const heroSrcCache = new Map<string, HeroSrc>();
 //   실제 highlight_start(상세페이지 하이라이트용)는 DB 그대로 불변 — 히어로 재생 지점만 얕게.
 const HERO_MAX_SEEK_SEC = 90;
 
-export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }: OttProps) {
+export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, onHeroScroll }: OttProps) {
   const { t } = useTranslation();
   const { profile, user } = useAuth();
   const showcase = shouldShowShowcase(profile?.is_admin);
@@ -220,6 +221,12 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
   // 핸들러 안정화 — 매 렌더 새 참조로 memo 자식(CategoryRow/HeroBillboard)이 리렌더되던 것 방지
   const handleClick = useCallback((v: CarouselVideo) => onProductClick(toProduct(v)), [onProductClick]);
   const handlePlay = useCallback((v: CarouselVideo) => (onPlayProduct ?? onProductClick)(toProduct(v)), [onPlayProduct, onProductClick]);
+  // 카드 '+' → 라이선스 담기. OTT 영상도 마켓 판매 대상(price_standard>0)이면 담김.
+  //   미주입 시 undefined → 카트 버튼/배지 자체가 숨겨짐.
+  const handleAddToCart = useMemo(
+    () => (onAddToCart ? (v: CarouselVideo) => onAddToCart(toProduct(v)) : undefined),
+    [onAddToCart]
+  );
   const toggleHeroMute = useCallback(() => setHeroMuted((m) => !m), []);
 
   // 시간대 무드 편성 — 접속 시각에 따라 카테고리 행 순서 재배치 ("기타"는 항상 맨 뒤)
@@ -452,6 +459,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
             subtitle={t("ott.selectSubtitle", "에디터가 보증하는 공식 선정작")}
             videos={selectVideos}
             onVideoClick={handleClick}
+            onAddToCart={handleAddToCart}
             ageRatings={ageRatings} seriesCounts={seriesCounts}
             cardWidthClass="w-80 md:w-[30rem]"
           />
@@ -487,6 +495,7 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
             dir={i % 2 === 0 ? "right" : "left"}
             highlighted={row.isFormat || band.order.includes(getGenreStyle(row.category).key)}
             onClick={handleClick}
+            onAddToCart={handleAddToCart}
             ageGuard={ageGuard}
             seriesCounts={seriesCounts}
             onUpload={goUpload}
@@ -715,6 +724,7 @@ const CategoryRow = memo(function CategoryRow({
   dir,
   highlighted,
   onClick,
+  onAddToCart,
   ageGuard,
   seriesCounts,
   onUpload,
@@ -724,6 +734,7 @@ const CategoryRow = memo(function CategoryRow({
   dir: "left" | "right";
   highlighted?: boolean;
   onClick: (v: CarouselVideo) => void;
+  onAddToCart?: (v: CarouselVideo) => void;   // 카드 '+' → 담기. 미주입 시 배지 숨김
   ageGuard: AgeGuard;
   seriesCounts?: Record<string, number>;
   onUpload?: () => void;   // BETA_MODE: 넘기면 베타 카드로 8칸 채움 + 우측 CTA
@@ -896,8 +907,13 @@ const CategoryRow = memo(function CategoryRow({
                     </div>
                   )}
 
-                  {!g.isAgeLocked && (
-                    <span className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 backdrop-blur border border-white/30 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity">
+                  {!g.isAgeLocked && onAddToCart && (
+                    <span
+                      role="button"
+                      aria-label={t("videoRow.addToCart", "장바구니")}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddToCart(v); }}
+                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 backdrop-blur border border-white/30 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity hover:border-white hover:bg-black/70"
+                    >
                       <Plus className="w-4 h-4 text-white" />
                     </span>
                   )}

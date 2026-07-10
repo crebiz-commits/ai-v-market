@@ -947,7 +947,7 @@ function AppContent() {
       case "market":
         return <Cinema onProductClick={setSelectedProduct} onAddToCart={(p) => addToCart(p)} tier="cinema" onNavigate={(tab, sub) => { setActiveTab(tab as Tab); if (tab === "community" && sub) setPendingCommunityTab(sub); }} onViewCreator={handleViewCreator} onSignInClick={() => setShowAuthModal(true)} />;
       case "ott":
-        return <Ott onProductClick={setSelectedProduct} onPlayProduct={playProduct} onNavigate={(tab) => setActiveTab(tab as Tab)} onHeroScroll={setHeroScrolled} />;
+        return <Ott onProductClick={setSelectedProduct} onPlayProduct={playProduct} onAddToCart={(p) => addToCart(p)} onNavigate={(tab) => setActiveTab(tab as Tab)} onHeroScroll={setHeroScrolled} />;
       case "upload":
         return <Upload onSignInClick={() => setShowAuthModal(true)} onViewMyProducts={() => setActiveTab("mypage")} onNavigate={(tab) => setActiveTab(tab as Tab)} challengeContext={pendingChallenge} onChallengeContextConsumed={() => setPendingChallenge(null)} />;
       case "community":
