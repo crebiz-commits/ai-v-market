@@ -341,8 +341,9 @@ function AppContent() {
     const currentTabInUrl = params.get("tab");
     if (activeTab === "discovery") {
       if (currentTabInUrl) {
-        // 홈 진입 시 ?tab= 제거
+        // 홈 진입 시 ?tab= 제거 (검색어 q 도 함께 정리)
         params.delete("tab");
+        params.delete("q");
         const newSearch = params.toString();
         const newUrl = newSearch ? `${window.location.pathname}?${newSearch}` : window.location.pathname;
         window.history.pushState({ tab: "discovery" }, "", newUrl);
@@ -350,6 +351,7 @@ function AppContent() {
     } else if (currentTabInUrl !== activeTab) {
       // 새 탭 진입 시 ?tab=XXX 추가 (history 스택 적립 → 뒤로가기로 복원 가능)
       params.set("tab", activeTab);
+      if (activeTab !== "search") params.delete("q");   // 검색 외 탭엔 q 불필요
       window.history.pushState({ tab: activeTab }, "", `${window.location.pathname}?${params.toString()}`);
     }
   }, [activeTab]);
@@ -367,6 +369,8 @@ function AppContent() {
         return;
       }
       const tabFromUrl = params.get("tab") as Tab | null;
+      // 검색 탭으로 복귀 시 URL 의 q 를 검색어로 반영(SearchPage remount 시 그 검색어로 자동검색)
+      if (tabFromUrl === "search") setPendingSearchQuery(params.get("q") || "");
       setActiveTab(tabFromUrl || "discovery");
     };
     window.addEventListener("popstate", handler);
@@ -407,7 +411,12 @@ function AppContent() {
   // 협업 문의 알림 딥링크 → 해당 협업 글 상세 모달 자동 열기
   const [pendingCollabPostId, setPendingCollabPostId] = useState<string | null>(null);
   // 데스크탑 홈 검색바 → SearchPage 초기 검색어 전달 (2026-06-11)
-  const [pendingSearchQuery, setPendingSearchQuery] = useState("");
+  //   초기값은 URL(?tab=search&q=)에서 시드 → 새로고침·링크공유 시 검색어 복원 (2026-07-10)
+  const [pendingSearchQuery, setPendingSearchQuery] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const p = new URLSearchParams(window.location.search);
+    return p.get("tab") === "search" ? (p.get("q") || "") : "";
+  });
   // 고객센터 답변 알림(?support=) → 해당 문의로 스크롤 (2026-06-11)
   const [pendingSupportId, setPendingSupportId] = useState<string | null>(null);
   // R3(2026-06-11): 커뮤니티 글/챌린지 공유·알림 딥링크 → 해당 상세 자동 열기
@@ -420,6 +429,16 @@ function AppContent() {
     setSelectedProduct(null);
     setActiveTab("channel");
   };
+  // 검색 확정 → URL(?tab=search&q=) 동기화. replaceState 라 검색마다 history 스택 안 쌓임.
+  //   새로고침·링크공유 시 pendingSearchQuery 초기 시드가 이 q 를 읽어 검색어 복원.
+  const handleSearchQueryCommit = useCallback((query: string) => {
+    setPendingSearchQuery(query);
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    params.set("tab", "search");
+    if (query) params.set("q", query); else params.delete("q");
+    window.history.replaceState({ tab: "search" }, "", `${window.location.pathname}?${params.toString()}`);
+  }, []);
   // Phase 16/17: 영상 ID로 ProductDetail 열기 (시청 기록 클릭, 연속 재생 등에서 재사용)
   const loadAndOpenVideo = async (videoId: string, opts?: { openComments?: boolean }) => {
     try {
@@ -987,6 +1006,7 @@ function AppContent() {
             onProductClick={setSelectedProduct}
             onViewCreator={handleViewCreator}
             initialQuery={pendingSearchQuery}
+            onQueryCommit={handleSearchQueryCommit}
             onClose={() => { setPendingSearchQuery(""); setActiveTab("discovery"); }}
             onNavigate={(tab) => setActiveTab(tab as Tab)}
           />

@@ -90,6 +90,7 @@ interface SearchPageProps {
   initialQuery?: string;   // 외부(홈 검색바 등)에서 넘긴 초기 검색어 → 마운트 시 자동 검색
   onClose?: () => void;
   onNavigate?: (tab: string) => void;
+  onQueryCommit?: (query: string) => void;   // 검색 확정 시 부모에 통지 → URL(?q=) 동기화(새로고침/공유 복원)
 }
 
 // 2026-05-27 카테고리·장르·AI툴 통일 (Upload 와 동일)
@@ -138,7 +139,7 @@ function saveHistory(query: string) {
   }
 }
 
-export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClose, onNavigate }: SearchPageProps) {
+export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClose, onNavigate, onQueryCommit }: SearchPageProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState(initialQuery || "");
   const [submittedQuery, setSubmittedQuery] = useState(""); // 실제 검색이 실행된 쿼리
@@ -305,6 +306,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
     const seq = ++searchSeqRef.current;
     const trimmed = q.trim();
     setSubmittedQuery(trimmed);
+    onQueryCommit?.(trimmed);   // URL(?q=) 동기화 — 새로고침/링크공유 시 검색어 복원
     setShowDropdown(false);
 
     if (trimmed) {
@@ -363,7 +365,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
     } finally {
       if (seq === searchSeqRef.current) setLoading(false);
     }
-  }, [category, aiTool, durationIdx, sort]);
+  }, [category, aiTool, durationIdx, sort, onQueryCommit]);
 
   // 검색결과 더보기 — 현재 필터/정렬 유지하며 다음 60개 이어붙임(중복 id 제외)
   const loadMoreResults = useCallback(async () => {
