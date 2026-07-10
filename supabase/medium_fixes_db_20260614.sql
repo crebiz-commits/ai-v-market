@@ -31,6 +31,9 @@ END;
 $fn$;
 
 -- 2) 팔로워 새영상 알림 — opt-in 정렬: 설정 행/값 없으면 미발송(false)
+-- ⚠️ SUPERSEDED (2026-07-10): 이 정의(email opt-in 게이트, 전 행 OFF)는 구버전.
+--    최신 SSOT = notification_audit2_20260710.sql. 이 파일 재실행 금지 — 새 영상 벨이
+--    email opt-in(기본 OFF) 게이트로 회귀해 대부분 팔로워가 벨을 못 받게 됨.
 CREATE OR REPLACE FUNCTION public.tg_notify_followers_new_video()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
 AS $fn$

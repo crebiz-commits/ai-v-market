@@ -16,6 +16,8 @@
 ALTER TABLE public.notification_preferences
   ADD COLUMN IF NOT EXISTS inapp_new_video_from_followed BOOLEAN NOT NULL DEFAULT true;
 
+-- ⚠️ SUPERSEDED (2026-07-10): 이 정의(AFTER INSERT)는 검수통과(UPDATE) 시 미발동이라 발송 0건.
+--    최신 SSOT = notification_audit2_20260710.sql (AFTER INSERT OR UPDATE, 검수통과 발동). 이 블록 재실행 금지.
 CREATE OR REPLACE FUNCTION public.tg_notify_followers_new_video()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
 AS $fn$

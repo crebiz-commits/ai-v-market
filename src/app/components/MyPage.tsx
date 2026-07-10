@@ -446,14 +446,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
   const [activeTab, setActiveTab] = useState("profile");
-  // 알림 클릭 등 외부에서 특정 탭으로 진입 (예: 결제 알림 → settings 의 결제내역)
-  useEffect(() => {
-    const VALID = ['profile', 'purchases', 'sales', 'comments', 'history', 'playlists', 'settings'];
-    if (initialTab && VALID.includes(initialTab)) {
-      setActiveTab(initialTab);
-      onInitialTabConsumed?.();
-    }
-  }, [initialTab, onInitialTabConsumed]);
+  // (외부 딥링크 → 특정 탭 진입 효과는 isCreator 정의 이후로 이동 — creator 전용 탭 진입 시 모드 강제 필요)
   const [pageMode, setPageMode] = useState<PageMode>(() => {
     if (typeof window === 'undefined') return 'select';
     const saved = localStorage.getItem(PAGE_MODE_STORAGE_KEY);
@@ -1002,14 +995,33 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   const tierMeta = tierMetaMap[subscriptionTier] ?? tierMetaMap.free;
   const TierIcon = tierMeta.icon;
 
+  // 알림 클릭 등 외부에서 특정 탭으로 진입 (예: 결제 알림 → settings, 판매 알림 → sales).
+  //   creator 전용 탭(sales/comments)으로 딥링크 진입 시 creator 모드를 강제하지 않으면
+  //   아래 리다이렉트/모드선택 화면에 막혀 목적지 탭이 안 열림 → isCreator 정의 이후에 배치.
+  useEffect(() => {
+    const VALID = ['profile', 'purchases', 'sales', 'comments', 'history', 'playlists', 'settings'];
+    if (initialTab && VALID.includes(initialTab)) {
+      // 판매/댓글 알림 수신자는 크리에이터 → creator 모드 즉시 강제(로딩 전이라도).
+      //   비크리에이터가 링크를 조작해 와도 아래 리다이렉트(!isCreator)가 profile로 되돌려 안전.
+      if (initialTab === 'sales' || initialTab === 'comments') {
+        setPageMode('creator');
+        try { localStorage.setItem(PAGE_MODE_STORAGE_KEY, 'creator'); } catch { /* noop */ }
+      }
+      setActiveTab(initialTab);
+      onInitialTabConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTab]);
+
   // 사용자가 비크리에이터인데 sales 탭이 활성화돼 있으면 profile로 리다이렉트
   // user 모드인데 sales 탭, creator 모드인데 purchases 탭이면 profile로
   useEffect(() => {
+    if (loading) return;   // 크리에이터 데이터 로딩 완료 후에만 판단 — 딥링크 sales 진입이 로딩중 isCreator=false 로 튕기는 것 방지
     if (!isCreator && activeTab === 'sales') setActiveTab('profile');
     if (pageMode === 'user' && activeTab === 'sales') setActiveTab('profile');
     if (pageMode === 'creator' && activeTab === 'purchases') setActiveTab('profile');
     if ((pageMode !== 'creator' || !isCreator) && activeTab === 'comments') setActiveTab('profile');
-  }, [isCreator, activeTab, pageMode]);
+  }, [isCreator, activeTab, pageMode, loading]);
 
   const [showCommentSettings, setShowCommentSettings] = useState(false);
   // Phase 22: 영상 편집 모달

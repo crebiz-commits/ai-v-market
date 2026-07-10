@@ -17,6 +17,9 @@ ALTER TABLE public.notification_preferences ALTER COLUMN push_new_video_from_fol
 UPDATE public.notification_preferences SET email_new_video_from_followed = false, push_new_video_from_followed = false;
 
 -- 2) 새 영상 → 팔로워 벨 알림 트리거
+-- ⚠️ SUPERSEDED (2026-07-10): 이 정의(AFTER INSERT + email 게이트)는 구버전.
+--    최신 SSOT = notification_audit2_20260710.sql (AFTER INSERT OR UPDATE, 검수통과 발동, inapp 게이트).
+--    이 파일 재실행 금지 — 새 영상 벨이 다시 발송 0건으로 회귀함.
 CREATE OR REPLACE FUNCTION public.tg_notify_followers_new_video()
 RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
