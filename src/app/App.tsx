@@ -163,6 +163,19 @@ interface VideoProduct {
   highlightEnd?: number;
 }
 
+// OAuth(구글·카카오) 리다이렉트 실패/취소 스냅샷 — Supabase SDK(detectSessionInUrl)가
+//   URL 해시를 지우기 전(모듈 로드 시점)에 캡처. implicit flow는 #error=, PKCE는 ?error=.
+const OAUTH_REDIRECT_ERROR: { code: string; desc: string } | null = (() => {
+  if (typeof window === "undefined") return null;
+  try {
+    const h = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const q = new URLSearchParams(window.location.search);
+    const code = h.get("error") || q.get("error");
+    if (!code) return null;
+    return { code, desc: h.get("error_description") || q.get("error_description") || "" };
+  } catch { return null; }
+})();
+
 function AppContent() {
   // 개발자 전용 프리뷰 모드 (URL ?preview=*) — 모두 lazy load됨
   const previewParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("preview") : null;
@@ -582,6 +595,17 @@ function AppContent() {
     if (tabParam === "channel" && creator) setPendingCreatorId(creator);     // 새 팔로워 알림
     if (params.get("support")) { setPendingSupportId(params.get("support")); setActiveTab("support"); }  // 고객센터 답변 알림
     // 첫 마운트만 — loadAndOpenVideo 는 closure 로 안정적
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // OAuth(구글·카카오) 로그인 실패·취소 안내 — 성공만 파싱하던 갭 보완(취소 시 조용히 홈 복귀하던 것).
+  useEffect(() => {
+    if (!OAUTH_REDIRECT_ERROR) return;
+    const { code, desc } = OAUTH_REDIRECT_ERROR;
+    const canceled = /access_denied|cancel|denied/i.test(`${code} ${desc}`);
+    if (canceled) toast.info(t("auth.oauthCanceled"));
+    else toast.error(t("auth.loginFail") + (desc ? `: ${desc}` : ""));
+    window.history.replaceState({}, "", window.location.pathname);  // 에러 흔적 제거
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

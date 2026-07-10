@@ -24,6 +24,7 @@
     "loggingIn": "로그인 중...",
     "loginSuccess": "로그인되었습니다",
     "loginFail": "로그인 실패",
+    "oauthCanceled": "로그인이 취소되었습니다.",
     "logoutSuccess": "로그아웃되었습니다",
     "forgotPassword": "비밀번호 찾기",
     "rememberMe": "로그인 유지",
