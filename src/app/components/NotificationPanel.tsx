@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, useId } from "react";
 import { X, Bell, Heart, MessageCircle, ShoppingBag, TrendingUp, Zap, CheckCheck, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
@@ -91,6 +91,9 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);   // 이동 대상 없는 긴 공지/시스템 알림 전문 펼침
   const seenIdsRef = useRef<Set<string>>(new Set());   // fetch+실시간 공통 dedup — 중복 INSERT/재전송 시 미읽음 이중집계 방지
+  // 인스턴스별 고유 채널 접미사 — 이 패널은 App 에서 데스크탑 드로어+모바일 시트 두 곳에 동시 마운트되므로,
+  //   채널 이름이 같으면 두 번째 인스턴스의 .on() 이 "already subscribed" 로 던져 앱 전체가 크래시함.
+  const channelSuffix = useId().replace(/:/g, "");
 
   const fetchNotifications = useCallback(async () => {
     if (!isAuthenticated) {
@@ -137,7 +140,7 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
     const channel = supabase
-      .channel(`notif-panel-${user.id}`)
+      .channel(`notif-panel-${user.id}-${channelSuffix}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
@@ -151,7 +154,7 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, channelSuffix]);
 
   const markAllRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
