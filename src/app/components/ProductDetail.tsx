@@ -404,9 +404,12 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   }, [product.id]);
 
   // 19+ 영상 + 미인증 → 자동 연령게이트. 메타 로드 후 + 인증/로그인 상태 변화에 반응(재생 iframe 은 안 건드림).
+  //   대칭 닫힘(else): 인증 완료·비성인 영상으로 전환 시 잔존 게이트 자동 닫힘(모달이 재생 위에 남던 것 방지).
   useEffect(() => {
     if (videoMeta.age_rating === "19" && !profile?.age_verified && user?.id !== (product.creatorId || undefined)) {
       setAgeGateOpen(true);
+    } else {
+      setAgeGateOpen(false);
     }
   }, [videoMeta.age_rating, profile?.age_verified, user?.id, product.creatorId]);
 
@@ -471,6 +474,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   const tapFeedbackTimerRef = useRef<number | null>(null);
   // 미리보기 컷오프 보조 타이머(능동 재구독 인터벌 + 월클록 백스톱) 핸들 — 누수 방지용
   const cutoffTimersRef = useRef<{ interval?: number; wall?: number }>({});
+  const gotTimeupdateRef = useRef(false);   // player.js timeupdate 수신 여부 — 수신되면 월클록 백스톱 무력화(정상재생/일시정지 조기컷 방지)
 
   // 비구독자 미리보기 컷오프 — 영상 currentTime이 previewSeconds(기본 60초) 도달 시 차단
   // Bunny Stream Player의 player.js 프로토콜(postMessage)로 재생 위치 추적.
@@ -519,6 +523,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
 
       if (data?.event === "timeupdate" && data?.listener === LISTENER_ID) {
         gotTimeupdate = true;
+        gotTimeupdateRef.current = true;   // 정확한 영상시간 컷이 살아있음 → 월클록 백스톱 불필요
         const seconds = data?.value?.seconds ?? 0;
         if (seconds >= previewSeconds) {
           setCinemaCutoffTriggered(true);
@@ -574,6 +579,9 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       if (++tries >= 10) window.clearInterval(interval); // 최대 ~4초간 재시도
     }, 400);
     const wall = window.setTimeout(() => {
+      // timeupdate 가 한 번이라도 왔으면(정상 재생) 정확한 영상시간 컷이 담당 → 백스톱 미발동.
+      //   일시정지 방치로 실시간만 흐른 경우 조기컷 방지. player.js 완전 무응답일 때만 백스톱 발동.
+      if (gotTimeupdateRef.current) return;
       setCinemaCutoffTriggered(true);
       setPaywallReason("cinema_cutoff");
       setPaywallOpen(true);
@@ -701,6 +709,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     setIsPlaying(true);
     setTapFeedback(null);
     if (tapFeedbackTimerRef.current) window.clearTimeout(tapFeedbackTimerRef.current);
+    gotTimeupdateRef.current = false;   // 새 영상 — 이전 수신 이력으로 백스톱이 무력화돼 미리보기 우회되는 것 방지
     if (!product.id) return;
     let cancelled = false;
     (async () => {
@@ -880,6 +889,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
 
   useEffect(() => {
     if (iframeBlocked) return;
+    if (isPremium) return;  // Premium은 광고 제거 — preroll/bumper 와 동일 정책(오버레이 배너 누락돼 있던 걸 보완)
     if (!tokenReady) return;  // 토큰 발급 전엔 iframe 미마운트 — tokenReady가 deps에 있어 마운트 후 재실행됨
     if (!product.id || !durationSeconds || durationSeconds < 60) return;  // 1분 미만 제외
     const iframe = iframeRef.current;
@@ -947,7 +957,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       if (adTimer) clearTimeout(adTimer);
       window.removeEventListener("message", handleMessage);
     };
-  }, [product.id, durationSeconds, iframeBlocked, tokenReady]);
+  }, [product.id, durationSeconds, iframeBlocked, tokenReady, isPremium]);
 
   // ── Phase 28: Mid-roll 광고 (10분+ OTT 영상에 한정) ──
   const [midrollAd, setMidrollAd] = useState<AdRpcResult | null>(null);
