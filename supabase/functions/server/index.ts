@@ -1776,9 +1776,11 @@ app.post('/send-email', async (c) => {
 
     // ── 벨(in-app): inapp 게이트 후 기록 (설정에서 이 타입 벨을 끄면 스킵) ──
     //    inapp_<type> opt-out 컬럼 없는 타입은 should_send 가 fail-open=true 반환(발송 유지).
-    const { data: bellOn } = await supabase.rpc('should_send_notification',
+    const { data: bellOn, error: bellErr } = await supabase.rpc('should_send_notification',
       { p_user_id: user_id, p_type: type, p_channel: 'inapp' });
-    if (bellOn) {
+    if (bellErr) console.warn('[send-email] 벨 게이트 확인 실패(fail-open 유지):', bellErr);
+    // 명시 opt-out(false)만 스킵 — 오류/null 은 벨 유지(fail-open, SQL should_send 철학과 일치).
+    if (bellOn !== false) {
       try {
         await supabase.from('notifications').insert({
           user_id, type: inapp.type, title: inappTitle, body: inapp.body, link: inappLink, read: false,
