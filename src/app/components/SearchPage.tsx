@@ -4,7 +4,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from "react";
 import { UserAvatar } from "./UserAvatar";
-import { Search, X, Loader2, TrendingUp, Clock, Filter, ChevronDown, Eye, Heart, Play, Users, ArrowLeft, Lock } from "lucide-react";
+import { Search, X, Loader2, TrendingUp, Clock, Filter, ChevronDown, ChevronRight, Eye, Heart, Play, Users, ArrowLeft, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -169,6 +169,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
   const [previewVideos, setPreviewVideos] = useState<VideoResult[]>([]);   // 자동완성 드롭다운 썸네일 미리보기(유튜브식)
   const [watchHistory, setWatchHistory] = useState<VideoResult[]>([]);     // 이어보기(최근 시청)
   const [popularTags, setPopularTags] = useState<string[]>([]);            // 인기 태그(트렌딩 영상서 집계)
+  const [categoryRows, setCategoryRows] = useState<{ category: string; videos: VideoResult[] }[]>([]);  // 카테고리별 캐러셀
 
   const { profile, user } = useAuth();
   const ageVerified = profile?.age_verified ?? false;
@@ -201,21 +202,22 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
       const { data } = await supabase.rpc("get_popular_searches", { p_limit: 10, p_days: 7 });
       if (Array.isArray(data)) setPopular(data as PopularQuery[]);
     })();
-    // 지금 뜨는 영상 — 인기 홈피드 순서 top 8 (검색 전 허전함 방지). 안전뷰라 숨김/비공개 제외.
+    // 지금 뜨는 영상 + 카테고리별 캐러셀 — 인기 홈피드 순서 top~60 (검색 전 허전함 방지). 안전뷰라 숨김/비공개 제외.
     (async () => {
       const { data: order } = await supabase.rpc("get_home_feed_order", { p_filter: "popular" });
-      const ids = Array.isArray(order) ? (order as string[]).slice(0, 8) : [];
+      const ids = Array.isArray(order) ? (order as string[]).slice(0, 60) : [];
       if (ids.length === 0) return;
       const { data: rows } = await supabase.rpc("get_home_feed_by_ids", { p_ids: ids });
       if (!Array.isArray(rows)) return;
-      setTrendingVideos((rows as any[]).map((r) => ({
+      const mapped = (rows as any[]).map((r) => ({
         id: r.id, title: r.title, thumbnail: r.thumbnail, video_url: r.video_url,
         creator: r.creator, creator_id: r.creator_id, creator_display_name: r.creator, creator_avatar: null,
         category: r.category, ai_tool: r.ai_tool, duration: r.duration, duration_seconds: r.duration_seconds,
         views_count: typeof r.views === "string" && /^\d+$/.test(r.views) ? parseInt(r.views, 10) : (r.views ?? 0),
         likes: r.likes ?? 0, price_standard: r.price_standard,
-      } as VideoResult)));
-      // 인기 태그 집계 — 트렌딩 영상의 tags 빈도 top 12
+      } as VideoResult));
+      setTrendingVideos(mapped.slice(0, 8));   // 지금 뜨는 영상 그리드는 top 8
+      // 인기 태그 집계 — 영상 tags 빈도 top 12
       const freq = new Map<string, number>();
       for (const r of rows as any[]) {
         const tags = Array.isArray(r.tags) ? r.tags : [];
@@ -225,6 +227,20 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
         }
       }
       setPopularTags([...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([t]) => t));
+      // 카테고리별 캐러셀 — 카테고리로 그룹화, 4편 이상인 카테고리 상위 4개(각 최대 12편, 순서 보존)
+      const byCat = new Map<string, VideoResult[]>();
+      for (const v of mapped) {
+        const cat = (v.category || "").trim();
+        if (!cat) continue;
+        const arr = byCat.get(cat) || [];
+        if (arr.length < 12) arr.push(v);
+        byCat.set(cat, arr);
+      }
+      setCategoryRows([...byCat.entries()]
+        .filter(([, vids]) => vids.length >= 4)
+        .sort((a, b) => b[1].length - a[1].length)
+        .slice(0, 4)
+        .map(([category, videos]) => ({ category, videos })));
     })();
     // 추천 크리에이터 — 인기 크리에이터 top 8
     (async () => {
@@ -813,6 +829,33 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
                 </div>
               </section>
             )}
+
+            {/* 카테고리별 캐러셀 — 카테고리마다 가로 스크롤 행 */}
+            {categoryRows.map(({ category, videos }) => (
+              <section key={category}>
+                <button onClick={() => handleBrowseCategory(category)} className="group flex items-center gap-1 mb-3">
+                  <span className="text-sm font-bold text-white">{getCategoryLabel(category, t)}</span>
+                  <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                </button>
+                <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {videos.map((v) => {
+                    const rating = ageRatings[v.id];
+                    const isMyVideo = !!user?.id && !!v.creator_id && user.id === v.creator_id;
+                    const isAgeLocked = !isMyVideo && shouldBlur(rating, ageVerified);
+                    return (
+                      <button key={v.id} onClick={() => handleClickVideo(v)} className="flex-shrink-0 w-44 text-left group">
+                        <div className="relative aspect-video rounded-lg bg-black overflow-hidden mb-1.5">
+                          {v.thumbnail ? <img src={v.thumbnail} alt="" className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${isAgeLocked ? "blur-xl scale-110" : ""}`} /> : <div className="w-full h-full flex items-center justify-center"><Play className="w-6 h-6 text-gray-700" /></div>}
+                          {isAgeLocked && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><span className="text-[11px] font-bold text-white/90 px-2 py-0.5 rounded-full bg-black/60">19+</span></div>}
+                        </div>
+                        <p className="text-xs text-gray-200 line-clamp-2">{v.title}</p>
+                        <p className="text-[11px] text-gray-500 truncate mt-0.5">{v.creator_display_name || v.creator}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
 
             {/* 추천 크리에이터 */}
             {discoverCreators.length > 0 && (
