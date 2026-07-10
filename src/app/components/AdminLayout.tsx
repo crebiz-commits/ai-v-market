@@ -139,14 +139,16 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
     let cancelled = false;
     (async () => {
       try {
-        const [megaRes, bugRes, supRes] = await Promise.all([
+        const [megaRes, bugRes, supRes, sponRes] = await Promise.all([
           supabase.rpc("admin_list_upload_milestones"),
           supabase.from("bug_reports").select("id", { count: "exact", head: true }).eq("status", "new"),
           supabase.from("support_inquiries").select("id", { count: "exact", head: true }).eq("status", "open"),
+          supabase.rpc("admin_list_sponsored_videos", { p_filter: "pending" }),
         ]);
         if (cancelled) return;
         const megaPending = ((megaRes.data as any[]) || []).filter((m) => m.status === "pending").length;
-        setBadges({ mega: megaPending, bugs: bugRes.count || 0, support: supRes.count || 0 });
+        const sponPending = ((sponRes.data as any[]) || []).length;
+        setBadges({ mega: megaPending, bugs: bugRes.count || 0, support: supRes.count || 0, sponsorships: sponPending });
       } catch { /* 배지는 부가기능 — 실패 무시 */ }
     })();
     return () => { cancelled = true; };

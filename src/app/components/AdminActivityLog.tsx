@@ -1,6 +1,6 @@
 // 어드민 활동 로그 페이지 (Phase 10.7)
 import { useEffect, useState } from "react";
-import { Loader2, ClipboardList, RefreshCw, User, EyeOff, Eye, Trash2, RotateCcw, Megaphone, ShieldCheck, ShieldAlert, Ban, Flag } from "lucide-react";
+import { Loader2, ClipboardList, RefreshCw, User, EyeOff, Eye, Trash2, RotateCcw, Megaphone, ShieldCheck, ShieldAlert, Ban, Flag, Sparkles } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
@@ -34,6 +34,8 @@ const ACTION_META: Record<string, { label: string; icon: typeof User; color: str
   report_remove:          { label: "신고 반영·콘텐츠 제거", icon: EyeOff,     color: "text-red-400" },
   report_keep:            { label: "신고 기각·정상 판정",   icon: ShieldCheck, color: "text-green-400" },
   report_dismiss:         { label: "신고 무효 처리",        icon: Flag,       color: "text-gray-400" },
+  sponsor_approve:        { label: "협찬 표시 승인",        icon: Sparkles,   color: "text-emerald-400" },
+  sponsor_reject:         { label: "협찬 표시 반려",        icon: Sparkles,   color: "text-red-400" },
 };
 
 const ACTIONS_FILTER = [
