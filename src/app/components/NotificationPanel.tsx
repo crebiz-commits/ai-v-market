@@ -127,7 +127,10 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
 
   useEffect(() => {
     fetchNotifications();
-  }, [fetchNotifications]);
+    // 인증 상태 변화 시에만 재조회 — 콜백 정체성(SAMPLE/t 참조) 변화로 인한 재조회 루프
+    //   (→ "Maximum update depth" 크래시) 방지. 언어 변경 등 콜백 재생성엔 재조회 안 함.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id]);
 
   // 패널이 열려 있는 동안 새 알림 실시간 반영 — App 의 벨 카운트 구독(notif-<id>)과 별개 채널.
   //   새 INSERT 를 목록 맨 위에 끼우고 미읽음 총계 +1(벨은 App 구독이 자체 +1 → 여기선 report 안 해 이중집계 방지).
