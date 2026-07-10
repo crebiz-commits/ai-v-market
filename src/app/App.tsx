@@ -1230,18 +1230,6 @@ function AppContent() {
               <InstallButtonHeader />
             </div>
 
-            {/* Search — 데스크탑 상시 검색 진입(홈 외 화면에서도 검색 가능) */}
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => { setActivePanel(null); setActiveTab("search"); }}
-              aria-label={t("header.search", "검색")}
-              className={`p-2 rounded-lg hover:bg-white/5 transition-colors ${
-                activeTab === "search" ? "text-[#8b5cf6]" : "text-muted-foreground hover:text-white"
-              }`}
-            >
-              <Search className="w-5 h-5" />
-            </motion.button>
-
             {/* Language Switcher (Phase 35) */}
             <LanguageSwitcher variant="compact" />
 
