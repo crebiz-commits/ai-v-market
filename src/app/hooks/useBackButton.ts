@@ -21,6 +21,12 @@ export function isInternalBackEvent(): boolean {
   return internalBack;
 }
 
+// 열려 있는(useBackButton 등록) 오버레이가 하나라도 있는지 — ESC 로 back() 해도 될지 판단용.
+//   스택이 비면 back() 이 사이트 밖으로 이탈하므로 ESC 핸들러가 이걸로 가드해야 함.
+export function hasBackHandlers(): boolean {
+  return handlers.length > 0;
+}
+
 function attachGlobalListener() {
   if (listenerAttached) return;
   listenerAttached = true;

@@ -31,7 +31,7 @@ import { InstallButtonHeader, InstallBannerMobile } from "./components/InstallPr
 import { PushPrompt } from "./components/PushPrompt";
 import { CreaiteText } from "./components/CreaiteText";
 import { CreaiteLogo } from "./components/CreaiteLogo";
-import { useBackButton, isInternalBackEvent } from "./hooks/useBackButton";
+import { useBackButton, isInternalBackEvent, hasBackHandlers } from "./hooks/useBackButton";
 import { Button } from "./components/ui/button";
 import { handleBunnyError } from "./utils/bunnyErrorHandler";
 import { supabase } from "./utils/supabaseClient";
@@ -893,17 +893,18 @@ function AppContent() {
     setActivePanel(prev => prev === panel ? null : panel);
   };
 
-  // ESC 키로 뒤로가기 (열린 오버레이만 닫힘 — useBackButton이 popstate를 처리)
-  //   ⚠️ 열린 오버레이가 없을 때 back() 하면 사이트 밖(이전 페이지/빈 탭)으로 이탈 → 가드 필수.
+  // ESC 키로 뒤로가기 — 열린 오버레이(useBackButton 등록분)가 있을 때만 back().
+  //   ⚠️ 스택이 비었는데 back() 하면 사이트 밖으로 이탈. hasBackHandlers() 로 가드하면
+  //   App 레벨 오버레이(상품/패널/Auth)뿐 아니라 페이지 레벨 모달(햄버거·댓글패널·편집 등)도 LIFO 로 닫힘.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && (selectedProduct || activePanel || showAuthModal)) {
+      if (e.key === "Escape" && hasBackHandlers()) {
         window.history.back();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedProduct, activePanel, showAuthModal]);
+  }, []);
 
   // 모바일 뒤로가기로 모달 닫기
   useBackButton(!!selectedProduct, () => setSelectedProduct(null));
@@ -1113,7 +1114,8 @@ function AppContent() {
           <div className="flex items-center gap-1">
             <motion.button
               whileTap={{ scale: 0.9 }}
-              onClick={() => setActiveTab("search")}
+              onClick={() => { setActivePanel(null); setActiveTab("search"); }}
+              aria-label={t("header.search", "검색")}
               className={`p-2 transition-colors ${activeTab === "search" ? "text-[#8b5cf6]" : "text-muted-foreground hover:text-foreground"}`}
             >
               <Search className="w-[22px] h-[22px]" />
