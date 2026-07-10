@@ -590,7 +590,7 @@ function AppContent() {
   // OTT 홈 풀블리드 히어로: 헤더를 투명 오버레이로, 스크롤 내려가면 배경 생김
   const [heroScrolled, setHeroScrolled] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [pendingCartAdd, setPendingCartAdd] = useState<{ product: VideoProduct; licenseType: "standard" | "commercial" | "extended" } | null>(null);
+  const [pendingCartAdd, setPendingCartAdd] = useState<{ product: VideoProduct; licenseType: "standard" | "commercial" | "extended"; at: number } | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const { user, profile, signOut, isAuthenticated, loading, passwordRecovery } = useAuth();
   // 비로그인 사용자가 〈둘러보기〉 클릭 시 LandingPage → DiscoveryFeed 로 전환.
@@ -732,7 +732,7 @@ function AppContent() {
   const addToCart = useCallback(async (product: VideoProduct, licenseType: "standard" | "commercial" | "extended" = "standard"): Promise<boolean> => {
     // 비로그인 시: 로그인 모달 띄우고 항목을 보류 → 로그인 후 자동 추가
     if (!isAuthenticated || !user) {
-      setPendingCartAdd({ product, licenseType });
+      setPendingCartAdd({ product, licenseType, at: Date.now() });
       toast.info(t("app.cartPending"));
       setShowAuthModal(true);
       return false;
@@ -847,11 +847,15 @@ function AppContent() {
   }, [isAuthenticated, user?.id]);
 
   // 로그인 후 보류된 장바구니 항목 자동 추가
+  //   담기 시도 직후 로그인한 경우에만 이어서 추가. 로그인 없이 모달을 닫고 한참 뒤
+  //   무관한 로그인을 하면 '잊은 항목'이 몰래 담기므로, 10분 시간창을 벗어나면 폐기.
+  //   (AuthModal이 로그인 성공 시 onClose를 동기 호출 + isAuthenticated는 비동기 갱신이라,
+  //    '미인증이면 클리어' 방식은 자동추가를 깨뜨려 위험 → 타이밍 무관한 만료 방식 사용.)
   useEffect(() => {
     if (isAuthenticated && pendingCartAdd) {
-      const { product, licenseType } = pendingCartAdd;
+      const { product, licenseType, at } = pendingCartAdd;
       setPendingCartAdd(null);
-      addToCart(product, licenseType);
+      if (Date.now() - at < 10 * 60 * 1000) addToCart(product, licenseType);
     }
   }, [isAuthenticated, pendingCartAdd, addToCart]);
 
