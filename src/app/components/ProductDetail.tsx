@@ -1989,6 +1989,19 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                 onVideoClick={(v) => {
                   if (onNavigateToVideo) onNavigateToVideo(v.id);
                 }}
+                // 관련 영상도 담기 가능 — CarouselVideo → addToCart용 product 형태로 매핑.
+                //   가격은 price_standard(정본 판매가). 무료(₩0)/협의 영상은 App.addToCart 가드가 안내.
+                onAddToCart={onAddToCart ? (v) => {
+                  onAddToCart({
+                    id: v.id,
+                    title: v.title,
+                    thumbnail: v.thumbnail || "",
+                    creator: v.creator || "",
+                    creatorId: v.creator_id || undefined,
+                    price: v.price_standard || 0,
+                    priceStandard: v.price_standard || 0,
+                  }, "standard");
+                } : undefined}
               />
             </div>
           )}
