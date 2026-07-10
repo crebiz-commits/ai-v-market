@@ -725,8 +725,14 @@ function AppContent() {
     return () => document.removeEventListener("play", handleVideoPlay, true);
   }, []);
 
+  // 문서 제목·설명 언어 반응 — t 가 바뀌는(=언어 전환) 시점마다 갱신. <html lang> 동기화(i18n/index.ts)와 짝.
   useEffect(() => {
-    document.title = "CREAITE | 세계 최초 AI 시네마 OTT";
+    document.title = t("meta.title", "CREAITE | 세계 최초 AI 시네마 OTT");
+    const desc = document.querySelector('meta[name="description"]');
+    if (desc) desc.setAttribute("content", t("meta.description", desc.getAttribute("content") || ""));
+  }, [t]);
+
+  useEffect(() => {
     const handleError = (event: ErrorEvent) => {
       if (event.error) handleBunnyError(event.error);
       else if (event.message) handleBunnyError({ message: event.message });
