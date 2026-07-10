@@ -82,6 +82,8 @@ BEGIN
     email_revenue_settled         = COALESCE((p_settings->>'email_revenue_settled')::BOOLEAN, email_revenue_settled),
     email_report_result           = COALESCE((p_settings->>'email_report_result')::BOOLEAN, email_report_result),
     email_ad_budget_low           = COALESCE((p_settings->>'email_ad_budget_low')::BOOLEAN, email_ad_budget_low),
+    email_refund_completed        = COALESCE((p_settings->>'email_refund_completed')::BOOLEAN, email_refund_completed),
+    email_broadcast               = COALESCE((p_settings->>'email_broadcast')::BOOLEAN, email_broadcast),
     inapp_new_video_from_followed = COALESCE((p_settings->>'inapp_new_video_from_followed')::BOOLEAN, inapp_new_video_from_followed),
     push_welcome                  = COALESCE((p_settings->>'push_welcome')::BOOLEAN, push_welcome),
     push_subscription_receipt     = COALESCE((p_settings->>'push_subscription_receipt')::BOOLEAN, push_subscription_receipt),
@@ -91,6 +93,7 @@ BEGIN
     push_revenue_settled          = COALESCE((p_settings->>'push_revenue_settled')::BOOLEAN, push_revenue_settled),
     push_report_result            = COALESCE((p_settings->>'push_report_result')::BOOLEAN, push_report_result),
     push_ad_budget_low            = COALESCE((p_settings->>'push_ad_budget_low')::BOOLEAN, push_ad_budget_low),
+    push_refund_completed         = COALESCE((p_settings->>'push_refund_completed')::BOOLEAN, push_refund_completed),
     updated_at                    = now()
   WHERE user_id = v_user_id
   RETURNING * INTO v_row;
