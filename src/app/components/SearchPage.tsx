@@ -416,8 +416,10 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
     runSearch(query);
   };
 
-  const handlePickSuggestion = (text: string) => {
+  const handlePickSuggestion = (text: string, source?: string) => {
     setQuery(text);
+    // 크리에이터 제안은 크리에이터 탭으로 전환(영상 탭 텍스트검색만 되던 비대칭 해소)
+    if (source === "creator") setTab("creators");
     runSearch(text);
   };
 
@@ -532,7 +534,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
                         <button
                           key={`s-${i}`}
                           type="button"
-                          onMouseDown={(e) => { e.preventDefault(); handlePickSuggestion(s.suggestion); }}
+                          onMouseDown={(e) => { e.preventDefault(); handlePickSuggestion(s.suggestion, s.source); }}
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-white/5 transition-colors flex items-center gap-2"
                         >
                           <Search className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
