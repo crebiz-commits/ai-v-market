@@ -18,6 +18,7 @@ import { isNegotiationOnly } from "./utils/licensePricing";
 import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, Loader2, Crown, Users } from "lucide-react";
 import { HamburgerMenu } from "./components/HamburgerMenu";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "./components/ui/dropdown-menu";
 import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "react-i18next";
 
@@ -1279,17 +1280,34 @@ function AppContent() {
               <span className="hidden xl:inline">{t("nav.membership", "멤버십")}</span>
             </motion.button>
 
-            {/* Auth */}
+            {/* Auth — 프로필 아바타(그라데이션 링) 드롭다운: 마이페이지 / 로그아웃 */}
             {isAuthenticated ? (
-              <Button
-                onClick={signOut}
-                variant="outline"
-                size="sm"
-                className="gap-2 shrink-0 bg-transparent border-white/10 hover:bg-white/5 font-semibold"
-              >
-                <LogOut className="w-4 h-4 shrink-0" />
-                <span className="truncate max-w-[120px]">{profile?.display_name || user?.name}</span>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    aria-label={t("header.myAccount", "내 계정")}
+                    className="w-9 h-9 rounded-full p-[2px] shrink-0 bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] transition-shadow hover:shadow-lg hover:shadow-[#8b5cf6]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/60"
+                  >
+                    {profile?.avatar_url ? (
+                      <img src={profile.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      <span className="w-full h-full rounded-full bg-[#0d0d16] grid place-items-center text-[#a5b4fc] font-extrabold text-sm">
+                        {(profile?.display_name || user?.name || "C").charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[190px]">
+                  <div className="px-2 py-1.5 text-sm font-semibold text-white truncate">{profile?.display_name || user?.name}</div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => { setActivePanel(null); setActiveTab("mypage"); }} className="cursor-pointer gap-2">
+                    <User className="w-4 h-4" /> {t("header.myPage", "마이페이지")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={signOut} className="cursor-pointer gap-2 text-red-400 focus:text-red-400">
+                    <LogOut className="w-4 h-4" /> {t("header.signOut", "로그아웃")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button

@@ -850,7 +850,9 @@
     "selectLanguage": "언어 선택",
     "search": "검색",
     "myAccount": "내 계정",
-    "myChannel": "내 채널"
+    "myChannel": "내 채널",
+    "myPage": "마이페이지",
+    "signOut": "로그아웃"
   },
   "mypage": {
     "tabs": {
