@@ -32,6 +32,7 @@ i18n
     },
     fallbackLng: "ko",
     supportedLngs: SUPPORTED_LANGUAGES.map(l => l.code),
+    nonExplicitSupportedLngs: true,  // 'en-US'/'en-GB' 등 지역태그를 'en' 지원으로 인정(영어권 첫 방문이 영어로 시작)
     interpolation: {
       escapeValue: false, // React 가 이미 XSS 처리
     },
@@ -41,5 +42,13 @@ i18n
       caches: ["localStorage"],
     },
   });
+
+// <html lang> 동기화 — 스크린리더 음성엔진·검색크롤러·브라우저 번역이 올바른 언어를 인식하도록.
+//   index.html 은 lang="ko" 하드코딩이라, 감지/전환 결과를 런타임에 반영해야 함.
+if (typeof document !== "undefined") {
+  const applyLang = (lng?: string) => { document.documentElement.lang = (lng || "ko").split("-")[0]; };
+  applyLang(i18n.language);
+  i18n.on("languageChanged", applyLang);
+}
 
 export default i18n;
