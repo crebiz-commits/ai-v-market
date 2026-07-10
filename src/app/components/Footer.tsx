@@ -103,36 +103,24 @@ export function Footer({ onNavigate, mobile = false }: FooterProps) {
             <h3 className="text-xs font-black text-white uppercase tracking-widest mb-3">{t("footer.business")}</h3>
             <ul className="space-y-2">
               <li>
-                <button
-                  onClick={() => onNavigate("business")}
-                  className="text-sm text-gray-400 hover:text-white transition-colors"
-                >
+                <a href="?tab=business&bizcat=advertising" className="text-sm text-gray-400 hover:text-white transition-colors">
                   {t("business.categoryAd")}
-                </button>
+                </a>
               </li>
               <li>
-                <button
-                  onClick={() => onNavigate("business")}
-                  className="text-sm text-gray-400 hover:text-white transition-colors"
-                >
+                <a href="?tab=business&bizcat=investment" className="text-sm text-gray-400 hover:text-white transition-colors">
                   Investor / IR
-                </button>
+                </a>
               </li>
               <li>
-                <button
-                  onClick={() => onNavigate("business")}
-                  className="text-sm text-gray-400 hover:text-white transition-colors"
-                >
+                <a href="?tab=business&bizcat=partnership" className="text-sm text-gray-400 hover:text-white transition-colors">
                   {t("business.categoryPartnership")}
-                </button>
+                </a>
               </li>
               <li>
-                <button
-                  onClick={() => onNavigate("business")}
-                  className="text-sm text-gray-400 hover:text-white transition-colors"
-                >
+                <a href="?tab=business&bizcat=b2b_license" className="text-sm text-gray-400 hover:text-white transition-colors">
                   {t("business.categoryLicense")}
-                </button>
+                </a>
               </li>
             </ul>
           </div>

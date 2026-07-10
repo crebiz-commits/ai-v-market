@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Briefcase, TrendingUp, Handshake, Layers, Send, Loader2, CheckCircle2, ArrowLeft } from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "./ui/button";
@@ -65,7 +65,21 @@ const EXTRA_FIELDS: Record<Category, ExtraField[]> = {
 export function BusinessPage({ onBack, onNavigate }: BusinessPageProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const [category, setCategory] = useState<Category>("advertising");
+  // 진입 시 카테고리 사전선택(?bizcat=). 푸터의 광고/IR/파트너십/라이선스 링크가 해당 폼으로 바로 진입.
+  const [category, setCategory] = useState<Category>(() => {
+    if (typeof window === "undefined") return "advertising";
+    const p = new URLSearchParams(window.location.search).get("bizcat");
+    return (CATEGORIES.some((c) => c.id === p) ? p : "advertising") as Category;
+  });
+  // 초기 선택 반영 후 bizcat 흔적 제거 — 홈 이동 후 재진입 시 옛 카테고리로 잘못 열리는 것 방지.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("bizcat")) {
+      params.delete("bizcat");
+      const qs = params.toString();
+      window.history.replaceState({}, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+    }
+  }, []);
   const [extra, setExtra] = useState<Record<string, string>>({});
   const [companyName, setCompanyName] = useState("");
   const [contactName, setContactName] = useState("");
