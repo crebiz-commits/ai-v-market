@@ -2,7 +2,7 @@
 // Phase 21 — 크리에이터 수익 대시보드 (KPI + 일별 그래프 + 좋아요 통계)
 // MyPage 판매 탭 최상단에 배치.
 // ════════════════════════════════════════════════════════════════════════════
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { DollarSign, Eye, Heart, TrendingUp, Calendar, Loader2, Users, CheckCircle2, Percent, BarChart3, Award, Clock as ClockIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, Cell } from "recharts";
@@ -101,6 +101,7 @@ export function CreatorDashboard() {
 
   const fetchCharts = useCallback(async (d: number, metric: TopMetric) => {
     setChartLoading(true);
+    try {
     const [revRes, engRes, folRes, audRes, retRes, topRes] = await Promise.all([
       supabase.rpc("get_creator_daily_revenue", { p_days: d }),
       supabase.rpc("get_creator_daily_engagement", { p_days: d }),
@@ -155,16 +156,37 @@ export function CreatorDashboard() {
         avg_watch_ratio: Number(r.avg_watch_ratio) || 0,
       })));
     }
-    setChartLoading(false);
+    } catch (e: any) {
+      console.error("[CreatorDashboard] 차트 로드 예외:", e?.message || e);
+      toast.error(t("creatorDashboard.loadFailed", "대시보드 통계를 불러오지 못했어요. 잠시 후 다시 시도해 주세요."));
+    } finally {
+      setChartLoading(false);
+    }
   }, []);
 
+  // 최초 마운트: 전역 스피너로 요약+차트 1회 로드 (예외에도 스피너 고착 방지 finally)
+  const didInit = useRef(false);
   useEffect(() => {
     (async () => {
-      setLoading(true);
-      await Promise.all([fetchSummary(), fetchCharts(days, topMetric)]);
-      setLoading(false);
+      try {
+        setLoading(true);
+        await Promise.all([fetchSummary(), fetchCharts(days, topMetric)]);
+      } finally {
+        setLoading(false);
+        didInit.current = true;
+      }
     })();
-  }, [fetchSummary, fetchCharts, days, topMetric]);
+    // 최초 1회만 — 이후 기간/지표 변경은 아래 effect가 chartLoading 오버레이로 처리
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 기간(days)·상위지표(topMetric) 변경: 차트만 재조회 → 전체 리로드/스크롤 소실 방지.
+  //   (fetchSummary 는 기간 무관 누적치라 재호출 불필요)
+  useEffect(() => {
+    if (!didInit.current) return;          // 최초 마운트는 위 effect가 처리
+    fetchCharts(days, topMetric);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days, topMetric]);
 
   if (loading) {
     return (
@@ -276,6 +298,9 @@ export function CreatorDashboard() {
           ))}
         </div>
       </div>
+
+      {/* 판매매출 기준 안내 — 광고·구독 수익은 이 차트/상단 KPI에 안 잡히고 월 정산에 합산됨 */}
+      <p className="text-xs text-gray-500 -mt-3">{t("creatorDashboard.dailyChartNote")}</p>
 
       {/* Daily revenue */}
       <div className="bg-[#121212] p-5 rounded-2xl border border-white/5 relative">

@@ -1505,7 +1505,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                         {payoutInfo?.bank_name ? (
                           <>
                             <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{payoutInfo.bank_name}</p>
-                            <p className="text-lg text-gray-200 font-medium tracking-wider">{payoutInfo.account_number}</p>
+                            <p className="text-lg text-gray-200 font-medium tracking-wider">{String(payoutInfo.account_number || "").replace(/.(?=.{4})/g, "•")}</p>
                           </>
                         ) : (
                           <>
