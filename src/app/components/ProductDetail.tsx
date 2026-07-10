@@ -157,6 +157,8 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     subtitle_url: null,
     age_rating: "all",
   });
+  // 메타(age_rating 포함) 판정 완료 게이트 — 로드 전엔 재생 보류(19+ 영상이 게이트 전 노출되는 레이스 방지).
+  const [metaReady, setMetaReady] = useState(false);
   // 보강 필드 — Cinema/OTT 카드처럼 가벼운 페이로드로 진입한 경우 누락된 필드를 DB에서 직접 채움
   const [extra, setExtra] = useState<{
     description?: string;
@@ -313,8 +315,16 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   // Phase 22: 영상 메타데이터 (chapters, subtitle_url) 마운트 시 fetch
   useEffect(() => {
     if (!product.id) return;
+    // 영상 전환 시 이전 메타 잔류 방지 — async 갱신 전 동기 리셋. metaReady=false 로 판정 전 재생 보류.
+    setMetaReady(false);
+    setVideoMeta({ chapters: [], subtitle_url: null, age_rating: "all" });
+    setExtra({});
+    setSimilarVideos([]);
+    setSeriesEpisodes([]);
+    setSeriesTitle("");
     let cancelled = false;
     (async () => {
+      try {
       const { data, error } = await supabase
         .from("videos")
         .select(
@@ -379,6 +389,10 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       // Phase 26: 19+ 영상 + 미인증 사용자면 진입 시 자동 게이트
       if (meta.age_rating === "19" && !profile?.age_verified && user?.id !== (product.creatorId || undefined)) {
         setAgeGateOpen(true);
+      }
+      } finally {
+        // 메타(오류·no-data 포함) 판정 종료 → 재생 게이트 해제. no-data 는 age_rating='all' 기본으로 재생.
+        if (!cancelled) setMetaReady(true);
       }
     })();
     return () => { cancelled = true; };
@@ -671,6 +685,10 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     //   B 가 미리보기 한 프레임도 없이 즉시 페이월 차단되던 버그(F-HIGH).
     setCinemaCutoffTriggered(false);
     setPaywallOpen(false);
+    // 새 영상은 autoplay=true → 재생중 기준으로. 이전 탭 피드백 잔상 제거.
+    setIsPlaying(true);
+    setTapFeedback(null);
+    if (tapFeedbackTimerRef.current) window.clearTimeout(tapFeedbackTimerRef.current);
     if (!product.id) return;
     let cancelled = false;
     (async () => {
@@ -699,7 +717,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     return () => { cancelled = true; };
   }, [product.id]);
 
-  const bunnyEmbedUrl = BUNNY_LIBRARY_ID && product.id && tokenReady
+  const bunnyEmbedUrl = BUNNY_LIBRARY_ID && product.id && tokenReady && metaReady
     ? `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${product.id}?autoplay=true&loop=false&muted=true&preload=true&responsive=true${playToken.token ? `&token=${playToken.token}&expires=${playToken.expires}` : ""}`
     : null;
 
@@ -759,8 +777,9 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     if (iframeBlocked || !bunnyEmbedUrl) return;
     const BUNNY_ORIGIN = "https://iframe.mediadelivery.net";
     const LISTENER_ID = "creaite-playstate";
+    let gotEvent = false;
     const subscribe = () => {
-      for (const ev of ["play", "pause"]) {
+      for (const ev of ["play", "pause", "ended"]) {
         iframeRef.current?.contentWindow?.postMessage(
           JSON.stringify({ context: "player.js", version: "0.0.1", method: "addEventListener", value: ev, listener: LISTENER_ID }),
           BUNNY_ORIGIN,
@@ -773,13 +792,13 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       try { data = typeof e.data === "string" ? JSON.parse(e.data) : e.data; } catch { return; }
       if (data?.context !== "player.js") return;
       if (data?.event === "ready") { subscribe(); return; }
-      if (data?.event === "play") setIsPlaying(true);
-      else if (data?.event === "pause") setIsPlaying(false);
+      if (data?.event === "play") { gotEvent = true; setIsPlaying(true); }
+      else if (data?.event === "pause" || data?.event === "ended") { gotEvent = true; setIsPlaying(false); }  // ended: loop=false 자연종료 시 pause 안 와 상태 어긋나던 것 방지
     };
     window.addEventListener("message", handleMessage);
     subscribe();
     let tries = 0;
-    const poll = window.setInterval(() => { tries += 1; if (tries > 20) { window.clearInterval(poll); return; } subscribe(); }, 1500);
+    const poll = window.setInterval(() => { tries += 1; if (gotEvent || tries > 20) { window.clearInterval(poll); return; } subscribe(); }, 1500);
     return () => { window.removeEventListener("message", handleMessage); window.clearInterval(poll); };
   }, [iframeBlocked, bunnyEmbedUrl]);
 
@@ -1305,8 +1324,8 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
               allowFullScreen
               title={product.title}
             />
-          ) : !tokenReady ? (
-            // 재생 토큰 발급 중 — 에러 대신 로딩 표시 (썸네일 위 스피너)
+          ) : (!tokenReady || !metaReady) ? (
+            // 재생 토큰 발급 중 또는 메타(연령) 판정 중 — 에러 대신 로딩 표시 (썸네일 위 스피너)
             <div className="relative w-full h-full">
               <img
                 src={product.thumbnail}
