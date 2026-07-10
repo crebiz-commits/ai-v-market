@@ -165,6 +165,9 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
   const fileObjectUrlRef = useRef<string | null>(null);
   const uploadAbortRef = useRef<AbortController | null>(null);  // 업로드 중 언마운트/취소 시 TUS 전송 중단
   useEffect(() => () => uploadAbortRef.current?.abort(), []);
+  const uploadingRef = useRef(false);   // 동기 중복 제출 락(stale-closure 방지)
+  // 재시도용: TUS까지 성공했으나 save-metadata 실패한 Bunny 영상 재사용(중복 생성·고아 방지)
+  const uploadedRef = useRef<{ file: File; videoId: string; bunnyHostname: string; subtitleUrl: string } | null>(null);
 
   // 미리보기 모달 (게시 전 확인)
   const [showPreview, setShowPreview] = useState(false);
@@ -730,9 +733,9 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
 
   // 실제 업로드 수행 (미리보기 모달의 "확인하고 업로드" 버튼이 호출)
   const performUpload = async () => {
-    if (isUploading) return;   // 중복 제출 방지(빠른 더블클릭 시 영상 2개 생성 차단)
-    uploadAbortRef.current = new AbortController();
-    setShowPreview(false);
+    // 동기 락(useRef): setState 는 비동기라 첫 await 전 빠른 더블클릭이 둘 다 통과해
+    //   Bunny 영상 2개가 생성되던 것을 렌더 전에 원천 차단.
+    if (uploadingRef.current) return;
 
     if (!user || !accessToken) {
       toast.error(t("upload.toast.loginRequired"));
@@ -744,6 +747,9 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
       return;
     }
 
+    uploadingRef.current = true;
+    uploadAbortRef.current = new AbortController();
+    setShowPreview(false);
     setIsUploading(true);
     setUploadProgress(0);
 
@@ -759,89 +765,95 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
         throw new Error(t("upload.toast.tokenMissing"));
       }
 
-      const publicAnonKey = supabaseAnonKey;
-      const targetUrl = `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/videos/create-upload`;
-      console.log('Request Diagnostics:', {
-        url: targetUrl,
-        hasUser: !!user,
-        userId: user?.id,
-        hasToken: !!currentToken
-      });
+      // 재시도: 직전 시도에서 TUS까지 성공(uploadedRef)했고 같은 파일이면 Bunny 영상 재사용
+      //   → create-upload/TUS/썸네일/자막 재실행 없이 메타데이터만 재저장(중복 생성·고아 방지).
+      const reuse = uploadedRef.current && uploadedRef.current.file === selectedFile
+        ? uploadedRef.current : null;
 
-      // 1. 서버에 비디오 생성 요청
-      console.log('Creating video on Bunny.net via Edge Function...');
-      const createResponse = await fetch(
-        targetUrl,
-        {
+      let videoId: string;
+      let bunnyHostname: string;
+      let subtitleUrl = '';
+
+      if (reuse) {
+        videoId = reuse.videoId;
+        bunnyHostname = reuse.bunnyHostname;
+        subtitleUrl = reuse.subtitleUrl;
+        setBunnyVideoId(videoId);
+        console.log('[Upload] 재시도 — 기존 Bunny 영상 재사용:', videoId);
+      } else {
+        const targetUrl = `https://tvbpiuwmvrccfnplhwer.supabase.co/functions/v1/server/videos/create-upload`;
+
+        // 1. 서버에 비디오 생성 요청
+        console.log('Creating video on Bunny.net via Edge Function...');
+        const createResponse = await fetch(targetUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${currentToken}`,
-            'apikey': supabaseAnonKey
+            'apikey': supabaseAnonKey,
           },
-          body: JSON.stringify({
-            title: formData.title || selectedFile.name,
-          }),
-        }
-      );
+          body: JSON.stringify({ title: formData.title || selectedFile.name }),
+        });
 
-      if (!createResponse.ok) {
-        const errorData = await createResponse.json().catch(() => ({}));
-        console.error('Video creation failed:', errorData);
-        toast.error(t("upload.toast.uploadServerError", { message: errorData.error || createResponse.statusText }));
-        throw new Error(errorData.error || `Failed to create video (${createResponse.status})`);
+        if (!createResponse.ok) {
+          const errorData = await createResponse.json().catch(() => ({}));
+          console.error('Video creation failed:', errorData);
+          toast.error(t("upload.toast.uploadServerError", { message: errorData.error || createResponse.statusText }));
+          throw new Error(errorData.error || `Failed to create video (${createResponse.status})`);
+        }
+
+        const createData = await createResponse.json();
+        const { videoId: newVideoId, libraryId, tusSignature, tusExpire } = createData;
+        videoId = newVideoId;
+        console.log('Video created:', videoId);
+        setBunnyVideoId(videoId);
+
+        // 2. Bunny.net에 직접 업로드 (TUS presigned — 라이브러리 키는 클라이언트로 오지 않음)
+        console.log('Uploading file to Bunny.net...');
+        await uploadToBunny(selectedFile, { videoId, libraryId, tusSignature, tusExpire });
+        console.log('File uploaded successfully');
+
+        // TUS 업로드가 길어지면(대용량·저속) 시작 시 JWT(1시간) 만료 가능 → 최신 토큰 재조회
+        const { data: { session: postUploadSession } } = await supabase.auth.getSession();
+        const uploadToken = postUploadSession?.access_token || currentToken;
+
+        // 2.5. 커스텀 썸네일 업로드 (실패해도 Bunny 자동 썸네일 폴백 — 비치명적)
+        if (selectedThumbnail) {
+          console.log('Setting custom thumbnail on Bunny...');
+          toast.info(t("upload.toast.thumbnailProcessing"));
+          try {
+            await setBunnyThumbnail(videoId, uploadToken, selectedThumbnail);
+            console.log('Custom thumbnail set successfully');
+          } catch (thumbErr) {
+            console.warn('Thumbnail upload failed, falling back to Bunny default:', thumbErr);
+            toast.warning(t("upload.toast.thumbnailUploadFailed"));
+          }
+        }
+
+        // 2-b. 자막 파일(.vtt) 업로드 — video-subtitles 스토리지 (소프트섭)
+        if (subtitleFile && user) {
+          try {
+            const path = `${user.id}/${videoId}/subtitle.vtt`;
+            const { error: subErr } = await supabase.storage.from('video-subtitles')
+              .upload(path, subtitleFile, { upsert: true, contentType: 'text/vtt' });
+            if (subErr) throw subErr;
+            subtitleUrl = supabase.storage.from('video-subtitles').getPublicUrl(path).data.publicUrl;
+          } catch (subErr) {
+            console.warn('Subtitle upload failed:', subErr);
+            toast.warning(t("upload.subtitleUploadFailed", "자막 업로드에 실패했어요. 영상 수정에서 다시 시도할 수 있습니다."));
+          }
+        }
+
+        // Bunny pull-zone 호스트 — env 미설정 시에도 올바른 GUID 호스트 폴백.
+        bunnyHostname = BUNNY_HOST;
+        // TUS+썸네일+자막까지 성공 → save-metadata 실패 시 재시도에서 재사용하도록 기록
+        uploadedRef.current = { file: selectedFile, videoId, bunnyHostname, subtitleUrl };
       }
 
-      const createData = await createResponse.json();
-      const { videoId, libraryId, tusSignature, tusExpire } = createData;
-      console.log('Video created:', videoId);
-      setBunnyVideoId(videoId);
-
-      // 2. Bunny.net에 직접 업로드 (TUS presigned — 라이브러리 키는 클라이언트로 오지 않음)
-      console.log('Uploading file to Bunny.net...');
-      await uploadToBunny(selectedFile, { videoId, libraryId, tusSignature, tusExpire });
-      console.log('File uploaded successfully');
-
-      // TUS 업로드가 길어지면(대용량·저속 회선) 시작 시 캡처한 JWT(1시간)가 만료될 수 있음
-      // → 이후 요청(썸네일·메타데이터 저장)은 최신 토큰으로 재조회해 401 확정 실패 방지
-      const { data: { session: postUploadSession } } = await supabase.auth.getSession();
-      const freshToken = postUploadSession?.access_token || currentToken;
-
-      // 2.5. 커스텀 썸네일 업로드 (선택된 경우) — Edge Function 경유
-      // 자동 추출 프레임 또는 사용자 업로드 이미지를 Bunny Stream에 전송
-      // 실패해도 Bunny 자동 썸네일이 폴백되므로 치명적이지 않음
-      if (selectedThumbnail) {
-        console.log('Setting custom thumbnail on Bunny...');
-        toast.info(t("upload.toast.thumbnailProcessing"));
-        try {
-          await setBunnyThumbnail(videoId, freshToken, selectedThumbnail);
-          console.log('Custom thumbnail set successfully');
-        } catch (thumbErr) {
-          console.warn('Thumbnail upload failed, falling back to Bunny default:', thumbErr);
-          toast.warning(t("upload.toast.thumbnailUploadFailed"));
-        }
-      }
-
-      // 2-b. 자막 파일(.vtt) 업로드 — video-subtitles 스토리지 (소프트섭)
-      let subtitleUrl = '';
-      if (subtitleFile && user) {
-        try {
-          const path = `${user.id}/${videoId}/subtitle.vtt`;
-          const { error: subErr } = await supabase.storage.from('video-subtitles')
-            .upload(path, subtitleFile, { upsert: true, contentType: 'text/vtt' });
-          if (subErr) throw subErr;
-          subtitleUrl = supabase.storage.from('video-subtitles').getPublicUrl(path).data.publicUrl;
-        } catch (subErr) {
-          console.warn('Subtitle upload failed:', subErr);
-          toast.warning(t("upload.subtitleUploadFailed", "자막 업로드에 실패했어요. 영상 수정에서 다시 시도할 수 있습니다."));
-        }
-      }
-
-      // 3. 메타데이터 저장 (Edge Function 호출로 변경 - KV 및 DB 동시 저장)
-      console.log('Saving metadata via Edge Function...');
-      // Bunny pull-zone 호스트 — env 미설정 시에도 올바른 GUID 호스트 폴백(vz-{libraryId} 는 틀린 호스트).
-      const bunnyHostname = BUNNY_HOST;
-      console.log('Using Bunny Hostname:', bunnyHostname);
+      // 3. 메타데이터 저장 (Edge Function — KV+DB). save-metadata·모더레이션용 최신 토큰(공통).
+      const { data: { session: metaSession } } = await supabase.auth.getSession();
+      const freshToken = metaSession?.access_token || currentToken;
+      console.log('Saving metadata via Edge Function...', bunnyHostname);
       
       const metadata = {
         videoId: videoId,
@@ -923,6 +935,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
       }
 
       console.log('Metadata saved successfully via Edge Function');
+      uploadedRef.current = null;   // 저장 완료 → 재사용 상태 소비(고아 아님)
       setUploadComplete(true);
       toast.success(t("upload.toast.uploadSuccess"));
 
@@ -1015,8 +1028,14 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
       }
     } catch (error: any) {
       console.error('Upload error:', error);
-      toast.error(error.message || t("upload.toast.uploadError"));
+      // 재시도 안내: TUS까지 성공한(uploadedRef 존재) 실패는 다시 누르면 같은 Bunny 영상으로
+      //   메타데이터만 재저장(중복 생성 없음). 그 외는 처음부터.
+      const msg = error?.message || t("upload.toast.uploadError");
+      toast.error(uploadedRef.current
+        ? t("upload.toast.saveRetry", { message: msg })
+        : msg);
     } finally {
+      uploadingRef.current = false;   // 동기 락 해제
       setIsUploading(false);
     }
   };
@@ -1026,6 +1045,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
     setStep(1);
     setSelectedFile(null);
     setBunnyVideoId(null);
+    uploadedRef.current = null;   // 재사용 상태 정리(다음 업로드가 이전 영상 재사용 방지)
     setUploadProgress(0);
     setUploadStats({ loaded: 0, total: 0, speed: 0, eta: 0 });
     setThumbnailOptions([]);
