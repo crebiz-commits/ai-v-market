@@ -907,12 +907,15 @@ const CategoryRow = memo(function CategoryRow({
                     </div>
                   )}
 
+                  {/* 카트(담기) 버튼 — hover 가능한 기기에서만 렌더.
+                      터치 기기에선 hidden(display:none): opacity-0 만으론 투명해도 영역이 남아
+                      우상단 탭을 가로채 담기가 오작동하므로 완전히 제거(카드 탭=영상 상세). */}
                   {!g.isAgeLocked && onAddToCart && (
                     <span
                       role="button"
                       aria-label={t("videoRow.addToCart", "장바구니")}
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddToCart(v); }}
-                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 backdrop-blur border border-white/30 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity hover:border-white hover:bg-black/70"
+                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 backdrop-blur border border-white/30 hidden [@media(hover:hover)]:flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity hover:border-white hover:bg-black/70"
                     >
                       <Plus className="w-4 h-4 text-white" />
                     </span>
