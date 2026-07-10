@@ -114,13 +114,19 @@ export function TaxInfoSection() {
     }
 
     toast.success(t("taxInfoSection.saveSuccess"));
-    setCurrentInfo({
-      tax_type: taxType,
-      business_number: isBusiness ? businessNumber.trim() : null,
-      business_name: isBusiness ? businessName.trim() : null,
-      tax_invoice_email: isBusiness ? taxInvoiceEmail.trim() : null,
-      tax_consent_at: new Date().toISOString(),
-    });
+    // 서버 tax_consent_at(now()) 을 반영해 등록시각 드리프트 방지 — 저장 직후 재조회(실패 시 낙관값 폴백).
+    const { data } = await supabase.rpc("get_my_tax_info");
+    if (data && data.length > 0) {
+      setCurrentInfo(data[0] as TaxInfo);
+    } else {
+      setCurrentInfo({
+        tax_type: taxType,
+        business_number: isBusiness ? businessNumber.trim() : null,
+        business_name: isBusiness ? businessName.trim() : null,
+        tax_invoice_email: isBusiness ? taxInvoiceEmail.trim() : null,
+        tax_consent_at: new Date().toISOString(),
+      });
+    }
   };
 
   // 등록 완료 일시를 로케일에 맞춰 포맷 (한/영)

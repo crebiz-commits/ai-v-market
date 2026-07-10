@@ -52,9 +52,10 @@ export function PayoutInfoModal({ open, current, onClose, onSaved }: PayoutInfoM
 
   if (!open) return null;
 
+  const acctDigits = accountNumber.replace(/[^0-9]/g, "").length;
   const canSubmit =
     bankName.trim().length > 0 &&
-    accountNumber.replace(/[^0-9]/g, "").length >= 6 &&
+    acctDigits >= 6 && acctDigits <= 16 &&   // 서버 검증(숫자 6~16자리)과 일치 — 17자리+ 저장 후 400 방지
     accountHolder.trim().length > 0;
 
   const handleSubmit = async () => {

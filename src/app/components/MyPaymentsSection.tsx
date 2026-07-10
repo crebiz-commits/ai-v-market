@@ -52,6 +52,7 @@ export function MyPaymentsSection() {
   const { user } = useAuth();
   const [payments, setPayments] = useState<MyPayment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);   // 조회 실패를 "빈 내역"과 구분
   const [refundTarget, setRefundTarget] = useState<MyPayment | null>(null);
   const [refundReason, setRefundReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -62,8 +63,10 @@ export function MyPaymentsSection() {
     if (error) {
       console.error("[MyPaymentsSection] 조회 실패:", error);
       toast.error(t("myPayments.loadError"));
+      setLoadError(true);
       setPayments([]);
     } else {
+      setLoadError(false);
       setPayments(data || []);
     }
     setLoading(false);
@@ -135,7 +138,11 @@ export function MyPaymentsSection() {
       </h3>
       <p className="text-sm text-gray-500 mb-5">{t("myPayments.subtitle")}</p>
 
-      {payments.length === 0 ? (
+      {loadError ? (
+        <div className="text-center py-8 text-amber-400/80 text-sm">
+          {t("myPayments.loadError")}
+        </div>
+      ) : payments.length === 0 ? (
         <div className="text-center py-8 text-gray-500 text-sm">
           {t("myPayments.empty")}
         </div>
