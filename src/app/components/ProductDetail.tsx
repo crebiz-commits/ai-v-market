@@ -161,6 +161,8 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   const [metaReady, setMetaReady] = useState(false);
   // 보강 필드 — Cinema/OTT 카드처럼 가벼운 페이로드로 진입한 경우 누락된 필드를 DB에서 직접 채움
   const [extra, setExtra] = useState<{
+    title?: string;
+    category?: string;
     description?: string;
     genre?: string;
     productionYear?: number;
@@ -189,17 +191,21 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   // 진입 경로별 누락 필드를 DB fetch 결과로 보강한 통합 product (Cinema/OTT 가벼운 페이로드 보강용)
   const product = useMemo(() => ({
     ...productProp,
-    // 편집으로 바뀐 가격은 extra 가 우선(저장 직후 새로고침 없이 반영)
+    // 편집 대상 필드는 extra(편집값/DB보강) 우선 → 저장 직후 새로고침 없이 반영.
+    //   진입 직후엔 extra={}(전환 시 리셋)라 productProp 사용, 메타 fetch/편집 후 extra 우선.
+    title: extra.title ?? productProp.title,
+    category: extra.category ?? productProp.category,
     price: extra.price ?? productProp.price,
-    description: productProp.description ?? extra.description,
-    genre: productProp.genre ?? extra.genre,
-    productionYear: productProp.productionYear ?? extra.productionYear,
-    castCredits: productProp.castCredits ?? extra.castCredits,
-    director: productProp.director ?? extra.director,
-    writer: productProp.writer ?? extra.writer,
-    composer: productProp.composer ?? extra.composer,
-    language: productProp.language ?? extra.language,
-    subtitleLanguage: productProp.subtitleLanguage ?? extra.subtitleLanguage,
+    description: extra.description ?? productProp.description,
+    genre: extra.genre ?? productProp.genre,
+    productionYear: extra.productionYear ?? productProp.productionYear,
+    castCredits: extra.castCredits ?? productProp.castCredits,
+    director: extra.director ?? productProp.director,
+    writer: extra.writer ?? productProp.writer,
+    composer: extra.composer ?? productProp.composer,
+    language: extra.language ?? productProp.language,
+    subtitleLanguage: extra.subtitleLanguage ?? productProp.subtitleLanguage,
+    // AI 증빙(편집 안 함)은 gap-fill(prop 우선) 유지
     aiModelVersion: productProp.aiModelVersion ?? extra.aiModelVersion,
     prompt: productProp.prompt ?? extra.prompt,
     seed: productProp.seed ?? extra.seed,
@@ -386,17 +392,23 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       // Phase 31.6 — 카운트 표시. 전역 스토어에 seed-once(이미 있으면 무시 → 경합/깜빡임 방지).
       if (typeof d.likes === "number") { setBaseLikes(d.likes); seedLikeCount(product.id, d.likes); }
       if (typeof d.views === "number") { setViewsCount(d.views); seedViews(product.id, d.views); }
-      // Phase 26: 19+ 영상 + 미인증 사용자면 진입 시 자동 게이트
-      if (meta.age_rating === "19" && !profile?.age_verified && user?.id !== (product.creatorId || undefined)) {
-        setAgeGateOpen(true);
-      }
       } finally {
         // 메타(오류·no-data 포함) 판정 종료 → 재생 게이트 해제. no-data 는 age_rating='all' 기본으로 재생.
         if (!cancelled) setMetaReady(true);
       }
     })();
     return () => { cancelled = true; };
-  }, [product.id, profile?.age_verified, user?.id, product.creatorId]);
+    // deps 는 product.id 전용 — age_verified/user.id 를 넣으면 로그인·인증 시 metaReady 가 토글돼
+    //   재생 중 iframe 이 리마운트(재생위치 손실)되고 similarVideos 가 비워진 채 안 채워짐. 게이트 자동오픈은 아래 별도 이펙트.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
+
+  // 19+ 영상 + 미인증 → 자동 연령게이트. 메타 로드 후 + 인증/로그인 상태 변화에 반응(재생 iframe 은 안 건드림).
+  useEffect(() => {
+    if (videoMeta.age_rating === "19" && !profile?.age_verified && user?.id !== (product.creatorId || undefined)) {
+      setAgeGateOpen(true);
+    }
+  }, [videoMeta.age_rating, profile?.age_verified, user?.id, product.creatorId]);
 
   // Phase 32 — 함께 시청된 콘텐츠 (유사 영상) 조회
   useEffect(() => {

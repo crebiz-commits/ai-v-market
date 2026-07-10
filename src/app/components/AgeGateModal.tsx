@@ -48,8 +48,9 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
       if (result?.verified) {
         toast.success(result.message || t("ageGate.verifySuccess"));
         await refreshProfile();
+        // 닫기는 onResult 수신측(setAgeGateOpen(false))이 담당. 여기서 onClose()(취소용)를 부르면
+        //   부모의 "인증 안 하고 닫으면 나가기" 부수효과가 발동해 인증 성공인데도 상세가 닫힘.
         onResult?.(true);
-        onClose();
       } else {
         toast.error(result?.message || t("ageGate.underage"));
         onResult?.(false);
