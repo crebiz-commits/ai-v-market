@@ -2,7 +2,7 @@ import { X, Heart, Send, Download, Check, MessageCircle, Crown, Lock, Flag, Book
 import { formatCompactNumber } from "../i18n/numberFormat";
 import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
 import { Button } from "./ui/button";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { CommentPanel } from "./CommentPanel";
@@ -439,6 +439,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   // 미리보기 컷오프 발동 후 iframe 제거 플래그
   const [cinemaCutoffTriggered, setCinemaCutoffTriggered] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(true);   // autoplay=true → 기본 재생중. 화면 탭 시 pause 토글용.
   // 미리보기 컷오프 보조 타이머(능동 재구독 인터벌 + 월클록 백스톱) 핸들 — 누수 방지용
   const cutoffTimersRef = useRef<{ interval?: number; wall?: number }>({});
 
@@ -662,6 +663,11 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     setTokenReady(false);
     setPlayToken({ token: null, expires: null });
     setPlayFullAccess(false);
+    // 영상 전환 시 미리보기 컷오프/페이월 상태 리셋 — 안 하면 A에서 컷오프된 뒤 B(연관/시리즈)로
+    //   이동 시 <ProductDetail> 이 key 없이 prop 만 갱신돼 cinemaCutoffTriggered=true 가 잔존 →
+    //   B 가 미리보기 한 프레임도 없이 즉시 페이월 차단되던 버그(F-HIGH).
+    setCinemaCutoffTriggered(false);
+    setPaywallOpen(false);
     if (!product.id) return;
     let cancelled = false;
     (async () => {
@@ -743,6 +749,42 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   // iframe 실제 노출 여부 — 미리보기 컷오프 + Phase 26: 19+ 미인증 차단 + 자체 광고 재생 중 차단
   // (v2 정책: OTT 즉시 차단 제거 — 모든 영상 1분 미리보기 통일)
   const iframeBlocked = cinemaCutoffTriggered || isAgeLocked || !!prerollAd;
+
+  // 재생상태 추적 — Bunny player.js 의 play/pause 이벤트 구독. 화면 탭 토글(플레이어 위 오버레이)이
+  //   현재 상태 기준으로 play↔pause 를 보내기 위함. (autoplay=true 라 초기값 true.)
+  useEffect(() => {
+    if (iframeBlocked || !bunnyEmbedUrl) return;
+    const BUNNY_ORIGIN = "https://iframe.mediadelivery.net";
+    const LISTENER_ID = "creaite-playstate";
+    const subscribe = () => {
+      for (const ev of ["play", "pause"]) {
+        iframeRef.current?.contentWindow?.postMessage(
+          JSON.stringify({ context: "player.js", version: "0.0.1", method: "addEventListener", value: ev, listener: LISTENER_ID }),
+          BUNNY_ORIGIN,
+        );
+      }
+    };
+    const handleMessage = (e: MessageEvent) => {
+      if (e.origin !== BUNNY_ORIGIN) return;
+      let data: any;
+      try { data = typeof e.data === "string" ? JSON.parse(e.data) : e.data; } catch { return; }
+      if (data?.context !== "player.js") return;
+      if (data?.event === "ready") { subscribe(); return; }
+      if (data?.event === "play") setIsPlaying(true);
+      else if (data?.event === "pause") setIsPlaying(false);
+    };
+    window.addEventListener("message", handleMessage);
+    subscribe();
+    let tries = 0;
+    const poll = window.setInterval(() => { tries += 1; if (tries > 20) { window.clearInterval(poll); return; } subscribe(); }, 1500);
+    return () => { window.removeEventListener("message", handleMessage); window.clearInterval(poll); };
+  }, [iframeBlocked, bunnyEmbedUrl]);
+
+  // 화면 탭 → 재생/일시정지 토글 (현재 isPlaying 기준). 낙관적 갱신 후 player.js 이벤트가 확정.
+  const handleTogglePlay = useCallback(() => {
+    postBunnyCommand(iframeRef.current, isPlaying ? "pause" : "play");
+    setIsPlaying((p) => !p);
+  }, [isPlaying]);
 
   // OTT "지금 보기" 진입 → 플레이어 자동 전체화면 (클릭 직후라 transient activation 유효)
   const fsRequestedRef = useRef(false);
@@ -1354,18 +1396,28 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
             onCancel={() => setShowNextOverlay(false)}
           />
 
+          {/* 화면 탭 → 재생/일시정지 토글. 하단 컨트롤바(약 56px)는 비워 Bunny 시크/볼륨/전체화면 클릭 보존.
+              z-[5] 라 배지·광고(더 높은 z)가 위에서 클릭 우선. 광고 재생 중엔 비활성. */}
+          {!iframeBlocked && bunnyEmbedUrl && !midrollAd && (
+            <button
+              type="button"
+              onClick={handleTogglePlay}
+              aria-label={isPlaying ? t("productDetail.pauseAria", "일시정지") : t("productDetail.playAria", "재생")}
+              className="absolute inset-x-0 top-0 bottom-14 z-[5]"
+            />
+          )}
+
           {/* AUTOPLAY 인디케이터 (Phase 31.4 — Bunny iframe 자동재생 표시) */}
+          {/* pointer-events-none: 장식 배지가 Bunny 상단 UI/탭을 가로채지 않게 */}
           {!iframeBlocked && (
-            <div className="absolute top-4 left-4 flex items-center gap-1.5 px-2.5 py-1 bg-black/60 backdrop-blur rounded-full text-[10px] md:text-xs text-white font-bold z-10">
+            <div className="pointer-events-none absolute top-4 left-4 flex items-center gap-1.5 px-2.5 py-1 bg-black/60 backdrop-blur rounded-full text-[10px] md:text-xs text-white font-bold z-10">
               <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
               AUTOPLAY
             </div>
           )}
 
-          {/* Duration Badge — 좌하단으로 이동 (우상단은 닫기 X + 1분 배지) */}
-          <div className="absolute bottom-4 left-4 px-3 py-1 bg-black/70 backdrop-blur-sm rounded-full text-white text-sm">
-            {product.duration}
-          </div>
+          {/* (길이 배지 제거 — Bunny 컨트롤바가 경과/총시간을 표시하고 하단 메타에도 길이가 있어 중복.
+              또 bottom-4 left-4 가 Bunny 재생버튼/경과시간과 겹쳐 탭을 삼키던 버그 원인이었음.) */}
 
           {/* Phase 28: Sponsorship 배지 (시작 5초간) */}
           {showSponsorBadge && product.sponsorBrand && (

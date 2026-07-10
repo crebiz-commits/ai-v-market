@@ -24,7 +24,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
   // R2(2026-06-11): 이메일 인증 필수 — 가입 후 확인 메일 발송 안내 화면
   const [verifySentTo, setVerifySentTo] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
-  const { signIn, signUp, resendConfirmEmail, signInWithGoogle, signInWithKakao, signInWithFacebook, requestPasswordReset } = useAuth();
+  const { signIn, signUp, resendConfirmEmail, signInWithGoogle, signInWithKakao, requestPasswordReset } = useAuth();
 
   // R2: 인증 메일 재발송
   const handleResendConfirm = async () => {
@@ -100,21 +100,10 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
     }
   };
 
-  // Apple·Twitter·LINE: Supabase provider 미설정 — 연결 전까지 '준비 중' 안내.
-  //   활성화 시엔 signInWithOAuth({ provider }) 배선으로 교체.
+  // Facebook·Apple·Twitter·LINE: Supabase provider 미설정 — 연결 전까지 '준비 중' 안내.
+  //   활성화 시엔 signInWithOAuth({ provider }) 배선으로 교체(AuthContext.signInWithFacebook 준비돼 있음).
   const handleComingSoon = (provider: string) => {
     toast.info(t("auth.providerComingSoon", { provider, defaultValue: "{{provider}} 로그인은 곧 지원될 예정입니다." }));
-  };
-
-  // Facebook: 네이티브 provider 연결. (Supabase 대시보드에서 Facebook provider 활성화 필요)
-  const handleFacebookSignIn = async () => {
-    try {
-      setLoading(true);
-      await signInWithFacebook();
-    } catch (err: any) {
-      toast.error(err?.message || t("auth.facebookSignInFailed"));
-      setLoading(false);
-    }
   };
 
   return (
@@ -251,7 +240,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
 
                 {/* Facebook */}
                 <button
-                  onClick={handleFacebookSignIn}
+                  onClick={() => handleComingSoon("Facebook")}
                   className="w-full h-12 border border-gray-200 rounded-sm flex items-center px-4 hover:bg-gray-50 transition-colors relative"
                 >
                   <div className="w-5 h-5 bg-[#1877F2] rounded-full flex items-center justify-center overflow-hidden">
