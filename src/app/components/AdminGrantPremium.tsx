@@ -30,13 +30,18 @@ export function AdminGrantPremium() {
     if (!t) return "";
     try { const q = new URL(t).searchParams.get("video"); if (q) return q; } catch { /* URL 아님 */ }
     const m = t.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
-    return m ? m[0] : t;
+    return m ? m[0] : "";   // 인식 실패 시 빈 문자열(원문 반환 금지 — 서버 uuid 캐스트 에러 방지)
   };
 
   const crown = async () => {
     const e = crownEmail.trim();
     if (!e) { toast.error("우승자 이메일을 입력하세요"); return; }
     const vid = extractVideoId(crownVideo);
+    // 우승작을 입력했는데 인식 못하면 raw 문자열 대신 친절히 안내(히어로는 선택사항)
+    if (crownVideo.trim() && !vid) {
+      toast.error("영상 URL(...?video=ID) 또는 UUID를 인식하지 못했어요. 비워두면 히어로 없이 임명합니다.");
+      return;
+    }
     setCrownBusy(true); setCrownDone(null);
     try {
       const { data, error } = await supabase.rpc("admin_crown_creator", {

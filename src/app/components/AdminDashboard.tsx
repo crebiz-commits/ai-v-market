@@ -100,7 +100,7 @@ const emptyForm = (): Omit<Ad, "id" | "impressions" | "clicks" | "created_at" | 
   skip_offset: 5,
   max_duration: 30,
   weight: 1,
-  budget_krw: 100000,  // Phase 8.5 — 기본 예산 ₩100,000
+  budget_krw: null,  // 하우스 광고 기본 = 무제한(null). 값을 넣으면 소진(spent_krw≥budget) 시 자동중단되므로 비워둠.
   // Phase 28
   format: "feed",
   trigger_position_pct: null,

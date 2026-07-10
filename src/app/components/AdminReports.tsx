@@ -229,15 +229,22 @@ export function AdminReports() {
                       </span>
                     )}
                   </div>
-                  <a
-                    href={primary.target_type === "video" ? `/?video=${primary.target_id}` : "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] text-[#6366f1] hover:underline flex items-center gap-1"
-                  >
-                    대상 ID: {primary.target_id.slice(0, 18)}…
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
+                  {(() => {
+                    // 대상 딥링크: 영상/사용자채널/커뮤니티글은 실제 이동, 댓글은 독립 페이지 없어 평문.
+                    const tt = primary.target_type, tid = primary.target_id;
+                    const href = tt === "video" ? `/?video=${tid}`
+                      : tt === "user" ? `/?tab=channel&creator=${tid}`
+                      : tt === "community_post" ? `/?tab=community&sub=posts&post=${tid}`
+                      : null;
+                    const idText = `대상 ID: ${tid.slice(0, 18)}…`;
+                    return href ? (
+                      <a href={href} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#6366f1] hover:underline flex items-center gap-1">
+                        {idText}<ExternalLink className="w-3 h-3" />
+                      </a>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground">{idText}</span>
+                    );
+                  })()}
                 </div>
 
                 {/* 사유 */}

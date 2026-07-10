@@ -178,11 +178,11 @@ export function AdminPayments() {
       {/* 합계 카드 */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-card border border-border rounded-xl p-3">
-          <p className="text-xs text-muted-foreground">완료 합계</p>
+          <p className="text-xs text-muted-foreground">완료 합계 <span className="text-muted-foreground/60">(현재 목록)</span></p>
           <p className="text-xl font-black text-green-400">₩{totalCompleted.toLocaleString()}</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-3">
-          <p className="text-xs text-muted-foreground">환불 합계</p>
+          <p className="text-xs text-muted-foreground">환불 합계 <span className="text-muted-foreground/60">(현재 목록)</span></p>
           <p className="text-xl font-black text-amber-400">₩{totalRefunded.toLocaleString()}</p>
         </div>
       </div>

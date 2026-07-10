@@ -67,9 +67,19 @@ export function AdminAdReview() {
           {ads.map((a) => (
             <div key={a.id} className="bg-card border border-white/5 rounded-xl p-4">
               <div className="flex gap-4">
-                {a.image_url && (
+                {/* 소재 미리보기 — 이미지 광고는 img, 영상 광고(preroll/bumper)는 재생 가능한 video,
+                    둘 다 없으면 썸네일, 그것도 없으면 '소재 없음'(맹검 승인 방지). */}
+                {a.image_url ? (
                   <img src={a.image_url} alt="" className="w-32 h-24 rounded-lg object-cover bg-black/30 flex-shrink-0 border border-white/10"
                     onError={(e) => ((e.target as HTMLImageElement).style.visibility = "hidden")} />
+                ) : a.video_url ? (
+                  <video src={a.video_url} poster={a.thumbnail_url || undefined} controls preload="metadata"
+                    className="w-40 h-24 rounded-lg object-cover bg-black flex-shrink-0 border border-white/10" />
+                ) : a.thumbnail_url ? (
+                  <img src={a.thumbnail_url} alt="" className="w-32 h-24 rounded-lg object-cover bg-black/30 flex-shrink-0 border border-white/10"
+                    onError={(e) => ((e.target as HTMLImageElement).style.visibility = "hidden")} />
+                ) : (
+                  <div className="w-32 h-24 rounded-lg bg-black/30 flex-shrink-0 border border-white/10 flex items-center justify-center text-[10px] text-gray-500">소재 없음</div>
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-white">{a.title}</p>

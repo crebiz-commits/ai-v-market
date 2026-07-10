@@ -256,7 +256,7 @@ export function AdminRevenueSettlement() {
             <li>• 정산은 <span className="font-semibold">월이 끝난 후</span> 실행 (해당 월의 매출이 확정된 다음)</li>
             <li>• 같은 월을 여러 번 실행해도 안전 (UPSERT). 이미 지급된 항목은 보존됨</li>
             <li>• 정산 시점의 분배율이 <span className="font-semibold">스냅샷</span>으로 저장되어 분쟁 대비 가능</li>
-            <li>• ₩10,000 미만은 자동 이월 (deferred 상태)</li>
+            <li>• 최소 지급액(수익 정책의 payout_minimum_krw) 미만은 자동 이월 (deferred 상태)</li>
           </ul>
         </div>
       </div>

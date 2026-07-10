@@ -291,7 +291,7 @@ export function AdminOverview() {
               {topCreators.map((c, i) => (
                 <div key={c.creator_id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted">
                   <span className="text-sm font-bold text-muted-foreground w-5">{i + 1}</span>
-                  <UserAvatar src={c.avatar_url} name={(c as any).creator_name} className="w-10 h-10" fallback={<Users className="w-5 h-5 text-white" />} />
+                  <UserAvatar src={c.avatar_url} name={c.display_name || undefined} className="w-10 h-10" fallback={<Users className="w-5 h-5 text-white" />} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate">{c.display_name || "이름 없음"}</p>
                     <p className="text-[11px] text-muted-foreground">영상 {num(c.video_count)}개</p>

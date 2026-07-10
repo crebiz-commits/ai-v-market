@@ -1,6 +1,6 @@
 // 어드민 활동 로그 페이지 (Phase 10.7)
 import { useEffect, useState } from "react";
-import { Loader2, ClipboardList, RefreshCw, User, EyeOff, Eye, Trash2, RotateCcw, Megaphone, ShieldCheck, ShieldAlert, Ban } from "lucide-react";
+import { Loader2, ClipboardList, RefreshCw, User, EyeOff, Eye, Trash2, RotateCcw, Megaphone, ShieldCheck, ShieldAlert, Ban, Flag } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
@@ -31,6 +31,9 @@ const ACTION_META: Record<string, { label: string; icon: typeof User; color: str
   delete_comment:         { label: "댓글 삭제",        icon: Trash2,        color: "text-red-400" },
   unhide_post:            { label: "커뮤니티글 복원",  icon: Eye,           color: "text-green-400" },
   resolve_moderation:     { label: "AI 검토 결정",     icon: ShieldCheck,   color: "text-blue-400" },
+  report_remove:          { label: "신고 반영·콘텐츠 제거", icon: EyeOff,     color: "text-red-400" },
+  report_keep:            { label: "신고 기각·정상 판정",   icon: ShieldCheck, color: "text-green-400" },
+  report_dismiss:         { label: "신고 무효 처리",        icon: Flag,       color: "text-gray-400" },
 };
 
 const ACTIONS_FILTER = [
@@ -41,6 +44,8 @@ const ACTIONS_FILTER = [
   { key: "delete_video",           label: "영상 삭제" },
   { key: "hide_comment",           label: "댓글 숨김" },
   { key: "resolve_moderation",     label: "AI 검토" },
+  { key: "report_remove",          label: "신고 반영" },
+  { key: "report_keep",            label: "신고 기각" },
   { key: "refund_payment",         label: "환불" },
   { key: "broadcast_notification", label: "공지" },
 ];
