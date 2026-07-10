@@ -332,30 +332,41 @@ app.post("/video-play-token", async (c) => {
     const securityKey = Deno.env.get('BUNNY_TOKEN_AUTH_KEY');
     if (!securityKey) return c.json({ token: null, expires: null, fullAccess: false });
 
+    const admin = getSupabaseClient(true);
+    // 영상 연령등급·소유자 (청소년보호 게이트 + 접근 판정에 사용)
+    const { data: vid } = await admin.from('videos').select('age_rating, creator_id').eq('id', videoId).maybeSingle();
+    const is19 = vid?.age_rating === '19';
+
     let fullAccess = false;
+    let isOwner = false;
+    let isAdmin = false;
+    let ageVerified = false;
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     if (accessToken) {
       const { data: { user } } = await getSupabaseClient().auth.getUser(accessToken);
       if (user) {
-        const admin = getSupabaseClient(true);
+        isOwner = vid?.creator_id === user.id;
         const { data: prof } = await admin.from('profiles')
-          .select('subscription_tier, subscription_expires_at, is_admin')
+          .select('subscription_tier, subscription_expires_at, is_admin, age_verified')
           .eq('id', user.id).maybeSingle();
+        isAdmin = !!prof?.is_admin;
+        ageVerified = !!prof?.age_verified;
         const isPremium = prof?.subscription_tier === 'premium' &&
           !!prof?.subscription_expires_at && new Date(prof.subscription_expires_at) > new Date();
-        if (isPremium || prof?.is_admin) {
+        if (isPremium || isAdmin || isOwner) {
           fullAccess = true;
         } else {
-          const { data: vid } = await admin.from('videos').select('creator_id').eq('id', videoId).maybeSingle();
-          if (vid?.creator_id === user.id) {
-            fullAccess = true;
-          } else {
-            const { data: ord } = await admin.from('orders')
-              .select('id').eq('buyer_id', user.id).eq('video_id', videoId).eq('status', 'completed').limit(1);
-            fullAccess = !!ord && ord.length > 0;
-          }
+          const { data: ord } = await admin.from('orders')
+            .select('id').eq('buyer_id', user.id).eq('video_id', videoId).eq('status', 'completed').limit(1);
+          fullAccess = !!ord && ord.length > 0;
         }
       }
+    }
+
+    // 청소년보호(서버 강제): 19금은 연령인증(또는 소유자·관리자) 없으면 토큰 자체를 발급 안 함
+    //   → 미리보기(150초)도 불가. 클라 블러/게이트가 우회돼도 Bunny 토큰인증 ON 시 CDN 이 거부.
+    if (is19 && !ageVerified && !isOwner && !isAdmin) {
+      return c.json({ token: null, expires: null, fullAccess: false, ageBlocked: true });
     }
 
     const ttl = fullAccess ? 4 * 3600 : 150;  // 전체 4시간 / 미리보기 150초

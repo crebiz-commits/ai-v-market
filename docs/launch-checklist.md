@@ -121,6 +121,7 @@
 - [ ] ⚪ CommentItem 리마운트 리팩터 — 핵심 댓글 기능의 ~300줄 인라인 컴포넌트 추출 = 고위험·저가치. 출시 후 테스트 동반 처리.
 - [ ] 🟡 부분환불(N6)·원천징수 범위(N10) — 정책/세무 확인 필요(외부 결정)
 - [x] ✅ **M9** VAST 트래킹 픽셀 서명 인증(2026-06-16) — HMAC-SHA256+6h 만료로 위조·스팸 차단. (배포 중 verify_jwt 회귀도 복구·config.toml 고정)
+- [ ] 🟡 **시청 보호 잔여(2026-07-11 구매/시청 감사)** — Embed 토큰인증은 ON이라 임베드 플레이어는 프리미엄·연령 보호됨. **①연령게이트 코드 보강 완료**(play-token 엔드포인트가 19금 미인증/비소유자에게 토큰 미발급 → **Edge 재배포해야 발효**: `npx supabase functions deploy server --no-verify-jwt`). **②잔여: CDN 토큰인증 OFF**라 `video_url`(anon 노출)·직접 `{id}/playlist.m3u8`·`play_720p.mp4` URL은 토큰 없이 접근 가능 → 비구독자/미성년이 직링크로 본편 시청 가능. CDN token auth ON 시 완전차단되나 preview.webp·썸네일 무토큰 서빙과 트레이드오프 → **출시 전 결정**(19금 실콘텐츠 생기기 전). 관련: [[upload-moderation-pipeline]] 잔여.
 
 ---
 
