@@ -848,6 +848,7 @@
   "header": {
     "language": "언어",
     "selectLanguage": "언어 선택",
+    "search": "검색",
     "myAccount": "내 계정",
     "myChannel": "내 채널"
   },

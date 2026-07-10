@@ -893,16 +893,17 @@ function AppContent() {
     setActivePanel(prev => prev === panel ? null : panel);
   };
 
-  // ESC 키로 뒤로가기 (어떤 모달이든 닫힘 — useBackButton이 popstate를 처리)
+  // ESC 키로 뒤로가기 (열린 오버레이만 닫힘 — useBackButton이 popstate를 처리)
+  //   ⚠️ 열린 오버레이가 없을 때 back() 하면 사이트 밖(이전 페이지/빈 탭)으로 이탈 → 가드 필수.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && (selectedProduct || activePanel || showAuthModal)) {
         window.history.back();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [selectedProduct, activePanel, showAuthModal]);
 
   // 모바일 뒤로가기로 모달 닫기
   useBackButton(!!selectedProduct, () => setSelectedProduct(null));
@@ -1182,7 +1183,7 @@ function AppContent() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="flex items-center gap-3 cursor-pointer select-none"
-              onClick={() => setActiveTab("discovery")}
+              onClick={() => { setActivePanel(null); setActiveTab("discovery"); }}
             >
               <CreaiteLogo className="w-10 h-10" />
               <span className="hidden lg:block">
@@ -1199,7 +1200,7 @@ function AppContent() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as Tab)}
+                  onClick={() => { setActivePanel(null); setActiveTab(tab.id as Tab); }}
                   title={tab.label}
                   className={`relative flex items-center gap-2 px-3 py-2 rounded-lg transition-colors duration-200 text-sm font-semibold select-none whitespace-nowrap shrink-0
                     ${isActive ? "text-white" : "text-muted-foreground hover:text-gray-200 hover:bg-white/5"}
@@ -1226,6 +1227,18 @@ function AppContent() {
             <div className="hidden xl:flex items-center">
               <InstallButtonHeader />
             </div>
+
+            {/* Search — 데스크탑 상시 검색 진입(홈 외 화면에서도 검색 가능) */}
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => { setActivePanel(null); setActiveTab("search"); }}
+              aria-label={t("header.search", "검색")}
+              className={`p-2 rounded-lg hover:bg-white/5 transition-colors ${
+                activeTab === "search" ? "text-[#8b5cf6]" : "text-muted-foreground hover:text-white"
+              }`}
+            >
+              <Search className="w-5 h-5" />
+            </motion.button>
 
             {/* Language Switcher (Phase 35) */}
             <LanguageSwitcher variant="compact" />
@@ -1398,7 +1411,7 @@ function AppContent() {
           viewport-fit=cover 로 edge-to-edge 시 홈 인디케이터/제스처바 영역을 nav 배경이 채워 검은 띠 방지.
           안전영역 없는 기기(env=0)면 패딩 0 이라 무변화(부작용 없음). */}
       <nav
-        className="md:hidden shrink-0 border-t border-white/5 bg-background/80 backdrop-blur-xl sticky bottom-0 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] pb-safe"
+        className={`md:hidden shrink-0 border-t border-white/5 bg-background/80 backdrop-blur-xl sticky bottom-0 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] pb-safe ${activePanel ? "hidden" : ""}`}
       >
         <div className="flex items-center justify-around h-20 px-1">
           {/* 좌측 3탭: 홈 / 시네마 / OTT */}
