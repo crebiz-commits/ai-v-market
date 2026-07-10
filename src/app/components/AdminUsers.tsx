@@ -33,22 +33,29 @@ export function AdminUsers() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const PAGE = 50;
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (append = false) => {
+    const off = append ? users.length : 0;
+    if (append) setLoadingMore(true); else setLoading(true);
     const { data, error } = await supabase.rpc("admin_search_users", {
       p_query: query || null,
       p_filter: filter,
-      p_limit: 100,
-      p_offset: 0,
+      p_limit: PAGE,
+      p_offset: off,
     });
     if (error) {
       toast.error("사용자 목록 조회 실패: " + error.message);
-      setUsers([]);
+      if (!append) setUsers([]);
     } else {
-      setUsers(data || []);
+      const rows = (data || []) as UserRow[];
+      setUsers((prev) => (append ? [...prev, ...rows] : rows));
+      setHasMore(rows.length === PAGE);
     }
     setLoading(false);
+    setLoadingMore(false);
   };
 
   useEffect(() => { load(); }, [filter]);
@@ -99,7 +106,7 @@ export function AdminUsers() {
             onKeyDown={(e) => e.key === "Enter" && load()}
           />
         </div>
-        <Button onClick={load} disabled={loading}>검색</Button>
+        <Button onClick={() => load()} disabled={loading}>검색</Button>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4">
@@ -174,6 +181,13 @@ export function AdminUsers() {
               </div>
             </div>
           ))}
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <Button variant="outline" onClick={() => load(true)} disabled={loadingMore} className="gap-1.5">
+                {loadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : "더 보기"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

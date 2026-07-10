@@ -70,22 +70,29 @@ export function AdminPayments() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [processingId, setProcessingId] = useState<number | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const PAGE = 50;
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (append = false) => {
+    const off = append ? payments.length : 0;
+    if (append) setLoadingMore(true); else setLoading(true);
     const { data, error } = await supabase.rpc("admin_get_all_payments", {
       p_status: statusFilter,
       p_payment_type: typeFilter,
-      p_limit: 100,
-      p_offset: 0,
+      p_limit: PAGE,
+      p_offset: off,
     });
     if (error) {
       toast.error("결제 목록 조회 실패: " + error.message);
-      setPayments([]);
+      if (!append) setPayments([]);
     } else {
-      setPayments(data || []);
+      const rows = (data || []) as PaymentRow[];
+      setPayments((prev) => (append ? [...prev, ...rows] : rows));
+      setHasMore(rows.length === PAGE);
     }
     setLoading(false);
+    setLoadingMore(false);
   };
 
   useEffect(() => { load(); }, [statusFilter, typeFilter]);
@@ -211,7 +218,7 @@ export function AdminPayments() {
             }`}
           >{f.label}</button>
         ))}
-        <Button variant="outline" size="sm" onClick={load} disabled={loading} className="ml-auto gap-1.5">
+        <Button variant="outline" size="sm" onClick={() => load()} disabled={loading} className="ml-auto gap-1.5">
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           새로고침
         </Button>
@@ -283,6 +290,13 @@ export function AdminPayments() {
               </div>
             </div>
           ))}
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <Button variant="outline" onClick={() => load(true)} disabled={loadingMore} className="gap-1.5">
+                {loadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : "더 보기"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
