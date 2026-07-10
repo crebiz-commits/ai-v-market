@@ -43,12 +43,42 @@ interface FormState {
   gradient: string;
   dark: boolean;
   is_active: boolean;
+  active_from: string;   // datetime-local 문자열("" = 즉시)
+  active_to: string;     // datetime-local 문자열("" = 무기한)
 }
 
 const EMPTY: FormState = {
   sort_order: 100, title: "", subtitle: "", eyebrow: "", badge: "", badges: "",
   cta_label: "", link: "", image: "", align: "left", title_gradient: false, gradient: "", dark: false, is_active: true,
+  active_from: "", active_to: "",
 };
+
+// ISO(timestamptz) → <input type="datetime-local"> 값(YYYY-MM-DDTHH:mm, 로컬시각)
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// 목록 스케줄 상태 배지 (활성 배너만): 예약(시작 전) / 종료(끝난 뒤) / 노출중(창 설정됨)
+function scheduleBadge(b: BannerRow): { label: string; cls: string } | null {
+  if (!b.is_active) return null;                       // 이미 '숨김' 배지가 뜸
+  const now = Date.now();
+  const from = b.active_from ? new Date(b.active_from).getTime() : null;
+  const to = b.active_to ? new Date(b.active_to).getTime() : null;
+  if (from && from > now) return { label: "예약", cls: "bg-blue-500/15 text-blue-300" };
+  if (to && to < now) return { label: "종료", cls: "bg-gray-500/20 text-gray-400" };
+  if (from || to) return { label: "노출중", cls: "bg-green-500/15 text-green-400" };
+  return null;
+}
+
+function fmtWindow(b: BannerRow): string | null {
+  if (!b.active_from && !b.active_to) return null;
+  const f = (iso: string | null) => (iso ? new Date(iso).toLocaleString("ko-KR", { dateStyle: "medium", timeStyle: "short" }) : "");
+  return `${b.active_from ? f(b.active_from) : "즉시"} ~ ${b.active_to ? f(b.active_to) : "무기한"}`;
+}
 
 export function AdminBanners() {
   const [items, setItems] = useState<BannerRow[]>([]);
@@ -124,6 +154,8 @@ export function AdminBanners() {
       gradient: b.gradient || "",
       dark: b.dark,
       is_active: b.is_active,
+      active_from: toLocalInput(b.active_from),
+      active_to: toLocalInput(b.active_to),
     });
     setShowForm(true);
   };
@@ -132,6 +164,13 @@ export function AdminBanners() {
 
   const handleSave = async () => {
     if (form.title.trim().length < 1) { toast.error("제목을 입력해주세요."); return; }
+    // 예약창 검증: 둘 다 있으면 시작 < 종료
+    const fromIso = form.active_from ? new Date(form.active_from).toISOString() : null;
+    const toIso = form.active_to ? new Date(form.active_to).toISOString() : null;
+    if (fromIso && toIso && new Date(fromIso) >= new Date(toIso)) {
+      toast.error("종료 시각은 시작 시각보다 뒤여야 합니다.");
+      return;
+    }
     setSaving(true);
     const payload = {
       sort_order: form.sort_order || 0,
@@ -148,6 +187,8 @@ export function AdminBanners() {
       gradient: form.gradient.trim() || null,
       dark: form.dark,
       is_active: form.is_active,
+      active_from: fromIso,
+      active_to: toIso,
     };
     if (editingId) {
       const { error } = await supabase.from("event_banners").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editingId);
@@ -184,7 +225,7 @@ export function AdminBanners() {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <p className="text-sm text-muted-foreground">
-          시네마 상단 이벤트 배너를 관리합니다. <code className="px-1 py-0.5 rounded bg-muted text-xs">순서</code> 오름차순으로 노출되며, 비활성 배너는 숨겨집니다.
+          시네마 상단 이벤트 배너를 관리합니다. <code className="px-1 py-0.5 rounded bg-muted text-xs">순서</code> 오름차순으로 노출되며, 비활성·예약(시작 전)·종료된 배너는 공개에서 숨겨집니다.
         </p>
         <button onClick={() => void load()} className="ml-auto p-2 rounded-lg hover:bg-muted text-muted-foreground" title="새로고침">
           <RefreshCw className="w-4 h-4" />
@@ -265,6 +306,19 @@ export function AdminBanners() {
                 <option value="center">가운데</option>
               </select>
             </div>
+            <div className="md:col-span-2 grid grid-cols-2 gap-3 rounded-lg border border-border/60 bg-background/40 p-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground block mb-1">노출 시작 (예약)</label>
+                <input type="datetime-local" className={inputCls} value={form.active_from} onChange={(e) => setForm((f) => ({ ...f, active_from: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground block mb-1">노출 종료 (자동 내림)</label>
+                <input type="datetime-local" className={inputCls} value={form.active_to} onChange={(e) => setForm((f) => ({ ...f, active_to: e.target.value }))} />
+              </div>
+              <p className="col-span-2 text-[11px] text-muted-foreground/80">
+                비우면 시작=즉시 / 종료=무기한. 예약·종료된 배너는 활성(노출)이어도 공개 시네마에는 자동으로 숨겨집니다.
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-5">
@@ -312,10 +366,12 @@ export function AdminBanners() {
                     <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-muted text-muted-foreground">#{b.sort_order}</span>
                     {b.badge && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#8b5cf6]/15 text-[#c4b5fd]">{b.badge}</span>}
                     {!b.is_active && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-white/10 text-gray-400">숨김</span>}
+                    {(() => { const s = scheduleBadge(b); return s ? <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${s.cls}`}>{s.label}</span> : null; })()}
                   </div>
                   <p className="font-bold text-foreground truncate">{b.title}</p>
                   {b.subtitle && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{b.subtitle}</p>}
                   {b.link && <p className="text-[11px] text-muted-foreground mt-1"><code className="bg-muted px-1 rounded">{b.link}</code></p>}
+                  {fmtWindow(b) && <p className="text-[11px] text-muted-foreground mt-1">🗓 {fmtWindow(b)}</p>}
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button onClick={() => void toggleActive(b)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground" title={b.is_active ? "숨기기" : "노출"}>
