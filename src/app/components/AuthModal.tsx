@@ -100,6 +100,12 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
     }
   };
 
+  // Facebook·Apple·Twitter·LINE: Supabase provider 미설정 — 연결 전까지 '준비 중' 안내.
+  //   활성화 시엔 signInWithOAuth({ provider }) 배선으로 교체.
+  const handleComingSoon = (provider: string) => {
+    toast.info(t("auth.providerComingSoon", { provider, defaultValue: "{{provider}} 로그인은 곧 지원될 예정입니다." }));
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -234,6 +240,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
 
                 {/* Facebook */}
                 <button
+                  onClick={() => handleComingSoon("Facebook")}
                   className="w-full h-12 border border-gray-200 rounded-sm flex items-center px-4 hover:bg-gray-50 transition-colors relative"
                 >
                   <div className="w-5 h-5 bg-[#1877F2] rounded-full flex items-center justify-center overflow-hidden">
@@ -246,6 +253,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
 
                 {/* Apple */}
                 <button
+                  onClick={() => handleComingSoon("Apple")}
                   className="w-full h-12 border border-gray-200 rounded-sm flex items-center px-4 hover:bg-gray-50 transition-colors relative"
                 >
                   <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
@@ -256,6 +264,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
 
                 {/* Twitter / X */}
                 <button
+                  onClick={() => handleComingSoon("Twitter")}
                   className="w-full h-12 border border-gray-200 rounded-sm flex items-center px-4 hover:bg-gray-50 transition-colors relative"
                 >
                   <div className="w-5 h-5 flex items-center justify-center">
@@ -268,6 +277,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
 
                 {/* LINE */}
                 <button
+                  onClick={() => handleComingSoon("LINE")}
                   className="w-full h-12 border border-gray-200 rounded-sm flex items-center px-4 hover:bg-gray-50 transition-colors relative"
                 >
                   <div className="w-5 h-5 bg-[#00B900] rounded-sm flex items-center justify-center overflow-hidden">
@@ -315,7 +325,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="password" title="Find email / reset password after sign-in" className="text-gray-700 font-bold">{t("auth.password")}</Label>
+                    <Label htmlFor="password" className="text-gray-700 font-bold">{t("auth.password")}</Label>
                     <Input
                       id="password"
                       type="password"
@@ -353,7 +363,13 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
           </AnimatePresence>
 
           <div className="mt-8 text-[12.5px] text-gray-500 leading-normal text-center">
-            {t("auth.agreementText")}
+            <Trans
+              i18nKey="auth.agreementText"
+              components={{
+                terms: <a href="?info=terms" className="underline hover:text-gray-700" />,
+                privacy: <a href="?info=privacy" className="underline hover:text-gray-700" />,
+              }}
+            />
           </div>
         </div>
 
