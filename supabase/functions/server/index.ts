@@ -1758,6 +1758,22 @@ app.post('/send-email', async (c) => {
     const inappLink = isActor
       ? (type === 'new_follower' ? inapp.link : (isSafeRelLink(clientLink) ? clientLink.slice(0, 500) : inapp.link))
       : ((typeof clientLink === 'string' && clientLink) ? clientLink.slice(0, 500) : inapp.link);
+
+    // MED-1: comment_reply/new_video_from_followed 표적 스팸 방지 — 동일 수신자·동일 link 10초 내
+    //   중복이면 벨/이메일 모두 생략. 정당한 연속 알림은 link(video/creator id)가 달라 대부분 보존.
+    //   (new_follower 는 위에서 24h 디듀프로 별도 처리.)
+    if (isActor && type !== 'new_follower' && inappLink && inappLink !== '/') {
+      const { data: recentDup } = await supabase
+        .from('notifications').select('id')
+        .eq('user_id', user_id)
+        .eq('link', inappLink)
+        .gte('created_at', new Date(Date.now() - 10 * 1000).toISOString())
+        .limit(1);
+      if (recentDup && recentDup.length > 0) {
+        return c.json({ success: true, skipped: true, reason: 'duplicate actor notification within 10s' });
+      }
+    }
+
     try {
       await supabase.from('notifications').insert({
         user_id,
