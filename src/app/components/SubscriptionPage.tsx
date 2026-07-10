@@ -170,10 +170,18 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
               <Crown className="w-5 h-5 text-amber-400" />
               <p className="text-sm font-black text-amber-300 uppercase tracking-wider">Premium</p>
             </div>
-            <div className="flex items-baseline gap-1 mb-5">
-              <span className="text-4xl font-black text-white">₩4,900</span>
+            {/* 오픈 얼리버드 특가 — 실제 청구가 ₩2,900(subscription_price_krw), ₩4,900 은 이후 정상가 */}
+            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-red-500 to-amber-500 text-white text-[11px] font-black mb-2.5">
+              {t("subscriptionPage.earlyBirdBadge")}
+            </div>
+            <div className="flex items-baseline gap-2 mb-1.5">
+              <span className="text-lg text-gray-500 line-through">₩4,900</span>
+              <span className="text-4xl font-black text-white">₩2,900</span>
               <span className="text-sm text-gray-400 font-medium">{t("subscriptionModal.perMonth")}</span>
             </div>
+            <p className="flex items-center gap-1 text-[11px] font-bold text-amber-300 mb-5">
+              ⏰ {t("subscriptionPage.earlyBirdEnding")}
+            </p>
             <ul className="space-y-2.5 mb-6">
               {premiumFeatures.map((f) => (
                 <li key={f} className="flex items-start gap-2 text-sm text-gray-200">

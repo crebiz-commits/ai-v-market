@@ -91,10 +91,10 @@ async function startBillingAuth(customerKey: string, customerEmail?: string) {
 }
 
 export function usePayment() {
-  /** 프리미엄 구독 결제 시작 (월 ₩4,900) */
+  /** 프리미엄 구독 결제 시작 (오픈 얼리버드 월 ₩2,900) */
   const startSubscription = async (params?: { email?: string; name?: string }) => {
-    // platform_settings에서 가격 조회
-    let amount = 4900;
+    // platform_settings에서 가격 조회 (실패 시 폴백 — 얼리버드가 실제 청구가라 폴백도 2,900)
+    let amount = 2900;
     try {
       const { data } = await supabase.rpc("get_platform_setting", {
         p_key: "subscription_price_krw",

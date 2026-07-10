@@ -141,10 +141,16 @@ export function SubscriptionModal({
                   <div className="flex items-baseline justify-between mb-1">
                     <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">CREAITE PREMIUM</span>
                   </div>
-                  <div className="flex items-baseline gap-1 mb-4">
-                    <span className="text-3xl font-black text-white">₩4,900</span>
+                  {/* 오픈 얼리버드 특가 — 실제 청구가 ₩2,900, ₩4,900 은 이후 정상가 */}
+                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-red-500 to-amber-500 text-white text-[10px] font-black mb-2">
+                    {t("subscriptionPage.earlyBirdBadge")}
+                  </div>
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <span className="text-base text-gray-500 line-through">₩4,900</span>
+                    <span className="text-3xl font-black text-white">₩2,900</span>
                     <span className="text-sm text-gray-500 font-medium">{t("subscriptionModal.perMonth")}</span>
                   </div>
+                  <p className="text-[10px] font-bold text-amber-300 mb-4">⏰ {t("subscriptionPage.earlyBirdEnding")}</p>
 
                   <div className="space-y-2.5">
                     {[
@@ -190,8 +196,8 @@ export function SubscriptionModal({
                 {/* 전자상거래법 — 결제 전 정기결제·청약철회 고지 */}
                 <p className="text-[10px] text-gray-500 text-center mt-2 leading-relaxed">
                   {isKo
-                    ? "매월 ₩4,900 자동결제(정기결제) · 언제든 해지 가능. 청약철회·환불은 "
-                    : "₩4,900/mo recurring · cancel anytime. Refund & withdrawal: "}
+                    ? "매월 ₩2,900 자동결제(정기결제) · 언제든 해지 가능. 청약철회·환불은 "
+                    : "₩2,900/mo recurring · cancel anytime. Refund & withdrawal: "}
                   <a href="?info=terms" className="underline hover:text-gray-300">
                     {isKo ? "이용약관 제7조" : "Terms §7"}
                   </a>

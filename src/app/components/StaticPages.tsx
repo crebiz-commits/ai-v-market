@@ -284,8 +284,8 @@ const YOUTH_EN = {
 // ──────────────────────────────────────────────────────────────────────
 const FAQ_KO: { q: string; a: string }[] = [
   { q: "크리에잇(CREAITE)은 어떤 서비스인가요?", a: "세계 최초 AI 시네마 OTT입니다. AI 크리에이터가 만든 영화·드라마·애니메이션을 감상하고, 창작자는 광고·판매·구독 수익을 얻습니다." },
-  { q: "이용 요금은 얼마인가요?", a: "기본 감상은 무료입니다(광고 포함). 프리미엄 구독(월 ₩4,900)을 이용하면 모든 광고가 제거되고 장편 작품을 끝까지 감상할 수 있습니다." },
-  { q: "구독은 자동으로 갱신되나요?", a: "네, 프리미엄 구독은 매월 ₩4,900이 등록한 카드로 자동 결제(정기결제)됩니다. 마이페이지 또는 구독 페이지에서 언제든 자동결제를 해지할 수 있으며, 해지 시 다음 결제일부터 청구되지 않고 이미 결제한 기간은 만료일까지 이용할 수 있습니다." },
+  { q: "이용 요금은 얼마인가요?", a: "기본 감상은 무료입니다(광고 포함). 프리미엄 구독(월 ₩2,900)을 이용하면 모든 광고가 제거되고 장편 작품을 끝까지 감상할 수 있습니다." },
+  { q: "구독은 자동으로 갱신되나요?", a: "네, 프리미엄 구독은 매월 ₩2,900이 등록한 카드로 자동 결제(정기결제)됩니다. 마이페이지 또는 구독 페이지에서 언제든 자동결제를 해지할 수 있으며, 해지 시 다음 결제일부터 청구되지 않고 이미 결제한 기간은 만료일까지 이용할 수 있습니다." },
   { q: "환불은 어떻게 받나요?", a: '결제 후 7일 이내에 마이페이지 → 설정 → 결제 내역에서 환불 요청을 하실 수 있습니다. 자세한 기준은 <a href="?info=terms" class="text-[#8b5cf6] hover:underline">이용약관 제7조</a>를 참고해 주세요.' },
   { q: "영상 업로드는 누구나 할 수 있나요?", a: "네, 회원이라면 누구나 업로드 탭에서 작품을 올릴 수 있습니다. 단, AI로 생성·제작한 본인 창작 영상만 가능하며 타인의 영상을 재업로드하면 즉시 제재됩니다." },
   { q: "크리에이터 수익은 어떻게 발생하나요?", a: '① 영상에 붙는 광고 수익(노출 기반) ② 영상 라이선스 판매 수익 ③ 구독료 분배(OTT 시청시간 비례), 세 가지입니다. 자세한 비율과 정책은 <a href="?info=creator-revenue" class="text-[#8b5cf6] hover:underline">크리에이터 수익 정책</a> 페이지에서 확인하세요.' },
@@ -300,8 +300,8 @@ const FAQ_KO: { q: string; a: string }[] = [
 
 const FAQ_EN: { q: string; a: string }[] = [
   { q: "What is CREAITE?", a: "The world's first AI cinema OTT. Watch films, dramas, and animation made by AI creators — while creators earn ad, sales, and subscription revenue." },
-  { q: "How much does it cost?", a: "Watching is free (with ads). Premium (₩4,900/month) removes all ads and unlocks full-length features." },
-  { q: "Does the subscription auto-renew?", a: "Yes. Premium auto-bills ₩4,900/month to your registered card. You can cancel auto-pay anytime from My Page or the Subscription page; after cancellation no further charges are made and your current period stays active until expiry." },
+  { q: "How much does it cost?", a: "Watching is free (with ads). Premium (₩2,900/month) removes all ads and unlocks full-length features." },
+  { q: "Does the subscription auto-renew?", a: "Yes. Premium auto-bills ₩2,900/month to your registered card. You can cancel auto-pay anytime from My Page or the Subscription page; after cancellation no further charges are made and your current period stays active until expiry." },
   { q: "How do refunds work?", a: 'You can request a refund within 7 days of payment via My Page → Settings → Payment History. See <a href="?info=terms" class="text-[#8b5cf6] hover:underline">Terms Article 7</a> for details.' },
   { q: "Who can upload videos?", a: "Any member can upload from the Upload tab. Only your own AI-generated/AI-assisted creations are allowed — re-uploading others' work leads to immediate sanctions." },
   { q: "How do creators earn?", a: 'Three ways: ① ad revenue (impression-based) ② license sales ③ subscription pool sharing (proportional to OTT watch time). See the <a href="?info=creator-revenue" class="text-[#8b5cf6] hover:underline">Creator Revenue Policy</a>.' },

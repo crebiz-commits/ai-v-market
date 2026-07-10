@@ -1470,8 +1470,8 @@ app.post('/billing-auth-confirm', async (c) => {
     }
     const billingKey = issueBody.billingKey;
 
-    // 2) 금액 (정책)
-    let amount = 4900;
+    // 2) 금액 (정책) — 폴백도 현재가(얼리버드 2,900)와 일치시켜, 설정 조회 실패 시 과청구 방지
+    let amount = 2900;
     try {
       const { data } = await getSupabaseClient(true).rpc('get_platform_setting', { p_key: 'subscription_price_krw' });
       if (data && Number(data) > 0) amount = Number(data);
