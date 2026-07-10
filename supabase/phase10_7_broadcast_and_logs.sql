@@ -259,63 +259,11 @@ END;
 $$;
 
 -- 환불 → 로그
-CREATE OR REPLACE FUNCTION public.admin_refund_payment(
-  p_payment_id BIGINT,
-  p_admin_note TEXT DEFAULT NULL
-)
-RETURNS VOID
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  v_payment public.payments;
-BEGIN
-  PERFORM public.assert_admin();
-
-  SELECT * INTO v_payment FROM public.payments WHERE id = p_payment_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION '존재하지 않는 결제: %', p_payment_id;
-  END IF;
-
-  IF v_payment.status <> 'completed' THEN
-    RAISE EXCEPTION '환불 가능한 상태가 아닙니다 (현재: %)', v_payment.status;
-  END IF;
-
-  UPDATE public.payments
-  SET status = 'refunded',
-      failure_reason = COALESCE(p_admin_note, '관리자 환불'),
-      updated_at = now()
-  WHERE id = p_payment_id;
-
-  -- 권한 회수
-  IF v_payment.payment_type = 'subscription' THEN
-    UPDATE public.profiles
-    SET subscription_tier = 'free', subscription_expires_at = NULL, updated_at = now()
-    WHERE id = v_payment.user_id;
-  ELSIF v_payment.payment_type = 'license' THEN
-    UPDATE public.orders
-    SET status = 'refunded', updated_at = now()
-    WHERE buyer_id = v_payment.user_id
-      AND video_id = v_payment.target_id
-      AND payment_id = v_payment.payment_key;
-  ELSIF v_payment.payment_type = 'ad_budget' THEN
-    UPDATE public.ads
-    SET budget_krw = GREATEST(COALESCE(budget_krw, 0) - v_payment.amount, 0),
-        updated_at = now()
-    WHERE id = v_payment.target_id::UUID;
-  END IF;
-
-  -- 로그
-  INSERT INTO public.admin_logs (admin_id, action, target_type, target_id, details)
-  VALUES (auth.uid(), 'refund_payment', 'payment', p_payment_id::TEXT,
-    jsonb_build_object(
-      'order_id', v_payment.order_id,
-      'amount', v_payment.amount,
-      'payment_type', v_payment.payment_type,
-      'reason', p_admin_note
-    ));
-END;
-$$;
+-- ⚠️ 이관됨(SUPERSEDED, 2026-07-11) — 정본은 refund_settlement_reversal_20260703.sql 의
+--    admin_refund_payment (정산 역산·클로백 포함, 반환타입이 VOID 아님).
+--    여기 옛 버전(RETURNS VOID)을 CREATE OR REPLACE 하면 "cannot change return type" 로
+--    이 스크립트 전체가 롤백되므로 정의하지 않음(phase10_6 의 환불 함수 이관과 동일 이유).
+--    관리자 액션 로깅 6개만 복원하려면 admin_action_logging_restore_20260711.sql 사용.
 
 -- 어드민 권한 변경 → 로그
 CREATE OR REPLACE FUNCTION public.admin_set_admin_role(
