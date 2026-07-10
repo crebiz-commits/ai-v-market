@@ -63,6 +63,7 @@ export function AdminRevenueSettlement() {
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
   const [downloadingCsv, setDownloadingCsv] = useState(false);
+  const [payingId, setPayingId] = useState<number | null>(null);
 
   // Phase 32 — 연말정산 CSV 다운로드 (현재 선택된 연도 기준)
   const handleDownloadCsv = async () => {
@@ -142,48 +143,56 @@ export function AdminRevenueSettlement() {
   };
 
   const markPaid = async (id: number) => {
+    // F6: 더블클릭 중복 실행 방지. mark_revenue_paid 는 payout_status='pending' 가드로
+    //     금전은 멱등(2번째 호출 no-op)이지만, 가드가 없으면 클라가 이메일을 두 번 발송함.
+    if (payingId !== null) return;
     if (!confirm("지급 완료로 표시하시겠습니까?\n(이 작업은 되돌릴 수 없습니다)")) return;
 
-    const { error } = await supabase.rpc("mark_revenue_paid", { p_distribution_id: id });
-    if (error) {
-      toast.error("처리 실패: " + error.message);
-      return;
-    }
-
-    // 갱신된 정산 데이터 재조회 — net_amount/원천징수 확보 + UI 반영
-    const { data: fresh } = await supabase.rpc("get_revenue_distributions_by_period", {
-      p_year: year,
-      p_month: month,
-    });
-    if (fresh) setRows(fresh);
-
-    // Phase 34 — 크리에이터에게 정산 완료 메일 (세후 net 금액 기준, fire-and-forget)
+    setPayingId(id);
     try {
-      const row = (fresh || []).find((r: Distribution) => r.id === id) || rows.find((r) => r.id === id);
-      if (row?.creator_id) {
-        const { subject, html } = buildRevenueSettledEmail({
-          year,
-          month,
-          totalAmount: row.total_revenue,
-          saleAmount: row.sale_revenue,
-          adAmount: row.ad_revenue,
-          subscriptionAmount: row.subscription_revenue,
-          taxWithholding: row.tax_withholding,
-          netAmount: row.net_amount,
-        });
-        void sendNotification({
-          user_id: row.creator_id,
-          type: "revenue_settled",
-          // to 생략 — Edge Function이 user_id로 자동 조회
-          subject,
-          html,
-        });
+      const { error } = await supabase.rpc("mark_revenue_paid", { p_distribution_id: id });
+      if (error) {
+        toast.error("처리 실패: " + error.message);
+        return;
       }
-    } catch (mailErr) {
-      console.warn("[AdminRevenueSettlement] 정산 알림 메일 실패:", mailErr);
-    }
 
-    toast.success("지급 완료 처리됨");
+      // 갱신된 정산 데이터 재조회 — net_amount/원천징수 확보 + UI 반영
+      const { data: fresh } = await supabase.rpc("get_revenue_distributions_by_period", {
+        p_year: year,
+        p_month: month,
+      });
+      if (fresh) setRows(fresh);
+
+      // Phase 34 — 크리에이터에게 정산 완료 메일 (세후 net 금액 기준, fire-and-forget)
+      try {
+        const row = (fresh || []).find((r: Distribution) => r.id === id) || rows.find((r) => r.id === id);
+        if (row?.creator_id) {
+          const { subject, html } = buildRevenueSettledEmail({
+            year,
+            month,
+            totalAmount: row.total_revenue,
+            saleAmount: row.sale_revenue,
+            adAmount: row.ad_revenue,
+            subscriptionAmount: row.subscription_revenue,
+            taxWithholding: row.tax_withholding,
+            netAmount: row.net_amount,
+          });
+          void sendNotification({
+            user_id: row.creator_id,
+            type: "revenue_settled",
+            // to 생략 — Edge Function이 user_id로 자동 조회
+            subject,
+            html,
+          });
+        }
+      } catch (mailErr) {
+        console.warn("[AdminRevenueSettlement] 정산 알림 메일 실패:", mailErr);
+      }
+
+      toast.success("지급 완료 처리됨");
+    } finally {
+      setPayingId(null);
+    }
   };
 
   const totalPending = rows.filter(r => r.payout_status === "pending").reduce((s, r) => s + r.total_revenue, 0);
@@ -358,9 +367,10 @@ export function AdminRevenueSettlement() {
                   <Button
                     onClick={() => markPaid(r.id)}
                     size="sm"
-                    className="mt-3 w-full gap-1.5 bg-green-600 hover:bg-green-700"
+                    disabled={payingId !== null}
+                    className="mt-3 w-full gap-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-60"
                   >
-                    <Check className="w-3.5 h-3.5" />
+                    {payingId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                     지급 완료 표시
                   </Button>
                 )}

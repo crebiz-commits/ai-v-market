@@ -111,6 +111,20 @@ export function AdminRevenuePolicy() {
       return;
     }
 
+    // F9: 정산·결제에 직결되는 금전 키는 저장 전 before→after 확인.
+    //     분배율(creator_share_*)·가격/단가/최소액(*_krw) 오타 즉시반영 방지.
+    const isMoneyKey = /^creator_share_/.test(editingKey) || /_krw$/.test(editingKey);
+    if (isMoneyKey) {
+      const current = settings.find((s) => s.key === editingKey)?.value;
+      const ok = confirm(
+        `[${KEY_META[editingKey]?.label}] 값을 변경합니다.\n\n` +
+        (current !== undefined ? `현재: ${formatValue(editingKey, current)}\n` : "") +
+        `변경: ${formatValue(editingKey, finalValue)}\n\n` +
+        `이 값은 앞으로의 정산·결제에 즉시 반영됩니다. 계속하시겠습니까?`
+      );
+      if (!ok) return;
+    }
+
     setSaving(true);
     const { error } = await supabase.rpc("update_platform_setting", {
       p_key: editingKey,
