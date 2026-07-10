@@ -45,25 +45,36 @@ export function AdminMegaUploader() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const setStatus = async (id: string, status: Milestone["status"]) => {
+  const setStatus = async (id: string, status: Milestone["status"]): Promise<boolean> => {
     const prev = items;
     setItems((cur) => cur.map((it) => (it.id === id ? { ...it, status, rewarded_at: status === "coupon_sent" ? new Date().toISOString() : null } : it)));
     const { error } = await supabase
       .from("upload_milestones")
       .update({ status, rewarded_at: status === "coupon_sent" ? new Date().toISOString() : null })
       .eq("id", id);
-    if (error) { toast.error("변경 실패: " + error.message); setItems(prev); }
+    if (error) { toast.error("변경 실패: " + error.message); setItems(prev); return false; }
+    return true;
   };
 
+  // 메가커피 발송: Zoho 열고 이메일 복사 + '지급완료' 자동 기록(별도 버튼 클릭 불필요).
+  //   미발송 시 토스트의 '실행취소'로 '대기'로 되돌린다. (이메일 없으면 기록하지 않음)
   const sendCoupon = async (it: Milestone) => {
     const to = it.creator_email || "";
-    if (to.includes("@")) {
-      try { await navigator.clipboard.writeText(to); } catch {}
-      window.open("https://mail.zoho.com/zm/#compose", "_blank", "noopener");
-      toast.success(`이메일(${to})을 복사했어요. Zoho 작성창에 붙여넣어 메가커피 3만원권을 보내세요.`, { duration: 5000 });
-    } else {
+    if (!to.includes("@")) {
       toast.info("이메일이 없어요. 크리에이터에게 직접 연락해 쿠폰을 보내주세요.", { duration: 5000 });
+      return;
     }
+    try { await navigator.clipboard.writeText(to); } catch {}
+    window.open("https://mail.zoho.com/zm/#compose", "_blank", "noopener");
+
+    const guide = `이메일(${to})을 복사했어요. Zoho 작성창에 붙여넣어 메가커피 3만원권을 보내세요.`;
+    if (it.status === "coupon_sent") { toast.success(guide, { duration: 5000 }); return; }
+    const ok = await setStatus(it.id, "coupon_sent");   // 실패 시 롤백+에러토스트
+    if (!ok) return;
+    toast.success(`${guide} '지급완료'로 기록했어요.`, {
+      duration: 6000,
+      action: { label: "실행취소", onClick: () => { void setStatus(it.id, "pending"); } },
+    });
   };
 
   const pendingCount = items.filter((i) => i.status === "pending").length;

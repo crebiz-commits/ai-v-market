@@ -87,7 +87,7 @@ export function AdminBugReports() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const setStatus = async (id: string, status: BugReport["status"]) => {
+  const setStatus = async (id: string, status: BugReport["status"]): Promise<boolean> => {
     const prev = items;
     setItems((cur) => cur.map((it) => (it.id === id ? { ...it, status, reviewed_at: new Date().toISOString() } : it)));
     const { error } = await supabase
@@ -97,7 +97,9 @@ export function AdminBugReports() {
     if (error) {
       toast.error("상태 변경 실패: " + error.message);
       setItems(prev);
+      return false;
     }
+    return true;
   };
 
   const remove = async (id: string) => {
@@ -108,17 +110,30 @@ export function AdminBugReports() {
     if (error) { toast.error("삭제 실패: " + error.message); setItems(prev); }
   };
 
-  // 쿠폰 발송: Zoho 작성창 열고 연락처 복사 (AdminInquiries 패턴)
+  // 쿠폰 발송: Zoho 작성창 열고 연락처 복사 + '쿠폰지급' 상태 자동 기록.
+  //   기존엔 발송 후 별도로 '쿠폰지급' 버튼을 눌러야 기록돼 누락/중복지급 위험이 있었음.
+  //   이제 '보내기' 한 번으로 기록까지 끝내고, 미발송 시 토스트의 '실행취소'로 되돌린다.
   const sendCoupon = async (it: BugReport) => {
     const to = it.reporter_contact || "";
-    if (to.includes("@")) {
-      try { await navigator.clipboard.writeText(to); } catch {}
-      window.open("https://mail.zoho.com/zm/#compose", "_blank", "noopener");
-      toast.success(`연락처(${to})를 복사했어요. Zoho 작성창에 붙여넣어 커피 쿠폰을 보내세요.`, { duration: 5000 });
-    } else {
-      try { await navigator.clipboard.writeText(to); } catch {}
-      toast.info(`연락처(${to || "없음"})를 복사했어요. 카카오 등으로 쿠폰을 보내주세요.`, { duration: 5000 });
+    const isEmail = to.includes("@");
+    try { await navigator.clipboard.writeText(to); } catch {}
+    if (isEmail) window.open("https://mail.zoho.com/zm/#compose", "_blank", "noopener");
+
+    const guide = isEmail
+      ? `연락처(${to})를 복사했어요. Zoho 작성창에 붙여넣어 커피 쿠폰을 보내세요.`
+      : `연락처(${to || "없음"})를 복사했어요. 카카오 등으로 쿠폰을 보내주세요.`;
+
+    const prevStatus = it.status;
+    if (prevStatus === "coupon_sent") {
+      toast.success(guide, { duration: 5000 });
+      return;
     }
+    const ok = await setStatus(it.id, "coupon_sent");   // 실패 시 setStatus가 롤백+에러토스트
+    if (!ok) return;
+    toast.success(`${guide} '쿠폰지급'으로 기록했어요.`, {
+      duration: 6000,
+      action: { label: "실행취소", onClick: () => { void setStatus(it.id, prevStatus); } },
+    });
   };
 
   const counts = STATUS.reduce((acc, s) => { acc[s.key] = items.filter((i) => i.status === s.key).length; return acc; }, {} as Record<string, number>);
