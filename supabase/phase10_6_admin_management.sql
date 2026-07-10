@@ -2,6 +2,16 @@
 -- Phase 10.6 — 어드민 핵심 관리 기능 (사용자/콘텐츠/숨김/결제)
 -- 적용 일자: 2026-05-13
 --
+-- ⚠️⚠️ 재실행 금지(SUPERSEDED, 2026-07-11) — 이 파일의 아래 함수들은 옛 버전이며,
+--   재실행하면 최신본을 회귀시킴(감사로깅 유실·콘텐츠목록 에러):
+--   · admin_suspend_user / admin_unsuspend_user / admin_set_admin_role /
+--     admin_hide_video / admin_unhide_video / admin_delete_video
+--       → 여기 정의는 admin_logs 기록이 없는 옛 버전.
+--       ★ 정본 = phase10_7_broadcast_and_logs.sql (로깅 포함). 이 파일 재적용 시 반드시 뒤에 다시 Run.
+--   · admin_search_videos → v.price(미존재 컬럼) 참조 브로큰본.
+--       ★ 정본 = phase10_6_fix_views_cast.sql (price_standard + 안전 캐스트). 뒤에 다시 Run.
+--   검증: _verify_admin_audit_20260711.sql (6행 모두 true여야 정상).
+--
 -- 목적:
 --   1. 사용자 관리: 검색/상세/정지/권한
 --   2. 콘텐츠 관리: 영상 검색/강제 숨김
