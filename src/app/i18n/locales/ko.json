@@ -1749,6 +1749,8 @@
     "browseCategory": "카테고리 둘러보기",
     "trendingVideos": "지금 뜨는 영상",
     "suggestedCreators": "추천 크리에이터",
+    "continueWatching": "이어보기",
+    "popularTags": "인기 태그",
     "popularRealtime": "실시간 인기",
     "hitCount": "{{count}}회",
     "filterAriaLabel": "필터",

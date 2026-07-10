@@ -166,6 +166,9 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
   // 검색 전 디스커버리(허전함 방지) — 지금 뜨는 영상 + 추천 크리에이터
   const [trendingVideos, setTrendingVideos] = useState<VideoResult[]>([]);
   const [discoverCreators, setDiscoverCreators] = useState<CreatorResult[]>([]);
+  const [previewVideos, setPreviewVideos] = useState<VideoResult[]>([]);   // 자동완성 드롭다운 썸네일 미리보기(유튜브식)
+  const [watchHistory, setWatchHistory] = useState<VideoResult[]>([]);     // 이어보기(최근 시청)
+  const [popularTags, setPopularTags] = useState<string[]>([]);            // 인기 태그(트렌딩 영상서 집계)
 
   const { profile, user } = useAuth();
   const ageVerified = profile?.age_verified ?? false;
@@ -212,6 +215,16 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
         views_count: typeof r.views === "string" && /^\d+$/.test(r.views) ? parseInt(r.views, 10) : (r.views ?? 0),
         likes: r.likes ?? 0, price_standard: r.price_standard,
       } as VideoResult)));
+      // 인기 태그 집계 — 트렌딩 영상의 tags 빈도 top 12
+      const freq = new Map<string, number>();
+      for (const r of rows as any[]) {
+        const tags = Array.isArray(r.tags) ? r.tags : [];
+        for (const raw of tags) {
+          const tag = String(raw || "").trim();
+          if (tag && !tag.startsWith("challenge:")) freq.set(tag, (freq.get(tag) || 0) + 1);
+        }
+      }
+      setPopularTags([...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([t]) => t));
     })();
     // 추천 크리에이터 — 인기 크리에이터 top 8
     (async () => {
@@ -224,19 +237,48 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
     })();
   }, []);
 
+  // 이어보기 — 최근 시청(로그인 상태 의존이라 별도 이펙트). 안전뷰 아님이라 표시만(클릭 시 상세서 최종 게이트).
+  useEffect(() => {
+    if (!user?.id) { setWatchHistory([]); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.rpc("get_my_watch_history", { p_limit: 12, p_offset: 0 });
+      if (cancelled || !Array.isArray(data)) return;
+      setWatchHistory((data as any[])
+        .filter((r) => r.video_id && (!r.creator_id || !isBlocked(r.creator_id)))
+        .map((r) => ({
+          id: r.video_id, title: r.title, thumbnail: r.thumbnail, video_url: null,
+          creator: r.creator_name, creator_id: r.creator_id, creator_display_name: r.creator_name, creator_avatar: null,
+          category: null, ai_tool: null, duration: null, duration_seconds: r.duration_seconds,
+          views_count: 0, likes: 0, price_standard: null,
+        } as VideoResult)));
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, isBlocked]);
+
   // 자동완성 (debounced)
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (query.trim().length < 2) {
       ++suggestSeqRef.current;   // in-flight 이던 이전(2+글자) 제안 응답 무효화 → stale flash 방지
       setSuggestions([]);
+      setPreviewVideos([]);
       return;
     }
     const seq = ++suggestSeqRef.current;
     debounceRef.current = setTimeout(async () => {
-      const { data } = await supabase.rpc("get_search_suggestions", { p_query: query.trim(), p_limit: 8 });
-      if (seq !== suggestSeqRef.current) return;   // 늦게 도착한 이전 입력의 제안 폐기
-      if (Array.isArray(data)) setSuggestions(data as Suggestion[]);
+      // 텍스트 제안 + 매칭 영상 썸네일 미리보기(유튜브식)를 병렬 조회
+      const [sugg, vids] = await Promise.all([
+        supabase.rpc("get_search_suggestions", { p_query: query.trim(), p_limit: 8 }),
+        supabase.rpc("search_videos", { p_query: query.trim(), p_sort: "relevance", p_limit: 5, p_offset: 0 }),
+      ]);
+      if (seq !== suggestSeqRef.current) return;   // 늦게 도착한 이전 입력의 응답 폐기
+      if (Array.isArray(sugg.data)) setSuggestions(sugg.data as Suggestion[]);
+      setPreviewVideos(
+        Array.isArray(vids.data)
+          ? (vids.data as VideoResult[]).filter((v) => !v.creator_id || !isBlocked(v.creator_id)).slice(0, 4)
+          : []
+      );
     }, DEBOUNCE_MS);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -457,7 +499,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
 
             {/* 자동완성 / 기록 / 인기 dropdown */}
             <AnimatePresence>
-              {showDropdown && (query.trim().length >= 2 ? suggestions.length > 0 : history.length > 0 || popular.length > 0) && (
+              {showDropdown && (query.trim().length >= 2 ? (suggestions.length > 0 || previewVideos.length > 0) : history.length > 0 || popular.length > 0) && (
                 <motion.div
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -479,6 +521,28 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
                           {s.source === "creator" && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#8b5cf6]/20 text-[#a78bfa] flex-shrink-0">{t("searchPage.creatorBadge")}</span>
                           )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 입력 중: 매칭 영상 썸네일 미리보기(유튜브식) */}
+                  {query.trim().length >= 2 && previewVideos.length > 0 && (
+                    <div className="py-1 border-t border-white/5">
+                      {previewVideos.map((v) => (
+                        <button
+                          key={`pv-${v.id}`}
+                          type="button"
+                          onMouseDown={(e) => { e.preventDefault(); setShowDropdown(false); handleClickVideo(v); }}
+                          className="w-full flex items-center gap-3 px-3 py-2 hover:bg-white/5 transition-colors text-left"
+                        >
+                          <div className="w-16 aspect-video rounded bg-black overflow-hidden flex-shrink-0">
+                            {v.thumbnail ? <img src={v.thumbnail} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Play className="w-4 h-4 text-gray-700" /></div>}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-200 truncate">{v.title}</p>
+                            <p className="text-[11px] text-gray-500 truncate">{v.creator_display_name || v.creator}</p>
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -642,6 +706,24 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
           </div>
         ) : showInitialState ? (
           <div className="space-y-8 py-2">
+            {/* 이어보기(최근 시청) — 가로 스크롤 */}
+            {watchHistory.length > 0 && (
+              <section>
+                <p className="text-sm font-bold text-white mb-3 flex items-center gap-1.5"><Clock className="w-4 h-4" /> {t("searchPage.continueWatching", "이어보기")}</p>
+                <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {watchHistory.map((v) => (
+                    <button key={v.id} onClick={() => handleClickVideo(v)} className="flex-shrink-0 w-40 text-left group">
+                      <div className="relative aspect-video rounded-lg bg-black overflow-hidden mb-1.5">
+                        {v.thumbnail ? <img src={v.thumbnail} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" /> : <div className="w-full h-full flex items-center justify-center"><Play className="w-6 h-6 text-gray-700" /></div>}
+                      </div>
+                      <p className="text-xs text-gray-200 line-clamp-2">{v.title}</p>
+                      <p className="text-[11px] text-gray-500 truncate mt-0.5">{v.creator_display_name || v.creator}</p>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* 최근 검색 */}
             {history.length > 0 && (
               <section>
@@ -681,6 +763,24 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
                 ))}
               </div>
             </section>
+
+            {/* 인기 태그 */}
+            {popularTags.length > 0 && (
+              <section>
+                <p className="text-[11px] font-bold text-gray-500 uppercase mb-2.5">{t("searchPage.popularTags", "인기 태그")}</p>
+                <div className="flex flex-wrap gap-2">
+                  {popularTags.map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => handlePickSuggestion(tag)}
+                      className="px-3 py-1.5 rounded-full bg-[#8b5cf6]/10 border border-[#8b5cf6]/20 text-sm text-[#c4b5fd] hover:bg-[#8b5cf6]/20 transition-colors"
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* 실시간 인기 검색 */}
             {popular.length > 0 && (
