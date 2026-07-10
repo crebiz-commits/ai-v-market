@@ -217,14 +217,18 @@ const VideoCard = memo(function VideoCard({ video, idx, onVideoClick, onAddToCar
             >
               <Play className="w-3.5 h-3.5 text-black fill-black" />
             </span>
-            <span
-              role="button"
-              onClick={handleCartClick}
-              className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-sm border border-white/40 flex items-center justify-center hover:border-white transition-colors"
-              aria-label={t("videoRow.addToCart", "장바구니")}
-            >
-              <Plus className="w-3.5 h-3.5 text-white" />
-            </span>
+            {/* 카트(담기) 버튼 — 구매 가능한 맥락(onAddToCart 주입)에서만 노출.
+                OTT(구독 시청 전용)·상세 관련영상 등 담기 불가 맥락에선 숨김(의미 오류/죽은 버튼 방지). */}
+            {onAddToCart && (
+              <span
+                role="button"
+                onClick={handleCartClick}
+                className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-sm border border-white/40 flex items-center justify-center hover:border-white transition-colors"
+                aria-label={t("videoRow.addToCart", "장바구니")}
+              >
+                <Plus className="w-3.5 h-3.5 text-white" />
+              </span>
+            )}
             <span
               role="button"
               onClick={handleLikeClick}

@@ -153,14 +153,17 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
                     >
                       <Play className="w-3.5 h-3.5 text-black fill-black" />
                     </span>
-                    <span
-                      role="button"
-                      onClick={(e) => handleCartClick(e, v)}
-                      className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-sm border border-white/40 flex items-center justify-center hover:border-white transition-colors"
-                      aria-label={t("videoRow.addToCart", "장바구니")}
-                    >
-                      <Plus className="w-3.5 h-3.5 text-white" />
-                    </span>
+                    {/* 카트(담기) 버튼 — 구매 가능한 맥락(onAddToCart 주입)에서만 노출 */}
+                    {onAddToCart && (
+                      <span
+                        role="button"
+                        onClick={(e) => handleCartClick(e, v)}
+                        className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-sm border border-white/40 flex items-center justify-center hover:border-white transition-colors"
+                        aria-label={t("videoRow.addToCart", "장바구니")}
+                      >
+                        <Plus className="w-3.5 h-3.5 text-white" />
+                      </span>
+                    )}
                     <span
                       role="button"
                       onClick={(e) => handleLikeClick(e, v)}

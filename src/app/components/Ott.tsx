@@ -452,7 +452,6 @@ export function Ott({ onProductClick, onPlayProduct, onNavigate, onHeroScroll }:
             subtitle={t("ott.selectSubtitle", "에디터가 보증하는 공식 선정작")}
             videos={selectVideos}
             onVideoClick={handleClick}
-            onAddToCart={handleClick}
             ageRatings={ageRatings} seriesCounts={seriesCounts}
             cardWidthClass="w-80 md:w-[30rem]"
           />
