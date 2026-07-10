@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { X, Bell, Heart, MessageCircle, ShoppingBag, TrendingUp, Zap, CheckCheck, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
@@ -79,6 +79,8 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadTotal, setUnreadTotal] = useState(0);   // 정확한 미읽음 총계(30개 상한과 무관) — 헤더 배지·벨 리포트용
   const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);   // 이동 대상 없는 긴 공지/시스템 알림 전문 펼침
+  const seenIdsRef = useRef<Set<string>>(new Set());   // fetch+실시간 공통 dedup — 중복 INSERT/재전송 시 미읽음 이중집계 방지
 
   const fetchNotifications = useCallback(async () => {
     if (!isAuthenticated) {
@@ -97,6 +99,7 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
       ]);
       if (error) throw error;
       const notifs = (data as Notification[]) || [];
+      seenIdsRef.current = new Set(notifs.map((n) => n.id));   // 목록 확정 시 seen 리셋(실시간 dedup 기준)
       setNotifications(notifs);
       const exactUnread = count ?? notifs.filter((n) => !n.read).length;
       setUnreadTotal(exactUnread);
@@ -124,6 +127,8 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
         { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
         (payload) => {
           const n = payload.new as Notification;
+          if (seenIdsRef.current.has(n.id)) return;   // 재전송·fetch 중복 → 목록·카운트 이중반영 방지
+          seenIdsRef.current.add(n.id);
           setNotifications((prev) => (prev.some((x) => x.id === n.id) ? prev : [n, ...prev]));
           if (!n.read) setUnreadTotal((c) => c + 1);
         },
@@ -163,11 +168,15 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
 
   const handleClick = (notif: Notification) => {
     void markRead(notif.id);
-    // 샘플(미인증)은 이동 안 함. link 있으면 해당 화면으로 이동 + 패널 닫기.
-    if (!notif.id.startsWith("s") && notif.link && notif.link !== "/") {
-      onNavigate?.(notif.link);
+    // link 있으면 해당 화면으로 이동 + 패널 닫기(샘플·"/"는 이동 안 함).
+    const navigable = !notif.id.startsWith("s") && notif.link && notif.link !== "/";
+    if (navigable) {
+      onNavigate?.(notif.link!);
       onClose();
+      return;
     }
+    // 이동 대상 없는 알림(공지·시스템 등)은 전문 펼침 토글 — 긴 내용이 잘려 안 보이던 문제 해결.
+    setExpandedId((cur) => (cur === notif.id ? null : notif.id));
   };
 
   const unreadCount = unreadTotal;   // 헤더 배지·"모두 읽음" 노출은 정확한 총계 기준(목록 30개 상한과 무관)
@@ -231,11 +240,11 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
                   {TYPE_ICON[notif.type] || DEFAULT_ICON}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm leading-snug line-clamp-2 ${notif.read ? "text-gray-400" : "text-white font-medium"}`}>
+                  <p className={`text-sm leading-snug ${expandedId === notif.id ? "" : "line-clamp-2"} ${notif.read ? "text-gray-400" : "text-white font-medium"}`}>
                     {notif.title}
                   </p>
                   {notif.body && (
-                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{notif.body}</p>
+                    <p className={`text-xs text-gray-500 mt-0.5 whitespace-pre-wrap ${expandedId === notif.id ? "" : "line-clamp-1"}`}>{notif.body}</p>
                   )}
                   <p className="text-[11px] text-gray-600 mt-1">{timeAgo(notif.created_at, isKo)}</p>
                 </div>
