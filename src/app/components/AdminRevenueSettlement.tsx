@@ -162,11 +162,14 @@ export function AdminRevenueSettlement() {
     }
     if (!confirm(`[${c.creator_name || "크리에이터"}] ₩${c.amount.toLocaleString()} 클로백을 '${label}' 처리할까요?`)) return;
     setResolvingId(c.id);
-    const { error } = await supabase.rpc("admin_resolve_clawback", { p_id: c.id, p_status: status, p_note: note });
-    setResolvingId(null);
-    if (error) { toast.error("처리 실패: " + error.message); return; }
-    toast.success(`클로백 ${label} 처리됨`);
-    setClawbacks((cur) => cur.filter((x) => x.id !== c.id));
+    try {
+      const { error } = await supabase.rpc("admin_resolve_clawback", { p_id: c.id, p_status: status, p_note: note });
+      if (error) { toast.error("처리 실패: " + error.message); return; }
+      toast.success(`클로백 ${label} 처리됨`);
+      setClawbacks((cur) => cur.filter((x) => x.id !== c.id));
+    } finally {
+      setResolvingId(null);
+    }
   };
 
   const runSettlement = async () => {
@@ -198,6 +201,11 @@ export function AdminRevenueSettlement() {
         toast.error("처리 실패: " + error.message);
         return;
       }
+
+      // F6 보강: 아래 재조회가 일시 실패해도 버튼이 남아 재클릭→중복메일 되는 것을 막기 위해
+      //   지급완료를 즉시 로컬 반영(버튼은 payout_status==='pending' 에서만 노출).
+      setRows((prev) => prev.map((r) =>
+        r.id === id ? { ...r, payout_status: "paid" as const, paid_at: new Date().toISOString() } : r));
 
       // 갱신된 정산 데이터 재조회 — net_amount/원천징수 확보 + UI 반영
       const { data: fresh } = await supabase.rpc("get_revenue_distributions_by_period", {

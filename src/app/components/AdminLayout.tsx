@@ -112,7 +112,7 @@ const PAGE_META: Record<AdminPage, { title: string; subtitle: string }> = {
   ads:          { title: "자체 광고",          subtitle: "CREAITE House Ads — 영상 pre-roll, 피드 카드 광고 등록·관리" },
   ad_reviews:   { title: "광고 심사",          subtitle: "광고주가 제출한 광고를 검토하고 승인·반려합니다" },
   external_ads: { title: "외부 광고",          subtitle: "애드핏·쿠팡·애드센스 수익 대시보드 바로가기 + 현재 상태" },
-  sponsorships: { title: "크리에이터 스폰서십", subtitle: "크리에이터가 영상에 등록한 협찬·스폰서 배지 검수 (준비 중)" },
+  sponsorships: { title: "크리에이터 스폰서십", subtitle: "크리에이터가 영상에 등록한 협찬·스폰서 배지 검수 (공시문구·승인/반려)" },
   policy:     { title: "수익 정책",      subtitle: "크리에이터 분배율·CPM·정산 허들을 변경하고 이력을 추적합니다" },
   settlement: { title: "정산 관리",      subtitle: "월별 크리에이터 수익을 산출하고 지급 처리합니다" },
   payments:   { title: "결제·환불",      subtitle: "모든 결제 내역 조회 및 환불 처리 (구독/라이선스/광고예산)" },

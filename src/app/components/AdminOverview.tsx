@@ -82,13 +82,16 @@ export function AdminOverview() {
         supabase.rpc("get_ad_performance_summary"),
       ]);
 
-      if (sErr) console.warn("summary:", sErr);
-      if (drErr) console.warn("daily_revenue:", drErr);
-      if (ugErr) console.warn("user_growth:", ugErr);
-      if (dvErr) console.warn("daily_views:", dvErr);
-      if (tvErr) console.warn("top_videos:", tvErr);
-      if (tcErr) console.warn("top_creators:", tcErr);
-      if (apErr) console.warn("ad_perf:", apErr);
+      // supabase.rpc 는 실패해도 throw 하지 않고 {error} 를 반환 → 아래 try/catch 로는
+      //   안 잡힘. 조용히 0으로 표시되면 "실제 데이터 0"으로 오해하므로 명시적으로 노출.
+      const rpcErrors: [string, any][] = [
+        ["요약", sErr], ["일별매출", drErr], ["가입추이", ugErr], ["조회수", dvErr],
+        ["인기영상", tvErr], ["인기크리에이터", tcErr], ["광고성과", apErr],
+      ].filter(([, e]) => e) as [string, any][];
+      for (const [name, e] of rpcErrors) console.warn(`${name}:`, e);
+      if (rpcErrors.length > 0) {
+        toast.error(`대시보드 일부 지표 조회 실패: ${rpcErrors.map(([n]) => n).join(", ")}`);
+      }
 
       if (s && s.length > 0) setSummary(s[0]);
       setDailyRevenue(dr || []);

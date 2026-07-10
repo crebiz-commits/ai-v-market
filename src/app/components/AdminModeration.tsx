@@ -254,7 +254,7 @@ function AIModerationTab({ onCountChange }: { onCountChange: (n: number) => void
     setLoading(true);
     const { data, error } = await supabase.rpc("get_moderation_queue", {
       p_status: statusFilter,
-      p_limit: 50,
+      p_limit: 100,  // 배지 카운트(마운트 시 100건 조회)와 목록 상한 일치 — 51~100건 시 목록 누락 방지
     });
     if (error) {
       toast.error("AI 검토 큐 조회 실패: " + error.message);

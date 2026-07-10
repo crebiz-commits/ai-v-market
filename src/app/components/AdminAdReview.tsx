@@ -47,13 +47,14 @@ export function AdminAdReview() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl">
-      <div className="flex items-center gap-2 mb-1">
-        <Megaphone className="w-5 h-5 text-[#a78bfa]" />
-        <h2 className="text-xl font-black text-white">광고 심사</h2>
-        {ads.length > 0 && <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-amber-500/15 text-amber-300">{ads.length}건 대기</span>}
-      </div>
-      <p className="text-sm text-muted-foreground mb-5">광고주가 제출한 광고를 검토하고 승인·반려합니다.</p>
+    <div>
+      {/* 제목·부제는 AdminLayout 헤더(PAGE_META)가 렌더 — 여기선 대기건수 배지만 표시 */}
+      {ads.length > 0 && (
+        <div className="flex items-center gap-2 mb-4">
+          <Megaphone className="w-4 h-4 text-[#a78bfa]" />
+          <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-amber-500/15 text-amber-300">{ads.length}건 대기</span>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-[#8b5cf6]" /></div>

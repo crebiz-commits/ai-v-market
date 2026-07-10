@@ -75,6 +75,7 @@ export function AdminPayments() {
   const PAGE = 50;
 
   const load = async (append = false) => {
+    if (append && loadingMore) return;                 // 동기 중복 클릭 가드
     const off = append ? payments.length : 0;
     if (append) setLoadingMore(true); else setLoading(true);
     const { data, error } = await supabase.rpc("admin_get_all_payments", {

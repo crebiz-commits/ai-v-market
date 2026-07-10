@@ -58,22 +58,30 @@ export function AdminActivityLog() {
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState("all");
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const PAGE = 50;
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (append = false) => {
+    if (append && loadingMore) return;                 // 동기 중복 클릭 가드
+    const off = append ? logs.length : 0;
+    if (append) setLoadingMore(true); else setLoading(true);
     const { data, error } = await supabase.rpc("admin_get_activity_logs", {
       p_admin_id: null,
       p_action: actionFilter === "all" ? null : actionFilter,
-      p_limit: 100,
-      p_offset: 0,
+      p_limit: PAGE,
+      p_offset: off,
     });
     if (error) {
       toast.error("로그 조회 실패: " + error.message);
-      setLogs([]);
+      if (!append) setLogs([]);
     } else {
-      setLogs(data || []);
+      const list = (data || []) as LogRow[];
+      setLogs((prev) => (append ? [...prev, ...list] : list));
+      setHasMore(list.length === PAGE);
     }
     setLoading(false);
+    setLoadingMore(false);
   };
 
   useEffect(() => { load(); }, [actionFilter]);
@@ -91,7 +99,7 @@ export function AdminActivityLog() {
             }`}
           >{a.label}</button>
         ))}
-        <Button variant="outline" size="sm" onClick={load} disabled={loading} className="ml-auto gap-1.5">
+        <Button variant="outline" size="sm" onClick={() => load()} disabled={loading} className="ml-auto gap-1.5">
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           새로고침
         </Button>
@@ -152,6 +160,13 @@ export function AdminActivityLog() {
               </div>
             );
           })}
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <Button variant="outline" onClick={() => load(true)} disabled={loadingMore} className="gap-1.5">
+                {loadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : "더 보기"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

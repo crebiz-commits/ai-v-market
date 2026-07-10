@@ -38,6 +38,7 @@ export function AdminUsers() {
   const PAGE = 50;
 
   const load = async (append = false) => {
+    if (append && loadingMore) return;                 // 동기 중복 클릭 가드
     const off = append ? users.length : 0;
     if (append) setLoadingMore(true); else setLoading(true);
     const { data, error } = await supabase.rpc("admin_search_users", {
