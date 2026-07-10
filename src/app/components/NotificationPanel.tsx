@@ -16,6 +16,16 @@ interface Notification {
   created_at: string;
 }
 
+// 미인증 샘플 알림의 읽음 상태를 localStorage 에 보관 — 패널을 닫으면 컴포넌트가 언마운트되고
+//   재오픈 시 SAMPLE 이 다시 세팅돼 '읽었는데 또 안읽음'으로 보이던 문제 해결(로그인 유저는 DB가 담당).
+const SAMPLE_READ_KEY = "creaite_sample_notif_read";
+function loadSampleRead(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(SAMPLE_READ_KEY) || "[]")); } catch { return new Set(); }
+}
+function saveSampleRead(ids: Set<string>) {
+  try { localStorage.setItem(SAMPLE_READ_KEY, JSON.stringify([...ids])); } catch { /* 저장 실패 무시 */ }
+}
+
 const TYPE_ICON: Record<string, React.ReactNode> = {
   like: <Heart className="w-4 h-4 text-red-400" />,
   comment: <MessageCircle className="w-4 h-4 text-blue-400" />,
@@ -85,8 +95,11 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
   const fetchNotifications = useCallback(async () => {
     if (!isAuthenticated) {
       // 미인증에게만 샘플 티저. 로그인 유저는 실제 데이터만(0건이면 빈 상태) — 가짜 샘플/배지 불일치 방지.
-      setNotifications(SAMPLE);
-      setUnreadTotal(SAMPLE.filter((n) => !n.read).length);
+      //   이전에 읽은 샘플은 localStorage 기록을 반영해 재오픈 시에도 읽음 유지.
+      const seen = loadSampleRead();
+      const samples = SAMPLE.map((n) => (seen.has(n.id) ? { ...n, read: true } : n));
+      setNotifications(samples);
+      setUnreadTotal(samples.filter((n) => !n.read).length);
       setLoading(false);
       return;
     }
@@ -141,7 +154,13 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     setUnreadTotal(0);
     if (isAuthenticated) onUnreadCountChange?.(0);
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      // 샘플 전부 읽음으로 영속화(재오픈 시 유지)
+      const s = loadSampleRead();
+      notifications.forEach((n) => s.add(n.id));
+      saveSampleRead(s);
+      return;
+    }
     try {
       await supabase
         .from("notifications")
@@ -160,7 +179,14 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
       setUnreadTotal(next);
       if (isAuthenticated) onUnreadCountChange?.(next);
     }
-    if (!isAuthenticated || id.startsWith("s")) return;
+    if (id.startsWith("s")) {
+      // 샘플 읽음 영속화(재오픈 시 유지)
+      const s = loadSampleRead();
+      s.add(id);
+      saveSampleRead(s);
+      return;
+    }
+    if (!isAuthenticated) return;
     try {
       await supabase.from("notifications").update({ read: true }).eq("id", id);
     } catch {}
