@@ -163,6 +163,9 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
   const [history, setHistory] = useState<string[]>([]);
   const [popular, setPopular] = useState<PopularQuery[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  // 검색 전 디스커버리(허전함 방지) — 지금 뜨는 영상 + 추천 크리에이터
+  const [trendingVideos, setTrendingVideos] = useState<VideoResult[]>([]);
+  const [discoverCreators, setDiscoverCreators] = useState<CreatorResult[]>([]);
 
   const { profile, user } = useAuth();
   const ageVerified = profile?.age_verified ?? false;
@@ -188,12 +191,36 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
     likes: t("searchPage.sortLikes"),
   }), [t]);
 
-  // 마운트: 검색 기록 + 인기 검색어 로드
+  // 마운트: 검색 기록 + 인기 검색어 + 디스커버리(트렌딩 영상·추천 크리에이터) 로드
   useEffect(() => {
     setHistory(loadHistory());
     (async () => {
       const { data } = await supabase.rpc("get_popular_searches", { p_limit: 10, p_days: 7 });
       if (Array.isArray(data)) setPopular(data as PopularQuery[]);
+    })();
+    // 지금 뜨는 영상 — 인기 홈피드 순서 top 8 (검색 전 허전함 방지). 안전뷰라 숨김/비공개 제외.
+    (async () => {
+      const { data: order } = await supabase.rpc("get_home_feed_order", { p_filter: "popular" });
+      const ids = Array.isArray(order) ? (order as string[]).slice(0, 8) : [];
+      if (ids.length === 0) return;
+      const { data: rows } = await supabase.rpc("get_home_feed_by_ids", { p_ids: ids });
+      if (!Array.isArray(rows)) return;
+      setTrendingVideos((rows as any[]).map((r) => ({
+        id: r.id, title: r.title, thumbnail: r.thumbnail, video_url: r.video_url,
+        creator: r.creator, creator_id: r.creator_id, creator_display_name: r.creator, creator_avatar: null,
+        category: r.category, ai_tool: r.ai_tool, duration: r.duration, duration_seconds: r.duration_seconds,
+        views_count: typeof r.views === "string" && /^\d+$/.test(r.views) ? parseInt(r.views, 10) : (r.views ?? 0),
+        likes: r.likes ?? 0, price_standard: r.price_standard,
+      } as VideoResult)));
+    })();
+    // 추천 크리에이터 — 인기 크리에이터 top 8
+    (async () => {
+      const { data } = await supabase.rpc("get_popular_creators", { p_limit: 8 });
+      if (!Array.isArray(data)) return;
+      setDiscoverCreators((data as any[]).map((c) => ({
+        creator_id: c.creator_id, display_name: c.creator_name, avatar_url: c.avatar_url,
+        bio: null, video_count: Number(c.video_count) || 0, follower_count: Number(c.follower_count) || 0,
+      } as CreatorResult)));
     })();
   }, []);
 
@@ -201,6 +228,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (query.trim().length < 2) {
+      ++suggestSeqRef.current;   // in-flight 이던 이전(2+글자) 제안 응답 무효화 → stale flash 방지
       setSuggestions([]);
       return;
     }
@@ -282,6 +310,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
   // 검색결과 더보기 — 현재 필터/정렬 유지하며 다음 60개 이어붙임(중복 id 제외)
   const loadMoreResults = useCallback(async () => {
     if (loadingMore || !hasMore) return;
+    const seq = searchSeqRef.current;   // 이 페이지 요청의 검색 세션 스냅샷(경쟁 가드)
     setLoadingMore(true);
     const dur = DURATION_OPTIONS[durationIdx];
     const rpcParams: Record<string, any> = { p_query: submittedQuery, p_sort: sort, p_limit: 60, p_offset: videos.length };
@@ -291,6 +320,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
     if (dur.max !== null) rpcParams.p_max_duration = dur.max;
     try {
       const { data, error } = await supabase.rpc("search_videos", rpcParams);
+      if (seq !== searchSeqRef.current) return;   // 그 사이 새 검색(쿼리/필터 변경)이 시작됐으면 이 페이지 폐기(오염 방지)
       if (!error && Array.isArray(data)) {
         setVideos((prev) => {
           const seen = new Set(prev.map((v) => v.id));
@@ -344,6 +374,13 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
     setHistory([]);
   };
 
+  // 카테고리 둘러보기(검색 전 디스커버리) — 카테고리 필터 설정 → 필터변경 이펙트가 검색 실행(hasActiveFilter).
+  const handleBrowseCategory = (cat: string) => {
+    setTab("videos");
+    setCategory(cat);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const handleClickVideo = (v: VideoResult) => {
     onProductClick({
       id: v.id,
@@ -372,8 +409,8 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
 
   // Phase 26 보강: 카드용 age_rating 일괄 조회
   const allVideoIds = useMemo(
-    () => visibleVideos.map((v) => v.id).filter((id) => !id.startsWith("demo-")),
-    [visibleVideos],
+    () => [...visibleVideos, ...trendingVideos].map((v) => v.id).filter((id) => !id.startsWith("demo-")),
+    [visibleVideos, trendingVideos],
   );
   const ageRatings = useAgeRatings(allVideoIds);
 
@@ -604,7 +641,91 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
             <Loader2 className="w-8 h-8 animate-spin text-[#8b5cf6]" />
           </div>
         ) : showInitialState ? (
-          <EmptyInitial popular={popular} onPick={handlePickSuggestion} />
+          <div className="space-y-8 py-2">
+            {/* 최근 검색 */}
+            {history.length > 0 && (
+              <section>
+                <div className="flex items-center justify-between mb-2.5">
+                  <p className="text-[11px] font-bold text-gray-500 uppercase flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" /> {t("searchPage.recentSearches")}
+                  </p>
+                  <button onClick={handleClearAllHistory} className="text-[11px] text-gray-500 hover:text-gray-300 transition-colors">
+                    {t("searchPage.clearAll", "전체 삭제")}
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {history.map((h) => (
+                    <span key={h} className="inline-flex items-center gap-1 pl-3 pr-1 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm text-gray-300">
+                      <button onClick={() => handlePickSuggestion(h)} className="truncate max-w-[150px] hover:text-white transition-colors">{h}</button>
+                      <button onClick={() => handleRemoveHistory(h)} className="w-5 h-5 rounded-full hover:bg-white/10 flex items-center justify-center text-gray-500 hover:text-gray-300" aria-label="remove">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* 카테고리 둘러보기 */}
+            <section>
+              <p className="text-[11px] font-bold text-gray-500 uppercase mb-2.5">{t("searchPage.browseCategory", "카테고리 둘러보기")}</p>
+              <div className="flex flex-wrap gap-2">
+                {CATEGORY_OPTIONS.filter((c) => c !== "전체").map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => handleBrowseCategory(c)}
+                    className="px-3.5 py-2 rounded-full bg-white/5 border border-white/10 text-sm text-gray-200 hover:bg-white/10 hover:border-[#6366f1]/60 transition-colors"
+                  >
+                    {getCategoryLabel(c, t)}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* 실시간 인기 검색 */}
+            {popular.length > 0 && (
+              <section>
+                <p className="text-[11px] font-bold text-gray-500 uppercase mb-2.5 flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5" /> {t("searchPage.trendingHeader")}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
+                  {popular.slice(0, 6).map((p, i) => (
+                    <button key={p.query} onClick={() => handlePickSuggestion(p.query)} className="text-left px-3 py-2 rounded-lg hover:bg-white/5 transition-colors flex items-center gap-3">
+                      <span className="text-sm font-bold text-[#8b5cf6] w-4">{i + 1}</span>
+                      <span className="text-sm text-gray-300 flex-1 truncate">{p.query}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* 지금 뜨는 영상 */}
+            {trendingVideos.length > 0 && (
+              <section>
+                <p className="text-sm font-bold text-white mb-3 flex items-center gap-1.5">🔥 {t("searchPage.trendingVideos", "지금 뜨는 영상")}</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+                  {trendingVideos.map((v) => {
+                    const rating = ageRatings[v.id];
+                    const isMyVideo = !!user?.id && !!v.creator_id && user.id === v.creator_id;
+                    const isAgeLocked = !isMyVideo && shouldBlur(rating, ageVerified);
+                    return <VideoCard key={v.id} video={v} onClick={() => handleClickVideo(v)} rating={rating} isAgeLocked={isAgeLocked} />;
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* 추천 크리에이터 */}
+            {discoverCreators.length > 0 && (
+              <section>
+                <p className="text-sm font-bold text-white mb-3 flex items-center gap-1.5"><Users className="w-4 h-4" /> {t("searchPage.suggestedCreators", "추천 크리에이터")}</p>
+                <div className="space-y-2">
+                  {discoverCreators.map((c) => (
+                    <CreatorRow key={c.creator_id} creator={c} onClick={() => onViewCreator?.(c.creator_id)} />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
         ) : tab === "videos" ? (
           visibleVideos.length === 0 ? (
             <EmptyResult query={submittedQuery} />
