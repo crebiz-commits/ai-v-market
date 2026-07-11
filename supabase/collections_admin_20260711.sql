@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS public.collections (
 
 CREATE TABLE IF NOT EXISTS public.collection_videos (
   collection_id uuid NOT NULL REFERENCES public.collections(id) ON DELETE CASCADE,
-  video_id      uuid NOT NULL REFERENCES public.videos(id) ON DELETE CASCADE,
+  video_id      text NOT NULL REFERENCES public.videos(id) ON DELETE CASCADE,  -- videos.id = text
   position      integer NOT NULL DEFAULT 0,
   PRIMARY KEY (collection_id, video_id)
 );
@@ -49,7 +49,7 @@ ALTER TABLE public.collection_videos ENABLE ROW LEVEL SECURITY;
 CREATE OR REPLACE FUNCTION public.get_collections()
 RETURNS TABLE (
   slug text, title text, tagline text, intro text,
-  emoji text, gradient text, is_select boolean, video_ids uuid[]
+  emoji text, gradient text, is_select boolean, video_ids text[]
 )
 LANGUAGE sql SECURITY DEFINER SET search_path = public STABLE
 AS $$
@@ -57,7 +57,7 @@ AS $$
          COALESCE(
            array_agg(cv.video_id ORDER BY cv.position, cv.video_id)
              FILTER (WHERE cv.video_id IS NOT NULL),
-           '{}'::uuid[]
+           '{}'::text[]
          ) AS video_ids
   FROM public.collections c
   LEFT JOIN public.collection_videos cv ON cv.collection_id = c.id
@@ -71,7 +71,7 @@ GRANT EXECUTE ON FUNCTION public.get_collections() TO anon, authenticated;
 CREATE OR REPLACE FUNCTION public.admin_list_collections()
 RETURNS TABLE (
   id uuid, slug text, title text, tagline text, intro text, emoji text, gradient text,
-  sort_order integer, is_active boolean, is_select boolean, video_count bigint, video_ids uuid[]
+  sort_order integer, is_active boolean, is_select boolean, video_count bigint, video_ids text[]
 )
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
@@ -82,7 +82,7 @@ BEGIN
          c.sort_order, c.is_active, c.is_select,
          COUNT(cv.video_id) AS video_count,
          COALESCE(array_agg(cv.video_id ORDER BY cv.position, cv.video_id)
-                    FILTER (WHERE cv.video_id IS NOT NULL), '{}'::uuid[]) AS video_ids
+                    FILTER (WHERE cv.video_id IS NOT NULL), '{}'::text[]) AS video_ids
   FROM public.collections c
   LEFT JOIN public.collection_videos cv ON cv.collection_id = c.id
   GROUP BY c.id
@@ -147,7 +147,7 @@ END;
 $$;
 
 -- 영상 목록 통째 교체(순서=배열 순서). 존재하는 영상만 반영.
-CREATE OR REPLACE FUNCTION public.admin_set_collection_videos(p_id uuid, p_video_ids uuid[])
+CREATE OR REPLACE FUNCTION public.admin_set_collection_videos(p_id uuid, p_video_ids text[])
 RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE v_count integer;
@@ -172,7 +172,7 @@ $$;
 
 -- 컬렉션의 배정 영상 상세(관리자 UI 표시용) — 썸네일·제목·작성자·숨김여부, 순서대로
 CREATE OR REPLACE FUNCTION public.admin_get_collection_videos(p_id uuid)
-RETURNS TABLE (video_id uuid, title text, thumbnail text, creator_name text, is_hidden boolean)
+RETURNS TABLE (video_id text, title text, thumbnail text, creator_name text, is_hidden boolean)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
@@ -191,7 +191,7 @@ GRANT EXECUTE ON FUNCTION public.admin_list_collections()                       
 GRANT EXECUTE ON FUNCTION public.admin_get_collection_videos(uuid)                     TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_upsert_collection(uuid,text,text,text,text,text,text,integer,boolean,boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_delete_collection(uuid)                         TO authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_set_collection_videos(uuid, uuid[])             TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_set_collection_videos(uuid, text[])             TO authenticated;
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 4) 시드 — collections.ts 현재값 이관 (멱등: ON CONFLICT DO NOTHING)
@@ -232,7 +232,7 @@ ON CONFLICT (slug) DO NOTHING;
 
 -- 컬렉션별 영상 배정 (존재하는 영상만, 순서 보존)
 INSERT INTO public.collection_videos (collection_id, video_id, position)
-SELECT c.id, x.vid::uuid, x.pos
+SELECT c.id, x.vid, x.pos
 FROM public.collections c
 CROSS JOIN (VALUES
   ('creaite-select', 'b74e4056-5dc8-4824-8807-3675cbe2b247', 1),
@@ -267,7 +267,7 @@ CROSS JOIN (VALUES
   ('beyond-the-edge', '668b0680-d606-4b08-a915-14bb6523a57d', 5)
 ) AS x(cslug, vid, pos)
 WHERE c.slug = x.cslug
-  AND EXISTS (SELECT 1 FROM public.videos v WHERE v.id = x.vid::uuid)
+  AND EXISTS (SELECT 1 FROM public.videos v WHERE v.id = x.vid)
 ON CONFLICT (collection_id, video_id) DO NOTHING;
 
 -- ════════════════════════════════════════════════════════════════════════════
