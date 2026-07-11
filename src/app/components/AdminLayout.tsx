@@ -12,7 +12,7 @@ import {
   ShieldCheck, Megaphone, Settings, Coins, Flag, EyeOff,
   ArrowLeft, Menu, X, ShieldAlert, Loader2, LayoutDashboard,
   Users, Film, DollarSign, Send, ClipboardList, MessageSquare,
-  Globe, Sparkles, Inbox, Trophy, Image as ImageIcon, Bug, Coffee, LifeBuoy, ClipboardCheck, Crown
+  Globe, Sparkles, Inbox, Trophy, Image as ImageIcon, Bug, Coffee, LifeBuoy, ClipboardCheck, Crown, Layers
 } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -38,6 +38,7 @@ const AdminInquiries = lazy(() => import("./AdminInquiries").then(m => ({ defaul
 const AdminSupportInquiries = lazy(() => import("./AdminSupportInquiries").then(m => ({ default: m.AdminSupportInquiries })));
 const AdminChallenges = lazy(() => import("./AdminChallenges").then(m => ({ default: m.AdminChallenges })));
 const AdminBanners = lazy(() => import("./AdminBanners").then(m => ({ default: m.AdminBanners })));
+const AdminCollections = lazy(() => import("./AdminCollections").then(m => ({ default: m.AdminCollections })));
 const AdminBugReports = lazy(() => import("./AdminBugReports").then(m => ({ default: m.AdminBugReports })));
 const AdminMegaUploader = lazy(() => import("./AdminMegaUploader").then(m => ({ default: m.AdminMegaUploader })));
 const AdminGrantPremium = lazy(() => import("./AdminGrantPremium").then(m => ({ default: m.AdminGrantPremium })));
@@ -61,6 +62,7 @@ type AdminPage =
   | "support"       // 고객 1:1 문의
   | "challenges"    // 챌린지(공모전) 관리
   | "banners"       // 이벤트 배너 관리
+  | "collections"   // CREAITE 컬렉션·셀렉트 관리
   | "bugs"          // 버그 제보 관리
   | "mega"          // 메가커피 업로더 이벤트
   | "grant_premium" // 프리미엄 수동 지급 (챌린지 보상 등)
@@ -82,6 +84,7 @@ const MENU: MenuItem[] = [
   { key: "inquiries",    label: "비즈니스 문의",    icon: Inbox,           group: "👥 운영" },
   { key: "challenges",   label: "챌린지·공모전",    icon: Trophy,          group: "👥 운영" },
   { key: "banners",      label: "이벤트 배너",      icon: ImageIcon,       group: "👥 운영" },
+  { key: "collections",  label: "컬렉션·셀렉트",     icon: Layers,          group: "👥 운영" },
   { key: "bugs",         label: "버그 제보",       icon: Bug,             group: "👥 운영" },
   { key: "mega",         label: "메가 업로더",      icon: Coffee,          group: "👥 운영" },
   { key: "ads",          label: "자체 광고",       icon: Megaphone,       group: "📢 광고 관리" },
@@ -107,6 +110,7 @@ const PAGE_META: Record<AdminPage, { title: string; subtitle: string }> = {
   inquiries:  { title: "비즈니스 문의",   subtitle: "광고·투자·제휴·B2B 라이선스 등 외부 문의를 확인하고 상태를 관리합니다" },
   challenges: { title: "챌린지·공모전",   subtitle: "매월 공모전을 등록·관리합니다 — 커뮤니티 챌린지 탭에 바로 노출됩니다" },
   banners:    { title: "이벤트 배너",     subtitle: "시네마 상단 이벤트 배너를 등록·수정·정렬·노출 관리합니다" },
+  collections: { title: "컬렉션·셀렉트",   subtitle: "CREAITE 컬렉션·셀렉트 큐레이션 — 영상 배정·순서·에디토리얼·셀렉트 배지 관리" },
   bugs:       { title: "버그 제보",       subtitle: "\"버그를 잡아라\" 이벤트 제보를 검토하고 커피 쿠폰 지급을 관리합니다" },
   mega:       { title: "메가 업로더 이벤트", subtitle: "영화 30편 업로드 달성자를 확인하고 메가커피 3만원권 지급을 관리합니다" },
   ads:          { title: "자체 광고",          subtitle: "CREAITE House Ads — 영상 pre-roll, 피드 카드 광고 등록·관리" },
@@ -203,6 +207,7 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
         {currentPage === "inquiries" && <AdminInquiries />}
         {currentPage === "challenges" && <AdminChallenges />}
         {currentPage === "banners" && <AdminBanners />}
+        {currentPage === "collections" && <AdminCollections />}
         {currentPage === "bugs" && <AdminBugReports />}
         {currentPage === "mega" && <AdminMegaUploader />}
         {currentPage === "ads" && <AdminDashboard />}
