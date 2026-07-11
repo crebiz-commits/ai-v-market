@@ -9,6 +9,9 @@ export const config = { runtime: "edge" };
 const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer";
 const SUPABASE_ANON_KEY = "sb_publishable_K3wmxz8uqsvUdeYXUhJv2g_g09eNNR8";
 const SITE_URL = "https://www.creaite.net";
+// Bunny Stream 라이브러리 ID — videos.id 가 곧 Bunny video GUID 라, 임베드 플레이어 URL 구성에 사용.
+//   (ProductDetail.tsx 의 embed URL 과 동일 형식: iframe.mediadelivery.net/embed/{lib}/{guid})
+const BUNNY_LIBRARY_ID = "615810";
 
 // XML 텍스트 이스케이프 (video:title/description 안전)
 const esc = (s: string) =>
@@ -101,9 +104,15 @@ export default async function handler(_req: Request): Promise<Response> {
     const thumbLoc = rawThumb.includes("b-cdn.net")
       ? `${SITE_URL}/api/thumb?v=${encodeURIComponent(v.id)}`
       : rawThumb;
-    // 비디오 사이트맵 마크업 — thumbnail_loc 는 필수라 썸네일 있을 때만 emit
-    const videoXml = thumbLoc
-      ? `\n    <video:video>\n      <video:thumbnail_loc>${esc(thumbLoc)}</video:thumbnail_loc>\n      <video:title>${esc(title)}</video:title>\n      <video:description>${esc(title)} — CREAITE AI 시네마</video:description>\n      <video:player_loc>${esc(loc)}</video:player_loc>\n    </video:video>`
+    // 비디오 사이트맵 마크업 — thumbnail_loc 필수(썸네일 있을 때만) + player_loc 은 실제 Bunny
+    //   임베드 플레이어여야 함(방문 페이지 loc 과 같으면 Google 이 거부 — GSC "content_loc/player_loc =loc" 오류).
+    //   videos.id 가 Bunny GUID(UUID)일 때만 player_loc emit → 임베드 URL 구성. 아니면 video 블록 생략.
+    const isGuid = /^[0-9a-f-]{36}$/i.test(v.id);
+    const playerLoc = isGuid
+      ? `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${v.id}?autoplay=false&loop=false&muted=false&preload=true&responsive=true`
+      : "";
+    const videoXml = (thumbLoc && playerLoc)
+      ? `\n    <video:video>\n      <video:thumbnail_loc>${esc(thumbLoc)}</video:thumbnail_loc>\n      <video:title>${esc(title)}</video:title>\n      <video:description>${esc(title)} — CREAITE AI 시네마</video:description>\n      <video:player_loc>${esc(playerLoc)}</video:player_loc>\n    </video:video>`
       : "";
     return { loc, lastmod: v.created_at?.split("T")[0], changefreq: "weekly", priority: "0.8", videoXml };
   });
