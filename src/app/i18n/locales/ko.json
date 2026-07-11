@@ -431,6 +431,12 @@
   },
   "videoEditModal": {
     "title": "영상 편집",
+    "heroClip": {
+      "current": "히어로 클립 등록됨 ✓",
+      "statusPassed": "노출 중 (검수 통과)",
+      "statusPending": "검수 대기 중",
+      "statusRejected": "반려됨 — 다른 클립으로 교체해 주세요"
+    },
     "ageRatingHeader": "연령 등급",
     "ageRatingAll": "전체",
     "ageRating13": "13+",

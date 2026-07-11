@@ -2154,6 +2154,55 @@ app.post('/moderate-video', async (c) => {
   }
 });
 
+// ── 히어로 클립 편집 연결 (기존 영상에 hero_clip 추가/교체/제거) ──
+//   save-metadata(신규)와 달리 편집에서 이미 등록된 영상에 hero_clip 을 붙인다.
+//   검증: 본편 소유자/어드민 + 클립 GUID KV 소유권(본인이 create-upload 로 만든 클립만).
+//   URL 은 GUID 로 서버 재구성(클라 문자열 불신), status='pending' → moderate-hero-clip 이 검수.
+app.post('/videos/set-hero-clip', async (c) => {
+  try {
+    const supabase = getSupabaseClient(true);
+    const token = (c.req.header('authorization') || '').replace(/^Bearer\s+/i, '');
+    if (!token) return c.json({ error: '인증이 필요합니다' }, 401);
+    const { data: caller, error: callerErr } = await supabase.auth.getUser(token);
+    if (callerErr || !caller?.user) return c.json({ error: '인증 실패' }, 401);
+    const callerId = caller.user.id;
+
+    const { video_id, heroClipId } = await c.req.json();
+    if (!video_id) return c.json({ error: 'Missing video_id' }, 400);
+
+    // 본편 소유권(본인 또는 어드민)
+    const { data: video, error: vidErr } = await supabase
+      .from('videos').select('id, creator_id').eq('id', video_id).single();
+    if (vidErr || !video) return c.json({ error: 'Video not found' }, 404);
+    let isAdmin = false;
+    if (video.creator_id !== callerId) {
+      const { data: prof } = await supabase.from('profiles').select('is_admin').eq('id', callerId).single();
+      isAdmin = !!prof?.is_admin;
+      if (!isAdmin) return c.json({ error: '권한이 없습니다' }, 403);
+    }
+
+    // 제거(heroClipId 없음) → 본편 폴백으로 되돌림
+    if (!heroClipId) {
+      await supabase.from('videos').update({ hero_clip_id: null, hero_clip_url: null, hero_clip_status: 'none' }).eq('id', video_id);
+      return c.json({ success: true, status: 'none' });
+    }
+    if (!/^[0-9a-f-]{36}$/i.test(heroClipId)) return c.json({ error: 'Invalid clip id' }, 400);
+
+    // 클립 GUID KV 소유권 — 본인이 create-upload 로 만든 클립만(타인 GUID 도용 차단). save-metadata 와 동일.
+    const kvClip = await kv.get(`video:${heroClipId}`);
+    if (kvClip?.userId !== callerId && !isAdmin) return c.json({ error: '클립 소유권 확인 실패' }, 403);
+
+    const heroClipUrl = `https://${BUNNY_CDN_HOST}/${heroClipId}/playlist.m3u8`;
+    const { error: upErr } = await supabase.from('videos').update({
+      hero_clip_id: heroClipId, hero_clip_url: heroClipUrl, hero_clip_status: 'pending',
+    }).eq('id', video_id);
+    if (upErr) return c.json({ error: upErr.message }, 500);
+    return c.json({ success: true, status: 'pending' });
+  } catch (err: any) {
+    return c.json({ error: '히어로 클립 연결 오류: ' + (err?.message || err) }, 500);
+  }
+});
+
 // ── 히어로 클립 검수 (클라 폴백 — 웹훅 지연/미설정 대비) ──
 //   video_id 의 소유자/어드민만. 클립(hero_clip_id)이 pending 이면 Bunny 썸네일 검수 → passed/rejected.
 app.post('/moderate-hero-clip', async (c) => {

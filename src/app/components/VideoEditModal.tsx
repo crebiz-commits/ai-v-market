@@ -3,7 +3,7 @@
 // 본인 업로드 영상의 썸네일/챕터/자막을 등록 후에도 수정 가능
 // ════════════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useRef, useMemo } from "react";
-import { X, Loader2, Upload as UploadIcon, Plus, Trash2, Image as ImageIcon, FileText, Clock as ClockIcon, Save, AlertCircle, Sparkles, Film, Tag as TagIcon, Briefcase } from "lucide-react";
+import { X, Loader2, Upload as UploadIcon, Plus, Trash2, Image as ImageIcon, FileText, Clock as ClockIcon, Save, AlertCircle, Sparkles, Film, Tag as TagIcon, Briefcase, Crown } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase, supabaseUrl, supabaseAnonKey } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { getCategoryLabel, getGenreLabel, getAiToolLabel, getLanguageLabel } from "../i18n/categoryLabels";
 import { isNegotiationOnly } from "../utils/licensePricing";
+import { uploadHeroClip } from "../utils/heroClipUpload";
 
 // 가격 입력 쉼표 포맷 (Upload.tsx 와 동일 규칙)
 const formatPriceCommas = (v: string) => {
@@ -207,22 +208,55 @@ export function VideoEditModal({
   const [newSeriesTitle, setNewSeriesTitle] = useState("");
   const [seasonNumber, setSeasonNumber] = useState("1");
   const [episodeNumber, setEpisodeNumber] = useState("");
+  // OTT 히어로 미리보기 클립(편집에서 추가/교체/제거)
+  const [heroClipId, setHeroClipId] = useState("");
+  const [initialHeroClipId, setInitialHeroClipId] = useState("");
+  const [heroClipStatus, setHeroClipStatus] = useState("none");
+  const [heroClipUploading, setHeroClipUploading] = useState(false);
+  const [videoDurationSec, setVideoDurationSec] = useState(0);
+  const heroClipInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!open || !user) return;
     let cancelled = false;
     supabase.rpc("get_my_series").then(({ data }) => { if (!cancelled && data) setSeriesList(data as any); }, () => {});
-    supabase.from("videos").select("series_id, season_number, episode_number").eq("id", videoId).maybeSingle().then(
+    supabase.from("videos").select("series_id, season_number, episode_number, hero_clip_id, hero_clip_status, duration_seconds").eq("id", videoId).maybeSingle().then(
       ({ data }) => {
         if (cancelled || !data) return;
         const d = data as any;
         setSeriesId(d.series_id || "");
         setSeasonNumber(d.season_number ? String(d.season_number) : "1");
         setEpisodeNumber(d.episode_number ? String(d.episode_number) : "");
+        setHeroClipId(d.hero_clip_id || "");
+        setInitialHeroClipId(d.hero_clip_id || "");
+        setHeroClipStatus(d.hero_clip_status || "none");
+        setVideoDurationSec(d.duration_seconds || 0);
       },
       () => {},
     );
     return () => { cancelled = true; };
   }, [open, user, videoId]);
+
+  // 히어로 클립 파일 선택 → Bunny 업로드(방식 C). 저장 시 set-hero-clip 으로 연결.
+  const handleHeroClipFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.type !== "video/mp4") { toast.error(t("upload.heroClip.mp4Only", "MP4 파일만 업로드할 수 있습니다.")); return; }
+    if (file.size > 50 * 1024 * 1024) { toast.error(t("upload.heroClip.tooLarge", "히어로 클립은 50MB 이하여야 합니다.")); return; }
+    if (!user) return;
+    setHeroClipUploading(true);
+    try {
+      const { clipId } = await uploadHeroClip(file);
+      setHeroClipId(clipId);
+      setHeroClipStatus("pending");
+      toast.success(t("upload.heroClip.uploaded", "히어로 클립이 등록되었습니다. (검수 후 노출)"));
+    } catch (err: any) {
+      console.error("[Edit] hero clip upload error:", err);
+      toast.error(t("upload.heroClip.failed", "히어로 클립 업로드에 실패했습니다."));
+    } finally {
+      setHeroClipUploading(false);
+    }
+  };
 
   const [saving, setSaving] = useState(false);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
@@ -550,6 +584,35 @@ export function VideoEditModal({
         toast.error(t("videoEditModal.seriesAssignFailed", "시리즈/회차 지정에 실패했어요."));
       }
 
+      // 히어로 클립 변경 반영 (편집에서 추가/교체/제거) — set-hero-clip(소유권·KV 검증) → moderate 폴백
+      if (heroClipId !== initialHeroClipId) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          const res = await fetch(`${supabaseUrl}/functions/v1/server/videos/set-hero-clip`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: supabaseAnonKey },
+            body: JSON.stringify({ video_id: videoId, heroClipId: heroClipId || null }),
+          });
+          if (!res.ok) {
+            const e = await res.json().catch(() => ({}));
+            toast.error(e.error || t("upload.heroClip.failed", "히어로 클립 연결에 실패했습니다."));
+          } else {
+            setInitialHeroClipId(heroClipId);
+            if (heroClipId) {
+              // 검수 트리거(폴백) — 웹훅 지연/미설정 대비
+              fetch(`${supabaseUrl}/functions/v1/server/moderate-hero-clip`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: supabaseAnonKey },
+                body: JSON.stringify({ video_id: videoId }),
+              }).catch(() => {});
+            }
+          }
+        } catch (e) {
+          console.warn("[VideoEditModal] 히어로 클립 연결 실패:", e);
+        }
+      }
+
       toast.success(t("videoEditModal.saveSuccess"));
       onSaved?.({
         thumbnail: finalThumbnail,
@@ -789,6 +852,57 @@ export function VideoEditModal({
                 )}
               </div>
             </section>
+
+            {/* 1.65. OTT 히어로 미리보기 클립 — 10분+(OTT) 영상만. 편집에서 30초 티저 추가/교체/제거. */}
+            {videoDurationSec >= 600 && (
+              <section>
+                <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-[#a78bfa]" />
+                  {t("upload.heroClip.title", "OTT 히어로 미리보기 클립")}
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/60 font-normal">{t("upload.heroClip.optional", "선택")}</span>
+                </h3>
+                <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                  {t("upload.heroClip.description", "10분 이상 OTT 영상입니다. 이 영상이 나중에 OTT 히어로 섹션에 노출될 때, 하이라이트 장면을 30초 내외로 미리 잘라 등록하면 선명한 화질로 자동재생됩니다. 등록하지 않으면 본편에서 재생되는데, 하이라이트 지점이 깊으면 화질이 떨어질 수 있어요. (MP4, 50MB 이하)")}
+                </p>
+                {/* 기존 저장된 클립의 검수 상태 배지 */}
+                {heroClipId && heroClipId === initialHeroClipId && heroClipStatus !== "none" && (
+                  <div className="mb-2 text-[11px]">
+                    {heroClipStatus === "passed" && <span className="text-[#10b981]">● {t("videoEditModal.heroClip.statusPassed", "노출 중 (검수 통과)")}</span>}
+                    {heroClipStatus === "pending" && <span className="text-amber-400">● {t("videoEditModal.heroClip.statusPending", "검수 대기 중")}</span>}
+                    {heroClipStatus === "rejected" && <span className="text-red-400">● {t("videoEditModal.heroClip.statusRejected", "반려됨 — 다른 클립으로 교체해 주세요")}</span>}
+                  </div>
+                )}
+                <input
+                  ref={heroClipInputRef}
+                  type="file"
+                  accept="video/mp4"
+                  className="hidden"
+                  onChange={handleHeroClipFile}
+                />
+                {heroClipId ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-[#10b981] flex-1">
+                      {heroClipId === initialHeroClipId
+                        ? t("videoEditModal.heroClip.current", "히어로 클립 등록됨 ✓")
+                        : t("upload.heroClip.registered", "히어로 클립 등록됨 ✓ (검수 통과 후 노출)")}
+                    </span>
+                    <Button type="button" variant="outline" size="sm" onClick={() => { setHeroClipId(""); setHeroClipStatus("none"); }}>{t("upload.heroClip.remove", "제거")}</Button>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={heroClipUploading}
+                    onClick={() => heroClipInputRef.current?.click()}
+                    className="gap-2 w-fit"
+                  >
+                    {heroClipUploading
+                      ? <><Loader2 className="w-4 h-4 animate-spin" /> {t("upload.heroClip.uploading", "업로드 중...")}</>
+                      : <><Plus className="w-4 h-4" /> {t("upload.heroClip.select", "히어로 클립 선택 (MP4)")}</>}
+                  </Button>
+                )}
+              </section>
+            )}
 
             {/* 1.7. 카테고리·장르·언어 (Phase 33) */}
             <section>
