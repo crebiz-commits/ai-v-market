@@ -189,18 +189,17 @@ const VideoCard = memo(function VideoCard({ video, idx, onVideoClick, onAddToCar
           </div>
         )}
 
-        {/* OTT 배지 (살짝 투명, 우상단) */}
-        {isOttBadge && (
-          <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500/40 to-orange-500/40 backdrop-blur-sm text-white text-[9px] font-bold flex items-center gap-0.5">
-            <Crown className="w-2.5 h-2.5" />
-            OTT
-          </div>
-        )}
-
-        {/* 연령 등급 배지 (OTT 옆 또는 우상단) */}
-        {rating && rating !== "all" && (
-          <div className={`absolute ${isOttBadge ? "top-1 right-12" : "top-1 right-1"}`}>
-            <AgeBadge rating={rating} size="xs" />
+        {/* 우상단 배지 묶음 — 연령 + OTT 를 한 flex 줄로 묶어 수평·수직 정렬 통일
+            (예전엔 각각 absolute + right-12 매직넘버라 폭·baseline 이 어긋났음) */}
+        {((rating && rating !== "all") || isOttBadge) && (
+          <div className="absolute top-1 right-1 flex items-center gap-1">
+            {rating && rating !== "all" && <AgeBadge rating={rating} size="xs" />}
+            {isOttBadge && (
+              <div className="px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500/40 to-orange-500/40 backdrop-blur-sm text-white text-[9px] font-bold flex items-center gap-0.5">
+                <Crown className="w-2.5 h-2.5" />
+                OTT
+              </div>
+            )}
           </div>
         )}
 
