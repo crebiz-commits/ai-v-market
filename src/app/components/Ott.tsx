@@ -150,7 +150,7 @@ type OttSnapshot = {
 };
 const ottCache: Record<string, OttSnapshot> = {};
 // 히어로 영상 소스 캐시(heroId → src) — 30초(상한) 회전마다 같은 영상 video_url 재조회 방지
-type HeroSrc = { url: string; start: number; end: number; clipUrl?: string; previewUrl?: string };
+type HeroSrc = { videoId: string; url: string; start: number; end: number; clipUrl?: string; previewUrl?: string };
 const heroSrcCache = new Map<string, HeroSrc>();
 // 히어로 프리뷰 seek 상한(초). play_720p.mp4 을 highlight_start 로 seek 하는데 너무 깊은 지점
 //   (예: "야인의 시대" 296초)은 버퍼링이 느려 선명 프레임이 안 떠 저화질 preview 에 고착됨
@@ -319,7 +319,7 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
         const clipUrl = (data.hero_clip_status === "passed" && data.hero_clip_id)
           ? `https://${BUNNY_HOST}/${data.hero_clip_id}/playlist.m3u8`
           : undefined;
-        const srcObj: HeroSrc = { url: data.video_url, start: hStart, end: hEnd, clipUrl, previewUrl };
+        const srcObj: HeroSrc = { videoId: heroId, url: data.video_url, start: hStart, end: hEnd, clipUrl, previewUrl };
         heroSrcCache.set(heroId, srcObj);
         setHeroSrc(srcObj);
       }
@@ -438,7 +438,10 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
       {heroes.length > 0 && (
         <HeroBillboard
           video={heroes[heroIdx] ?? heroes[0]}
-          src={heroSrc}
+          // heroSrc 는 별도 state 라 히어로 전환 직후 한 박자 늦게 갱신됨(이펙트가 렌더 후 실행).
+          //   그 사이 (새 video + 직전 src) 조합으로 직전 영상의 하이라이트가 잠깐 새던 것 차단:
+          //   src.videoId 가 현재 히어로와 일치할 때만 사용, 불일치면 null(포스터만) 로 대기.
+          src={heroSrc && heroSrc.videoId === (heroes[heroIdx] ?? heroes[0])?.id ? heroSrc : null}
           // 사용자 업로드 hero_clip 은 Bunny/Vision 검수를 안 거침 → admin 이 직접 지정(featured)한
           //   히어로에서만 클립 재생 허용. 트렌딩 히어로는 검수된 본편 파생 폴백(preview/mp4)만.
           allowClip={featured.some((f) => f.id === (heroes[heroIdx] ?? heroes[0])?.id)}
