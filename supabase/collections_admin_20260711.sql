@@ -172,18 +172,18 @@ $$;
 
 -- 컬렉션의 배정 영상 상세(관리자 UI 표시용) — 썸네일·제목·작성자·숨김여부, 순서대로
 CREATE OR REPLACE FUNCTION public.admin_get_collection_videos(p_id uuid)
-RETURNS TABLE (video_id uuid, title text, thumbnail text, creator_name text, is_hidden boolean, position integer)
+RETURNS TABLE (video_id uuid, title text, thumbnail text, creator_name text, is_hidden boolean)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
   PERFORM public.assert_admin();
   RETURN QUERY
-  SELECT cv.video_id, v.title, v.thumbnail, p.display_name, COALESCE(v.is_hidden, false), cv.position
+  SELECT cv.video_id, v.title, v.thumbnail, p.display_name, COALESCE(v.is_hidden, false)
   FROM public.collection_videos cv
   JOIN public.videos v ON v.id = cv.video_id
   LEFT JOIN public.profiles p ON p.id = v.creator_id
   WHERE cv.collection_id = p_id
-  ORDER BY cv.position, cv.video_id;
+  ORDER BY cv.position, cv.video_id;   -- 정렬만 position 사용(반환 컬럼서 제외 — 예약어)
 END;
 $$;
 
