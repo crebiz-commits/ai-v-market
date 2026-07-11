@@ -738,6 +738,39 @@ function AppContent() {
     if (desc) desc.setAttribute("content", t("meta.description", desc.getAttribute("content") || ""));
   }, [t]);
 
+  // SEO 동적 canonical + og:url — SPA 라 모든 URL 이 index.html 의 홈 canonical 을 공유해,
+  //   개별 영상/정보 페이지가 홈의 "중복/대체 표준"으로 색인 제외되던 것(GSC) 해소.
+  //   sitemap.ts 의 URL 패턴과 동일 규칙으로 각 콘텐츠의 대표(canonical) URL 을 지정.
+  const routeArticle = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("article") : null;
+  const routeC = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("c") : null;
+  const routeS = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("s") : null;
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const base = "https://www.creaite.net/";
+    const cur = new URLSearchParams(window.location.search);
+    const video = cur.get("video");
+    const info = cur.get("info");
+    let href: string;
+    if (video) {
+      // 영상 상세 — 대표 URL 은 영상 하나(탭/검색어 등 부수 파라미터 무시)
+      href = `${base}?video=${encodeURIComponent(video)}`;
+    } else if (info) {
+      // 정보 페이지 — info + 하위 slug(article/c/s)만 정규화(순서 고정)
+      const p = new URLSearchParams({ info });
+      for (const k of ["article", "c", "s"] as const) { const v = cur.get(k); if (v) p.set(k, v); }
+      href = `${base}?${p.toString()}`;
+    } else {
+      // 그 외 — 탭(홈=discovery 는 파라미터 없이 루트). q(검색어) 등은 canonical 에서 제외.
+      const tab = cur.get("tab");
+      href = tab && tab !== "discovery" ? `${base}?tab=${encodeURIComponent(tab)}` : base;
+    }
+    let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    if (!link) { link = document.createElement("link"); link.rel = "canonical"; document.head.appendChild(link); }
+    link.href = href;
+    const og = document.querySelector('meta[property="og:url"]');
+    if (og) og.setAttribute("content", href);
+  }, [activeTab, selectedProduct?.id, activePanel, infoParam, routeArticle, routeC, routeS]);
+
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
       if (event.error) handleBunnyError(event.error);
