@@ -8,7 +8,7 @@ import { Footer } from "./Footer";
 import { BackButton } from "./BackButton";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../utils/supabaseClient";
-import { COLLECTIONS, getCollection, isCreaiteSelect } from "../data/collections";
+import { useCollections } from "../data/collections";
 import { CreaiteSelectBadge } from "./CreaiteSelectBadge";
 
 interface CollectionsProps {
@@ -39,6 +39,7 @@ function setMeta(title: string, description: string) {
 
 export function CollectionsPage({ onBack, onNavigate }: CollectionsProps) {
   const { t } = useTranslation();
+  const { collections, getCollection, isCreaiteSelect } = useCollections();
   const slug = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("c") : null;
   const col = slug ? getCollection(slug) : undefined;
   const [videos, setVideos] = useState<VideoLite[]>([]);
@@ -153,7 +154,7 @@ export function CollectionsPage({ onBack, onNavigate }: CollectionsProps) {
               <div className="mt-12 pt-8 border-t border-white/10">
                 <h3 className="text-white font-bold mb-4">{t("collections.more", "다른 셀렉션")}</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {COLLECTIONS.filter((c) => c.slug !== col.slug).map((c) => (
+                  {collections.filter((c) => c.slug !== col.slug).map((c) => (
                     <a key={c.slug} href={`?info=collections&c=${c.slug}`} className="flex items-center gap-3 p-3 rounded-xl bg-[#141414] border border-white/5 hover:border-[#6366f1]/40 transition-colors">
                       <div className={`w-11 h-11 rounded-lg bg-gradient-to-br ${c.gradient} flex items-center justify-center shrink-0`}><span className="text-xl">{c.emoji}</span></div>
                       <div className="min-w-0">
@@ -179,7 +180,7 @@ export function CollectionsPage({ onBack, onNavigate }: CollectionsProps) {
             </motion.div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {COLLECTIONS.map((c, i) => (
+              {collections.map((c, i) => (
                 <motion.a
                   key={c.slug}
                   href={`?info=collections&c=${c.slug}`}

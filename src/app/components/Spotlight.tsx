@@ -10,7 +10,7 @@ import { CreatorAvatar } from "./CreatorAvatar";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../utils/supabaseClient";
 import { SPOTLIGHTS, getSpotlight } from "../data/spotlights";
-import { isCreaiteSelect } from "../data/collections";
+import { useCollections } from "../data/collections";
 import { CreaiteSelectBadge } from "./CreaiteSelectBadge";
 
 interface SpotlightProps {
@@ -41,6 +41,7 @@ function setMeta(title: string, description: string) {
 
 export function SpotlightPage({ onBack, onNavigate }: SpotlightProps) {
   const { t } = useTranslation();
+  const { isCreaiteSelect } = useCollections();
   const slug = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("s") : null;
   const sp = slug ? getSpotlight(slug) : undefined;
   const [videos, setVideos] = useState<VideoLite[]>([]);

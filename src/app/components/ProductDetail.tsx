@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { CommentPanel } from "./CommentPanel";
 import { CreaiteSelectBadge } from "./CreaiteSelectBadge";
-import { isCreaiteSelect } from "../data/collections";
+import { useCollections } from "../data/collections";
 import { useBackButton } from "../hooks/useBackButton";
 import { useAuth } from "../contexts/AuthContext";
 import { useSettings } from "../contexts/SettingsContext";
@@ -249,6 +249,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   const settings = useSettings();
   // Phase 9: 라이선스 결제
   const { startLicensePurchase } = usePayment();
+  const { isCreaiteSelect } = useCollections();
   const [buyingLicense, setBuyingLicense] = useState(false);
   // Phase 10: 신고 모달
   const [reportOpen, setReportOpen] = useState(false);

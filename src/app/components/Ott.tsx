@@ -12,7 +12,7 @@ import { BUNNY_HOST } from "../utils/bunnyHost";
 import { useAuth } from "../contexts/AuthContext";
 import { useLikes } from "../contexts/LikesContext";
 import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
-import { getCollection, CREAITE_SELECT_SLUG } from "../data/collections";
+import { useCollections, CREAITE_SELECT_SLUG } from "../data/collections";
 import { formatCompactNumber as fmtCompact } from "../i18n/numberFormat";
 import { Footer } from "./Footer";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
@@ -160,6 +160,7 @@ const HERO_MAX_SEEK_SEC = 90;
 
 export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, onHeroScroll }: OttProps) {
   const { t } = useTranslation();
+  const { getCollection } = useCollections();
   const { profile, user } = useAuth();
   const showcase = shouldShowShowcase(profile?.is_admin);
   const ageVerified = profile?.age_verified ?? false;
@@ -181,9 +182,11 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
 
   // CREAITE 셀렉트(공식 선정작) — 히어로 바로 아래 노출. creaite-select videoIds 로 로드.
   const [selectVideos, setSelectVideos] = useState<CarouselVideo[]>([]);
+  // 셀렉트 videoIds 를 문자열 키로 — DB 로드/변경 시(폴백→DB) 이 키가 바뀌어 재조회.
+  const selectIdsKey = (getCollection(CREAITE_SELECT_SLUG)?.videoIds ?? []).join(",");
   useEffect(() => {
-    const ids = getCollection(CREAITE_SELECT_SLUG)?.videoIds ?? [];
-    if (!ids.length) return;
+    const ids = selectIdsKey ? selectIdsKey.split(",") : [];
+    if (!ids.length) { setSelectVideos([]); return; }
     let cancelled = false;
     (async () => {
       const { data } = await supabase.from("videos")
@@ -194,7 +197,7 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
       setSelectVideos(ids.map((id) => map.get(id)).filter(Boolean) as CarouselVideo[]);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [selectIdsKey]);
 
   const allVideoIds = useMemo(() => {
     const ids = new Set<string>();

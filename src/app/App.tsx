@@ -16,6 +16,7 @@ import { useState, useEffect, useCallback, Suspense, type ReactElement, type CSS
 import { lazyRetry as lazy } from "./utils/lazyRetry";
 import { isNegotiationOnly } from "./utils/licensePricing";
 import { usePayment } from "./hooks/usePayment";
+import { loadCollections } from "./data/collections";
 import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, Loader2, Crown, Users } from "lucide-react";
 import { HamburgerMenu } from "./components/HamburgerMenu";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
@@ -620,6 +621,8 @@ function AppContent() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const { user, profile, signOut, isAuthenticated, loading, passwordRecovery } = useAuth();
   const { startLicensePurchase } = usePayment();
+  // CREAITE 컬렉션·셀렉트를 DB에서 1회 로드(실패 시 정적 폴백 유지). 관리자 편집분 반영.
+  useEffect(() => { void loadCollections(); }, []);
   // 비로그인 사용자가 〈둘러보기〉 클릭 시 LandingPage → DiscoveryFeed 로 전환.
   // 이번 세션에 이미 둘러봤으면 새로고침해도 랜딩 재노출 안 함 (2026-06-11)
   const [hasExplored, setHasExplored] = useState(() => {

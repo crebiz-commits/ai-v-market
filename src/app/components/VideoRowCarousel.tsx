@@ -20,7 +20,7 @@ import { getCategoryLabel, getGenreLabel } from "../i18n/categoryLabels";
 import { formatCompactNumber } from "../i18n/numberFormat";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { CreaiteSelectBadge } from "./CreaiteSelectBadge";
-import { isCreaiteSelect } from "../data/collections";
+import { useCollections } from "../data/collections";
 import { useAuth } from "../contexts/AuthContext";
 import { isNegotiationOnly } from "../utils/licensePricing";
 import { useSettings } from "../contexts/SettingsContext";
@@ -102,6 +102,7 @@ interface VideoCardProps {
 // memo: 부모 리렌더(연령/시리즈 카운트 갱신 등) 시 prop 동일하면 카드 재렌더 스킵 — 대량 카드 리렌더 폭풍 방지
 const VideoCard = memo(function VideoCard({ video, idx, onVideoClick, onAddToCart, showProgress, showRank, rating, isAgeLocked, isOttBadge, seriesCount, cardWidthClass }: VideoCardProps) {
   const { t } = useTranslation();
+  const { isCreaiteSelect } = useCollections();
   const { isLiked, displayCount, seedCount, displayViews, seedViews, toggleLike } = useLikes();
   const liked = isLiked(video.id);
   // 좋아요·조회수 시드(seed-once) → 모든 피드가 같은 값 공유

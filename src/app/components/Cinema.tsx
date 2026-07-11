@@ -16,7 +16,7 @@ import { Loader2, Film } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
-import { COLLECTIONS } from "../data/collections";
+import { useCollections } from "../data/collections";
 import { TrendingHeroSection } from "./TrendingHeroSection";
 import { Footer } from "./Footer";
 import { useAgeRatings } from "../hooks/useAgeRatings";
@@ -153,6 +153,7 @@ const cinemaCache: Record<string, CinemaSnapshot> = {};
 
 export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigate, onViewCreator, onSignInClick }: CinemaProps) {
   const { t } = useTranslation();
+  const { collections } = useCollections();
   const { profile, user } = useAuth();
   const showcase = shouldShowShowcase(profile?.is_admin);
   // 캐시 키에 user id 포함 — 개인화 추천(get_recommended_videos)이 사용자 간 공유되지 않게.
@@ -398,7 +399,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
               <a href="?info=collections" className="text-xs font-bold text-[#a78bfa] hover:text-white transition-colors shrink-0">{t("common.viewAll", "전체 보기")} →</a>
             </div>
             <div className="flex gap-3 overflow-x-auto no-scrollbar px-4 md:px-8 pb-2">
-              {COLLECTIONS.map((c) => (
+              {collections.map((c) => (
                 <a
                   key={c.slug}
                   href={`?info=collections&c=${c.slug}`}
