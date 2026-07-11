@@ -107,6 +107,8 @@
     "alreadyInCart": "이미 장바구니에 있습니다.",
     "cartAddFailed": "장바구니 추가에 실패했습니다.",
     "cartAddSuccess": "장바구니에 추가됨",
+    "cartItemNotDirectBuy": "이 영상은 카트에서 바로 결제할 수 없어요. 영상 상세에서 확인해 주세요.",
+    "paymentStartFailed": "결제 시작 실패: ",
     "cartDeleteFailed": "삭제에 실패했습니다.",
     "loading": "로딩 중...",
     "adManage": "광고관리",
@@ -521,6 +523,9 @@
     "title": "장바구니",
     "empty": "장바구니가 비어있습니다",
     "viewVideo": "영상 보기",
+    "buyNow": "구매하기",
+    "total": "합계",
+    "perItemNote": "라이선스는 영상별로 구매합니다. 각 항목의 '구매하기'로 결제하세요.",
     "remove": "삭제"
   },
   "hamburger": {

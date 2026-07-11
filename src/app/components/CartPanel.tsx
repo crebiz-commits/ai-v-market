@@ -1,6 +1,6 @@
 // 장바구니 패널 (구 장바구니 — 2026-05-27 결제 흐름 제거 후 단순 장바구니로 명칭 복귀)
 // 결제는 ProductDetail 의 "구매하기" 버튼으로 단건 진행. 본 패널은 보관 + 영상 페이지 이동만.
-import { X, ShoppingCart, Trash2, Play, Package } from "lucide-react";
+import { X, ShoppingCart, Trash2, Play, Package, CreditCard } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "./ui/button";
 import { useTranslation } from "react-i18next";
@@ -19,11 +19,13 @@ interface CartPanelProps {
   items: CartItem[];
   onRemove: (itemId: string) => void;
   onViewVideo: (videoId: string) => void;
+  onPurchase?: (item: CartItem) => void;   // 항목별 라이선스 구매(단건 흐름 재사용)
   onClose: () => void;
 }
 
-export function CartPanel({ items, onRemove, onViewVideo, onClose }: CartPanelProps) {
+export function CartPanel({ items, onRemove, onViewVideo, onPurchase, onClose }: CartPanelProps) {
   const { t } = useTranslation();
+  const total = items.reduce((s, it) => s + (it.price || 0), 0);
 
   const LICENSE_LABELS: Record<string, string> = {
     standard: "Standard",
@@ -107,19 +109,42 @@ export function CartPanel({ items, onRemove, onViewVideo, onClose }: CartPanelPr
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-                <Button
-                  onClick={() => handleViewVideo(item.videoId)}
-                  className="w-full mt-3 bg-white/10 hover:bg-white/20 text-white text-xs font-bold gap-1.5 h-9"
-                  variant="ghost"
-                >
-                  <Play className="w-3.5 h-3.5" />
-                  {t("cartPanel.viewVideo")}
-                </Button>
+                <div className="flex gap-2 mt-3">
+                  {onPurchase && (
+                    <Button
+                      onClick={() => onPurchase(item)}
+                      className="flex-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90 text-white text-xs font-bold gap-1.5 h-9"
+                    >
+                      <CreditCard className="w-3.5 h-3.5" />
+                      {t("cartPanel.buyNow", "구매하기")}
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => handleViewVideo(item.videoId)}
+                    variant="ghost"
+                    aria-label={t("cartPanel.viewVideo")}
+                    className={`bg-white/10 hover:bg-white/20 text-white text-xs font-bold gap-1.5 h-9 ${onPurchase ? "px-3" : "flex-1"}`}
+                  >
+                    <Play className="w-3.5 h-3.5" />
+                    {!onPurchase && t("cartPanel.viewVideo")}
+                  </Button>
+                </div>
               </motion.div>
             ))}
           </AnimatePresence>
         )}
       </div>
+
+      {/* 합계 + 안내 — 라이선스는 영상별 개별 구매(일괄 단일결제는 추후) */}
+      {items.length > 0 && (
+        <div className="flex-shrink-0 border-t border-white/10 px-4 py-3 bg-[#0d0d0d]">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm text-gray-400">{t("cartPanel.total", "합계")} · {items.length}</span>
+            <span className="text-base font-black text-white">₩{total.toLocaleString()}</span>
+          </div>
+          <p className="text-[11px] text-gray-500">{t("cartPanel.perItemNote", "라이선스는 영상별로 구매합니다. 각 항목의 '구매하기'로 결제하세요.")}</p>
+        </div>
+      )}
     </div>
   );
 }

@@ -15,6 +15,7 @@ import './init';
 import { useState, useEffect, useCallback, Suspense, type ReactElement, type CSSProperties } from "react";
 import { lazyRetry as lazy } from "./utils/lazyRetry";
 import { isNegotiationOnly } from "./utils/licensePricing";
+import { usePayment } from "./hooks/usePayment";
 import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, Loader2, Crown, Users } from "lucide-react";
 import { HamburgerMenu } from "./components/HamburgerMenu";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
@@ -618,6 +619,7 @@ function AppContent() {
   const [pendingCartAdd, setPendingCartAdd] = useState<{ product: VideoProduct; licenseType: "standard" | "commercial" | "extended"; at: number } | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const { user, profile, signOut, isAuthenticated, loading, passwordRecovery } = useAuth();
+  const { startLicensePurchase } = usePayment();
   // 비로그인 사용자가 〈둘러보기〉 클릭 시 LandingPage → DiscoveryFeed 로 전환.
   // 이번 세션에 이미 둘러봤으면 새로고침해도 랜딩 재노출 안 함 (2026-06-11)
   const [hasExplored, setHasExplored] = useState(() => {
@@ -825,6 +827,29 @@ function AppContent() {
     });
     return true;
   }, [isAuthenticated, user]);
+
+  // 카트 항목 라이선스 구매 — ProductDetail 단건 흐름(startLicensePurchase) 재사용.
+  //   토스는 결제당 1주문이라 항목별 구매(진짜 일괄 단일결제는 멀티아이템 주문=출시 후 백엔드).
+  const handleCartPurchase = useCallback(async (item: CartItem) => {
+    if (!isAuthenticated) { setShowAuthModal(true); return; }
+    if (!item.price || item.price <= 0 || isNegotiationOnly(item.price)) {
+      toast.info(t("app.cartItemNotDirectBuy", "이 영상은 카트에서 바로 결제할 수 없어요. 영상 상세에서 확인해 주세요."));
+      return;
+    }
+    try {
+      await startLicensePurchase({
+        videoId: item.videoId,
+        amount: item.price,
+        videoTitle: item.title,
+        email: user?.email,
+        name: profile?.display_name || user?.name || user?.email,
+      });
+      // 토스 결제창으로 이동 — 이후 코드 실행 안 됨
+    } catch (err: any) {
+      if (err?.code === "USER_CANCEL") return;
+      toast.error(t("app.paymentStartFailed", "결제 시작 실패: ") + (err?.message || ""));
+    }
+  }, [isAuthenticated, startLicensePurchase, user, profile, t]);
 
   const removeFromCart = useCallback(async (itemId: string) => {
     const { error } = await supabase.from("cart_items").delete().eq("id", itemId);
@@ -1352,6 +1377,7 @@ function AppContent() {
                     items={cartItems}
                     onRemove={removeFromCart}
                     onViewVideo={loadAndOpenVideo}
+                    onPurchase={handleCartPurchase}
                     onClose={() => setActivePanel(null)}
                   />
                 )}
@@ -1393,6 +1419,7 @@ function AppContent() {
                       items={cartItems}
                       onRemove={removeFromCart}
                       onViewVideo={loadAndOpenVideo}
+                      onPurchase={handleCartPurchase}
                       onClose={() => setActivePanel(null)}
                     />
                   )}
