@@ -1042,6 +1042,18 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     });
   };
 
+  // 본인 영상 삭제 (delete_my_video: 소유권 검증 + 판매분 있으면 차단)
+  const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null);
+  const handleDeleteVideo = async (productId: string, title: string) => {
+    if (!confirm(t("mypage.sales.deleteConfirm", { title }))) return;
+    setDeletingVideoId(productId);
+    const { error } = await supabase.rpc("delete_my_video", { p_video_id: productId });
+    setDeletingVideoId(null);
+    if (error) { toast.error(t("mypage.sales.deleteFailed", "삭제 실패: ") + error.message); return; }
+    toast.success(t("mypage.sales.deleteSuccess", "영상을 삭제했어요."));
+    setMyProducts((prev) => prev.filter((p) => p.id !== productId));
+  };
+
   const handleSelectMode = (mode: 'user' | 'creator') => {
     setPageMode(mode);
     localStorage.setItem(PAGE_MODE_STORAGE_KEY, mode);
@@ -1739,13 +1751,23 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                             <span className="px-2 py-0.5 bg-[#10b981]/10 border border-[#10b981]/20 text-[#10b981] rounded text-[10px] font-bold shadow-sm">
                               {product.status}
                             </span>
-                            <button
-                              onClick={() => handleOpenEditVideo(product.id, product.thumbnail)}
-                              className="flex items-center gap-1 text-[10px] font-bold text-gray-400 hover:text-white px-2 py-1 rounded bg-white/5 hover:bg-white/10 transition-colors"
-                            >
-                              <Pencil className="w-3 h-3" />
-                              {t("mypage.sales.edit")}
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => handleOpenEditVideo(product.id, product.thumbnail)}
+                                className="flex items-center gap-1 text-[10px] font-bold text-gray-400 hover:text-white px-2 py-1 rounded bg-white/5 hover:bg-white/10 transition-colors"
+                              >
+                                <Pencil className="w-3 h-3" />
+                                {t("mypage.sales.edit")}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteVideo(product.id, product.title)}
+                                disabled={deletingVideoId === product.id}
+                                className="flex items-center gap-1 text-[10px] font-bold text-red-400/80 hover:text-red-400 px-2 py-1 rounded bg-white/5 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                              >
+                                {deletingVideoId === product.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                                {t("mypage.sales.delete", "삭제")}
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
