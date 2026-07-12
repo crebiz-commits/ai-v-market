@@ -142,9 +142,6 @@ const VideoCard = memo(function VideoCard({ video, idx, onVideoClick, onAddToCar
             <span className="text-lg font-black text-white">{idx + 1}</span>
           </div>
         )}
-        {isCreaiteSelect(video.id) && !isAgeLocked && (
-          <span className="absolute top-1 right-1 z-10"><CreaiteSelectBadge variant="corner" /></span>
-        )}
         {video.thumbnail ? (
           <img
             src={video.thumbnail}
@@ -190,11 +187,12 @@ const VideoCard = memo(function VideoCard({ video, idx, onVideoClick, onAddToCar
           </div>
         )}
 
-        {/* 우상단 배지 묶음 — 연령 + OTT 를 한 flex 줄로 묶어 수평·수직 정렬 통일
-            (예전엔 각각 absolute + right-12 매직넘버라 폭·baseline 이 어긋났음) */}
-        {((rating && rating !== "all") || isOttBadge) && (
-          <div className="absolute top-1 right-1 flex items-center gap-1">
+        {/* 우상단 배지 묶음 — SELECT + 연령 + OTT 를 한 flex 줄로 묶어 겹침 방지·정렬 통일
+            (예전엔 SELECT 와 연령이 둘 다 top-1 right-1 절대배치라 서로 포개졌음) */}
+        {((isCreaiteSelect(video.id) && !isAgeLocked) || (rating && rating !== "all") || isOttBadge) && (
+          <div className="absolute top-1 right-1 z-10 flex items-center gap-1">
             {rating && rating !== "all" && <AgeBadge rating={rating} size="xs" />}
+            {isCreaiteSelect(video.id) && !isAgeLocked && <CreaiteSelectBadge variant="corner" />}
             {isOttBadge && (
               <div className="px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500/40 to-orange-500/40 backdrop-blur-sm text-white text-[9px] font-bold flex items-center gap-0.5">
                 <Crown className="w-2.5 h-2.5" />
