@@ -174,23 +174,20 @@ SELECT * FROM (
     'FAIL시 high_fixes_20260614.sql 재적용(광고통계 IDOR)'
 
   UNION ALL
-  -- 14) videos 직접 UPDATE 잠금 — self-approve/티어위조 차단 (2026-07-11 업로드 감사)
-  --     anon/authenticated 가 videos 를 직접 UPDATE 하면 is_hidden=false·moderation_status=
-  --     'passed'·show_on_ott=true 를 세팅해 검수 우회·OTT 티어 위조 가능. 앱은 RPC(DEFINER)만
-  --     쓰므로 직접 UPDATE 권한은 0이어야 함(테이블·민감컬럼 모두).
+  -- 14) videos 민감컬럼 보호 가드 트리거 — self-approve/티어위조 차단 (2026-07-12)
+  --     초기엔 REVOKE UPDATE 로 막았으나(07-11) 카운트 동기화 DEFINER 트리거까지 깨져
+  --     좋아요 42501 회귀 → 가드 트리거(protect_video_update)로 전환. 비신뢰 current_user 의
+  --     is_hidden/moderation_status/show_on_ott 등 직접 변경을 무효화(grant 무관). 트리거 존재 필수.
   SELECT 14,
-    'videos 직접 UPDATE 권한 0(self-approve/티어위조 차단)',
-    CASE WHEN NOT EXISTS (
-      SELECT 1 FROM information_schema.role_table_grants
-      WHERE table_schema='public' AND table_name='videos' AND privilege_type='UPDATE'
-        AND grantee IN ('anon','authenticated','PUBLIC')
-    ) AND NOT EXISTS (
-      SELECT 1 FROM information_schema.role_column_grants
-      WHERE table_schema='public' AND table_name='videos' AND privilege_type='UPDATE'
-        AND grantee IN ('anon','authenticated')
-        AND column_name IN ('is_hidden','moderation_status','show_on_ott','show_on_cinema','creator_id')
+    'videos 민감컬럼 보호 가드 트리거(self-approve/티어위조 차단)',
+    CASE WHEN EXISTS (
+      SELECT 1 FROM pg_trigger t
+        JOIN pg_class c ON c.oid = t.tgrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname='public' AND c.relname='videos'
+        AND t.tgname='protect_video_update' AND NOT t.tgisinternal
     ) THEN '✅ PASS' ELSE '🔴 FAIL' END,
-    'FAIL시 fix_videos_update_lockdown_20260711.sql 재적용(REVOKE UPDATE — GRANT ALL 재부여 감시)'
+    'FAIL시 fix_videos_update_guard_20260712.sql 재적용(BEFORE UPDATE 가드 트리거)'
 
 ) AS gate
 ORDER BY sort;
