@@ -74,6 +74,11 @@
     },
     {
       "source": "/(.*)",
+      "has": [{ "type": "query", "key": "info" }],
+      "destination": "/api/info"
+    },
+    {
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
