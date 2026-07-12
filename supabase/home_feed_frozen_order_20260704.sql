@@ -29,7 +29,16 @@ BEGIN
     RETURN QUERY
     SELECT vp.id FROM public.v_home_feed_public vp
     WHERE vp.show_on_home = true AND (vp.visibility = 'public' OR vp.visibility IS NULL) AND COALESCE(vp.is_hidden, false) = false
-      AND (vp.series_id IS NULL OR COALESCE(vp.episode_number, 1) = 1)
+      AND (
+        vp.series_id IS NULL
+        OR NOT EXISTS (   -- 시리즈 대표작 = 노출가능 에피소드 중 가장 앞 화(1화 숨김 시 다음 화)
+          SELECT 1 FROM public.videos v3
+          WHERE v3.series_id = vp.series_id
+            AND COALESCE(v3.is_hidden, false) = false
+            AND COALESCE(v3.visibility, 'public') = 'public'
+            AND COALESCE(v3.episode_number, 1) < COALESCE(vp.episode_number, 1)
+        )
+      )
     ORDER BY vp.created_at DESC, vp.id;
     RETURN;
   END IF;
@@ -39,7 +48,16 @@ BEGIN
     RETURN QUERY
     SELECT vp.id FROM public.v_home_feed_public vp
     WHERE vp.show_on_home = true AND (vp.visibility = 'public' OR vp.visibility IS NULL) AND COALESCE(vp.is_hidden, false) = false
-      AND (vp.series_id IS NULL OR COALESCE(vp.episode_number, 1) = 1)
+      AND (
+        vp.series_id IS NULL
+        OR NOT EXISTS (   -- 시리즈 대표작 = 노출가능 에피소드 중 가장 앞 화(1화 숨김 시 다음 화)
+          SELECT 1 FROM public.videos v3
+          WHERE v3.series_id = vp.series_id
+            AND COALESCE(v3.is_hidden, false) = false
+            AND COALESCE(v3.visibility, 'public') = 'public'
+            AND COALESCE(v3.episode_number, 1) < COALESCE(vp.episode_number, 1)
+        )
+      )
       AND (p_filter <> 'free'   OR COALESCE(vp.price_standard, 0) = 0)
       AND (p_filter <> 'paid'   OR COALESCE(vp.price_standard, 0) > 0)
       AND (p_filter <> 'cinema' OR COALESCE(vp.show_on_ott, false) = true)
@@ -63,7 +81,16 @@ BEGIN
     RETURN QUERY
     SELECT vp.id FROM public.v_home_feed_public vp
     WHERE vp.show_on_home = true AND (vp.visibility = 'public' OR vp.visibility IS NULL) AND COALESCE(vp.is_hidden, false) = false
-      AND (vp.series_id IS NULL OR COALESCE(vp.episode_number, 1) = 1)
+      AND (
+        vp.series_id IS NULL
+        OR NOT EXISTS (   -- 시리즈 대표작 = 노출가능 에피소드 중 가장 앞 화(1화 숨김 시 다음 화)
+          SELECT 1 FROM public.videos v3
+          WHERE v3.series_id = vp.series_id
+            AND COALESCE(v3.is_hidden, false) = false
+            AND COALESCE(v3.visibility, 'public') = 'public'
+            AND COALESCE(v3.episode_number, 1) < COALESCE(vp.episode_number, 1)
+        )
+      )
     ORDER BY (
       COALESCE(vp.likes, 0) * 1.0
       + (SELECT COUNT(*) FROM public.video_views vv
@@ -114,7 +141,16 @@ BEGIN
   WHERE vp.show_on_home = true
     AND (vp.visibility = 'public' OR vp.visibility IS NULL)
     AND COALESCE(vp.is_hidden, false) = false
-    AND (vp.series_id IS NULL OR COALESCE(vp.episode_number, 1) = 1)
+    AND (
+      vp.series_id IS NULL
+      OR NOT EXISTS (   -- 시리즈 대표작 = 노출가능 에피소드 중 가장 앞 화(1화 숨김 시 다음 화)
+        SELECT 1 FROM public.videos v3
+        WHERE v3.series_id = vp.series_id
+          AND COALESCE(v3.is_hidden, false) = false
+          AND COALESCE(v3.visibility, 'public') = 'public'
+          AND COALESCE(v3.episode_number, 1) < COALESCE(vp.episode_number, 1)
+      )
+    )
   ORDER BY (
     COALESCE(cp.s, 0) * 1.0
     + COALESCE(gp.s, 0) * 1.0
