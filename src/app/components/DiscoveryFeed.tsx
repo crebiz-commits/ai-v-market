@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, memo, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageCircle, MessageSquare, Send, ChevronRight, ChevronLeft, ExternalLink, Maximize2, Search } from "lucide-react";
+import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageCircle, MessageSquare, Send, ChevronRight, ChevronLeft, ExternalLink, Maximize2, Search, Eye } from "lucide-react";
+import { formatCompactNumber } from "../i18n/numberFormat";
 import { motion, AnimatePresence } from "motion/react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
@@ -64,6 +65,7 @@ interface Video {
   creator: string;
   creatorId?: string;
   likes: number;
+  views?: number;   // 유효조회수(videos.views SSOT) — 카드 조회수 통일 표시
   price: number;
   duration: string;
   durationSeconds?: number;   // 페이월 게이트용 (Phase 4)
@@ -409,6 +411,10 @@ const MovieSection = memo(({
   const [playerReady, setPlayerReady] = useState(false);
   // Phase 26: 19+ 연령 잠금 여부 (본인 영상은 게이트 제외)
   const { profile, user } = useAuth();
+  // 조회수(videos.views SSOT) 통일 표시 — 시네마·OTT·검색과 같은 전역 스토어 값 공유(seed-once)
+  const { displayViews, seedViews } = useLikes();
+  const viewCount = displayViews(video.id, video.views);
+  useEffect(() => { seedViews(video.id, video.views ?? undefined); }, [video.id, video.views, seedViews]);
   const ageVerified = profile?.age_verified ?? false;
   const isMyVideo = !!user?.id && !!video.creatorId && user.id === video.creatorId;
   const isAgeLocked = !isMyVideo && shouldBlur(video.age_rating, ageVerified);
@@ -730,7 +736,12 @@ const MovieSection = memo(({
               <FollowButton creatorId={video.creatorId} onSignInClick={onSignInClick} size="sm" />
             )}
           </div>
-          <h3 className="text-sm font-bold text-white leading-tight line-clamp-1 mb-2 pr-16">{video.title}</h3>
+          <h3 className="text-sm font-bold text-white leading-tight line-clamp-1 mb-1 pr-16">{video.title}</h3>
+          {viewCount > 0 && (
+            <div className="flex items-center gap-1 text-[11px] text-white/55 mb-2">
+              <Eye className="w-3 h-3" /> {formatCompactNumber(viewCount)}
+            </div>
+          )}
 
           {/* 가격 + 버튼 — ₩0 영상은 "무료 시청 / 라이선스 미판매" 로 표시 */}
           <div className="flex items-center justify-between">
@@ -775,6 +786,7 @@ function mapVideoRow(item: any): Video {
     creator: item.creator || "AI Creator",
     creatorId: item.creator_id || undefined,
     likes: item.likes || 0,
+    views: Number(item.views) || 0,
     price: item.price_standard || 0,
     duration: item.duration || "0:00",
     durationSeconds: item.duration_seconds || 0,
@@ -1837,10 +1849,12 @@ const DesktopAdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: s
 });
 
 const DesktopMovieCard = memo(function DesktopMovieCard({ video, onVideoClick, onAddToCart, onToggleLike, onComment, onShare, commentCount = 0, creatorAvatar = null, creatorName = null, onViewCreator, onSignInClick }: { video: Video; onVideoClick: (video: Video) => void; onAddToCart?: (video: Video) => void; onToggleLike: (id: string, base: number) => void; onComment: (video: Video) => void; onShare: (video: Video) => void; commentCount?: number; creatorAvatar?: string | null; creatorName?: string | null; onViewCreator?: (creatorId: string) => void; onSignInClick?: () => void }) {
-  const { isLiked: isLikedStore, displayCount, displayComments } = useLikes();
+  const { isLiked: isLikedStore, displayCount, displayComments, displayViews, seedViews } = useLikes();
   const isLiked = isLikedStore(video.id);
   const likeDisplay = displayCount(video.id, video.likes);
   const commentDisplay = displayComments(video.id, commentCount);
+  const viewCount = displayViews(video.id, video.views);
+  useEffect(() => { seedViews(video.id, video.views ?? undefined); }, [video.id, video.views, seedViews]);
   const { t } = useTranslation();
   const { profile, user } = useAuth();
   const ageVerified = profile?.age_verified ?? false;
@@ -1999,6 +2013,12 @@ const DesktopMovieCard = memo(function DesktopMovieCard({ video, onVideoClick, o
             )}
           </div>
           <div className="flex items-center gap-4">
+            {viewCount > 0 && (
+              <span className="flex items-center gap-1 p-2 text-white/40" title={t("videoRow.viewsPrefix", "조회수")}>
+                <Eye className="w-5 h-5 text-white/30" />
+                <span className="text-xs">{formatCompactNumber(viewCount)}</span>
+              </span>
+            )}
             <button onClick={(e) => { e.stopPropagation(); onToggleLike(video.id, video.likes); }} className="flex items-center gap-1 p-2 hover:bg-red-500/10 rounded-full transition-colors">
               <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white/30'}`} />
               {likeDisplay > 0 && <span className="text-xs text-white/40">{likeDisplay.toLocaleString()}</span>}
