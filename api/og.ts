@@ -13,6 +13,10 @@ export const config = { runtime: "edge" };
 
 const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer";
 const SUPABASE_ANON_KEY = "sb_publishable_K3wmxz8uqsvUdeYXUhJv2g_g09eNNR8";
+// Bunny Stream 라이브러리 ID — videos.id 가 곧 Bunny GUID 라 임베드 플레이어 URL 구성에 사용
+//   (sitemap.ts / ProductDetail.tsx 와 동일 형식).
+const BUNNY_LIBRARY_ID = "615810";
+const SITE = "https://www.creaite.net";
 
 function escapeHtml(str: string): string {
   return String(str || "")
@@ -52,7 +56,17 @@ function buildOgHtml(html: string, video: Video, pageUrl: string): string {
   const title = `${video.title} | CREAITE`;
   const creator = video.creator || "AI Creator";
   const description = (video.description || `${creator}의 AI 시네마틱 영상 — CREAITE에서 만나보세요.`).slice(0, 200);
-  const thumbnail = video.thumbnail || "https://www.creaite.net/api/og-image";
+  // 썸네일: Bunny(b-cdn 핫링크 보호)면 same-origin 프록시(/api/thumb)로 → Googlebot·소셜봇 취득 가능.
+  //   (원본 b-cdn URL 을 그대로 쓰면 GSC "썸네일에 연결할 수 없음" + 공유 프리뷰 깨짐.)
+  const rawThumb = video.thumbnail || "";
+  const thumbnail = rawThumb.includes("b-cdn.net")
+    ? `${SITE}/api/thumb?v=${encodeURIComponent(video.id)}`
+    : (rawThumb || `${SITE}/api/og-image`);
+  // 동영상 임베드 — videos.id=Bunny GUID → 실제 플레이어(iframe). 페이지 URL(자기 자신)을
+  //   embedUrl 로 쓰면 GSC "동영상이 보기 페이지에 없음"으로 색인 실패(sitemap player_loc 과 동일 이슈).
+  const embedUrl = /^[0-9a-f-]{36}$/i.test(video.id)
+    ? `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${video.id}`
+    : pageUrl;
 
   // GSC(2026-06-11): uploadDate 는 시간대 포함 완전한 ISO 8601 이어야 함.
   // 날짜만("2026-05-30") → '시간대 누락' 경고, 빈 문자열 → '값 잘못됨' 경고.
@@ -70,8 +84,7 @@ function buildOgHtml(html: string, video: Video, pageUrl: string): string {
     name: title,
     description,
     thumbnailUrl: thumbnail,
-    contentUrl: pageUrl,
-    embedUrl: pageUrl,
+    embedUrl,
     author: { "@type": "Person", name: creator },
   };
   if (uploadDate) ld.uploadDate = uploadDate;
