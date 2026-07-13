@@ -149,6 +149,23 @@ type OttSnapshot = {
   genreRows: GenreRow[];
 };
 const ottCache: Record<string, OttSnapshot> = {};
+
+// 새로고침(F5)·재방문 콜드스타트 즉시 페인트 — 홈피드·시네마와 동일한 localStorage SWR.
+//   (OTT 행 데이터는 트렌딩/형식/장르 = 비개인화 공개 데이터라 사용자 키 불필요, showcase 만 대조)
+const OTT_LS_KEY = "aivm_ott_v1";
+const OTT_LS_TTL_MS = 30 * 60_000;
+function readOttLS(key: string): OttSnapshot | null {
+  try {
+    const raw = localStorage.getItem(OTT_LS_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (s?.key !== key || !s?.snap || Date.now() - (s.ts || 0) > OTT_LS_TTL_MS) return null;
+    return s.snap as OttSnapshot;
+  } catch { return null; }
+}
+function writeOttLS(key: string, snap: OttSnapshot) {
+  try { localStorage.setItem(OTT_LS_KEY, JSON.stringify({ key, ts: Date.now(), snap })); } catch { /* quota 등 무시 */ }
+}
 // 히어로 영상 소스 캐시(heroId → src) — 30초(상한) 회전마다 같은 영상 video_url 재조회 방지
 type HeroSrc = { videoId: string; url: string; start: number; end: number; clipUrl?: string; previewUrl?: string };
 const heroSrcCache = new Map<string, HeroSrc>();
@@ -165,8 +182,8 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
   const showcase = shouldShowShowcase(profile?.is_admin);
   const ageVerified = profile?.age_verified ?? false;
 
-  // 모듈 캐시에서 초기 hydrate — 탭 재방문 시 첫 렌더부터 표시(스피너 스킵)
-  const _ottInit = ottCache[String(showcase)];
+  // 모듈 캐시(세션 내) → localStorage(새로고침 후) 순으로 초기 hydrate — 첫 렌더부터 표시(스피너 스킵)
+  const _ottInit = ottCache[String(showcase)] ?? readOttLS(String(showcase));
   const [loading, setLoading] = useState(!_ottInit);
   const [trending, setTrending] = useState<CarouselVideo[]>(_ottInit?.trending ?? []);
   const [genreRows, setGenreRows] = useState<GenreRow[]>(_ottInit?.genreRows ?? []);
@@ -339,7 +356,7 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
   useEffect(() => {
     let cancelled = false;
     const key = String(showcase);
-    const snap = ottCache[key];
+    const snap = ottCache[key] ?? readOttLS(key);
     if (snap) {
       // 캐시 즉시 반영(stale-while-revalidate) — 스피너 없이 직전 데이터 표시 후 아래서 갱신
       setTrending(snap.trending); setFormatRows(snap.formatRows); setGenreRows(snap.genreRows);
@@ -349,24 +366,46 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
     }
     async function loadAll() {
       try {
-        // 각 RPC를 안전 래핑(실패 시 null) → 일부 RPC가 네트워크 실패해도 나머지로 채움(OTT 전체가 비는 것 방지).
-        const rpcData = (name: string, args: any): Promise<any[] | null> =>
-          Promise.resolve(supabase.rpc(name, args)).then((r: any) => r?.data ?? null).catch(() => null);
-        // 3단 워터폴 → 단일 Promise.all (서로 독립이므로 왕복 3회→1회)
-        const [trd, formatData, rows] = await Promise.all([
-          rpcData("get_trending_videos", { p_tier: "ott", p_hours: 168, p_limit: 10 }),
-          Promise.all(
-            OTT_FORMAT_DEFS.map((f) =>
-              rpcData("get_videos_by_category", { p_category: f.category, p_tier: "ott", p_limit: 50 }),
+        // ⚡ 번들 RPC 1회 왕복(기존 15회 병렬 → 1회, feed_bundle_rpc_20260714.sql).
+        //   p_tier='ott' 는 서버가 트렌딩을 168h 로 계산. 미적용(PGRST202)·실패 시
+        //   아래 기존 병렬 경로로 자동 폴백(배포 순서 무관 무중단).
+        let trd: any[] | null = null;
+        let formatData: (CarouselVideo[] | null)[] | null = null;
+        let rows: GenreRow[] | null = null;
+        try {
+          const { data: bundle, error: bundleErr } = await supabase.rpc("get_feed_bundle", {
+            p_tier: "ott",
+            p_genres: GENRES,
+            p_categories: OTT_FORMAT_DEFS.map((f) => f.category),
+            p_row_limit: 24,
+          });
+          if (!bundleErr && bundle) {
+            trd = bundle.trending ?? [];
+            formatData = OTT_FORMAT_DEFS.map((f) => ((bundle.formats?.[f.category] ?? []) as CarouselVideo[]));
+            rows = GENRES.map((g) => ({ category: g, videos: (bundle.genres?.[g] ?? []) as CarouselVideo[] } as GenreRow));
+          }
+        } catch { /* 폴백 진행 */ }
+
+        if (!formatData || !rows) {
+          // 각 RPC를 안전 래핑(실패 시 null) → 일부 RPC가 네트워크 실패해도 나머지로 채움(OTT 전체가 비는 것 방지).
+          const rpcData = (name: string, args: any): Promise<any[] | null> =>
+            Promise.resolve(supabase.rpc(name, args)).then((r: any) => r?.data ?? null).catch(() => null);
+          // 3단 워터폴 → 단일 Promise.all (서로 독립이므로 왕복 3회→1회)
+          [trd, formatData, rows] = await Promise.all([
+            rpcData("get_trending_videos", { p_tier: "ott", p_hours: 168, p_limit: 10 }),
+            Promise.all(
+              OTT_FORMAT_DEFS.map((f) =>
+                rpcData("get_videos_by_category", { p_category: f.category, p_tier: "ott", p_limit: 24 }),
+              ),
             ),
-          ),
-          Promise.all(
-            GENRES.map(async (g) => ({
-              category: g,
-              videos: (await rpcData("get_videos_by_genre", { p_genre: g, p_tier: "ott", p_limit: 50 })) || [],
-            } as GenreRow)),
-          ),
-        ]);
+            Promise.all(
+              GENRES.map(async (g) => ({
+                category: g,
+                videos: (await rpcData("get_videos_by_genre", { p_genre: g, p_tier: "ott", p_limit: 24 })) || [],
+              } as GenreRow)),
+            ),
+          ]);
+        }
 
         const merge = (real: CarouselVideo[], opts?: { category?: string }) =>
           showcase ? mergeShowcase(real, showcaseToCarousel, { tier: "ott", ...opts }) : real;
@@ -379,10 +418,10 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
         const nextFormatRows = OTT_FORMAT_DEFS.map((f, i) => ({
           category: f.category,
           position: f.position,
-          videos: merge((formatData[i] || []) as CarouselVideo[], { category: f.category }),
+          videos: merge((formatData![i] || []) as CarouselVideo[], { category: f.category }),
         })).filter((r) => keepRow(r.videos.length));
 
-        const mergedRows = rows.map((r) => ({ ...r, videos: merge(r.videos, { category: r.category }) }));
+        const mergedRows = rows!.map((r) => ({ ...r, videos: merge(r.videos, { category: r.category }) }));
         if (showcase && mergedRows.length < 5) {
           const showcaseCategories = ["drama", "thriller", "romance", "action", "comedy"];
           for (const cat of showcaseCategories) {
@@ -394,8 +433,10 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
         }
         const nextGenreRows = mergedRows.filter((r) => keepRow(r.videos.length));
 
-        // 모듈 캐시에 기록 → 다음 재방문 시 즉시 표시
-        ottCache[key] = { trending: nextTrending, formatRows: nextFormatRows, genreRows: nextGenreRows };
+        // 모듈 캐시 + localStorage 기록 → 재방문·새로고침 시 즉시 표시
+        const nextSnap: OttSnapshot = { trending: nextTrending, formatRows: nextFormatRows, genreRows: nextGenreRows };
+        ottCache[key] = nextSnap;
+        writeOttLS(key, nextSnap);
         setTrending(nextTrending);
         setFormatRows(nextFormatRows);
         setGenreRows(nextGenreRows);

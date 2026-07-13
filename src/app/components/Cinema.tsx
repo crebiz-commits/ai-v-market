@@ -151,6 +151,24 @@ type CinemaSnapshot = {
 };
 const cinemaCache: Record<string, CinemaSnapshot> = {};
 
+// 새로고침(F5)·재방문 콜드스타트 즉시 페인트 — 홈피드(aivm_homefeed_v1)와 동일한 localStorage SWR.
+//   메모리 캐시는 reload 시 사라지므로 최근 스냅샷을 지속 보관해 진입 즉시 그리고 뒤에서 재검증.
+//   키에 cacheKey(user 포함)를 통째로 저장·대조 — 계정 전환 시 이전 사용자 추천이 새어나가지 않음.
+const CINEMA_LS_KEY = "aivm_cinema_v1";
+const CINEMA_LS_TTL_MS = 30 * 60_000;
+function readCinemaLS(cacheKey: string): CinemaSnapshot | null {
+  try {
+    const raw = localStorage.getItem(CINEMA_LS_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (s?.key !== cacheKey || !s?.snap || Date.now() - (s.ts || 0) > CINEMA_LS_TTL_MS) return null;
+    return s.snap as CinemaSnapshot;
+  } catch { return null; }
+}
+function writeCinemaLS(cacheKey: string, snap: CinemaSnapshot) {
+  try { localStorage.setItem(CINEMA_LS_KEY, JSON.stringify({ key: cacheKey, ts: Date.now(), snap })); } catch { /* quota 등 무시 */ }
+}
+
 export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigate, onViewCreator, onSignInClick }: CinemaProps) {
   const { t } = useTranslation();
   const { collections } = useCollections();
@@ -159,8 +177,8 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
   // 캐시 키에 user id 포함 — 개인화 추천(get_recommended_videos)이 사용자 간 공유되지 않게.
   // (user 없으면 'anon'. tier·showcase 만으로 키를 만들면 로그아웃/계정전환 시 이전 사용자 추천이 새어나감)
   const cacheKey = `${user?.id ?? "anon"}:${tier}:${showcase}`;
-  // 모듈 캐시에서 초기 hydrate — 탭 재방문 시 첫 렌더부터 데이터 표시(스피너 스킵)
-  const _initSnap = cinemaCache[cacheKey];
+  // 모듈 캐시(세션 내) → localStorage(새로고침 후) 순으로 초기 hydrate — 첫 렌더부터 데이터 표시(스피너 스킵)
+  const _initSnap = cinemaCache[cacheKey] ?? readCinemaLS(cacheKey);
   const [loading, setLoading] = useState(!_initSnap);
   const [recommended, setRecommended] = useState<CarouselVideo[]>(_initSnap?.recommended ?? []);
   const [trending, setTrending] = useState<CarouselVideo[]>(_initSnap?.trending ?? []);
@@ -199,7 +217,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
 
   useEffect(() => {
     let cancelled = false;
-    const snap = cinemaCache[cacheKey];
+    const snap = cinemaCache[cacheKey] ?? readCinemaLS(cacheKey);
     if (snap) {
       // 캐시 즉시 반영(stale-while-revalidate) — 스피너 없이 직전 데이터 표시 후 아래서 백그라운드 갱신
       setRecommended(snap.recommended); setTrending(snap.trending); setNewReleases(snap.newReleases);
@@ -210,30 +228,56 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
     }
     async function loadAll() {
       try {
-        const settled = await Promise.allSettled([
-          supabase.rpc("get_recommended_videos", { p_tier: tier, p_limit: 15 }),
-          supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 24, p_limit: 10 }),
-          supabase.rpc("get_new_releases", { p_tier: tier, p_days: 14, p_limit: 10 }),
-          supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 720, p_limit: 10 }),  // 30일 (이달의 BEST)
-          // 형식 카테고리 행 (애니메이션·다큐멘터리·뮤직비디오)
-          ...FORMAT_DEFS.map((f) =>
-            supabase.rpc("get_videos_by_category", { p_category: f.category, p_tier: tier, p_limit: 50 }),
-          ),
-          // 장르별 병렬 호출 (넷플릭스식: 작은 제한 없이 장르 전부 노출)
-          ...GENRES.map((g) =>
-            supabase.rpc("get_videos_by_genre", { p_genre: g, p_tier: tier, p_limit: 50 }),
-          ),
-        ]);
-        if (cancelled) return;  // tier/showcase 전환 중 stale 응답 적용 방지
-        // Promise.allSettled: RPC 하나가 실패해도 나머지로 채움(실패분=빈 데이터) → 시네마 전체가 비는 것 방지.
-        const rpcData = (r: PromiseSettledResult<any>): any => (r.status === "fulfilled" ? (r.value?.data ?? null) : null);
-        const rec = rpcData(settled[0]);
-        const trd = rpcData(settled[1]);
-        const nrl = rpcData(settled[2]);
-        const top = rpcData(settled[3]);
-        const restResults = settled.slice(4).map((r) => ({ data: rpcData(r) }));
-        const formatResults = restResults.slice(0, FORMAT_DEFS.length);
-        const categoryResults = restResults.slice(FORMAT_DEFS.length);
+        // ⚡ 번들 RPC 1회 왕복(기존 18회 병렬 → 1회, feed_bundle_rpc_20260714.sql).
+        //   서버가 기존 SSOT 랭킹 함수들을 내부 호출해 jsonb 로 묶어줌 — 랭킹 로직 중복 없음.
+        //   미적용(PGRST202)·실패 시 아래 기존 병렬 경로로 자동 폴백(배포 순서 무관 무중단).
+        let rec: any = null, trd: any = null, nrl: any = null, top: any = null;
+        let formatVideos: CarouselVideo[][] | null = null;
+        let genreVideos: CarouselVideo[][] | null = null;
+        try {
+          const { data: bundle, error: bundleErr } = await supabase.rpc("get_feed_bundle", {
+            p_tier: tier,
+            p_genres: GENRES,
+            p_categories: FORMAT_DEFS.map((f) => f.category),
+            p_row_limit: 24,
+          });
+          if (!bundleErr && bundle) {
+            rec = bundle.recommended ?? [];
+            trd = bundle.trending ?? [];
+            nrl = bundle.new_releases ?? [];
+            top = bundle.best30 ?? [];
+            formatVideos = FORMAT_DEFS.map((f) => ((bundle.formats?.[f.category] ?? []) as CarouselVideo[]));
+            genreVideos = GENRES.map((g) => ((bundle.genres?.[g] ?? []) as CarouselVideo[]));
+          }
+        } catch { /* 폴백 진행 */ }
+
+        if (!formatVideos || !genreVideos) {
+          const settled = await Promise.allSettled([
+            supabase.rpc("get_recommended_videos", { p_tier: tier, p_limit: 15 }),
+            supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 24, p_limit: 10 }),
+            supabase.rpc("get_new_releases", { p_tier: tier, p_days: 14, p_limit: 10 }),
+            supabase.rpc("get_trending_videos", { p_tier: tier, p_hours: 720, p_limit: 10 }),  // 30일 (이달의 BEST)
+            // 형식 카테고리 행 (애니메이션·다큐멘터리·뮤직비디오)
+            ...FORMAT_DEFS.map((f) =>
+              supabase.rpc("get_videos_by_category", { p_category: f.category, p_tier: tier, p_limit: 24 }),
+            ),
+            // 장르별 병렬 호출 (넷플릭스식: 작은 제한 없이 장르 전부 노출)
+            ...GENRES.map((g) =>
+              supabase.rpc("get_videos_by_genre", { p_genre: g, p_tier: tier, p_limit: 24 }),
+            ),
+          ]);
+          if (cancelled) return;  // tier/showcase 전환 중 stale 응답 적용 방지
+          // Promise.allSettled: RPC 하나가 실패해도 나머지로 채움(실패분=빈 데이터) → 시네마 전체가 비는 것 방지.
+          const rpcData = (r: PromiseSettledResult<any>): any => (r.status === "fulfilled" ? (r.value?.data ?? null) : null);
+          rec = rpcData(settled[0]);
+          trd = rpcData(settled[1]);
+          nrl = rpcData(settled[2]);
+          top = rpcData(settled[3]);
+          const restResults = settled.slice(4).map((r) => rpcData(r));
+          formatVideos = restResults.slice(0, FORMAT_DEFS.length).map((d) => ((d || []) as CarouselVideo[]));
+          genreVideos = restResults.slice(FORMAT_DEFS.length).map((d) => ((d || []) as CarouselVideo[]));
+        }
+        if (cancelled) return;  // 전환 중 stale 응답 적용 방지 (번들 경로 포함)
 
         // Showcase Mode: tier 기반 (cinema=3분+, ott=10분+) Mock 합성
         const merge = (real: CarouselVideo[], opts?: { category?: string }) =>
@@ -244,7 +288,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
         const popPool: CarouselVideo[] = [
           ...((rec || []) as CarouselVideo[]),
           ...((nrl || []) as CarouselVideo[]),
-          ...categoryResults.flatMap((r: any) => ((r?.data || []) as CarouselVideo[])),
+          ...genreVideos.flat(),
         ].sort((a, b) => (b.likes || 0) - (a.likes || 0));
         // base(실제 데이터)를 앞에 두고 popPool 인기순으로 target 개까지 채움(중복 제거).
         const fillPopular = (base: CarouselVideo[], target: number): CarouselVideo[] => {
@@ -273,19 +317,21 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           category: f.category,
           emoji: f.emoji,
           position: f.position,
-          videos: merge(((formatResults[i] as any)?.data || []) as CarouselVideo[], { category: f.category }),
+          videos: merge(formatVideos![i] || [], { category: f.category }),
         })).filter((r) => keepRow(r.videos.length));
         // 장르별 영상 행 — 업로드 장르 순서(SF·액션·로맨스…). 영상 1개 이상 있는 장르만 표시(BETA면 전부).
         const nextCategoryRows: CategoryRow[] = GENRES.map((g, i) => ({
           category: g,
-          videos: merge((categoryResults[i] as any)?.data || [], { category: g }),
+          videos: merge(genreVideos![i] || [], { category: g }),
         })).filter((row) => keepRow(row.videos.length));
 
-        // 모듈 캐시에 기록 → 다음 재방문 시 스피너 없이 즉시 표시
-        cinemaCache[cacheKey] = {
+        // 모듈 캐시 + localStorage 기록 → 재방문·새로고침 시 스피너 없이 즉시 표시
+        const nextSnap: CinemaSnapshot = {
           recommended: nextRecommended, trending: nextTrending, newReleases: nextNewReleases,
           top10: nextTop10, formatRows: nextFormatRows, categoryRows: nextCategoryRows,
         };
+        cinemaCache[cacheKey] = nextSnap;
+        writeCinemaLS(cacheKey, nextSnap);
 
         setRecommended(nextRecommended);
         setTrending(nextTrending);
