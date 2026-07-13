@@ -59,7 +59,9 @@ BEGIN
     --   (기존 IN(standard,commercial,exclusive) 은 tier 값이 다를 때 저가 위조결제 허용)
     IF NOT EXISTS (
       SELECT 1 FROM public.videos v
-      WHERE v.id = p_target_id::uuid
+      -- ⚠️ videos.id 는 TEXT — ::uuid 캐스트 금지(text = uuid 는 42883 연산자 없음 →
+      --    라이선스 결제 시작이 전면 실패하는 잠재 회귀였음, 2026-07-13 수정).
+      WHERE v.id = p_target_id
         AND p_amount = v.price_standard
     ) THEN
       RAISE EXCEPTION '라이선스 금액이 영상 가격과 일치하지 않습니다';

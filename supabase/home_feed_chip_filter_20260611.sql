@@ -26,8 +26,19 @@ RETURNS integer LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS
     AND (p_filter <> 'free'   OR COALESCE(v.price_standard, 0) = 0)
     AND (p_filter <> 'paid'   OR COALESCE(v.price_standard, 0) > 0)
     AND (p_filter <> 'cinema' OR COALESCE(v.show_on_ott, false) = true)
-    -- 시리즈 2화+ 후속화는 피드에서 제외되므로 카운트에서도 제외(배지 과대표시 버그 수정 2026-06-28)
-    AND (v.series_id IS NULL OR COALESCE(v.episode_number, 1) = 1);
+    -- 시리즈 대표작 = 노출가능 에피소드 중 가장 앞 화(1화 숨김 시 다음 화) — 피드(order)와 동일 규칙.
+    --   구식 `episode_number=1` 은 1화 숨김 시리즈를 0으로 세어 배지 과소표시(2026-07-13 동기화,
+    --   fix_series_feed_representative_20260712.sql 의 대표작 규칙과 일치 유지할 것).
+    AND (
+      v.series_id IS NULL
+      OR NOT EXISTS (
+        SELECT 1 FROM public.videos v3
+        WHERE v3.series_id = v.series_id
+          AND COALESCE(v3.is_hidden, false) = false
+          AND COALESCE(v3.visibility, 'public') = 'public'
+          AND COALESCE(v3.episode_number, 1) < COALESCE(v.episode_number, 1)
+      )
+    );
 $$;
 
 GRANT EXECUTE ON FUNCTION public.get_home_feed_count(text) TO anon, authenticated;

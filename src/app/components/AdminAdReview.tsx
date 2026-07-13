@@ -34,8 +34,11 @@ export function AdminAdReview() {
   const review = async (id: string, approve: boolean) => {
     let note: string | null = null;
     if (!approve) {
-      note = window.prompt("반려 사유를 입력하세요 (광고주에게 전달됩니다):", "")?.trim() || null;
-      if (note === null) return; // 취소
+      // prompt 취소(null)와 빈 입력("")을 구분 — `|| null` 로 접으면 빈 입력이 취소로 오인돼
+      //   토스트 없이 조용히 닫히는 무반응 버그(2026-07-13 수정).
+      const raw = window.prompt("반려 사유를 입력하세요 (광고주에게 전달됩니다):", "");
+      if (raw === null) return; // 취소
+      note = raw.trim();
       if (!note) { toast.error("반려 사유를 입력해 주세요."); return; }
     }
     setBusyId(id);

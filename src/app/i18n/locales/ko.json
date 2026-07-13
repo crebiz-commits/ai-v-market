@@ -1446,7 +1446,7 @@
   "cinema": {
     "heroCinemaTitle": "시네마",
     "heroOttTitle": "프리미엄 OTT",
-    "heroSubtitleCinema": "3분+ 시네마 · 미리보기 1분 무료",
+    "heroSubtitleCinema": "단편부터 장편까지 · 미리보기 1분 무료",
     "heroSubtitleOtt": "10분+ 장편 · 프리미엄 전용",
     "searchPlaceholder": "{{tier}} 영상 검색",
     "noSearchResults": "\"{{query}}\" 검색 결과가 없습니다",

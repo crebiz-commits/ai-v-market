@@ -79,7 +79,11 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          if (res && res.ok) {
+          // 앱셸 폴백 캐시는 순수 셸만 저장 — ?video=/?info= 응답은 SSR 프리렌더(특정
+          //   영상/글의 메타·본문 주입 HTML)라 폴백으로 저장하면 오프라인 시 엉뚱한
+          //   canonical/og 가 담긴 셸이 나옴(2026-07-13).
+          const isPrerender = url.searchParams.has("video") || url.searchParams.has("info");
+          if (res && res.ok && !isPrerender) {
             const copy = res.clone();
             caches.open(CACHE_NAME).then((c) => c.put("/index.html", copy)).catch(() => {});
           }

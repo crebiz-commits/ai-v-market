@@ -1787,6 +1787,7 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
 
 // 데스크탑 그리드용 자체광고 카드 — DesktopMovieCard 와 동일 셸(aspect-video + 푸터)로 그리드 리듬 유지
 const DesktopAdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) => void }) => {
+  const { t } = useTranslation();
   const cardRef = useRef<HTMLDivElement>(null);
   const tracked = useRef(false);
 
@@ -1829,7 +1830,7 @@ const DesktopAdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: s
           <div className="absolute inset-0 bg-gradient-to-br from-[#6366f1] to-[#8b5cf6]" />
         )}
         <div className="absolute top-3 left-3 z-10 px-2 py-0.5 bg-black/50 backdrop-blur-sm border border-white/20 rounded-full text-[10px] font-bold text-white/70 tracking-widest">
-          AD
+          {t("discoveryFeed.adBadge")}
         </div>
       </div>
       <div className="p-5 flex-1 flex flex-col">
@@ -1950,7 +1951,7 @@ const DesktopMovieCard = memo(function DesktopMovieCard({ video, onVideoClick, o
           </span>
           {video.seriesId && (
             <span className="px-2 py-0.5 bg-[#6366f1]/85 backdrop-blur-md rounded text-white font-bold text-[8px] border border-white/20">
-              시리즈
+              {t("discoveryFeed.seriesBadge")}
             </span>
           )}
         </div>

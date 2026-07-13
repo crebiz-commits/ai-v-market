@@ -105,7 +105,7 @@ interface Product {
 interface CinemaProps {
   onProductClick: (product: Product) => void;
   onAddToCart?: (product: Product) => void;  // 카드 hover '+' 버튼 — App.tsx의 addToCart 호출
-  tier?: "cinema" | "ott";   // 시네마(3분+) 또는 OTT(10분+)
+  tier?: "cinema" | "ott";   // 시네마(60초+, content_policy_v2) 또는 OTT(10분+)
   onNavigate?: (tab: string, sub?: string) => void;
   onViewCreator?: (creatorId: string) => void;  // 탑 크리에이터 카드 → 채널 이동
   onSignInClick?: () => void;                    // 팔로우 등 로그인 필요 액션

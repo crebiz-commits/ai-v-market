@@ -189,5 +189,20 @@ SELECT * FROM (
     ) THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 fix_videos_update_guard_20260712.sql 재적용(BEFORE UPDATE 가드 트리거)'
 
+  UNION ALL
+  -- 15) 모더레이션 RPC 가 anon/authenticated/PUBLIC 에 노출되지 않는가 (2026-07-13)
+  --     update_video_moderation 은 본문에 신원검증이 없는 SECURITY DEFINER — PUBLIC 기본
+  --     EXECUTE 가 남아 있으면 anon key 만으로 타인 영상 숨김/점수 위조 가능(#7 게이트는
+  --     admin_* 이름만 스캔해 못 잡음). apply_moderation_result 도 동일 원칙.
+  SELECT 15,
+    '모더레이션 RPC anon/PUBLIC 비노출(update_video_moderation 등)',
+    CASE WHEN NOT EXISTS (
+      SELECT 1 FROM information_schema.routine_privileges
+      WHERE routine_schema='public'
+        AND routine_name IN ('update_video_moderation','apply_moderation_result')
+        AND grantee IN ('PUBLIC','anon','authenticated')
+    ) THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 fix_moderation_rpc_collab_count_20260713.sql ① 재적용(REVOKE FROM PUBLIC)'
+
 ) AS gate
 ORDER BY sort;

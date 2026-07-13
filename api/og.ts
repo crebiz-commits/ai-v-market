@@ -40,7 +40,11 @@ interface Video {
 }
 
 async function fetchVideo(videoId: string): Promise<Video | null> {
-  const url = `https://${SUPABASE_PROJECT_ID}.supabase.co/rest/v1/videos?id=eq.${encodeURIComponent(videoId)}&select=id,title,thumbnail,creator,duration,duration_seconds,description,age_rating,created_at`;
+  // 공개+미숨김만 (sitemap.ts 와 동일 필터) — 필터 없이는 숨김(재검수·모더레이션)·비공개
+  //   영상의 제목·설명·썸네일이 /?video=<id> 직접 접근으로 유출됨(videos.is_hidden 은
+  //   RLS 미강제라 명시 필터 필수). 미해당 영상은 메타 주입 없이 원본 index.html 반환.
+  const guard = `&or=(visibility.eq.public,visibility.is.null)&is_hidden=not.is.true`;
+  const url = `https://${SUPABASE_PROJECT_ID}.supabase.co/rest/v1/videos?id=eq.${encodeURIComponent(videoId)}${guard}&select=id,title,thumbnail,creator,duration,duration_seconds,description,age_rating,created_at`;
   const res = await fetch(url, {
     headers: {
       apikey: SUPABASE_ANON_KEY,

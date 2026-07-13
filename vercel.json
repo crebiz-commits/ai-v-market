@@ -2,6 +2,10 @@
   "headers": [
     {
       "source": "/((?!api/|assets/|sitemap\\.xml|robots\\.txt).*)",
+      "missing": [
+        { "type": "query", "key": "video" },
+        { "type": "query", "key": "info" }
+      ],
       "headers": [
         {
           "key": "Cache-Control",
@@ -71,6 +75,11 @@
       "source": "/(.*)",
       "has": [{ "type": "query", "key": "video" }],
       "destination": "/api/og"
+    },
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "query", "key": "info" }],
+      "destination": "/api/info"
     },
     {
       "source": "/(.*)",

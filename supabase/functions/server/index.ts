@@ -333,8 +333,8 @@ app.post("/video-play-token", async (c) => {
     if (!securityKey) return c.json({ token: null, expires: null, fullAccess: false });
 
     const admin = getSupabaseClient(true);
-    // 영상 연령등급·소유자 (청소년보호 게이트 + 접근 판정에 사용)
-    const { data: vid } = await admin.from('videos').select('age_rating, creator_id').eq('id', videoId).maybeSingle();
+    // 영상 연령등급·소유자·숨김/공개상태 (청소년보호 + 모더레이션 게이트 + 접근 판정에 사용)
+    const { data: vid } = await admin.from('videos').select('age_rating, creator_id, is_hidden, visibility').eq('id', videoId).maybeSingle();
     const is19 = vid?.age_rating === '19';
 
     let fullAccess = false;
@@ -367,6 +367,13 @@ app.post("/video-play-token", async (c) => {
     //   → 미리보기(150초)도 불가. 클라 블러/게이트가 우회돼도 Bunny 토큰인증 ON 시 CDN 이 거부.
     if (is19 && !ageVerified && !isOwner && !isAdmin) {
       return c.json({ token: null, expires: null, fullAccess: false, ageBlocked: true });
+    }
+
+    // 모더레이션(서버 강제): 숨김(검수 대기·재검수·신고누적)·비공개 영상은 소유자·관리자 외
+    //   토큰 미발급 — ID 직링크(?video=<id>)로 미검수 본편이 재생되던 우회 차단.
+    //   (unlisted 는 링크 공유가 목적이라 발급 유지. 관리자=검수 화면, 소유자=본인 미리보기 예외.)
+    if ((vid?.is_hidden === true || vid?.visibility === 'private') && !isOwner && !isAdmin) {
+      return c.json({ token: null, expires: null, fullAccess: false, hiddenBlocked: true });
     }
 
     const ttl = fullAccess ? 4 * 3600 : 150;  // 전체 4시간 / 미리보기 150초

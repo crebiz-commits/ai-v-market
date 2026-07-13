@@ -11,7 +11,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 import { useEffect, useState, useRef } from "react";
 import { motion } from "motion/react";
-import { Check, X, Loader2, Home } from "lucide-react";
+import { Check, X, Loader2, Home, RotateCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { supabase, supabaseAnonKey } from "../utils/supabaseClient";
 import { sendNotification, buildSubscriptionReceiptEmail } from "../utils/sendNotification";
@@ -27,12 +27,104 @@ interface PaymentResultProps {
 type Status = "processing" | "success" | "failed";
 
 export function PaymentResult({ onClose }: PaymentResultProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isKo = (i18n.language || "en").startsWith("ko");
   const [status, setStatus] = useState<Status>("processing");
   const [message, setMessage] = useState<string>("");
   const [amount, setAmount] = useState<number | null>(null);
+  // 실패 시 "다시 시도" 노출 여부 — 세션 미복원·네트워크 등 재시도로 회복 가능한 경우.
+  //   toss-confirm 은 멱등(ALREADY_PROCESSED 성공 수렴 + confirm_payment 멱등)이라 재호출 안전.
+  const [canRetry, setCanRetry] = useState(false);
   // P1: 이중 confirm 방지 — StrictMode 재호출/새로고침/리마운트 가드 (BillingResult 와 동일 패턴)
   const processedRef = useRef(false);
+  // 재시도용: paymentKey/orderId 를 URL 에서 제거한 뒤에도 재확인 가능하도록 보관 (BillingResult credsRef 패턴)
+  const credsRef = useRef<{ orderId: string; paymentKey: string; amount: number } | null>(null);
+
+  // 토스 리다이렉트 복귀 직후엔 Supabase SDK 가 세션을 아직 복원하지 못했을 수 있음 →
+  //   토큰이 잡힐 때까지 잠깐 재시도(최대 ~2초). 토큰 없이 서버를 부르면 서버(toss-confirm,
+  //   Bearer 필수)가 401 → "결제 실패" 오판되던 버그 예방 (2026-07-13, BillingResult 와 동일 가드).
+  const getAccessTokenWithRetry = async (tries = 6, delayMs = 350): Promise<string | undefined> => {
+    for (let i = 0; i < tries; i++) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) return session.access_token;
+      if (i < tries - 1) await new Promise((r) => setTimeout(r, delayMs));
+    }
+    return undefined;
+  };
+
+  const confirmPayment = async () => {
+    const creds = credsRef.current;
+    if (!creds) return;
+    setStatus("processing");
+    setCanRetry(false);
+    setMessage("");
+    try {
+      const accessToken = await getAccessTokenWithRetry();
+      if (!accessToken) {
+        // 세션 미복원 — 서버가 인증을 거부하므로 아예 호출하지 않고 재시도 유도(결제는 안전).
+        setStatus("failed");
+        setCanRetry(true);
+        setMessage(isKo
+          ? "로그인 세션을 불러오지 못했습니다. 결제는 안전하게 보관되니 잠시 후 '다시 시도'를 눌러 주세요."
+          : "Couldn't load your login session. Your payment is safe — please tap 'Try again' in a moment.");
+        return;
+      }
+      const res = await fetch(CONFIRM_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ orderId: creds.orderId, paymentKey: creds.paymentKey, amount: creds.amount }),
+      });
+
+      const body = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setStatus("failed");
+        setCanRetry(true); // 서버 멱등 → 재시도가 이중청구를 유발하지 않음
+        setMessage(body?.error || t("paymentResult.failMessage", { message: `HTTP ${res.status}` }));
+        return;
+      }
+
+      setStatus("success");
+      setMessage(body?.message || t("paymentResult.successMessage"));
+
+      // Phase 34 — 영수증 메일 발송 (fire-and-forget)
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id && user.email && creds.amount) {
+          // M5: 서버가 내려준 payment_type 우선 사용(orderId 파싱은 폴백 — 포맷 변경에 취약)
+          const orderType = body?.paymentType || creds.orderId.split("-")[1];
+          const ORDER_NAMES: Record<string, string> = {
+            subscription: "CREAITE 프리미엄 구독 (월)",
+            license: "영상 라이선스 구매",
+            ad_budget: "광고 예산 충전",
+          };
+          const { subject, html } = buildSubscriptionReceiptEmail({
+            orderName: ORDER_NAMES[orderType] || "CREAITE 결제",
+            amount: creds.amount,
+            orderId: creds.orderId,
+            paymentMethod: body?.method,
+          });
+          void sendNotification({
+            user_id: user.id,
+            type: "subscription_receipt",
+            to: user.email,
+            subject,
+            html,
+          });
+        }
+      } catch (mailErr) {
+        console.warn("[PaymentResult] 영수증 메일 발송 실패:", mailErr);
+      }
+    } catch (err: any) {
+      setStatus("failed");
+      setCanRetry(true);
+      setMessage(t("paymentResult.failMessage", { message: err?.message || err }));
+    }
+  };
 
   useEffect(() => {
     if (processedRef.current) return;
@@ -77,69 +169,13 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
         return;
       }
 
-      // P1: paymentKey/orderId 를 URL 에서 즉시 제거 — 새로고침 시 재confirm(이중처리) 방지
+      // P1: paymentKey/orderId 를 URL 에서 즉시 제거 — 새로고침 시 재confirm(이중처리) 방지.
+      //   재시도는 credsRef 보관분으로 가능(서버 멱등).
+      credsRef.current = { orderId, paymentKey, amount: parsedAmount };
       window.history.replaceState({}, "", window.location.pathname);
 
       // Edge Function에 confirm 요청 (서버에서 토스 API 호출 + DB 갱신)
-      (async () => {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          const accessToken = session?.access_token;
-
-          const res = await fetch(CONFIRM_ENDPOINT, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: supabaseAnonKey,
-              ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-            },
-            body: JSON.stringify({ orderId, paymentKey, amount: parsedAmount }),
-          });
-
-          const body = await res.json().catch(() => ({}));
-
-          if (!res.ok) {
-            setStatus("failed");
-            setMessage(body?.error || t("paymentResult.failMessage", { message: `HTTP ${res.status}` }));
-            return;
-          }
-
-          setStatus("success");
-          setMessage(body?.message || t("paymentResult.successMessage"));
-
-          // Phase 34 — 영수증 메일 발송 (fire-and-forget)
-          try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user?.id && user.email && parsedAmount) {
-              // M5: 서버가 내려준 payment_type 우선 사용(orderId 파싱은 폴백 — 포맷 변경에 취약)
-              const orderType = body?.paymentType || orderId.split("-")[1];
-              const ORDER_NAMES: Record<string, string> = {
-                subscription: "CREAITE 프리미엄 구독 (월)",
-                license: "영상 라이선스 구매",
-                ad_budget: "광고 예산 충전",
-              };
-              const { subject, html } = buildSubscriptionReceiptEmail({
-                orderName: ORDER_NAMES[orderType] || "CREAITE 결제",
-                amount: parsedAmount,
-                orderId,
-                paymentMethod: body?.method,
-              });
-              void sendNotification({
-                user_id: user.id,
-                type: "subscription_receipt",
-                to: user.email,
-                subject,
-                html,
-              });
-            }
-          } catch (mailErr) {
-            console.warn("[PaymentResult] 영수증 메일 발송 실패:", mailErr);
-          }
-        } catch (err: any) {
-          setStatus("failed");
-          setMessage(t("paymentResult.failMessage", { message: err?.message || err }));
-        }
-      })();
+      void confirmPayment();
       return;
     }
 
@@ -202,6 +238,15 @@ export function PaymentResult({ onClose }: PaymentResultProps) {
             </div>
             <h2 className="text-xl font-bold mb-2 text-red-400">{t("paymentResult.failTitle")}</h2>
             <p className="text-sm text-muted-foreground mb-6 break-words">{message}</p>
+            {canRetry && (
+              <Button
+                onClick={() => void confirmPayment()}
+                className="w-full gap-2 mb-3 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
+              >
+                <RotateCw className="w-4 h-4" />
+                {isKo ? "다시 시도" : "Try again"}
+              </Button>
+            )}
             <Button
               onClick={goHome}
               variant="outline"
