@@ -85,6 +85,12 @@
 - 커밋 전 `npx tsc --noEmit` 통과 확인.
 
 ## ✅ 이번 세션 코드 변경 (모두 커밋·푸시됨, main)
+**2026-07-13 (PRD 전수 감사 — 스펙↔구현 대조 + 확정결함 11건 수정, 9a9eff7):**
+- **감사 방식**: prd/01~09 영역 명세(약 500KB)를 병렬 에이전트 9개+SEO/PWA 1개가 코드·SQL과 전수 대조(~820개 주장 검증). 결과: 실결함 11건 / 스펙 노후 60여 건 / 스펙 누락 25여 건.
+- **수정 완료(9a9eff7)**: ① og.ts 숨김·비공개 영상 메타 유출 차단(공개+미숨김 필터) ② play-token 숨김/비공개 hiddenBlocked 게이트(**Edge 배포됨**) ③ update_video_moderation PUBLIC EXECUTE 회수 SQL+게이트 #15 ④ **start_payment ::uuid 캐스트 제거**(videos.id=TEXT — live 전환 시 전 라이선스 결제 42883 실패였을 잠재 회귀) ⑤ PaymentResult 세션복원 재시도+다시시도(토스 복귀 401 오판) ⑥ get_home_feed_count 시리즈 신규 규칙 동기화 ⑦ collab_inquire 문의 카운터 연결+백필 ⑧ 배지 i18n·"3분+ 시네마"→"단편부터 장편까지" ⑨ AdminAdReview 빈 반려사유 무반응 ⑩ vercel.json ?video/?info no-store 예외+?info 리라이트 ⑪ sw.js 프리렌더 앱셸 폴백 방지.
+- ⚠️ **적용 필요 SQL 2개**(SQL Editor): `payment_amount_standard_only_20260711.sql`(수정본 재적용) + `fix_moderation_rpc_collab_count_20260713.sql`(신규). 이후 `_verify_security_invariants_20260628.sql` Run → **15항목** 전부 ✅ 확인.
+- **문서**: PRD-CREAITE.md **v1.1** 개정(266커밋 델타 — 배급사 3종·frozen-order·hide-until-passed 검수·19+ 신규 제거·얼리버드·클로백·i18n 2108키·SEO). prd/01~09 영역 문서도 감사 결과로 현행화.
+
 **2026-07-08 (매거진 콘텐츠 영문화 — 기사 20편 한/영 이중언어, 91eab7c):**
 - 매거진 기사(제목·요약·HTML 본문)는 UI 문자열이 아니라 **콘텐츠**라 i18n.json이 아닌 **데이터 파일 자체를 언어별 구조로** 전환: `magazineArticles.ts`의 기존 한글은 `RAW_ARTICLES`로 보존, `ARTICLES_EN`(영문 20편) 맵 추가 → `title/excerpt/body`를 `LocalizedText{ko,en}`로 합성(en 없으면 ko 폴백). `Magazine.tsx`·`Footer.tsx`가 `i18n.language`로 언어 선택 렌더.
 - 카테고리(가이드·제작기·인사이트·정책)는 **값 유지 + `magazine.cat.*`로 표시만 번역**(로직/필터는 한글 값 그대로). SEO 메타도 언어별.

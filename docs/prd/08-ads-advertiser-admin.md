@@ -2,7 +2,7 @@
 
 > 본 문서는 **실제 코드를 읽고** 작성했습니다(추측 금지). 모든 RPC/RLS/엣지 함수에 `file:line` 근거를 표기합니다.
 > 대상 영역: ① 광고 노출·과금(자체 House Ads + 외부 광고 네트워크), ② 광고주 셀프서비스 센터, ③ 관리자 패널 전체.
-> 최종 점검 기준일: 2026-06-28. SSOT 보조 문서: `docs/advertiser-self-service-design.md`, `docs/ad-fraud-hardening-plan.md`, `docs/launch-checklist.md`.
+> 최종 점검 기준일: 2026-07-13(전수 감사 반영). SSOT 보조 문서: `docs/advertiser-self-service-design.md`, `docs/ad-fraud-hardening-plan.md`, `docs/launch-checklist.md`.
 
 ---
 
@@ -10,11 +10,11 @@
 
 CREAITE의 광고/운영 시스템은 세 축으로 구성된다.
 
-1. **광고 노출·수익화** — 무료(광고형) 티어의 핵심 수익원. 광고 형식은 6종이며(`src/app/utils/adFetch.ts:7` `AdFormat = "feed" | "preroll" | "midroll" | "overlay" | "postroll" | "bumper"`), 노출면(surface)은 상호 배타로 분리한다(`supabase/ad_surface_exclusive_20260615.sql`). 자체 광고(House Ads, `budget_krw IS NULL`)와 광고주 예산광고(`budget_krw` 설정)가 같은 `public.ads` 테이블을 공유하되, 과금/노출 게이트로 구분된다. 자체 광고가 없을 때 빈 슬롯에는 외부 광고 네트워크(카카오 애드핏·Google AdSense)를 로테이션 노출한다(`src/app/components/ExternalAdSlot.tsx`).
+1. **광고 노출·수익화** — 무료(광고형) 티어의 핵심 수익원. 광고 형식은 6종이며(`src/app/utils/adFetch.ts:7` `AdFormat = "feed" | "preroll" | "midroll" | "overlay" | "postroll" | "bumper"`), 노출면(surface)은 상호 배타로 분리한다(`supabase/ad_surface_exclusive_20260615.sql`). 자체 광고(House Ads, `budget_krw IS NULL`)와 광고주 예산광고(`budget_krw` 설정)가 같은 `public.ads` 테이블을 공유하되, 과금/노출 게이트로 구분된다. 자체 광고가 없을 때 빈 슬롯에는 외부 광고 네트워크(카카오 애드핏·Google AdSense)를 로테이션 노출하고(`src/app/components/ExternalAdSlot.tsx`), 푸터에는 쿠팡 파트너스 다이나믹 배너를 노출한다(`src/app/components/CoupangBanner.tsx`). 노출/클릭 집계는 클라 raw RPC 직접호출이 아니라 **Edge `/ad-event` 경유**가 정본이다(`ad_fraud_hardening_edge_20260628.sql`).
 
 2. **광고주 셀프서비스** — 일반 사용자가 가입 후 직접 광고를 만들고(소재 업로드), 심사 제출하고, 승인 후 예산을 충전해 노출시키는 셀프 광고주 센터(`src/app/components/AdvertiserDashboard.tsx`). 모든 쓰기는 `advertiser_*` SECURITY DEFINER RPC 경유(직접 INSERT/UPDATE 정책 없음).
 
-3. **관리자 패널** — YouTube Studio 스타일 별도 레이아웃(`src/app/components/AdminLayout.tsx`). 21개 메뉴(사용자/콘텐츠/공지/문의/챌린지/배너/버그/메가/자체광고/광고심사/외부광고/스폰서십/수익정책/정산/결제/신고/숨김/댓글/활동로그)를 그룹화. 전 관리 기능은 `assert_admin()`(`supabase/phase10_6_admin_management.sql:18`) 또는 `is_admin()`(`supabase/admin_rls_is_admin_function.sql:21`)로 보호.
+3. **관리자 패널** — YouTube Studio 스타일 별도 레이아웃(`src/app/components/AdminLayout.tsx`). **23개 메뉴**(대시보드/사용자/콘텐츠/공지/고객문의/비즈니스문의/챌린지/배너/**컬렉션·셀렉트**/버그/메가/자체광고/광고심사/외부광고/스폰서십/수익정책/정산/결제·환불/**프리미엄 지급**/신고/숨김/댓글/활동로그)를 그룹화(`AdminLayout.tsx:79-101`). 전 관리 기능은 `assert_admin()`(`supabase/phase10_6_admin_management.sql:18`) 또는 `is_admin()`(`supabase/admin_rls_is_admin_function.sql:21`)로 보호.
 
 **핵심 출시 의존성:** 무료 광고형 티어는 토스페이먼츠 가맹 심사와 무관하게 선출시 가능(`CLAUDE.md` 출시 의존 순서). 단 광고주 **예산 충전**은 토스 결제(`ad_budget`)에 의존하므로, 충전 기능은 결제 가맹 후 활성화된다.
 
@@ -25,7 +25,7 @@ CREAITE의 광고/운영 시스템은 세 축으로 구성된다.
 ### 광고주
 
 - (광고주) 가입한 사용자로서, **로그인만 하면** 광고주 센터에 진입해 첫 광고를 만들 수 있다(`AdvertiserDashboard.tsx:93` 비로그인 시 로그인 유도).
-- (광고주) 4종 형식(오버레이 배너 / 피드 이미지 / 피드 영상 / 영상 프리롤) 중 하나를 골라 소재(이미지 또는 영상)·링크·CTA를 입력하고 **임시 저장** 또는 **저장 후 제출**할 수 있다(`AdCreateModal.tsx:47,317-332`).
+- (광고주) 4종 형식(오버레이 배너 / 피드 이미지 / 피드 영상 / 영상 프리롤) 중 하나를 골라 소재(이미지 또는 영상)·링크·CTA를 입력하고 **임시 저장** 또는 **저장 후 제출**할 수 있다(`AdCreateModal.tsx:48,317-332`). 단 현재는 실노출면이 있는 2종(오버레이/프리롤)만 판매(§3.2).
 - (광고주) 노출당 단가(₩2/노출, CPM ₩2,000)와 예상 노출량을 사전에 확인하고 싶다(`AdCreateModal.tsx:201-215`, `AdTopupModal.tsx:34`).
 - (광고주) 제출한 광고의 **심사 상태**(초안/심사 중/승인됨/반려됨/중지됨)와 **반려 사유**를 확인하고 싶다(`AdvertiserDashboard.tsx:68-78,140-142`).
 - (광고주) 승인된 광고에 **예산을 충전**하고(₩10,000 최소), 충전 즉시 노출이 시작되며 예산 소진 시 자동 중단되길 기대한다(`AdTopupModal.tsx`, `advertiser_self_service_phase1_20260614.sql:70`).
@@ -63,8 +63,8 @@ CREAITE의 광고/운영 시스템은 세 축으로 구성된다.
 
 ### 3.2 광고 생성/수정 (`AdCreateModal.tsx`)
 
-- **형식 4종 선택**(새 광고만, `:174-198`): overlay / feed_image / feed_video / preroll → DB 매핑 `format`+`ad_type`(`:114-115`).
-- **비용 안내**: 노출당 ₩2 고정(전 형식 동일), 예) ₩10,000 → ~5,000 노출(`:201-215`).
+- **형식 4종 선택**(새 광고만, `:185-213`): overlay / feed_image / feed_video / preroll → DB 매핑 `format`+`ad_type`(`:43-48`). 단 **`HOME_FEED_SELF_ADS=false`(현재, `src/app/config/ads.ts:11`) 동안 피드 2종(feed_image/feed_video)은 선택지에서 제외** — 실노출면이 있는 overlay/preroll만 판매("결제됐는데 노출 0" 분쟁 방지, `:194-196`).
+- **비용 안내**: 노출당 ₩2 기준(CPM ₩2,000), 예) ₩10,000 → ~5,000 노출(`:216-228`). 단 서버 과금 정본은 **오버레이만 노출시간 비례**(기준 10초=₩2, §6.6, `ad_dedup_house_20260703.sql:59-64`).
 - **입력**: 광고명(80자), 광고주명(선택 60자), 소재(이미지 또는 영상), 클릭 링크, CTA(20자).
 - **이미지 업로드**: `ad-images` 버킷 `{uid}/{ts}.{ext}`, 10MB 제한, image/* 만(`:72-87`). URL 직접 입력 시 로드 실패하면 경고 폴백(`:245-259`).
 - **영상 업로드**: Bunny(create-upload + TUS) `uploadAdVideo`, 300MB 제한, video/* 만(`:89-101`). 진행률 표시.
@@ -77,6 +77,7 @@ CREAITE의 광고/운영 시스템은 세 축으로 구성된다.
 - 예상 노출 = `amount / cpm(=2)`(`:34`).
 - 전자상거래법 환불 고지(노출 전 7일 전액 / 후 잔액 환불, `:91-97`).
 - 결제: `usePayment.startAdBudgetTopUp` → 토스 결제창 이동 → `/?payment=success` → `confirm_payment`가 `budget_krw` 증액(`:1-5,40`).
+- **충전 UI는 완전 배선 완료** — 활성/차단은 서버 `payments_enabled` 게이트가 결정: `usePayment`가 카드창 열기 전 안내(`usePayment.ts:69-73`), `start_payment`가 서버측에서 결제 생성 자체를 차단(`payments_gate_20260708.sql`, 현재 0=OFF, live 키 전환 시 1로 해제).
 
 ### 3.4 광고 성과 (`AdStatsModal.tsx`)
 
@@ -84,36 +85,38 @@ CREAITE의 광고/운영 시스템은 세 축으로 구성된다.
 
 ### 3.5 외부 광고 슬롯 (`ExternalAdSlot.tsx`)
 
-- 자체광고 없는 피드 자리(영상 4개마다)에 외부 네트워크 노출. 규격 300×250 고정(`:27-29`).
-- 네트워크: 카카오 애드핏(`:101-113`) + Google AdSense(`:114-132`). `index % networks.length` 로테이션(`:76`).
-- 활성 조건: `VITE_EXTERNAL_ADS_ENABLED` + 네트워크 ID(env) 존재(`:41-42`). 비활성 시 `null` 반환 → 빈 칸 방지(`:140-142`).
-- **지연 로드**: IntersectionObserver `rootMargin: 300px`로 뷰포트 근처일 때만 스크립트 로드(무한 피드 동시 로드로 인한 첫 화면 멈춤 방지, `:82-94`).
-- AdFit 정책 준수: 라운딩/테두리/AD 오버레이 제거하고 원본 그대로 노출(`:149-151`).
+- 자체광고 없는 피드 자리에 외부 네트워크 노출 — 삽입 간격은 자체광고 OFF 동안 **모바일 영상 5개마다·데스크탑 그리드 6개마다**(`DiscoveryFeed.tsx:1224,1248` — 데스크탑 주기 7칸=열수와 서로소로 대각선 회전). 규격 300×250 고정(`:27-29`).
+- 네트워크: 카카오 애드핏 + Google AdSense. `index % networks.length` 로테이션(`:76`).
+- **애드핏은 격리 iframe 방식**: 부모 DOM에 `ins` 직접 삽입이 아니라 같은 도메인의 `/adfit.html`(iframe)에서 `ba.min.js`를 매번 새로 로드(`:83-95`). 동적/지연 추가 슬롯·반응형 전환에도 항상 렌더(직접 삽입은 1회 스캔 한계로 빈칸 발생).
+- 활성 조건: `VITE_EXTERNAL_ADS_ENABLED` + 네트워크 ID(env) 존재(`:41-42`). 비활성 시 `null` 반환 → 빈 칸 방지(`:156-159`).
+- **지연 로드 + 빈 슬롯 재충전**: IntersectionObserver `rootMargin: 300px`는 **끊지 않고 유지**하며, 슬롯이 화면 근처이고 "비어 있을 때만"(`ins`·`iframe` 둘 다 없음) 재주입. 리사이즈/반응형 전환으로 광고가 사라져도 디바운스 후 재삽입(`:117-154`).
+- AdFit 정책 준수: 광고 컨테이너는 변형·강조·라운딩·가림 없이 원본 그대로, 여백만 브랜드 배경(`:164-168`).
 
 ### 3.6 영상 광고 플레이어 (`AdMidrollPlayer.tsx`) / 오버레이 (`AdOverlayBanner.tsx`)
 
-- **AdMidrollPlayer**: video.js 기반 풀스크린 광고(pre/mid/post-roll·bumper). HTML5 `<video>` 메모리 누수(800MB+) → video.js `dispose()` 전환(`:1-7`). 마운트 시 `recordAdImpression`(`:37`), `ended` 시 completed 집계(`:80-88`), SKIP 정책(`skip_after_seconds`, `:33-34`), 음소거 자동재생 후 unmute 시도(`:99-121`), 타임아웃 폴백(`maxDur+5`초, `:124-127`), 클릭 시 `recordAdClick`(`:147`).
+- **AdMidrollPlayer**: video.js 기반 풀스크린 광고(pre/mid/post-roll·bumper). HTML5 `<video>` 메모리 누수(800MB+) → video.js `dispose()` 전환(`:1-7`). **노출 기록은 mount 시 1회만**(`:39-41`) — `ended`/SKIP에서 재기록 금지(house 광고 2배 집계=크리에이터 수익 2배 과지급 방지, `:88-94,135-140`). **자동 unmute 제거** — 음소거 자동재생만 사용, 소리는 사용자가 버튼으로 켬(unmute 재시도가 autoplay 정책에 막혀 "검은 화면" 간헐 버그 유발 → 제거, `:102-108`). **4초 워치독**: 재생 미시작 시 load+play 1회 재시도(`:110-117`). SKIP 정책(`skip_after_seconds`, `:36-37`), 타임아웃 폴백(`maxDur+5`초, `:119-123`), 클릭 시 `recordAdClick`. ※ 노출을 mount 1회만 기록하므로 **`p_completed`/`p_skipped`는 미수집**(항상 false) — 완료율 지표 없음(§9).
 - **AdOverlayBanner**: 영상 중 하단 배너, `duration_seconds` 카운트다운 자동 닫힘(`:23-35`), 이미지 로드 실패 시 텍스트 폴백(`:54-67`), 클릭 시 `recordAdClick("overlay")`(`:39`).
 
 ### 3.7 관리자 패널 화면 (`AdminLayout.tsx`)
 
-레이아웃: 좌측 사이드바 + 메인(`:219-324`). 메뉴 그룹(`:74-96`):
+레이아웃: 좌측 사이드바 + 메인. 메뉴 그룹 **23개**(`:79-101`):
 - **📊 한눈에 보기**: 대시보드(`overview` → `AdminOverview`).
-- **👥 운영**: 사용자/콘텐츠/공지/고객문의/비즈니스문의/챌린지/배너/버그/메가.
-- **📢 광고 관리**: 자체 광고(`ads` → `AdminDashboard`)/광고 심사(`ad_reviews` → `AdminAdReview`)/외부 광고(placeholder)/스폰서십(placeholder).
-- **💰 수익화**: 수익 정책/정산 관리/결제·환불.
+- **👥 운영**: 사용자/콘텐츠/공지/고객문의/비즈니스문의/챌린지/배너/**컬렉션·셀렉트**(`collections` → `AdminCollections`)/버그/메가.
+- **📢 광고 관리**: 자체 광고(`ads` → `AdminDashboard`)/광고 심사(`ad_reviews` → `AdminAdReview`)/외부 광고(`external_ads` → `AdminExternalAds`, **실화면**)/크리에이터 스폰서십(`sponsorships` → `AdminSponsorships`, **실구현**).
+- **💰 수익화**: 수익 정책/정산 관리/결제·환불/**프리미엄 지급**(`grant_premium` → `AdminGrantPremium`, 챌린지 보상 등 수동 지급).
 - **🛡 안전·품질**: 신고 큐/숨김 콘텐츠/댓글 관리/활동 로그.
 
-배지: 메가 달성 대기·신규 버그·미답변 고객문의 카운트(`:138-149`). 접근 제한: 비로그인/비어드민 차단 화면(`:157-180`).
+배지: 메가 달성 대기·신규 버그·미답변 **고객문의**·**스폰서십 검수 대기**(`admin_list_sponsored_videos(pending)`) 카운트(`:141-159`). 접근 제한: 비로그인/비어드민 차단 화면(`:166-190`).
 
 각 패널 화면:
 - **AdminOverview**: KPI 카드(사용자/영상/월매출/24h 조회) + 경보 배너 + 차트(매출·성장·조회 30일) + Top10 영상/크리에이터 + 광고 성과 요약.
 - **AdminDashboard(자체 광고)**: House/광고주 탭, 폼(형식별 옵션·예산·기간·타게팅), 이미지(`ad-images`)/Bunny 영상 업로드, 토글/삭제.
-- **AdminAdReview(광고 심사)**: `pending_review` 큐, 소재 미리보기, [승인]/[반려(사유 prompt)](`AdminAdReview.tsx:34-47`).
+- **AdminAdReview(광고 심사)**: `pending_review` 큐, 소재 미리보기 — **영상 소재(preroll 등)는 재생 가능한 `<video controls>`로 표시**(맹검 승인 방지, `AdminAdReview.tsx:74-87`), [승인]/[반려(사유 prompt)]. 반려 prompt는 **취소(null)와 빈 입력("")을 구분** — 빈 입력이 취소로 오인돼 토스트 없이 닫히던 무반응 버그 2026-07-13 수정(`AdminAdReview.tsx:34-50`).
 - **AdminUsers / AdminContent / AdminComments / AdminModeration / AdminReports / AdminActivityLog**: 검색·필터·조치(정지/숨김/삭제/복원/심사).
 - **AdminPayments / AdminRevenueSettlement / AdminRevenuePolicy**: 결제·환불, 월정산+세금, 정책 편집·이력.
-- **AdminBroadcast / AdminInquiries / AdminSupportInquiries / AdminBugReports / AdminChallenges / AdminBanners / AdminMegaUploader**: 운영 도구.
-- **AdminExternalAds / AdminSponsorships**: 준비 중 placeholder(`AdminLayout.tsx:48-49,204-205`).
+- **AdminBroadcast / AdminInquiries / AdminSupportInquiries / AdminBugReports / AdminChallenges / AdminBanners / AdminMegaUploader / AdminCollections / AdminGrantPremium**: 운영 도구(컬렉션·셀렉트 큐레이션, 프리미엄 수동 지급 포함).
+- **AdminExternalAds**: 외부 광고 **수익 대시보드 바로가기 실화면**(`AdminExternalAds.tsx`) — 애드핏(노출 중)·쿠팡 파트너스(노출 중)·애드센스(구글 심사 중) 상태 배지 + 각 사 리포트 바로가기. 애드핏은 퍼블리셔 수익 API 미제공이라 자동 통합 불가(바로가기가 최종 형태).
+- **AdminSponsorships**: 크리에이터 협찬(스폰서 배지) **검수 큐 실구현**(`admin_sponsorship_review_20260711.sql`) — 공시문구·브랜드 위장·링크 안전성 검토 후 승인/반려(알림+선택적 숨김), 협찬 정보 수정 시 자동 재검수 트리거.
 
 ---
 
@@ -139,7 +142,12 @@ CREAITE의 광고/운영 시스템은 세 축으로 구성된다.
 [노출]  get_ad_for_video / pick_random_video_preroll: status='approved' AND is_active
          AND (budget_krw IS NULL OR spent_krw < budget_krw) AND 기간/길이/카테고리 필터  (phase1:43-94)
    ↓
-[과금]  record_ad_impression: 예산광고는 (광고,뷰어,1시간) 1회만 집계 + CPM 차감       (phase5:11-51)
+[집계]  클라 → Edge /ad-event (raw RPC 는 anon 회수 — 직접호출 불가)                   (index.ts:1001-1054)
+         Edge 가 신뢰 IP + 로그인 식별('u:'+uid / 'a:'+세션키) + ad_event_guard 후
+         service_role 로 record_ad_impression 호출
+   ↓
+[과금]  record_ad_impression(정본 ad_dedup_house_20260703): dedup(광고,뷰어,1h) 1회는
+         예산 유무 무관, 과금(CPM 차감)은 예산광고만 — 오버레이는 노출시간 비례(기준 10초)
          spent_krw >= budget_krw 가 되면 다음 매칭에서 제외 → 자동 중단
 ```
 
@@ -147,11 +155,11 @@ CREAITE의 광고/운영 시스템은 세 축으로 구성된다.
 
 ### 4.2 외부 광고 노출 흐름
 
-피드 렌더 → 자체광고 없는 슬롯 → `EXTERNAL_ADS_ACTIVE`면 `ExternalAdSlot` 삽입 → IntersectionObserver가 뷰포트 근처 감지(`rootMargin:300px`) → 네트워크별 `ins` + 로더 스크립트 주입(애드핏 `ba.min.js` / AdSense `adsbygoogle.js`) → 네트워크가 300×250 광고 렌더. 언마운트 시 `el.innerHTML=""` 정리(`ExternalAdSlot.tsx:134-136`).
+피드 렌더 → 자체광고 없는 슬롯(모바일 5개·데스크탑 6개마다) → `EXTERNAL_ADS_ACTIVE`면 `ExternalAdSlot` 삽입 → IntersectionObserver가 뷰포트 근처 감지(`rootMargin:300px`) → **빈 슬롯일 때만** 광고 주입: 애드핏은 격리 iframe `/adfit.html`(같은 도메인, `ba.min.js` 매번 새로 로드) / AdSense는 `ins`+`adsbygoogle.js`(`ExternalAdSlot.tsx:78-115`) → 네트워크가 300×250 광고 렌더. IO는 유지되어 빈 슬롯이면 다시 채우고, 리사이즈 시 디바운스 재충전(`:117-154`).
 
 ### 4.3 VAST 프리롤 흐름 (Bunny IMA SDK)
 
-Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functions/server/index.ts:846`) → `pick_random_video_preroll(source_video_id)`(가중치 랜덤 + 영상 길이 검사) → 광고 있으면 VAST 2.0 XML, 없으면 빈 `<VAST></VAST>`(`:858-870`) → 트래킹 픽셀 URL에 HMAC 서명(`vastSign`, 6시간 유효, `:836-844,879-886`) → IMA SDK가 impression/start/quartile/complete/skip/click 픽셀 호출.
+Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functions/server/index.ts:1207`) → `pick_random_video_preroll(source_video_id)`(가중치 랜덤 + 영상 길이 검사) → 광고 있으면 VAST 2.0 XML, 없으면 빈 `<VAST></VAST>`(`:1111,1194`) → 트래킹 픽셀 URL에 HMAC 서명(`vastSign`, **30분 유효** — 반복 GET 재과금 창 단축, `:1089-1094,1129`) → IMA SDK가 impression/start/quartile/complete/skip/click 픽셀 호출(`/vast-track`) → `track_video_ad_event`가 impression을 **(광고, 뷰어=uid|IP, 영상, 1시간) dedup 후 과금**(`ad_fraud_hardening_edge_20260628.sql:72-110`).
 
 ### 4.4 관리자 운영 흐름
 
@@ -178,7 +186,7 @@ Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functio
 
 | RPC | 인자 | 반환 | 권한/조건 | file:line |
 |---|---|---|---|---|
-| `advertiser_create_ad` | `p_title,p_format,p_ad_type,p_link_url,p_cta_text='자세히 보기',p_image_url,p_video_url,p_thumbnail_url,p_advertiser` | `uuid` | `auth.uid()` 필수. status='draft', is_active=false, budget=0 | phase1:98-118 |
+| `advertiser_create_ad`(정본) | `p_title,p_format,p_ad_type,p_link_url,p_cta_text='자세히 보기',p_image_url,p_video_url,p_thumbnail_url,p_advertiser` | `uuid` | `auth.uid()` 필수. status='draft', is_active=false, budget=0. **생성 한도: 시간당 10건 + 미승인(draft/rejected/pending_review) 누적 30건**(스팸/DB 누적 방지) | ad_fraud_hardening_edge_20260628.sql:115-144 |
 | `advertiser_update_ad` | `p_ad_id,p_title,p_link_url,p_cta_text,p_image_url,p_video_url,p_thumbnail_url` | `void` | 본인 + `draft/rejected/pending_review/approved`. 승인본 수정→재심사 전환. 미디어는 COALESCE(빈값=기존유지) | rereview:12-45, media_coalesce:3-21 |
 | `advertiser_submit_ad` | `p_ad_id` | `void` | 본인 + `draft/rejected` → `pending_review`, review_note 초기화 | phase1:140-150 |
 | `advertiser_set_active` | `p_ad_id,p_on` | `void` | 본인 + **승인된 광고만** is_active 토글 | phase1:153-162 |
@@ -198,15 +206,17 @@ Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functio
 
 ### 5.4 노출/클릭/과금 RPC
 
+> ⚠️ **집계 경로 전환(2026-06-28)**: 아래 4종 집계 RPC는 **전 오버로드 anon/authenticated EXECUTE 회수 → service_role 전용**(`ad_fraud_hardening_edge_20260628.sql:51-67`). 클라는 raw RPC 직접호출이 불가하며 **Edge `/ad-event`**(`index.ts:1001-1054`)만 호출한다 — Edge가 신뢰 IP + 로그인 식별(`'u:'+auth.uid` / 익명 `'a:'+세션키`) + `ad_event_guard`(IP 다양성 레이트리밋) 후 service_role로 집계 RPC 실행.
+
 | RPC | 인자 | 반환 | 동작 | file:line |
 |---|---|---|---|---|
-| `record_ad_impression`(정본) | `p_ad_id,p_video_id,p_format,p_position_seconds,p_completed,p_skipped,p_viewer_key` | `void` | 예산광고는 `ad_charge_dedup`(광고,뷰어,1시간) 1회만 집계+CPM 차감. 무료 House Ads(budget NULL)는 매 노출 집계·과금 없음. `ad_impressions`+`ad_video_events`+`ads.impressions++` | phase5:11-51 |
-| `record_ad_click` | `p_ad_id,p_video_id,p_format` | `void` | `ad_clicks`+`ad_video_events(click)`+`ads.clicks++` (프론트 `adFetch.ts:84`가 호출) | phase28_ad_revenue_distribution_fix.sql |
-| `increment_ad_impressions` | `ad_id,p_viewer_key,p_video_id` | `void` | dedup(`ad_charge_dedup`) 1회만 impressions++ + CPM 차감 | ad_charge_dedup_phase3:22-48 |
+| `record_ad_impression`(정본) | `p_ad_id,p_video_id,p_format,p_position_seconds,p_completed,p_skipped,p_viewer_key` | `void` | **dedup(`ad_charge_dedup`, 광고·뷰어·1시간 1회)은 예산 유무 무관 항상 적용**(house 광고 mount/ended 2배 집계 차단). 과금(spent 차감)은 예산광고만 — 오버레이는 노출시간 비례(기준 10초, 최소 ₩1), 그 외 `CEIL(cpm/1000)`. `ad_impressions`+`ad_video_events`+`ads.impressions++` | ad_dedup_house_20260703.sql:17-68 |
+| `record_ad_click`(정본) | `p_ad_id,p_video_id,p_format,p_viewer_key` | `void` | **구 3-인자 버전 DROP**(PGRST203 방지) 후 **4-인자+`ad_click_dedup`(광고,뷰어,1h) 1회** 버전. `ad_clicks`+`ad_video_events(click)`+`ads.clicks++` | ads_gate_dedup_20260708.sql:88-135 |
+| `increment_ad_impressions`(정본) | `ad_id,p_viewer_key,p_video_id` | `void` | dedup(`ad_charge_dedup`) 1회만 impressions++. **과금은 예산광고만(house 무과금 가드)** — 예산 소진 노출은 `ads_public` 뷰 필터가 차단 | ads_gate_dedup_20260708.sql:49-81 |
 | `increment_ad_clicks`(정본) | `ad_id,p_viewer_key` | `void` | **구 1-파라미터 sql 함수 DROP** 후 dedup(`ad_click_dedup`) 2-파라미터 버전. (광고,뷰어,1시간) 1회만 clicks++ | home_security_20260620.sql:51-70 |
-| `cleanup_ad_charge_dedup` / `cleanup_ad_click_dedup` | (없음) | `integer` | 7일 경과 dedup 정리(크론 권장) | dedup_phase3:51-59 / home_security:73-81 |
+| `cleanup_ad_charge_dedup` / `cleanup_ad_click_dedup` / `cleanup_ad_ip_key_log` | (없음) | `integer` | 7일 경과 dedup/로그 정리. **pg_cron 3개 등록 완료**(매일 03:10/03:15/03:20) | ads_gate_dedup_20260708.sql:156-171 |
 
-> 프론트 호출 매핑(`adFetch.ts`): 매칭=`get_ad_for_video`(1분 TTL 캐시, `:26,41`), 노출=`record_ad_impression`(`:67`, `p_viewer_key=getViewerSessionKey()`), 클릭=`record_ad_click`(`:84`). `increment_ad_clicks`는 홈피드 자체광고(House Ads) 클릭 경로에서 사용.
+> 프론트 호출 매핑: 매칭=`get_ad_for_video`(1분 TTL 캐시, `adFetch.ts:26,41`), 노출/클릭=`sendAdEvent()`(`adEvent.ts`)가 **Edge `/ad-event`** POST(`feed_impression`/`feed_click`/`video_impression`/`video_click`, `keepalive`로 이탈 중 유실 방지). `adFetch.recordAdImpression/recordAdClick`도 내부적으로 `sendAdEvent` 경유(`adFetch.ts:59-79`).
 
 ### 5.5 관리자 RPC (대표, 전부 SECURITY DEFINER)
 
@@ -234,10 +244,12 @@ Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functio
 
 - `ad_charge_dedup`(PK `ad_id,viewer_key,bucket`, RLS on + 정책 없음, REVOKE anon/auth — DEFINER 함수만 기록, `dedup_phase3:11-20`).
 - `ad_click_dedup`(동일 구조, `home_security:40-48`).
+- `ad_ip_key_log`(PK `ip,ad_id,viewer_key,bucket` — `ad_event_guard` IP 다양성 레이트리밋용, RLS on + REVOKE, `ad_fraud_hardening_edge_20260628.sql:18-27`).
 - `admin_logs`(`admin_id,action,target_type,target_id,details(jsonb),created_at`, RLS `is_admin()`만 SELECT, `phase10_7:85-105`).
 - `platform_settings`(key/value/effective_from/effective_to, 활성 1행 UNIQUE, `phase8_platform_settings.sql:22-46`).
 - `revenue_distributions`(applied_rates 스냅샷 + tax_withholding/net_amount, `phase8_revenue_distributions.sql:18-50`).
-- `ads_public` 뷰(공개 안전 컬럼만, 승인·활성·기간 필터 내장, `ads_public_view_20260620.sql:20-30`).
+- `settlement_clawbacks`(지급완료 월 환불 회수 원장 — creator/period/amount/status(pending|applied|waived), RLS on + 정책 없음 → DEFINER RPC 전용, `settlement_clawbacks_20260711.sql`).
+- `ads_public` 뷰(공개 안전 컬럼만, 승인·활성·기간 + **예산 소진 필터**(`spent_krw < budget_krw`, house NULL은 항상 노출) 내장 — 정본 `ads_gate_dedup_20260708.sql:31-43`).
 
 ---
 
@@ -248,13 +260,13 @@ Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functio
 3. **노출 게이트(승인된 것만)**: 모든 서빙 RPC가 `status='approved' AND is_active AND 기간 AND 예산 미소진`을 강제(phase1:65-73,86-92). draft/pending/rejected/paused는 절대 노출 안 됨 → 심사 우회 불가.
 4. **활성 토글 본인 제한**: `advertiser_set_active`는 **승인된 본인 광고만**(phase1:159-160). 타인/미승인 광고 토글 불가.
 5. **충전 본인 제한**: `start_payment('ad_budget', ...)`가 결제 생성 단계에서 `owner_id=auth.uid()` 검증(start_payment_ad_owner_20260624.sql:52-59). 타인 광고 예산 오염 차단.
-6. **CPM 차감**: 예산광고 노출 1회당 `CEIL(ad_cpm_krw/1000)` 차감(기본 CPM ₩2,000 → ₩2/노출, phase5:46-48). `spent_krw >= budget_krw`가 되면 다음 매칭에서 제외 → 자동 중단.
-7. **dedup(과금 정합)**: 예산광고는 (광고, 뷰어, 1시간) 조합당 1회만 집계·과금(phase5:28-32). 뷰어키 = `auth.uid()` 또는 클라 세션키. 반복 호출로 경쟁 광고 예산 고갈·자기 노출 부풀리기 차단.
-8. **무료 House Ads 무중단**: `budget_krw IS NULL`인 자체 광고는 매 노출 집계·과금 없음(phase5:6,46). status 기본 `approved`라 셀프서비스 도입 후에도 무중단(phase1:6,15).
+6. **CPM 차감**: 예산광고 노출 1회당 `CEIL(ad_cpm_krw/1000)` 차감(기본 CPM ₩2,000 → ₩2/노출). 단 **오버레이는 노출시간 비례** — `duration_seconds`를 기준 10초 대비 비율로 환산해 차감(기준 10초=₩2, 최소 ₩1). 정본 `ad_dedup_house_20260703.sql:56-65`. `spent_krw >= budget_krw`가 되면 다음 매칭에서 제외 → 자동 중단(+`ads_public` 뷰도 예산 소진 광고 제외, ads_gate_dedup:31-43).
+7. **dedup(집계·과금 정합)**: **예산 유무 무관** (광고, 뷰어, 1시간) 조합당 1회만 집계, 과금은 예산광고만(ad_dedup_house:36-43). 뷰어키는 **Edge `/ad-event`가 생성한 신뢰 식별키**(`'u:'+auth.uid` 위조 불가 / 익명 `'a:'+세션키`+`ad_event_guard` IP 가드). 반복 호출로 경쟁 광고 예산 고갈·자기 노출 부풀리기 차단.
+8. **무료 House Ads 무중단·무과금**: `budget_krw IS NULL`인 자체 광고는 과금 없음은 유지하되, **집계는 (광고,뷰어,1h) 1회 = "시간당 유니크 노출"**(ad_dedup_house_20260703.sql — mount/ended 2배 집계로 인한 크리에이터 수익 2배 과지급 차단). status 기본 `approved`라 셀프서비스 도입 후에도 무중단(phase1:6,15).
 9. **노출면 상호 배타**: 오버레이는 `ad_type='overlay'`, 피드카드는 `feed_display`, 프리롤은 `video_preroll`로 분리(ad_surface_exclusive). 오버레이가 피드에도 뜨던 중복 노출 제거(AdCreateModal.tsx:42-46).
 10. **외부 광고 IO 지연**: 외부 광고는 뷰포트 근접 시에만 스크립트 로드(ExternalAdSlot:82-94). AdFit 표준 300×250 고정, 임의 확대/축소·가림 금지(정책 위반 방지).
-11. **분배율 정책**: 광고 수익은 노출 tier별(OTT/cinema/home) CPM × tier_share로 크리에이터에 분배(`calculate_monthly_revenue`). 정책값은 `platform_settings`에서 변경, 과거 정산월은 `applied_rates` 스냅샷으로 소급 미적용.
-12. **VAST 빈 응답 폴백**: 광고 없음/길이 미달/에러 시 빈 `<VAST>` 반환 → Bunny가 광고 스킵(index.ts:858-870,941-952).
+11. **분배율 정책**: 광고 수익은 노출 tier별(OTT/cinema/home) CPM × tier_share로 크리에이터에 분배(`calculate_monthly_revenue`). **하우스(자체)광고 노출은 분배에서 제외** — 유료광고(`budget_krw IS NOT NULL`) 노출만 집계(₩0 수납 노출에 지급하면 플랫폼 순손실, 정본 `ad_revenue_house_exclude_20260711.sql`, `applied_rates.ad_impression_basis='paid_only'` 스냅샷). 정책값은 `platform_settings`에서 변경, 과거 정산월은 `applied_rates` 스냅샷으로 소급 미적용.
+12. **VAST 빈 응답 폴백**: 광고 없음/길이 미달/에러 시 빈 `<VAST>` 반환 → Bunny가 광고 스킵(index.ts:1111,1194).
 
 ---
 
@@ -262,7 +274,7 @@ Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functio
 
 - **심사 우회 차단**: 서빙 RPC 게이트가 `status='approved'` 강제. draft/pending/rejected 광고는 충전해도 노출 안 됨(phase1:65). 승인본 소재 교체(bait-and-switch)는 재심사 강제 전환으로 차단(rereview:36-42).
 - **예산 오염 차단**: 충전 시 본인 소유 검증(start_payment_ad_owner). 과거에 `payment_hardening`의 "ads에 소유자 없음" 가정이 깨져 타인 광고 예산 증액 가능했던 갭을 #B(2026-06-24)에서 폐쇄.
-- **과금 fraud(이월)**: 클라이언트 `record_ad_impression`/`record_ad_click`/`increment_ad_*`는 dedup으로 1시간 1회만 과금. **단 영상광고 VAST 트래킹(Edge service_role 경유)은 별도 경로**로 dedup 미적용 — `dedup_phase3` 주석에 "후속 보강" 명시(`ad_charge_dedup_phase3:6-7`). → 11장 이월 항목.
+- **과금 fraud(해결됨 2026-06-28)**: 집계 RPC는 anon 회수되어 클라 직접호출 불가 — **Edge `/ad-event`가 신뢰 식별키로 dedup 1시간 1회 과금**을 보장(키회전 어뷰징은 `ad_event_guard` IP 다양성 레이트리밋이 차단). **VAST 트래킹도 `track_video_ad_event`에 (광고,뷰어=uid|IP,영상,1h) dedup 적용 + 서명 30분 단축**(`ad_fraud_hardening_edge_20260628.sql:69-110`). 클릭 경로도 `record_ad_click` 4-인자+`ad_click_dedup`으로 인플레이션 차단(`ads_gate_dedup_20260708.sql`).
 - **중복 심사**: `admin_list_pending_ads`는 `pending_review`만 노출, `admin_review_ad`는 status 무관 일괄 UPDATE라 멱등(이미 승인/반려된 건 재처리 시 단순 덮어쓰기). 광고주가 심사 중 수정하면 `pending_review` 유지(재 submit 금지, AdCreateModal:57-58).
 - **소재 로드 실패**: 이미지 URL이 웹페이지/잘못된 주소면 미리보기·노출 모두 폴백(AdCreateModal:245-259, AdOverlayBanner:54-67, AdMidrollPlayer:182-183).
 - **영상 메모리 누수/타임아웃**: video.js `dispose()`로 buffer 해제(:129-135), `maxDur+5`초 타임아웃 강제 complete(:124-127), autoplay 실패 시 muted 유지(:111-120).
@@ -278,8 +290,9 @@ Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functio
 - **RLS 정책**: `ads`는 "Admin full access"(is_admin) + "Advertiser can view own ads"(owner_id=auth.uid())만 유지, 공개 SELECT 정책 제거(ads_public_view:36-37). 광고주 직접 INSERT/UPDATE 정책 없음 → 모든 쓰기는 DEFINER RPC.
 - **ads_public 뷰**: 공개 노출은 안전 컬럼만(budget/spent/owner_id/review_note 제외). 피드는 base가 아닌 `ads_public` 조회(ads_public_view:20-30). 광고주 대시보드·프리롤은 RPC(DEFINER) 경유라 RLS 우회.
 - **이미지 본인 폴더**: `ad-images` 버킷 INSERT/UPDATE/DELETE는 `(storage.foldername(name))[1] = auth.uid()::text`(본인 폴더만, ad_images_advertiser_upload:8-20). 읽기는 공개(노출용).
-- **dedup 테이블 잠금**: `ad_charge_dedup`/`ad_click_dedup` RLS on + 정책 없음 + REVOKE anon/auth → DEFINER 함수만 기록(클라 직접 위조 차단).
-- **VAST 이스케이프**: XML 인젝션 방지 — CDATA 탈출(`]]>`) 무력화 + 클릭링크 `^https?://` 만 허용(아니면 `#`)(index.ts:888-890). 트래킹 픽셀 HMAC 서명(service_role_key, 6시간 만료)으로 임의 ad_id 위조 차단(index.ts:836-844).
+- **집계 RPC 클라 회수**: `increment_ad_*`/`record_ad_*` 전 오버로드 REVOKE anon/authenticated → service_role 전용(`ad_fraud_hardening_edge_20260628.sql:51-67`, 재생성 시 재고정 `ads_gate_dedup_20260708.sql:137-151`). 클라 유일 경로는 Edge `/ad-event` — 로그인 식별은 토큰 검증(`auth.getUser`)으로 위조 불가, 익명은 `ad_event_guard`(IP당 시간당 익명키 상한, 기본 8·`ad_ip_max_keys_per_hour` 설정)로 키회전 어뷰징 차단.
+- **dedup 테이블 잠금**: `ad_charge_dedup`/`ad_click_dedup`/`ad_ip_key_log` RLS on + 정책 없음 + REVOKE anon/auth → DEFINER 함수만 기록(클라 직접 위조 차단).
+- **VAST 이스케이프**: XML 인젝션 방지 — CDATA 탈출(`]]>`) 무력화 + 클릭링크 `^https?://` 만 허용(아니면 `#`). 트래킹 픽셀 HMAC 서명(service_role_key, **30분 만료** — 반복 GET 재과금 창 단축, index.ts:1089-1094,1129)으로 임의 ad_id 위조 차단 + `track_video_ad_event` impression dedup(1h).
 - **결제 검증**: `start_payment`가 서버측 금액·소유권 검증(구독=정책가 일치, 라이선스=영상가 일치, ad_budget=본인 광고)(start_payment_ad_owner:36-60).
 - **감사 트리거**: 어드민의 `ads` 직접 INSERT/UPDATE/DELETE는 `log_ads_changes` 트리거가 `admin_logs`에 자동 기록(시청자 RPC 차감은 비어드민이라 skip, admin_audit_ads_trigger.sql:20-109).
 - **CORS**: VAST는 credentials 요청 대응 위해 정확한 origin 반향(wildcard 금지, index.ts:825-833).
@@ -290,8 +303,9 @@ Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functio
 
 ### 광고 성과
 - 광고주: `advertiser_my_ads`(누적 노출/클릭/CTR), `advertiser_ad_daily_stats`(최근 14일 일자별, `ad_video_events` 집계).
-- 노출 상세: `ad_impressions`(format, position_seconds, completed, skipped). 수익분배: `ad_video_events`(impression/click + source_video_id + viewer).
-- VAST 트래킹 이벤트: impression/start/firstQuartile/midpoint/thirdQuartile/complete/skip/click(index.ts:905-916).
+- 노출 상세: `ad_impressions`(format, position_seconds, completed, skipped). 수익분배: `ad_video_events`(impression/click + source_video_id + viewer) — **정산 집계는 유료광고 노출만**(`ad_revenue_house_exclude_20260711.sql`).
+- ⚠️ **`p_completed`/`p_skipped` 미수집**: `AdMidrollPlayer`가 노출을 mount 시 1회만 기록(ended/skip 재기록 금지 — house 2배 집계 방지)하므로 클라 경로의 `ad_impressions.completed/skipped`는 항상 false → **완료율 지표 없음**. 완료/스킵 신호는 VAST(IMA) 경로의 `ad_video_events` raw 로그로만 쌓임.
+- VAST 트래킹 이벤트: impression/start/firstQuartile/midpoint/thirdQuartile/complete/skip/click.
 - 관리 통계: `get_ad_performance_summary`(total/active/depleted ads, impressions, clicks, spent/budget, avg_ctr).
 
 ### 관리 통계
@@ -308,9 +322,10 @@ Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functio
 - [ ] 재승인 시 `is_active`가 보존되어 노출이 자동 재개된다.
 - [ ] 광고주는 승인된 본인 광고만 활성 토글/충전할 수 있다(타인/미승인 차단 예외).
 - [ ] 타인 광고 id로 `start_payment('ad_budget',...)` 호출 시 "본인 소유 광고에만…" 예외.
-- [ ] 예산광고 노출은 (광고,뷰어,1시간) 1회만 과금되고, `spent_krw>=budget_krw`면 노출이 자동 중단된다.
-- [ ] 무료 House Ads(budget NULL)는 과금 없이 무중단 노출된다.
-- [ ] `record_ad_impression`/`increment_ad_clicks` 반복 호출이 dedup으로 과금/카운트되지 않는다.
+- [ ] 예산광고 노출은 (광고,뷰어,1시간) 1회만 과금되고(오버레이는 노출시간 비례 단가), `spent_krw>=budget_krw`면 노출이 자동 중단된다(`ads_public` 뷰에서도 제외).
+- [ ] 무료 House Ads(budget NULL)는 과금 없이 무중단 노출되고, 집계는 (광고,뷰어,1h) 1회만 된다.
+- [ ] Edge `/ad-event` 반복 호출이 dedup으로 과금/카운트되지 않고, raw 집계 RPC(`record_ad_*`/`increment_ad_*`)는 클라(anon/authenticated) 직접 호출 시 권한 오류가 난다.
+- [ ] VAST 트래킹 픽셀을 반복 GET 해도 (광고,뷰어,영상,1h) 1회만 과금되고, 서명은 30분 후 만료된다.
 - [ ] 오버레이 광고가 피드 카드에 동시 노출되지 않는다(노출면 배타).
 - [ ] 외부 광고는 env(ENABLED+네트워크ID) 설정 시에만, 뷰포트 근접 시에만 로드된다.
 - [ ] anon이 base `ads`를 직접 조회 시 0행, `ads_public`은 승인광고 안전 컬럼만 노출한다.
@@ -324,12 +339,24 @@ Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functio
 
 ## 11. 알려진 제약 / 이월
 
-- **영상광고 VAST 트래킹 dedup 미적용**: 클라이언트 RPC 경로(`record_ad_impression`/`increment_ad_*`)는 dedup이 있으나, **VAST 트래킹 픽셀(Edge service_role 경유)은 dedup 미적용**(`ad_charge_dedup_phase3:6-7` 주석). HMAC 서명으로 위조는 막지만, 동일 뷰어 반복 노출 과금 정합은 후속 보강 필요. (참조: `docs/ad-fraud-hardening-plan.md`)
+- **(해결됨 2026-06-28) 영상광고 VAST 트래킹 dedup**: `track_video_ad_event`에 (광고, 뷰어=uid|IP, 영상, **1시간) dedup 적용 완료** + 서명 만료 30분 단축(`ad_fraud_hardening_edge_20260628.sql:69-110`). 함께 계획됐던 **Edge 집계 재설계도 완료** — raw 집계 RPC anon 회수 + Edge `/ad-event` 전환(§5.4). `docs/ad-fraud-hardening-plan.md`의 #2 이행 완료.
 - **`advertiser_update_ad` 다중 정의**: phase1 → media_coalesce → rereview 순으로 같은 시그니처가 재정의됨. 배포 순서에 따라 정본 확정 필요(현재 의도 정본 = rereview, 재심사 전환 포함).
-- **외부 광고 화이트리스트**: 외부 광고는 코드상 카카오 애드핏 + Google AdSense 2종만 지원(`ExternalAdSlot.tsx:44`). 쿠팡 파트너스 등은 `AdminExternalAds` placeholder("준비 중 · 베타 후 통합", AdminLayout:111). 신규 네트워크는 env + `enabledNetworks()` 화이트리스트 확장 필요.
+- **외부 광고 화이트리스트**: 피드 슬롯은 코드상 카카오 애드핏 + Google AdSense 2종(`ExternalAdSlot.tsx:47-52`, 신규 네트워크는 env + `enabledNetworks()` 확장). **쿠팡 파트너스는 푸터 다이나믹 배너로 노출 중**(`CoupangBanner.tsx`), `AdminExternalAds`는 placeholder가 아니라 **수익 대시보드 바로가기 실화면**(애드핏 노출 중·쿠팡 노출 중·애드센스 심사 중).
 - **(해결됨 2026-06-24) 통계 조회 RPC 게이트**: `get_admin_dashboard_summary` 계열 8종이 plpgsql + `PERFORM assert_admin()` 선행으로 전환됨(`admin_dashboard_assert_admin_20260624.sql:27,76,99,120,140,162,185,207`). 비관리자 직접 호출 시 예외.
-- **예산 충전 토스 의존**: 예산 충전은 토스 `ad_budget` 결제에 의존 → 토스 가맹 심사 완료 전까지 충전 비활성/안내 처리(`AdvertiserDashboard.tsx:5` 주석 맥락, `CLAUDE.md` 출시 의존 순서).
-- **외부 스폰서십/크리에이터 콘텐츠 협찬**: `AdminSponsorships` placeholder(준비 중).
+- **예산 충전 토스 의존**: 충전 **UI·배선은 완전 구현**(AdTopupModal → `start_payment('ad_budget')` → confirm 증액). 활성/차단은 서버 `payments_enabled` 게이트가 담당(현재 0=차단, `payments_gate_20260708.sql`) — 토스 live 키 전환 시 1로 해제하면 즉시 충전 가능(`docs/launch-checklist.md` §1).
+- **(해결됨 2026-07-11) 크리에이터 스폰서십**: `AdminSponsorships` **실구현** — 협찬 검수 상태/재검수 트리거/목록·승인·반려 RPC(`admin_sponsorship_review_20260711.sql`), 사이드바 검수 대기 배지.
+
+---
+
+## 12. 신규 보강 사항 (2026-06-28 ~ 07-13 감사 반영)
+
+전수 감사에서 추가·확인된 신규 방어/운영 장치. 상세는 각 정본 SQL 참조.
+
+- **예산 80% 소진 알림**: `tg_ad_budget_low_notify` 트리거(BEFORE UPDATE OF spent_krw, budget_krw) — 광고주 광고가 예산 80% 도달 시 1회 벨 알림(`budget_low_notified` 플래그), 충전(예산 증가) 시 플래그 리셋 → 다음 소진 때 재알림(`ad_budget_low_notify_20260615.sql`).
+- **`ad_event_guard` IP 다양성 레이트리밋**: 같은 IP가 한 광고에 1시간 동안 만드는 distinct 익명키(`'a:'`) 수가 상한(기본 8, `ad_ip_max_keys_per_hour` 설정) 초과 시 키회전 어뷰징으로 보고 집계 차단. 로그인(`'u:'`)·IP 없음은 항상 통과(CGNAT 과소집계 방지). 로그 테이블 `ad_ip_key_log`, service_role 전용(`ad_fraud_hardening_edge_20260628.sql:15-49`).
+- **정산 하우스광고 제외**: `calculate_monthly_revenue`의 광고 CTE가 `budget_krw IS NOT NULL`(유료광고) 노출만 집계 — ₩0 수납 하우스 노출에 CPM×share 지급하던 플랫폼 순손실 차단. 스냅샷에 `ad_impression_basis='paid_only'` 기록. **새 정본 = `ad_revenue_house_exclude_20260711.sql`**(구본 재실행 금지 — 필터 소실 회귀).
+- **클로백 원장**: 지급완료(paid) 월의 라이선스 환불 시 `admin_refund_payment`가 `settlement_clawbacks` 원장에 자동 등록(대상 크리에이터·기간·회수금액) → 정산 화면 '클로백 대기'에서 [적용완료]/[면제] 처리. 조회/처리/수동추가 RPC(`admin_list_clawbacks` 등) 전부 `assert_admin()`(`settlement_clawbacks_20260711.sql`).
+- **AdminAdReview 소재 검수 강화**: 영상 소재(preroll 등)는 재생 가능한 `<video controls>` 미리보기(맹검 승인 방지) + 반려 prompt 취소/빈값 구분 수정(2026-07-13, `AdminAdReview.tsx:34-50,74-87`).
 
 ---
 
@@ -380,15 +407,14 @@ Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functio
 
 ```
 ┌──────────── 새 광고 만들기 ───────────── [x] ┐
-│ [형식 4종 — 새 광고만 노출] (:174-198)        │
+│ [형식 선택 — 새 광고만 노출] (:185-213)       │
 │  ┌──────────┐┌──────────┐                    │
-│  │🖼 오버레이 배너││🖼 피드 이미지│              │
+│  │🖼 오버레이 배너││🎞 영상 프리롤│              │
 │  └──────────┘└──────────┘                    │
-│  ┌──────────┐┌──────────┐                    │
-│  │🎞 피드 영상  ││🎞 영상 프리롤│              │
-│  └──────────┘└──────────┘                    │
+│  ※ 피드 이미지/피드 영상 2종은               │
+│    HOME_FEED_SELF_ADS=false 동안 숨김(:194-196)│
 │  ⓘ 선택 형식 설명 (노출면 안내)               │
-│ ┌ 💰 비용                       노출당 ₩2 ──┐ │  (:201-215)
+│ ┌ 💰 비용                       노출당 ₩2 ──┐ │  (:216-228)
 │ │ CPM ₩2,000 기준 1회당 ₩2 차감 (클릭 무료) │ │
 │ │ 예) ₩10,000 → 약 5,000회 노출, 소진 자동중단│ │
 │ └──────────────────────────────────────────┘ │
@@ -438,17 +464,18 @@ Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functio
 ### W5. 외부 광고 슬롯 (`ExternalAdSlot.tsx`)
 
 ```
-피드: [영상][영상][영상][영상][▼외부광고 슬롯▼][영상]...
-                              └ 4개마다 1슬롯
+피드: [영상][영상][영상][영상][영상][▼외부광고 슬롯▼][영상]...
+                    └ 모바일 5개·데스크탑 6개마다 1슬롯 (DiscoveryFeed:1224,1248)
 ┌──── 300 × 250 (고정) ────┐   (:27-29)
 │  카카오 애드핏 / AdSense  │   index % networks.length 로테이션 (:76)
-│  (뷰포트 300px 근접 시     │   IntersectionObserver lazy-load (:82-94)
-│   에만 스크립트 로드)      │
+│  애드핏=격리 iframe        │   /adfit.html (ba.min.js 매번 새로 로드) (:83-95)
+│  (뷰포트 300px 근접 +      │   IO 유지 → 빈 슬롯이면 재충전,
+│   빈 슬롯일 때만 주입)     │   리사이즈 디바운스 재삽입 (:117-154)
 └───────────────────────────┘
-  env(VITE_EXTERNAL_ADS_ENABLED + 네트워크ID) 없으면 → null(빈칸 없음) (:41-42,140-142)
+  env(VITE_EXTERNAL_ADS_ENABLED + 네트워크ID) 없으면 → null(빈칸 없음) (:41-42,156-159)
 ```
 
-### W6. 관리자 패널 레이아웃 (`AdminLayout.tsx:74-96,219-324`)
+### W6. 관리자 패널 레이아웃 (`AdminLayout.tsx:79-101` — 23메뉴)
 
 ```
 ┌─ 사이드바 ──────────┬─ 메인 ────────────────────────┐
@@ -456,39 +483,41 @@ Bunny Player `vastTagUrl` → `/vast-tag/:sourceVideoId`(Edge, `supabase/functio
 │   대시보드          │   (선택 메뉴의 패널 렌더)       │
 │ 👥 운영             │                                │
 │   사용자 / 콘텐츠    │                                │
-│   공지 / 고객문의    │                                │
+│   공지 / 고객문의[N] │  ← 배지: 미답변 open (:146-155) │
 │   비즈니스문의       │                                │
 │   챌린지 / 배너      │                                │
-│   버그 / 메가 [N]    │  ← 배지: 대기 카운트 (:138-149) │
+│   컬렉션·셀렉트      │                                │
+│   버그 [N] / 메가 [N]│  ← 배지: 신규/달성 대기         │
 │ 📢 광고 관리        │                                │
 │   자체 광고          │                                │
-│   광고 심사 [N]      │                                │
-│   외부 광고(준비중)  │                                │
-│   스폰서십(준비중)   │                                │
+│   광고 심사          │                                │
+│   외부 광고          │  ← 수익 대시보드 바로가기 실화면 │
+│   스폰서십 [N]       │  ← 배지: 검수 대기(pending)     │
 │ 💰 수익화           │                                │
 │   수익 정책          │                                │
 │   정산 관리          │                                │
 │   결제·환불          │                                │
+│   프리미엄 지급      │                                │
 │ 🛡 안전·품질        │                                │
 │   신고 큐 / 숨김     │                                │
 │   댓글 / 활동 로그   │                                │
 └─────────────────────┴────────────────────────────────┘
-  비로그인/비어드민 → 접근 차단 화면 (:157-180)
+  비로그인/비어드민 → 접근 차단 화면 (:166-190)
 ```
 
-### W7. 관리자 — 광고 심사 큐 (`AdminAdReview.tsx:49-101`)
+### W7. 관리자 — 광고 심사 큐 (`AdminAdReview.tsx:52-115`)
 
 ```
-┌─ 📢 광고 심사   [3건 대기] ──────────────────┐  (:51-56)
+┌─ 📢 광고 심사   [3건 대기] ──────────────────┐  (:55-59)
 │ ┌── 심사 카드 ─────────────────────────────┐ │
-│ │ [소재 32×24] 신제품 티저                   │ │  (:70-75)
-│ │   광고주: 아크미 · 계정 hong               │ │  (:77)
-│ │   포맷: feed · CTA: 자세히 보기            │ │  (:78)
-│ │   🔗 https://example.com/promo            │ │  (:79-82)
-│ │   [ ✓ 승인 ]            [ ✗ 반려 ]         │ │  (:86-95)
-│ └────────────────────────────────────────────┘ │  반려 → window.prompt(사유) (:36-40)
-│   대기 0건 → "심사 대기 중인 광고가 없습니다." │  (:60-64)
-└───────────────────────────────────────────────┘
+│ │ [소재: img / ▶video controls] 신제품 티저  │ │  영상 소재는 재생 미리보기 (:74-87)
+│ │   광고주: 아크미 · 계정 hong               │ │  (:91)
+│ │   포맷: preroll · CTA: 자세히 보기         │ │  (:92)
+│ │   🔗 https://example.com/promo            │ │  (:93-96)
+│ │   [ ✓ 승인 ]            [ ✗ 반려 ]         │ │  (:100-109)
+│ └────────────────────────────────────────────┘ │  반려 → window.prompt(사유)
+│   대기 0건 → "심사 대기 중인 광고가 없습니다." │    취소(null)/빈값("") 구분 (:34-50)
+└───────────────────────────────────────────────┘    빈값 → "사유 입력" 토스트
 ```
 
 ### W8. 관리자 — 사용자 관리 / 정산 / 정책 (개념 목업)
@@ -529,7 +558,8 @@ sequenceDiagram
     participant REV as admin_review_ad
     participant N as notifications
     participant PAY as start_payment / Toss / confirm_payment
-    participant VIEW as 시청자 + adFetch.ts
+    participant VIEW as 시청자 + adFetch/adEvent.ts
+    participant EDGE as Edge /ad-event (service_role)
     participant SRV as get_ad_for_video / record_ad_impression
 
     ADV->>UI: 형식 선택 + 소재/링크/CTA 입력
@@ -553,8 +583,10 @@ sequenceDiagram
     VIEW->>SRV: get_ad_for_video(video_id, format)
     SRV->>DB: WHERE approved AND is_active AND spent<budget AND 필터
     DB-->>VIEW: 매칭 광고 1개
-    VIEW->>SRV: record_ad_impression(ad_id, viewer_key)
-    SRV->>DB: dedup(광고,뷰어,1h) → impressions++ , spent += CEIL(cpm/1000)
+    VIEW->>EDGE: POST /ad-event (video_impression, 세션키)
+    EDGE->>EDGE: 신뢰 식별키 생성('u:'+uid | 'a:'+세션키) + ad_event_guard(IP)
+    EDGE->>SRV: record_ad_impression(..., p_viewer_key=식별키)
+    SRV->>DB: dedup(광고,뷰어,1h — 예산 무관) → impressions++ ,<br/>과금은 예산광고만(오버레이는 10초 기준 시간 비례)
     Note over DB: spent_krw >= budget_krw 되면<br/>다음 매칭에서 제외(자동 중단)
 ```
 
@@ -646,7 +678,7 @@ sequenceDiagram
 
 | RPC | 인자 | 반환 | 권한/조건 | file:line |
 |---|---|---|---|---|
-| `advertiser_create_ad` | `p_title, p_format, p_ad_type, p_link_url, p_cta_text='자세히 보기', p_image_url, p_video_url, p_thumbnail_url, p_advertiser` | `uuid` | `auth.uid()` 필수. status='draft', is_active=false, budget=0 | `advertiser_self_service_phase1_20260614.sql:98-118` |
+| `advertiser_create_ad` (정본) | `p_title, p_format, p_ad_type, p_link_url, p_cta_text='자세히 보기', p_image_url, p_video_url, p_thumbnail_url, p_advertiser` | `uuid` | `auth.uid()` 필수. status='draft', is_active=false, budget=0. **생성 한도: 시간당 10건 + 미승인 누적 30건**(초과 시 예외) | `ad_fraud_hardening_edge_20260628.sql:115-144` |
 | `advertiser_update_ad` (정본) | `p_ad_id, p_title, p_link_url, p_cta_text, p_image_url, p_video_url, p_thumbnail_url` | `void` | 본인 + status∈`draft/rejected/pending_review/approved`. **approved 수정→pending_review 전환**. 미디어 빈값=기존 유지(COALESCE) | `advertiser_edit_approved_rereview_20260615.sql:12-45` |
 | `advertiser_submit_ad` | `p_ad_id` | `void` | 본인 + `draft/rejected` → `pending_review`, review_note=NULL | `advertiser_self_service_phase1_20260614.sql:140-150` |
 | `advertiser_set_active` | `p_ad_id, p_on` | `void` | 본인 + **승인된 광고만** is_active 토글 | `advertiser_self_service_phase1_20260614.sql:153-162` |
@@ -662,14 +694,18 @@ sequenceDiagram
 
 ### A3. 노출/클릭/과금 RPC
 
+> 전부 **anon/authenticated EXECUTE 회수 → service_role 전용**(`ad_fraud_hardening_edge_20260628.sql:51-67`). 클라는 **Edge `/ad-event`**(`index.ts:1001-1054`)만 호출 — Edge가 신뢰 식별키(`'u:'+auth.uid`/`'a:'+세션키`)+`ad_event_guard`(IP 다양성) 검사 후 아래 RPC를 대행 호출한다.
+
 | RPC | 인자 | 반환 | 동작 | file:line |
 |---|---|---|---|---|
-| `record_ad_impression` | `p_ad_id, p_video_id, p_format, p_position_seconds=NULL, p_completed=false, p_skipped=false, p_viewer_key=NULL` | `void` | 예산광고는 `ad_charge_dedup`(광고,뷰어,1h) 1회만 집계+CPM 차감(`CEIL(cpm/1000)`). House Ads(budget NULL)는 매 노출 집계·과금 없음. `ad_impressions`+`ad_video_events`+`ads.impressions++` | `advertiser_self_service_phase5_20260614.sql:11-51` |
-| `record_ad_click` | `p_ad_id, p_video_id, p_format` | `void` | `ad_clicks`+`ad_video_events(click)`+`ads.clicks++`. 프론트 `adFetch.ts:84` 호출 | `phase28_ad_revenue_distribution_fix.sql` |
+| `record_ad_impression` (정본) | `p_ad_id, p_video_id, p_format, p_position_seconds=NULL, p_completed=false, p_skipped=false, p_viewer_key=NULL` | `void` | `ad_charge_dedup`(광고,뷰어,1h) 1회 집계는 **예산 유무 무관**(house 2배 집계 차단). 과금은 예산광고만 — **오버레이는 노출시간 비례**(기준 10초, 최소 ₩1), 그 외 `CEIL(cpm/1000)`. `ad_impressions`+`ad_video_events`+`ads.impressions++` | `ad_dedup_house_20260703.sql:17-68` |
+| `record_ad_click` (정본) | `p_ad_id, p_video_id, p_format, p_viewer_key=NULL` | `void` | **구 3-인자 버전 DROP**(PGRST203 방지) 후 4-인자. `ad_click_dedup`(광고,뷰어,1h) 1회만 `ad_clicks`+`ad_video_events(click)`+`ads.clicks++` | `ads_gate_dedup_20260708.sql:88-135` |
+| `increment_ad_impressions` (정본) | `ad_id, p_viewer_key=NULL, p_video_id=NULL` | `void` | dedup 1회 집계 + **house 무과금 가드**(예산광고만 spent 가산). 예산 소진 노출은 `ads_public` 뷰 필터가 차단 | `ads_gate_dedup_20260708.sql:49-81` |
 | `increment_ad_clicks` (정본) | `ad_id, p_viewer_key=NULL` | `void` | 구 1-파라미터 함수 DROP 후 dedup(`ad_click_dedup`) 2-파라미터. (광고,뷰어,1h) 1회만 clicks++ | `home_security_20260620.sql:51-70` |
-| `cleanup_ad_click_dedup` | (없음) | `integer` | 7일 경과 dedup 정리(크론 권장) | `home_security_20260620.sql:73-81` |
+| `track_video_ad_event` (정본) | `p_ad_id, p_event_type, p_source_video_id, p_viewer_user_id, p_user_agent, p_ip_address` | `void` | VAST 픽셀 집계. raw 이벤트는 항상 로그, **impression 과금은 (광고, 뷰어=uid\|IP, 영상, 1h) dedup 1회** | `ad_fraud_hardening_edge_20260628.sql:72-110` |
+| `cleanup_ad_charge_dedup` / `cleanup_ad_click_dedup` / `cleanup_ad_ip_key_log` | (없음) | `integer` | 7일 경과 dedup/로그 정리. **pg_cron 3개 등록 완료**(매일 03:10/03:15/03:20) | `ads_gate_dedup_20260708.sql:156-171` |
 
-> 프론트 호출 매핑(`adFetch.ts`): 매칭=`fetchAdForVideo`→`get_ad_for_video`(1분 TTL 캐시, `:26,41`), 노출=`recordAdImpression`→`record_ad_impression`(`:67`, `p_viewer_key=getViewerSessionKey()` `:74`), 클릭=`recordAdClick`→`record_ad_click`(`:84`).
+> 프론트 호출 매핑: 매칭=`fetchAdForVideo`→`get_ad_for_video`(1분 TTL 캐시, `adFetch.ts:26,41`). 노출/클릭=`sendAdEvent(type, adId, …)`(`adEvent.ts`)가 Edge `/ad-event` POST — `feed_impression`/`feed_click`/`video_impression`/`video_click` 4종, `viewer_key=getViewerSessionKey()`, `keepalive: true`(이탈 중 유실 방지). `adFetch.recordAdImpression/recordAdClick`도 내부에서 `sendAdEvent` 호출(`adFetch.ts:59-79`).
 
 ### A4. 결제 (광고 예산 충전)
 
@@ -702,7 +738,7 @@ sequenceDiagram
 | `pending_review` | `advertiser_update_ad` | (유지 `pending_review`) | 재 submit 금지(단일 저장) | rereview:37 / AdCreateModal:57-58 |
 | `approved` | `advertiser_update_ad` | `pending_review` | submitted_at=now, review_note/reviewed_* NULL (재심사·노출 중단, is_active 보존) | rereview:36-42 |
 | `approved` | `advertiser_set_active(on/off)` | (유지) | is_active 토글(일시중지/재개) | phase1:158-160 |
-| `approved` + budget>spent + is_active | `get_ad_for_video` 매칭 | (유지) | 노출 1회 + dedup 과금 | phase1:65-74 / phase5:28-49 |
+| `approved` + budget>spent + is_active | `get_ad_for_video` 매칭 | (유지) | 노출 1회 + dedup 과금(Edge /ad-event 경유) | phase1:65-74 / ad_dedup_house:36-66 |
 | `approved` + spent≥budget | 매칭 시도 | (유지) | **노출 제외(자동 중단)** | phase1:70 |
 
 > 주의: `paused`는 CHECK 제약에 존재하나(phase1:16) 현재 코드 경로상 status로는 미사용 — 일시중지는 `is_active=false` 토글로 처리(`AdvertiserDashboard.tsx:182-185`).
@@ -773,9 +809,11 @@ Feature: 관리자 심사·정산·정지
     When admin_review_ad(id, approve=true) 를 호출한다
     Then status="approved" 이고 광고주에게 "승인 ✅" 알림이 간다     # phase1:189-203
 
-  Scenario: 반려는 사유 필수
-    When AdminAdReview 에서 [반려] → 사유 입력 없이 확인
-    Then "반려 사유를 입력해 주세요" 토스트로 막힌다                 # AdminAdReview:39
+  Scenario: 반려는 사유 필수 (취소/빈값 구분 — 2026-07-13 수정)
+    When AdminAdReview 에서 [반려] → prompt 를 취소(null)한다
+    Then 아무 일도 일어나지 않는다 (조용히 복귀)                     # AdminAdReview:40
+    When [반려] → 빈 문자열("")로 확인한다
+    Then "반려 사유를 입력해 주세요" 토스트로 막힌다                 # AdminAdReview:41-42
     When 사유를 입력해 admin_review_ad(approve=false, note=사유)
     Then status="rejected" + review_note=사유 + 광고주 알림
 
@@ -812,19 +850,29 @@ Feature: 보안·과금·우회 엣지
 
   Scenario: 과금 dedup (반복 노출 1회만 과금)
     Given budget 광고를 같은 뷰어가 1시간 내 5회 노출 기록
-    When record_ad_impression 를 5회 호출한다
-    Then ad_charge_dedup 에 의해 impressions++ 와 CPM 차감은 1회만   # phase5:28-32
+    When Edge /ad-event(video_impression) 가 5회 들어온다
+    Then ad_charge_dedup 에 의해 impressions++ 와 CPM 차감은 1회만   # ad_dedup_house:36-43
     And 2~5회차는 이벤트·카운터·과금 모두 skip 된다
 
-  Scenario: 클릭 dedup
+  Scenario: 클릭 dedup (피드·영상면 동일)
     Given 같은 뷰어가 1시간 내 같은 광고를 여러 번 클릭
-    When increment_ad_clicks(ad_id, viewer_key) 를 반복 호출한다
-    Then ad_click_dedup 으로 clicks++ 는 1회만 일어난다              # home_security:60-68
+    When increment_ad_clicks / record_ad_click 를 반복 호출한다
+    Then ad_click_dedup 으로 clicks++ 는 1회만 일어난다              # home_security:60-68 / ads_gate_dedup:106-113
 
-  Scenario: House Ads 무중단 (budget NULL은 과금 없음)
+  Scenario: House Ads 집계 dedup (budget NULL도 1회, 과금 없음)
     Given budget_krw IS NULL 인 자체 광고
-    When record_ad_impression 를 호출한다
-    Then dedup 없이 매 노출 집계되고 spent_krw 차감은 없다           # phase5:6,46
+    When 같은 뷰어가 1시간 내 record_ad_impression 을 2회 유발한다 (mount+ended 등)
+    Then 집계는 (광고,뷰어,1h) 1회만 되고 spent_krw 차감은 없다      # ad_dedup_house:36-43,56-66
+
+  Scenario: raw 집계 RPC 클라 직접호출 차단
+    Given anon/authenticated 클라이언트
+    When record_ad_impression / increment_ad_clicks 를 직접 호출한다
+    Then EXECUTE 권한 오류 (service_role 전용)                       # ad_fraud_hardening_edge:51-67
+
+  Scenario: 익명 키회전 어뷰징 차단
+    Given 같은 IP 가 한 광고에 1시간 내 익명키를 9개째 회전한다
+    When Edge /ad-event 가 ad_event_guard 를 호출한다
+    Then false 반환 → status="ratelimited" 로 집계 skip              # ad_fraud_hardening_edge:29-49
 
   Scenario: 비관리자 차단
     Given 일반 인증 사용자 "guest"
@@ -843,8 +891,18 @@ Feature: 보안·과금·우회 엣지
 - [ ] 생성 직후 광고는 draft/비활성/예산0이며 즉시 노출되지 않는다.
 - [ ] 승인본 수정은 자동 재심사(pending_review)로 전환되고 노출이 중단되며, 재승인 시 is_active 보존으로 자동 재개된다.
 - [ ] 충전·활성 토글은 승인된 본인 광고에만 허용되고, 타인 광고 충전은 예외로 차단된다.
-- [ ] 예산광고는 (광고,뷰어,1시간) 1회만 과금되고 spent≥budget이면 자동 중단된다.
-- [ ] House Ads(budget NULL)는 과금 없이 무중단 노출된다.
+- [ ] 예산광고는 (광고,뷰어,1시간) 1회만 과금되고 spent≥budget이면 자동 중단된다(집계는 Edge /ad-event 경유만 가능).
+- [ ] House Ads(budget NULL)는 과금 없이 무중단 노출되고, 집계도 (광고,뷰어,1h) 1회만 된다.
+- [ ] 크리에이터 광고수익 정산은 유료광고 노출만 집계한다(하우스 제외, ad_impression_basis='paid_only').
 - [ ] 모든 admin_* 변경 RPC는 비관리자 호출 시 예외이며, 본인 정지/권한회수는 차단된다.
-- [ ] 정산 지급은 세금 유형별(개인 3.3% / 사업자 0%) 원천징수를 계산하고 pending 행만 paid로 전환한다.
-- [ ] 심사 큐는 pending_review만 submitted_at ASC로 표시하고, 반려는 사유 입력을 강제한다.
+- [ ] 정산 지급은 세금 유형별(개인 3.3% / 사업자 0%) 원천징수를 계산하고 pending 행만 paid로 전환한다. 지급완료 월의 라이선스 환불은 클로백 원장에 자동 등록된다.
+- [ ] 심사 큐는 pending_review만 submitted_at ASC로 표시하고, 반려는 사유 입력을 강제한다(취소/빈값 구분).
+
+---
+
+## 개정 이력
+
+| 날짜 | 내용 |
+|---|---|
+| 2026-06-28 | 최초 작성 — 실코드 전수 감사 기반 |
+| 2026-07-13 | 전수 감사 반영 — Edge 집계·dedup 완료·관리자 23메뉴 등 |
