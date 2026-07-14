@@ -77,7 +77,12 @@ export function AdminAdReview() {
                   <img src={a.image_url} alt="" className="w-32 h-24 rounded-lg object-cover bg-black/30 flex-shrink-0 border border-white/10"
                     onError={(e) => ((e.target as HTMLImageElement).style.visibility = "hidden")} />
                 ) : a.video_url ? (
-                  <video src={a.video_url} poster={a.thumbnail_url || undefined} controls preload="metadata"
+                  // HLS(.m3u8)는 크롬/엣지 네이티브 <video> 미지원 → mp4 렌디션으로 변환 재생
+                  //   (미변환 시 관리자가 소재를 못 보고 승인하는 맹검 심사, 2026-07-14 수정.
+                  //    ProductDetail 프리롤과 동일한 Bunny play_720p.mp4 변환)
+                  <video
+                    src={a.video_url.includes("/playlist.m3u8") ? a.video_url.replace("/playlist.m3u8", "/play_720p.mp4") : a.video_url}
+                    poster={a.thumbnail_url || undefined} controls preload="metadata"
                     className="w-40 h-24 rounded-lg object-cover bg-black flex-shrink-0 border border-white/10" />
                 ) : a.thumbnail_url ? (
                   <img src={a.thumbnail_url} alt="" className="w-32 h-24 rounded-lg object-cover bg-black/30 flex-shrink-0 border border-white/10"

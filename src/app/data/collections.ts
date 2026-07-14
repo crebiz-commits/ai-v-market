@@ -147,13 +147,15 @@ function computeSelectIds(cols: Collection[]): Set<string> {
   return new Set(sel?.videoIds ?? []);
 }
 
-/** 앱 시작 시 1회 호출 — DB(get_collections)에서 로드. 실패/빈 결과면 폴백 유지. */
+/** 앱 시작 시 1회 호출 — DB(get_collections)에서 로드. RPC 실패 시에만 폴백 유지. */
 export async function loadCollections(): Promise<void> {
   if (_loaded) return;
   _loaded = true;
   try {
     const { data, error } = await supabase.rpc("get_collections");
-    if (error || !Array.isArray(data) || data.length === 0) return;
+    if (error || !Array.isArray(data)) return;   // RPC 미적용/실패 → 폴백 유지
+    // ⚠️ 조회 성공 + 0행 = "관리자가 컬렉션 전량 비활성/삭제" — 폴백 금지(2026-07-14).
+    //   폴백하면 폐기한 하드코딩 큐레이션·옛 셀렉트 배지가 신규 세션에 부활.
     _collections = (data as any[]).map((r) => ({
       slug: r.slug,
       title: r.title,
@@ -169,6 +171,12 @@ export async function loadCollections(): Promise<void> {
   } catch {
     /* 폴백 유지 */
   }
+}
+
+/** 관리자 편집 저장 후 즉시 반영 — 1회 가드 리셋 후 재로드(AdminCollections 저장 시 호출). */
+export async function reloadCollections(): Promise<void> {
+  _loaded = false;
+  await loadCollections();
 }
 
 // non-hook 접근(현재 스토어 조회) — 재렌더가 필요 없는 곳에서 사용.

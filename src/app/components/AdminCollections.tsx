@@ -10,6 +10,7 @@ import {
   Loader2, Layers, Plus, Trash2, Search, ArrowUp, ArrowDown, X, Save, Award, Star,
 } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
+import { reloadCollections } from "../data/collections";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 
@@ -98,6 +99,7 @@ export function AdminCollections() {
     toast.success("컬렉션 저장됨");
     setEditing((f) => (f ? { ...f, id: newId } : f));   // 신규→id 확보(이제 영상 배정 가능)
     void load();
+    void reloadCollections();   // 같은 세션의 시네마/OTT/컬렉션 페이지에 즉시 반영(새로고침 불필요)
   };
 
   const saveVideos = async () => {
@@ -111,6 +113,7 @@ export function AdminCollections() {
     toast.success(`영상 ${data}편 배정됨`);
     setVideoDirty(false);
     void load();
+    void reloadCollections();   // 스토어 즉시 반영
   };
 
   const remove = async (c: CollectionRow) => {
@@ -122,6 +125,7 @@ export function AdminCollections() {
     toast.success("삭제됨");
     if (editing?.id === c.id) closeEdit();
     void load();
+    void reloadCollections();   // 스토어 즉시 반영
   };
 
   const searchVideos = async () => {

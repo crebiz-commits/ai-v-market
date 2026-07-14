@@ -116,10 +116,13 @@ export async function fetchEventBanners(): Promise<BoardBanner[]> {
       .or(`active_to.is.null,active_to.gte.${nowIso}`)
       .order("sort_order", { ascending: true })
       .limit(20);
-    if (error || !data || data.length === 0) {
-      return getActiveEventBanners();   // 테이블 미적용/빈 결과 → 폴백
+    if (error) {
+      return getActiveEventBanners();   // 테이블 미적용/조회 실패 → 폴백
     }
-    return data.map(rowToBanner);
+    // ⚠️ 조회 성공 + 0행 = "관리자가 전량 비활성/종료" — 폴백 금지(2026-07-14).
+    //   폴백하면 관리자가 제어할 수 없는 하드코딩 배너 6종이 부활해
+    //   AdminBanners 안내("비활성·예약·종료 배너는 공개에서 숨겨집니다")와 모순.
+    return (data || []).map(rowToBanner);
   } catch {
     return getActiveEventBanners();
   }

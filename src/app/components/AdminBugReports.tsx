@@ -50,9 +50,19 @@ function BugShot({ stored, idx }: { stored: string; idx: number }) {
       .then(({ data }) => { if (alive && data?.signedUrl) setUrl(data.signedUrl); });
     return () => { alive = false; };
   }, [stored]);
+  // 원본 열기 — 클릭 시점에 새 서명 URL 발급(마운트 시 1회 발급분은 1시간 뒤 만료라
+  //   페이지를 오래 열어두면 링크가 죽던 것 방지, 2026-07-14)
+  const openFresh = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const { data } = await supabase.storage
+      .from("bug-screenshots")
+      .createSignedUrl(toStoragePath(stored), 300);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    else toast.error("스크린샷 링크 발급 실패");
+  };
   if (!url) return <div className="w-20 h-20 rounded-lg border border-border bg-white/5 animate-pulse" />;
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer"
+    <a href={url} onClick={openFresh} target="_blank" rel="noopener noreferrer"
       className="block w-20 h-20 rounded-lg overflow-hidden border border-border hover:border-[#6366f1]/60 transition-colors">
       <img src={url} alt={`첨부 ${idx + 1}`} className="w-full h-full object-cover" />
     </a>
@@ -103,11 +113,19 @@ export function AdminBugReports() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("이 버그 제보를 삭제할까요?")) return;
+    if (!confirm("이 버그 제보를 삭제할까요? (첨부 스크린샷도 함께 삭제)")) return;
     const prev = items;
+    const target = items.find((it) => it.id === id);
     setItems((cur) => cur.filter((it) => it.id !== id));
     const { error } = await supabase.from("bug_reports").delete().eq("id", id);
-    if (error) { toast.error("삭제 실패: " + error.message); setItems(prev); }
+    if (error) { toast.error("삭제 실패: " + error.message); setItems(prev); return; }
+    // 스토리지 정리 — DB 행만 지우면 개인정보가 담길 수 있는 스크린샷이 비공개 버킷에
+    //   영구 잔존(2026-07-14). 실패해도 제보 삭제는 유지(고아 파일은 무해, 재시도 가능).
+    const paths = (target?.image_urls || []).map(toStoragePath).filter(Boolean);
+    if (paths.length > 0) {
+      const { error: rmErr } = await supabase.storage.from("bug-screenshots").remove(paths);
+      if (rmErr) console.warn("[AdminBugReports] 스크린샷 스토리지 정리 실패:", rmErr.message);
+    }
   };
 
   // 쿠폰 발송: Zoho 작성창 열고 연락처 복사 + '쿠폰지급' 상태 자동 기록.

@@ -55,7 +55,10 @@ const EMPTY_FORM: FormState = {
 const TAG_RE = /^[a-z0-9][a-z0-9-]{1,48}$/;
 
 function statusOf(c: { starts_at: string; deadline: string }): { label: string; cls: string } {
-  const today = new Date().toISOString().slice(0, 10);
+  // KST(로컬) 날짜 기준 — toISOString(UTC)은 00:00~09:00 KST 에 전날로 계산돼
+  //   마감/진행중/오픈예정 배지가 커뮤니티(로컬 기준)와 어긋나던 것 수정(2026-07-14)
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   if (c.deadline < today) return { label: "마감", cls: "bg-white/10 text-gray-400 border-white/20" };
   if (c.starts_at > today) return { label: "오픈 예정", cls: "bg-[#6366f1]/20 text-[#a5b4fc] border-[#6366f1]/40" };
   return { label: "진행중", cls: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" };
@@ -92,7 +95,8 @@ export function AdminChallenges() {
         const { count } = await supabase
           .from("videos")
           .select("id", { count: "exact", head: true })
-          .contains("tags", [`challenge:${r.tag}`]);
+          .contains("tags", [`challenge:${r.tag}`])
+          .eq("is_hidden", false);   // 커뮤니티 출품 집계와 동일 기준(숨김 제외) — 카운트 불일치 방지
         return count || 0;
       })
     );

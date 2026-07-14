@@ -186,6 +186,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     sponsorLogoUrl?: string | null;
     sponsorDisclosure?: string | null;
     sponsorLinkUrl?: string | null;
+    sponsorReviewStatus?: string | null;  // 협찬 검수 상태 — rejected 면 링크 클릭 차단
     licenseType?: string;
     licenseSourceUrl?: string;
     attribution?: string;
@@ -344,7 +345,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
           "description, genre, production_year, cast_credits, " +
           "director, writer, composer, language, subtitle_language, " +
           "ai_model_version, prompt, seed, resolution, tags, " +
-          "sponsor_brand, sponsor_logo_url, sponsor_disclosure, sponsor_link_url, " +
+          "sponsor_brand, sponsor_logo_url, sponsor_disclosure, sponsor_link_url, sponsor_review_status, " +
           "license_type, license_source_url, attribution, original_creator, " +
           "price_standard, likes, views, series_id, season_number, episode_number, created_at"
         )
@@ -379,6 +380,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
         sponsorLogoUrl: d.sponsor_logo_url ?? null,
         sponsorDisclosure: d.sponsor_disclosure ?? null,
         sponsorLinkUrl: d.sponsor_link_url ?? null,
+        sponsorReviewStatus: d.sponsor_review_status ?? null,
         licenseType: d.license_type || undefined,
         licenseSourceUrl: d.license_source_url || undefined,
         attribution: d.attribution || undefined,
@@ -1059,6 +1061,9 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
 
   const handleSponsorClick = () => {
     if (!product.sponsorLinkUrl) return;
+    // 협찬 검수 반려(rejected) 시 링크 이동 차단 — 공시 문구·배지는 유지(공정거래법상 공시는
+    //   감추면 역효과)하되 위험 가능성 있는 외부 링크만 비활성(2026-07-14, 관리자 검수 실효화).
+    if (extra.sponsorReviewStatus === "rejected") return;
     openExternal(product.sponsorLinkUrl);
   };
 

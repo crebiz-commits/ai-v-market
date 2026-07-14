@@ -152,6 +152,16 @@ export function AdminRevenueSettlement() {
   };
   useEffect(() => { loadClawbacks(); }, []);
 
+  // 월 횡단 미지급(pending) 요약 — deferred→pending 승격(R7)된 과거월 행이 단일 월
+  //   화면에서 안 보여 영구 미지급되던 위험 방지(2026-07-14). RPC 미적용 시 조용히 숨김.
+  const [pendingMonths, setPendingMonths] = useState<{ period_start: string; cnt: number; total: number }[]>([]);
+  const loadPendingMonths = async () => {
+    const { data, error } = await supabase.rpc("admin_list_pending_payouts");
+    if (error) return;   // 미적용(PGRST202) 등 — 배너 숨김
+    setPendingMonths((data as any[]) || []);
+  };
+  useEffect(() => { loadPendingMonths(); }, [rows]);   // 지급/재계산 후 rows 갱신 시 함께 재조회
+
   const resolveClawback = async (c: Clawback, status: "applied" | "waived") => {
     const label = status === "applied" ? "차감 반영 완료" : "면제";
     let note: string | null = null;
@@ -322,6 +332,36 @@ export function AdminRevenueSettlement() {
       </div>
 
       {/* F3: 클로백 대기 — 지급완료 월에 환불 발생 → 다음 정산에서 수동 차감 */}
+      {/* 월 횡단 미지급 배너 — 현재 보고 있는 월 외에 pending 이 남은 월 안내(영구 미지급 방지) */}
+      {(() => {
+        const others = pendingMonths.filter((p) => {
+          const d = new Date(p.period_start);
+          return !(d.getFullYear() === year && d.getMonth() + 1 === month);
+        });
+        if (others.length === 0) return null;
+        return (
+          <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+            <p className="text-sm font-bold text-amber-300 mb-1.5">
+              ⚠️ 다른 월에 미지급(pending) 정산이 남아 있습니다 — 이월 승격분 포함, 지급 누락 주의
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {others.map((p) => {
+                const d = new Date(p.period_start);
+                return (
+                  <button
+                    key={p.period_start}
+                    onClick={() => { setYear(d.getFullYear()); setMonth(d.getMonth() + 1); }}
+                    className="px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-xs text-amber-200 hover:bg-amber-500/25 transition-colors"
+                  >
+                    {d.getFullYear()}년 {d.getMonth() + 1}월 · {p.cnt}건 · ₩{Number(p.total).toLocaleString()}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {clawbacks.length > 0 && (
         <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/5 p-3">
           <p className="text-sm font-bold text-red-300 flex items-center gap-1.5 mb-2">

@@ -52,6 +52,7 @@ interface Ad {
   id: string;
   title: string;
   advertiser: string;
+  status?: string | null;   // 심사 상태(approved/pending_review/rejected/draft) — 노출 게이트는 approved 만
   image_url: string | null;
   video_url: string | null;
   thumbnail_url: string | null;
@@ -556,6 +557,17 @@ export function AdminDashboard() {
                       }`}>
                         {ad.is_active ? "활성" : "비활성"}
                       </span>
+                      {/* 심사 상태 배지 — 노출 게이트는 status='approved' 라 미승인이면 is_active 여도
+                          노출 0. "활성"만 보고 반려/심사중 광고를 노출 중으로 오인하던 것 방지(2026-07-14). */}
+                      {ad.status && ad.status !== "approved" && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                          ad.status === "rejected" ? "bg-red-500/15 text-red-400" : "bg-amber-500/15 text-amber-400"
+                        }`}>
+                          {ad.status === "pending_review" ? "심사 대기 · 노출 안 됨"
+                            : ad.status === "rejected" ? "반려됨 · 노출 안 됨"
+                            : "임시저장 · 노출 안 됨"}
+                        </span>
+                      )}
                       {ad.video_url && (
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#6366f1]/15 text-[#6366f1] font-bold">영상</span>
                       )}
