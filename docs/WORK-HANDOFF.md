@@ -85,6 +85,13 @@
 - 커밋 전 `npx tsc --noEmit` 통과 확인.
 
 ## ✅ 이번 세션 코드 변경 (모두 커밋·푸시됨, main)
+**2026-07-14 (관리자 3차 심층 감사 — 4도메인 26건 발견·20건 수정, 6317dcb):**
+- **감사 방식**: 운영/광고관리/수익화/안전품질 4도메인 병렬 에이전트, 검증 109항목. update_video_moderation 회수(7/13)의 관리자 프론트 부작용은 **비결함 확정**(호출부 0 — 관리자는 resolve_moderation_flag 사용).
+- ⭐ **정본 이동(드리프트 주의)**: [`admin_audit_hardening_20260714.sql`](../supabase/admin_audit_hardening_20260714.sql) 이 **11개 함수의 새 정본** — calculate_monthly_revenue(paid 원장 동결+KST)·admin_refund_payment(구독 30일 차감)·admin_get_tax_annual_report(KST)·update_platform_setting(_krw 검증)·track_video_ad_event(raw 를 dedup 뒤로 — VAST 정산 부풀리기 차단)·pick_random_video_preroll(안전 9컬럼)·assert_admin(정지 관리자 차단)·admin_unsuspend_user(셀프 해제 금지)·admin_unhide_video(모더레이션 정합)·tg_notify_followers_new_video(재공개 벨 dedup)·admin_reply_support_inquiry(감사로그). **옛 파일(ad_revenue_house_exclude·settlement_clawbacks·phase32·whitelist_expand·ad_fraud_hardening_edge·advertiser phase1·phase10_6·restore·notification_audit2·support_inquiries)의 해당 함수 재실행 금지.**
+- 프론트(6317dcb): 정산 월횡단 미지급 배너 / AdminAdReview HLS→mp4(맹검 방지) / AdminDashboard 미승인 "노출 안 됨" 배지 / 협찬 반려 링크 차단 / 버그 스크린샷 fresh 서명+삭제 시 스토리지 정리 / 배너·컬렉션 "전량 비활성 시 하드코딩 폴백 부활" 차단 / 컬렉션 편집 즉시 반영(reloadCollections) / 챌린지 카운트 숨김 제외·KST.
+- ⚠️ **적용 필요 SQL 1개**: `admin_audit_hardening_20260714.sql` Run → 이후 `_verify_security_invariants_20260628.sql` 15/15 PASS 확인.
+- 보류(기록): 대시보드 통계 KST/approved_at 귀속(8 RPC), 관리자 목록 페이지네이션 tiebreaker, 정지 크리에이터 피드 잔존(의도 보류 — search_feed_audit2 헤더), 얼리버드 종료 시 기존 구독자 갱신가(가입가 락인) 방침 결정.
+
 **2026-07-13 (PRD 전수 감사 — 스펙↔구현 대조 + 확정결함 11건 수정, 9a9eff7):**
 - **감사 방식**: prd/01~09 영역 명세(약 500KB)를 병렬 에이전트 9개+SEO/PWA 1개가 코드·SQL과 전수 대조(~820개 주장 검증). 결과: 실결함 11건 / 스펙 노후 60여 건 / 스펙 누락 25여 건.
 - **수정 완료(9a9eff7)**: ① og.ts 숨김·비공개 영상 메타 유출 차단(공개+미숨김 필터) ② play-token 숨김/비공개 hiddenBlocked 게이트(**Edge 배포됨**) ③ update_video_moderation PUBLIC EXECUTE 회수 SQL+게이트 #15 ④ **start_payment ::uuid 캐스트 제거**(videos.id=TEXT — live 전환 시 전 라이선스 결제 42883 실패였을 잠재 회귀) ⑤ PaymentResult 세션복원 재시도+다시시도(토스 복귀 401 오판) ⑥ get_home_feed_count 시리즈 신규 규칙 동기화 ⑦ collab_inquire 문의 카운터 연결+백필 ⑧ 배지 i18n·"3분+ 시네마"→"단편부터 장편까지" ⑨ AdminAdReview 빈 반려사유 무반응 ⑩ vercel.json ?video/?info no-store 예외+?info 리라이트 ⑪ sw.js 프리렌더 앱셸 폴백 방지.
