@@ -16,7 +16,15 @@ export function loadVideojs(): Promise<any> {
     vjsPromise = Promise.all([
       import("video.js"),
       import("video.js/dist/video-js.css"),
-    ]).then(([m]) => m.default);
+    ]).then(([m]) => m.default)
+      .catch((e) => {
+        // ⚠️ 실패 프라미스를 캐시하면 이후 모든 플레이어(피드 자동재생·호버·영상광고·
+        //   전체화면·미드롤)가 같은 거부를 받아 세션 내내 영상 전면 불능이 된다
+        //   (Vercel 재배포 직후 stale 해시 청크 404·모바일 네트워크 순단 1회로 마비).
+        //   → 캐시를 비워 다음 플레이어 마운트가 재시도하게 함(정적 import 시절엔 불가했던 회귀).
+        vjsPromise = null;
+        throw e;
+      });
   }
   return vjsPromise;
 }

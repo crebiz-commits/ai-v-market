@@ -137,7 +137,7 @@ export function VideoFullscreen({
     player.on("error", () => { toast.error(t("discoveryFeed.videoProcessing")); });
 
     playerRef.current = player;
-    });
+    }).catch(() => { toast.error(t("discoveryFeed.videoProcessing")); /* 청크 로드 실패 안내 */ });
     return () => {
       cancelled = true;
       // unmount/영상교체 시점에 30%에 못 도달했어도 5초+ 시청은 기록

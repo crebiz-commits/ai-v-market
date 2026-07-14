@@ -468,14 +468,24 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
     () => creators.filter((c) => !isBlocked(c.creator_id)),
     [creators, isBlocked]
   );
+  // 디스커버리 트렌딩·카테고리 캐러셀도 차단 사용자 제외(다른 소스와 일관 — 이전엔 누락됐음).
+  const visibleTrending = useMemo(
+    () => trendingVideos.filter((v) => !v.creator_id || !isBlocked(v.creator_id)),
+    [trendingVideos, isBlocked]
+  );
+  const visibleCategoryRows = useMemo(
+    () => categoryRows.map((r) => ({ ...r, videos: r.videos.filter((v) => !v.creator_id || !isBlocked(v.creator_id)) }))
+      .filter((r) => r.videos.length > 0),
+    [categoryRows, isBlocked]
+  );
 
   // Phase 26 보강: 카드용 age_rating 일괄 조회
   // ⚠️ 영상이 표시되는 모든 소스를 포함해야 함 — 누락 시 등급 미조회(undefined) → shouldBlur fail-open(19금 무블러 노출).
   const allVideoIds = useMemo(
-    () => [...visibleVideos, ...trendingVideos, ...categoryRows.flatMap((r) => r.videos), ...previewVideos, ...watchHistory]
+    () => [...visibleVideos, ...visibleTrending, ...visibleCategoryRows.flatMap((r) => r.videos), ...previewVideos, ...watchHistory]
       .map((v) => v.id)
       .filter((id) => !id.startsWith("demo-")),
-    [visibleVideos, trendingVideos, categoryRows, previewVideos, watchHistory],
+    [visibleVideos, visibleTrending, visibleCategoryRows, previewVideos, watchHistory],
   );
   const ageRatings = useAgeRatings(allVideoIds);
 
@@ -835,11 +845,11 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
             )}
 
             {/* 지금 뜨는 영상 */}
-            {trendingVideos.length > 0 && (
+            {visibleTrending.length > 0 && (
               <section>
                 <p className="text-sm font-bold text-white mb-3 flex items-center gap-1.5">🔥 {t("searchPage.trendingVideos", "지금 뜨는 영상")}</p>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-                  {trendingVideos.map((v) => {
+                  {visibleTrending.map((v) => {
                     const rating = ageRatings[v.id];
                     const isMyVideo = !!user?.id && !!v.creator_id && user.id === v.creator_id;
                     const isAgeLocked = !isMyVideo && shouldBlur(rating, ageVerified);
@@ -850,7 +860,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
             )}
 
             {/* 카테고리별 캐러셀 — 카테고리마다 가로 스크롤 행 */}
-            {categoryRows.map(({ category, videos }) => (
+            {visibleCategoryRows.map(({ category, videos }) => (
               <section key={category}>
                 <button onClick={() => handleBrowseCategory(category)} className="group flex items-center gap-1 mb-3">
                   <span className="text-sm font-bold text-white">{getCategoryLabel(category, t)}</span>

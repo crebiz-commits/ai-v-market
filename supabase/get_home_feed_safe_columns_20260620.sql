@@ -1,4 +1,15 @@
 -- ════════════════════════════════════════════════════════════════════════════
+-- 🛑 SUPERSEDED — 재실행 금지 (2026-07-14 표기)
+--   이 파일은 두 가지가 낡음:
+--     ① v_home_feed_public 정의에 v.views 컬럼이 없음 → 정본은 search_feed_audit2_20260710.sql
+--        (v.views 추가). 이 파일 재실행 시 CREATE OR REPLACE VIEW 컬럼 축소로 실패하거나
+--        홈/디스커버리 카드 조회수가 사라짐.
+--     ② 아래 get_home_feed(SETOF) 의 시리즈 필터가 옛 `episode_number=1`(1화-only) →
+--        재실행 시 골드베인식 "1화 숨김 → 시리즈 증발" 회귀. 대표작 정본은
+--        fix_series_feed_representative_20260712.sql(첫 노출가능 에피소드 NOT EXISTS).
+--   ※ 현재 홈피드 호출부는 get_home_feed(SETOF)를 쓰지 않음(get_home_feed_order +
+--     get_home_feed_by_ids = home_feed_frozen_order_20260704.sql). 이 파일은 이력 보존용.
+-- ════════════════════════════════════════════════════════════════════════════
 -- 홈피드 감사 #6 — get_home_feed 내부 컬럼 노출 차단 (2026-06-20)
 --
 --   문제: get_home_feed 가 RETURNS SETOF public.videos + SELECT v.* 라,

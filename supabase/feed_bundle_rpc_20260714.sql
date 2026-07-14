@@ -53,18 +53,24 @@ BEGIN
   END IF;
 
   v := jsonb_build_object(
+    -- recommended/new_releases/best30 은 OTT 화면이 소비하지 않음 → p_tier='ott' 일 땐 스킵.
+    --   특히 recommended 는 auth.uid() 개인화 plpgsql 로 가장 비싼 쿼리라 OTT 진입마다
+    --   계산 후 버려지던 낭비를 제거(2026-07-14). Cinema 는 6개 전부 소비하므로 영향 없음.
     'recommended',
+      CASE WHEN p_tier = 'ott' THEN '[]'::jsonb ELSE
       (SELECT COALESCE(jsonb_agg(to_jsonb(t)), '[]'::jsonb)
-       FROM public.get_recommended_videos(p_tier := p_tier, p_limit := 15) t),
+       FROM public.get_recommended_videos(p_tier := p_tier, p_limit := 15) t) END,
     'trending',
       (SELECT COALESCE(jsonb_agg(to_jsonb(t)), '[]'::jsonb)
        FROM public.get_trending_videos(p_tier := p_tier, p_hours := v_hours, p_limit := 10) t),
     'new_releases',
+      CASE WHEN p_tier = 'ott' THEN '[]'::jsonb ELSE
       (SELECT COALESCE(jsonb_agg(to_jsonb(t)), '[]'::jsonb)
-       FROM public.get_new_releases(p_tier := p_tier, p_days := 14, p_limit := 10) t),
+       FROM public.get_new_releases(p_tier := p_tier, p_days := 14, p_limit := 10) t) END,
     'best30',
+      CASE WHEN p_tier = 'ott' THEN '[]'::jsonb ELSE
       (SELECT COALESCE(jsonb_agg(to_jsonb(t)), '[]'::jsonb)
-       FROM public.get_trending_videos(p_tier := p_tier, p_hours := 720, p_limit := 10) t),
+       FROM public.get_trending_videos(p_tier := p_tier, p_hours := 720, p_limit := 10) t) END,
     'formats',
       COALESCE((
         SELECT jsonb_object_agg(c.cat, c.vids)

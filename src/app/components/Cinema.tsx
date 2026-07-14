@@ -256,8 +256,11 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
         let formatVideos: CarouselVideo[][] | null = null;
         let genreVideos: CarouselVideo[][] | null = null;
         try {
-          // idle 프리페치 결과가 있으면 우선 소비(네트워크 0회) — 없거나 만료면 직접 호출
+          // idle 프리페치 결과가 있으면 우선 소비(네트워크 0회) — 없거나 만료면 직접 호출.
+          //   ⚠️ one-shot: 소비 즉시 삭제 — 안 지우면 재진입 때마다 같은 옛 프라미스를 5분간
+          //   재사용해 "백그라운드 갱신"이 실제로는 안 돎(신규 업로드·트렌딩 변동 반영 지연).
           const pre = cinemaBundlePrefetch[cacheKey];
+          delete cinemaBundlePrefetch[cacheKey];
           let bundle: any = (pre && Date.now() - pre.ts < BUNDLE_PREFETCH_TTL_MS) ? await pre.p : null;
           if (!bundle) {
             const { data, error: bundleErr } = await supabase.rpc("get_feed_bundle", {
@@ -311,7 +314,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           showcase ? mergeShowcase(real, showcaseToCarousel, { tier, ...opts }) : real;
 
         // 인기 영상 풀(좋아요순) — 베타라 조회/추천 데이터가 적은 섹션을 채우는 폴백.
-        // 카테고리 영상 전부 + 추천 + 신규를 모아 좋아요순 정렬.
+        // 장르 행 전체(전 카탈로그 커버) + 추천 + 신규를 모아 좋아요순 정렬.
         const popPool: CarouselVideo[] = [
           ...((rec || []) as CarouselVideo[]),
           ...((nrl || []) as CarouselVideo[]),

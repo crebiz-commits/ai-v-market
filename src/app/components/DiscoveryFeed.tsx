@@ -176,7 +176,7 @@ const AdVideoPlayer = memo(({ src, poster }: { src: string; poster?: string | nu
         { threshold: 0.4 },
       );
       io.observe(container);
-    });
+    }).catch(() => { /* video.js 청크 로드 실패 — 포스터 유지, loadVideojs 가 캐시 리셋해 다음 마운트 재시도 */ });
 
     return () => {
       cancelled = true;
@@ -519,17 +519,19 @@ const MovieSection = memo(({
         if (err && (err.code === 4 || err.code === 2)) {
           if (retryCountRef.current < 2) {
             retryCountRef.current += 1;
-            // 1.5초 후 src 재설정 + 재생 시도 (네트워크 회복 / CDN 캐시 안정 대기)
+            // 1.5초 후 src 재설정 + 재생 시도 (네트워크 회복 / CDN 캐시 안정 대기).
+            //   ⚠️ playerRef.current(공유) 대신 이 에러를 낸 player 인스턴스를 캡처 — 그 사이
+            //   스크롤 이탈→dispose→재진입으로 새 플레이어가 생기면 옛 타이머가 새 인스턴스의
+            //   src 를 리셋해 재생을 튀게 하던 것 방지.
             setTimeout(() => {
-              const p = playerRef.current;
-              if (!p || p.isDisposed()) return;
+              if (!player || player.isDisposed()) return;
               try {
-                p.src({
+                player.src({
                   src: video.videoUrl,
                   type: video.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4',
                 });
-                p.load();
-                p.play()?.catch(() => {});
+                player.load();
+                player.play()?.catch(() => {});
               } catch { /* 무시 */ }
             }, 1500);
           } else {
@@ -550,7 +552,7 @@ const MovieSection = memo(({
           player.play()?.catch(() => {});
         }
       });
-    });
+    }).catch(() => { /* 청크 로드 실패 — 포스터 유지, 다음 마운트가 재시도(loadVideojs 캐시 리셋) */ });
 
     return () => {
       cancelled = true;
@@ -980,20 +982,33 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
   // 전체화면 모달 열렸을 때: 피드 영상 자동재생 차단 (회전/리사이즈 대응)
   useEffect(() => {
     if (!fullscreenVideo || !containerRef.current) return;
-    const feedVideos = Array.from(
-      containerRef.current.querySelectorAll<HTMLVideoElement>("video")
-    );
-    // 1) 즉시 모두 일시정지 + 음소거
-    feedVideos.forEach((v) => { v.pause(); v.muted = true; });
-    // 2) play 이벤트 발생 즉시 다시 pause (autoplay 재발동 차단)
+    const container = containerRef.current;
     const onPlay = (e: Event) => (e.target as HTMLVideoElement).pause();
-    feedVideos.forEach((v) => v.addEventListener("play", onPlay));
-    // 3) 회전/리사이즈 백업 — 이벤트 시 다시 일시정지
-    const pauseAll = () => feedVideos.forEach((v) => v.pause());
+    // 관찰 대상 <video> 를 즉시 정지·음소거 + play 재발동 가드 부착(멱등)
+    const guard = (v: HTMLVideoElement) => {
+      v.pause(); v.muted = true;
+      v.removeEventListener("play", onPlay);
+      v.addEventListener("play", onPlay);
+    };
+    const guarded = new Set<HTMLVideoElement>();
+    const guardAll = () => {
+      container.querySelectorAll<HTMLVideoElement>("video").forEach((v) => { guard(v); guarded.add(v); });
+    };
+    // 1) 진입 시점의 모든 <video> 가드
+    guardAll();
+    // 2) ⚠️ 지연로드(loadVideojs)로 전체화면 이후에 늦게 생성되는 플레이어는 스냅샷에 없어
+    //    오버레이 뒤에서 소리내며 재생(더블오디오)될 수 있음 → MutationObserver 로 새로
+    //    추가되는 <video> 도 즉시 가드(2026-07-14 async 전환 대응).
+    const mo = new MutationObserver(guardAll);
+    mo.observe(container, { childList: true, subtree: true });
+    // 3) 회전/리사이즈 백업 — 이벤트 시 (신규 포함) 전부 일시정지
+    const pauseAll = () => container.querySelectorAll<HTMLVideoElement>("video").forEach((v) => v.pause());
     window.addEventListener("resize", pauseAll);
     window.addEventListener("orientationchange", pauseAll);
     return () => {
-      feedVideos.forEach((v) => v.removeEventListener("play", onPlay));
+      mo.disconnect();
+      guarded.forEach((v) => v.removeEventListener("play", onPlay));
+      container.querySelectorAll<HTMLVideoElement>("video").forEach((v) => v.removeEventListener("play", onPlay));
       window.removeEventListener("resize", pauseAll);
       window.removeEventListener("orientationchange", pauseAll);
     };
@@ -1933,7 +1948,7 @@ const DesktopMovieCard = memo(function DesktopMovieCard({ video, onVideoClick, o
           if (pp2) pp2.catch(() => {});
         }
       });
-    });
+    }).catch(() => { videoEl.remove(); /* 청크 로드 실패 — 고아 video 제거, 다음 호버가 재시도 */ });
     // 생성 전 이탈(호버 해제·deps 변경) 시 대기 중 생성 취소 — 플레이어가 이미 만들어졌다면
     //   기존 정책 유지(호버 해제 effect 가 pause, 언마운트 effect 가 dispose).
     return () => { cancelled = true; if (!playerRef.current) videoEl.remove(); };

@@ -391,9 +391,13 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
         let formatData: (CarouselVideo[] | null)[] | null = null;
         let rows: GenreRow[] | null = null;
         try {
-          // idle 프리페치 결과가 있으면 우선 소비(네트워크 0회) — 없거나 만료면 직접 호출
-          let bundle: any = (ottBundlePrefetch && Date.now() - ottBundlePrefetch.ts < OTT_BUNDLE_PREFETCH_TTL_MS)
-            ? await ottBundlePrefetch.p : null;
+          // idle 프리페치 결과가 있으면 우선 소비(네트워크 0회) — 없거나 만료면 직접 호출.
+          //   ⚠️ one-shot: 소비 즉시 삭제 — 안 지우면 재진입 때마다 옛 프라미스 재사용으로
+          //   5분간 백그라운드 갱신이 실제로는 안 돎(신규 업로드 반영 지연).
+          const pre = ottBundlePrefetch;
+          ottBundlePrefetch = null;
+          let bundle: any = (pre && Date.now() - pre.ts < OTT_BUNDLE_PREFETCH_TTL_MS)
+            ? await pre.p : null;
           if (!bundle) {
             const { data, error: bundleErr } = await supabase.rpc("get_feed_bundle", {
               p_tier: "ott",

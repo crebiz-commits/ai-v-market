@@ -109,7 +109,7 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
         if (!playerRef.current || playerRef.current.isDisposed()) return;
         playerRef.current.play()?.catch(() => {});
       });
-    });
+    }).catch(() => { if (!cancelled) safeComplete({ skipped: false }); /* 청크 로드 실패 — 광고 즉시 완료해 본편 재개(무한 일시정지 방지) */ });
 
     // 워치독: 4초 내 재생이 시작되지 않으면(간헐 autoplay 스톨) load+play 1회 재시도
     const watchdogId = window.setTimeout(() => {
