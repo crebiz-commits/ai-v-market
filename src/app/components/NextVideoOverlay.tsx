@@ -22,6 +22,7 @@ interface NextVideoOverlayProps {
   open: boolean;
   nextVideo: SimilarVideo | null;
   countdownSeconds?: number;     // 기본 8초
+  ageLocked?: boolean;            // 19+ 미인증 — 썸네일 블러(시청 차단은 이동 후 상세가 담당)
   onPlayNow: () => void;          // 즉시 재생
   onCancel: () => void;           // 자동재생 취소 (오버레이 닫기)
 }
@@ -30,6 +31,7 @@ export function NextVideoOverlay({
   open,
   nextVideo,
   countdownSeconds = 8,
+  ageLocked = false,
   onPlayNow,
   onCancel,
 }: NextVideoOverlayProps) {
@@ -121,7 +123,7 @@ export function NextVideoOverlay({
                   <img
                     src={nextVideo.thumbnail}
                     alt={nextVideo.title}
-                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                    className={`w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity ${ageLocked ? "blur-xl scale-110" : ""}`}
                   />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-[#1c1c1e] to-[#2d2d30]" />

@@ -6,6 +6,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../utils/supabaseClient";
 import { FollowButton } from "./FollowButton";
 import { CreatorChannel } from "./CreatorChannel";
+import { useBackButton } from "../hooks/useBackButton";
 import { useTranslation } from "react-i18next";
 import { formatCompactNumber } from "../i18n/numberFormat";
 import { getCategoryLabel, getAiToolLabel } from "../i18n/categoryLabels";
@@ -76,6 +77,9 @@ export function Channel({ onSignInClick, onProductClick, initialCreatorId, onCre
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<ChannelTab>("subscribed");
   const [selectedCreatorId, setSelectedCreatorId] = useState<string | null>(null);
+  // 채널 상세(CreatorChannel)를 back 스택에 등록 — 모바일 백/ESC 가 "채널 목록으로" 동작
+  //   (미등록 시 이전 탭/사이트 밖으로 이탈하던 결함, 2026-07-14)
+  useBackButton(!!selectedCreatorId, () => setSelectedCreatorId(null));
   const { user, isAuthenticated, loading: authLoading } = useAuth();
 
   // 외부에서 채널 진입 신호 들어오면 채택

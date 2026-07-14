@@ -305,7 +305,7 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
     (async () => {
       const { data } = await supabase
         .from("videos")
-        .select("id, title, thumbnail, creator, creator_id, category, genre, duration_seconds, likes, price_standard, highlight_start, highlight_end")
+        .select("id, title, thumbnail, creator, creator_id, category, genre, duration, duration_seconds, ai_tool, views, likes, price_standard, highlight_start, highlight_end")
         .gt("featured_hero_until", new Date().toISOString())
         .eq("visibility", "public")
         .eq("status", "ready")
@@ -322,7 +322,13 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
         (ci || []).forEach((r: any) => { if (r.creator_name) nameMap[r.creator_id] = r.creator_name; });
       }
       if (!cancelled) setFeatured(
-        data.map((d: any) => ({ ...d, creator_display_name: nameMap[d.creator_id] || d.creator })) as unknown as CarouselVideo[]
+        data.map((d: any) => ({
+          ...d,
+          creator_display_name: nameMap[d.creator_id] || d.creator,
+          // videos.views 는 TEXT — RPC 경로(bigint→number)와 달리 문자열로 오므로 숫자화
+          //   (안 하면 toProduct 의 typeof number 체크에 걸려 조회수 0 처리, 2026-07-14).
+          views: Number(d.views) || 0,
+        })) as unknown as CarouselVideo[]
       );
     })();
     return () => { cancelled = true; };
@@ -922,6 +928,7 @@ const CategoryRow = memo(function CategoryRow({
                       alt=""
                       loading="lazy"
                       decoding="async"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                       className={`w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500 ${g.isAgeLocked ? "blur-xl scale-110" : ""}`}
                     />
                   )}

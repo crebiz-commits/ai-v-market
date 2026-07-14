@@ -124,6 +124,7 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
                       <img
                         src={v.thumbnail}
                         alt={v.title}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                         className={`w-full h-full object-cover group-hover/card:scale-105 transition-transform ${isAgeLocked ? "blur-xl scale-110" : ""}`}
                       />
                     )}
@@ -143,7 +144,10 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
                     </span>
                   ) : null}
                   {/* hover 시 액션 버튼 오버레이 — hover 가능한 기기(마우스)에서만 렌더.
-                      터치 기기(폰/앱)에선 hidden: opacity-0 만으론 영역이 남아 탭을 가로채므로 display:none. */}
+                      터치 기기(폰/앱)에선 hidden: opacity-0 만으론 영역이 남아 탭을 가로채므로 display:none.
+                      19+ 잠금 카드는 미노출(VideoRowCarousel·Ott 와 동일 게이트) — 안 막으면
+                      미인증 사용자가 성인영상을 담기/좋아요 할 수 있던 구멍(2026-07-14). */}
+                  {!isAgeLocked && (
                   <div className="hidden [@media(hover:hover)]:flex absolute inset-x-0 top-0 p-2 items-center gap-1.5 bg-gradient-to-b from-black/95 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity">
                     <span
                       role="button"
@@ -173,6 +177,7 @@ export function TrendingHeroSection({ title, subtitle, videos, onVideoClick, onA
                       <ThumbsUp className={`w-3.5 h-3.5 ${isLiked(v.id) ? "text-red-300 fill-red-300" : "text-white"}`} />
                     </span>
                   </div>
+                  )}
                 </div>
                 </div>
                 <p className="text-xs md:text-base font-bold text-white mt-2 line-clamp-1">{v.title}</p>

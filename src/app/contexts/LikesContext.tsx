@@ -159,6 +159,9 @@ export function LikesProvider({ children }: { children: ReactNode }) {
         return n;
       });
       restoreCount();
+      // 롤백 = 토글 무효 → 재시드 보호도 해제. 안 지우면 seedCount 가드(toggledRef)가
+      //   이 영상의 이후 모든 신선한 좋아요 수 재시드를 세션 내내 차단(옛 값 고착).
+      toggledRef.current.delete(videoId);
       return "error";
     } finally {
       inFlight.current.delete(videoId);

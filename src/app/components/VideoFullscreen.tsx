@@ -168,7 +168,7 @@ export function VideoFullscreen({
       const p = playerRef.current;
       if (!p || p.isDisposed()) return;
 
-      if (e.key === "Escape") { onClose(); return; }
+      if (e.key === "Escape") { e.preventDefault(); onClose(); return; }  // preventDefault: App 전역 ESC(back)와 이중 처리 방지(back 2회→탭 점프)
       if (e.key === " ") { e.preventDefault(); togglePlay(); return; }
       if (e.key === "ArrowLeft") {
         e.preventDefault();

@@ -456,6 +456,10 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
       tool: v.ai_tool || "AI",
       category: v.category || undefined,
       videoUrl: v.video_url || "",
+      // 좋아요/조회수 전달 — 누락 시 상세의 seed 가 비어 진입 경로에 따라 카운트 표시가
+      //   흔들리던 것 방지(views 는 undefined 허용 — 0 강제 시 seed-once 0 고착).
+      likes: v.likes ?? 0,
+      views: typeof v.views_count === "number" && v.views_count > 0 ? v.views_count : undefined,
     });
   };
 

@@ -189,6 +189,7 @@ const AdVideoPlayer = memo(({ src, poster }: { src: string; poster?: string | nu
   return (
     <div
       ref={containerRef}
+      data-ad-player=""
       className="absolute inset-0 w-full h-full [&_.video-js]:w-full [&_.video-js]:h-full [&_.vjs-tech]:object-cover"
     />
   );
@@ -984,8 +985,12 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
     if (!fullscreenVideo || !containerRef.current) return;
     const container = containerRef.current;
     const onPlay = (e: Event) => (e.target as HTMLVideoElement).pause();
-    // 관찰 대상 <video> 를 즉시 정지·음소거 + play 재발동 가드 부착(멱등)
+    // 관찰 대상 <video> 를 즉시 정지·음소거 + play 재발동 가드 부착(멱등).
+    //   광고 플레이어(data-ad-player)는 제외 — 상시 muted 라 더블오디오 위험이 없고,
+    //   가드에 걸리면 onClose 재개 대상([data-video-id])이 아니라서 영구 정지됨
+    //   (HOME_FEED_SELF_ADS ON 시 발현될 지뢰, 2026-07-14 선제 제거).
     const guard = (v: HTMLVideoElement) => {
+      if (v.closest("[data-ad-player]")) return;
       v.pause(); v.muted = true;
       v.removeEventListener("play", onPlay);
       v.addEventListener("play", onPlay);
@@ -1001,8 +1006,10 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
     //    추가되는 <video> 도 즉시 가드(2026-07-14 async 전환 대응).
     const mo = new MutationObserver(guardAll);
     mo.observe(container, { childList: true, subtree: true });
-    // 3) 회전/리사이즈 백업 — 이벤트 시 (신규 포함) 전부 일시정지
-    const pauseAll = () => container.querySelectorAll<HTMLVideoElement>("video").forEach((v) => v.pause());
+    // 3) 회전/리사이즈 백업 — 이벤트 시 (신규 포함) 전부 일시정지 (광고 제외 — 위와 동일 사유)
+    const pauseAll = () => container.querySelectorAll<HTMLVideoElement>("video").forEach((v) => {
+      if (!v.closest("[data-ad-player]")) v.pause();
+    });
     window.addEventListener("resize", pauseAll);
     window.addEventListener("orientationchange", pauseAll);
     return () => {
@@ -1775,6 +1782,7 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
                 videoCreatorId={commentVideo.creatorId}
                 title={commentVideo.title}
                 onClose={() => setCommentVideo(null)}
+                onViewCreator={(cid) => { setCommentVideo(null); onViewCreator?.(cid); }}
                 mode="sheet"
               />
             </motion.div>

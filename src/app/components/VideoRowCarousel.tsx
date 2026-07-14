@@ -147,6 +147,7 @@ const VideoCard = memo(function VideoCard({ video, idx, onVideoClick, onAddToCar
             src={video.thumbnail}
             alt={video.title}
             loading="lazy"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
             className={`w-full h-full object-cover ${isAgeLocked ? "blur-xl scale-110" : ""}`}
           />
         ) : (

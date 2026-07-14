@@ -23,16 +23,18 @@ export function useSeriesCounts(videoIds: string[]): CountMap {
         const { data, error } = await supabase.rpc("get_series_counts_for_videos", {
           p_video_ids: missing,
         });
-        if (!error && data) {
-          for (const row of data as { video_id: string; episode_count: number }[]) {
-            cache[row.video_id] = row.episode_count || 0;
-          }
+        // ⚠️ supabase-js 는 실패를 throw 하지 않고 error 객체로 반환 → throw 로 승격해야
+        //   아래 "0 캐시"가 실행되지 않음. 안 하면 순단 1회에 전 영상이 0으로 영구 캐시돼
+        //   세션 내내 시리즈 배지가 사라짐(useAgeRatings 와 동일 패턴, 2026-07-14 수정).
+        if (error) throw error;
+        for (const row of (data || []) as { video_id: string; episode_count: number }[]) {
+          cache[row.video_id] = row.episode_count || 0;
         }
-        // 응답에 없는 id(시리즈 아님 등)는 0으로 캐시 → 재요청 방지
+        // 성공 응답에 없는 id(시리즈 아님 등)만 0으로 캐시 → 재요청 방지
         for (const id of missing) if (!(id in cache)) cache[id] = 0;
         if (!cancelled) force((n) => n + 1);
       } catch {
-        // 조용한 폴백 — 배지만 안 보임
+        // 조용한 폴백 — 이번 마운트에선 배지만 안 보임(캐시 미기록 → 다음 마운트가 재시도)
       }
     })();
     return () => { cancelled = true; };

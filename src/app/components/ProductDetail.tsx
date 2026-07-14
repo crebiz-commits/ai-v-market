@@ -24,6 +24,8 @@ import { FollowButton } from "./FollowButton";
 import { VideoEditModal } from "./VideoEditModal";
 import { Pencil, Clock as ClockIcon, Play, Pause } from "lucide-react";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
+import { useAgeRatings } from "../hooks/useAgeRatings";
+import { useSeriesCounts } from "../hooks/useSeriesCounts";
 import { AgeGateModal } from "./AgeGateModal";
 import { ShareModal } from "./ShareModal";
 import { NextVideoOverlay } from "./NextVideoOverlay";
@@ -140,7 +142,10 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   //   baseLikes = fetch 한 기준 카운트, 표시값은 스토어의 세션 순증감을 더해 계산
   const [baseLikes, setBaseLikes] = useState<number>(productProp.likes ?? 0);
   const likesCount = likesDisplayCount(productProp.id, baseLikes);
-  useEffect(() => { seedLikeCount(productProp.id, productProp.likes ?? 0); seedViews(productProp.id, productProp.views ?? 0); }, [productProp.id, productProp.likes, productProp.views, seedLikeCount, seedViews]);
+  // ⚠️ seedViews 는 양수일 때만 — views 미상 진입 경로(toProduct 류가 0 기본값)에서 0 이
+  //   seed-once 로 고착돼 이후 실값 시드가 전부 무시(전 피드 조회수 표시 소멸)되던 결함(2026-07-14).
+  //   0/미상은 스킵하고 아래 메타 fetch 재시드(서버 SSOT, TEXT 파싱 수정됨)가 확정값을 채움.
+  useEffect(() => { seedLikeCount(productProp.id, productProp.likes ?? 0); seedViews(productProp.id, productProp.views || undefined); }, [productProp.id, productProp.likes, productProp.views, seedLikeCount, seedViews]);
   const [viewsCount, setViewsCount] = useState<number>(productProp.views ?? 0);
   // Phase 31.3 — 라이선스 9개 체크리스트 모바일 접기/펼치기
   const [licenseExpanded, setLicenseExpanded] = useState(false);
@@ -341,7 +346,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
           "ai_model_version, prompt, seed, resolution, tags, " +
           "sponsor_brand, sponsor_logo_url, sponsor_disclosure, sponsor_link_url, " +
           "license_type, license_source_url, attribution, original_creator, " +
-          "likes, views, series_id, season_number, episode_number, created_at"
+          "price_standard, likes, views, series_id, season_number, episode_number, created_at"
         )
         .eq("id", product.id)
         .maybeSingle();
@@ -378,6 +383,9 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
         licenseSourceUrl: d.license_source_url || undefined,
         attribution: d.attribution || undefined,
         originalCreator: d.original_creator || undefined,
+        // 가격 보강(서버 SSOT) — 채널/이어보기 등 가격 미반환 RPC 경유 진입 시 price:0 하드코딩으로
+        //   유료 영상이 "무료 시청 전용"으로 표시되고 구매 경로가 죽던 결함 수정(2026-07-14).
+        price: typeof d.price_standard === "number" ? d.price_standard : undefined,
       });
       // 시리즈 회차 목록 로드 (시리즈에 속한 영상만)
       if (d.series_id) {
@@ -392,7 +400,10 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       }
       // Phase 31.6 — 카운트 표시. 전역 스토어에 seed-once(이미 있으면 무시 → 경합/깜빡임 방지).
       if (typeof d.likes === "number") { setBaseLikes(d.likes); seedLikeCount(product.id, d.likes); }
-      if (typeof d.views === "number") { setViewsCount(d.views); seedViews(product.id, d.views); }
+      // ⚠️ videos.views 는 TEXT 컬럼 — `typeof === "number"` 는 영원히 false 라 이 재시드 경로가
+      //   죽어 있었음(조회수 0 진입 시 복구 불가). Number 파싱으로 흡수(2026-07-14).
+      const viewsNum = Number(d.views);
+      if (d.views != null && Number.isFinite(viewsNum)) { setViewsCount(viewsNum); seedViews(product.id, viewsNum); }
       } finally {
         // 메타(오류·no-data 포함) 판정 종료 → 재생 게이트 해제. no-data 는 age_rating='all' 기본으로 재생.
         if (!cancelled) setMetaReady(true);
@@ -1082,6 +1093,16 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   // ── Phase 16: 연속 재생 (영상 종료 → 다음 영상 카운트다운) ──
   const [nextVideo, setNextVideo] = useState<{ id: string; title: string; thumbnail?: string | null; creator?: string | null; duration?: string | null; views?: number | null } | null>(null);
   const [showNextOverlay, setShowNextOverlay] = useState(false);
+  // 관련영상·다음영상 연령등급/시리즈 보충 — get_similar_videos 는 age_rating 을 반환하지 않아
+  //   훅 미연결 시 19+ 썸네일이 미인증 사용자에게 무블러 노출(fail-open)되던 결함 수정(2026-07-14).
+  //   시네마/OTT 캐러셀과 동일 패턴. nextVideo 도 포함해 연속재생 오버레이 썸네일 블러에 사용.
+  const relatedIds = useMemo(
+    () => [...similarVideos.map((v) => v.id), ...(nextVideo ? [nextVideo.id] : [])],
+    [similarVideos, nextVideo],
+  );
+  const relatedAgeRatings = useAgeRatings(relatedIds);
+  const relatedSeriesCounts = useSeriesCounts(relatedIds);
+  const nextVideoAgeLocked = !!nextVideo && shouldBlur(relatedAgeRatings[nextVideo.id], profile?.age_verified ?? false);
   // Phase 28: Post-roll 광고 (영상 종료 후, NextVideoOverlay 직전)
   const [postrollAd, setPostrollAd] = useState<AdRpcResult | null>(null);
   // 영상 변경 시 오버레이 초기화 (다른 영상 연속 재생할 때 잔류 방지)
@@ -1445,6 +1466,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
             open={showNextOverlay}
             nextVideo={nextVideo}
             countdownSeconds={8}
+            ageLocked={nextVideoAgeLocked}
             onPlayNow={() => {
               if (nextVideo && onNavigateToVideo) {
                 setShowNextOverlay(false);
@@ -2115,6 +2137,8 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                 title={t("productDetail.similarVideosTitle")}
                 subtitle={t("productDetail.similarVideosSubtitle")}
                 videos={similarVideos}
+                ageRatings={relatedAgeRatings}
+                seriesCounts={relatedSeriesCounts}
                 onVideoClick={(v) => {
                   if (onNavigateToVideo) onNavigateToVideo(v.id);
                 }}

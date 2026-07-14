@@ -54,19 +54,24 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
   const pause = useCallback(() => { pausedRef.current = true; }, []);
   const resume = useCallback(() => { pausedRef.current = false; }, []);
 
-  // 끊김 없는 연속 흐름 — rAF로 scrollLeft 증가. 절반(1벌) 지나면 -절반으로 무한 루프.
+  // 끊김 없는 연속 흐름 — rAF로 scrollLeft 증가. 주기(1벌+gap) 지나면 -주기로 무한 루프.
+  //   Ott 마퀴(CategoryRow)에서 교정된 로직 이식(2026-07-14):
+  //   ① 주기 = (scrollWidth + GAP) / 2 — scrollWidth/2 는 gap 절반만큼 어긋나 매 바퀴 점프.
+  //   ② 한 벌 폭이 뷰포트 이하면 흐르지 않음 — scrollLeft 가 maxScroll 에 클램프돼 주기에
+  //      영영 도달 못 하고 우측 끝에서 고착되던 것 방지(배너 1~3개+와이드 화면).
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || banners.length === 0) return;
-    const SPEED = 0.5; // px/frame (~30px/s, 천천히)
+    const SPEED = 0.5;  // px/frame (~30px/s, 천천히)
+    const GAP = 12;     // 카드 간 gap (scrollByCard 의 +12 와 동일 값 유지)
     let raf = 0;
     const tick = () => {
-      const half = el.scrollWidth / 2;   // 복제 1벌 폭
-      if (half > 0) {
+      const period = (el.scrollWidth + GAP) / 2;   // 복제 1벌 폭 + 벌 사이 gap
+      if (period > el.clientWidth) {               // 흐를 공간이 있을 때만
         if (!pausedRef.current) el.scrollLeft += SPEED;
         // 이음매 없는 루프 (앞/뒤 양방향)
-        if (el.scrollLeft >= half) el.scrollLeft -= half;
-        else if (el.scrollLeft < 0) el.scrollLeft += half;
+        if (el.scrollLeft >= period) el.scrollLeft -= period;
+        else if (el.scrollLeft < 0) el.scrollLeft += period;
       }
       raf = requestAnimationFrame(tick);
     };

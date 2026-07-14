@@ -24,8 +24,15 @@ export function useAgeRatings(videoIds: string[]): RatingMap {
   const [version, force] = useState(0);
   const [retry, setRetry] = useState(0);
   const retryCountRef = useRef(0);
+  const lastKeyRef = useRef(key);
 
   useEffect(() => {
+    // key(대상 id 집합) 변경 시 재시도 예산 리셋 — 안 하면 이전 페이지 실패로 소진된
+    //   예산이 무한스크롤로 추가된 새 id 들에도 적용돼 첫 실패에 바로 포기(fail-open 창 확대).
+    if (lastKeyRef.current !== key) {
+      lastKeyRef.current = key;
+      retryCountRef.current = 0;
+    }
     // 캐시 miss인 id만 fetch
     const missing = videoIds.filter((id) => id && !(id in cache));
     if (missing.length === 0) return;

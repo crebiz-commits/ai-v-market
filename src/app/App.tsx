@@ -12,7 +12,7 @@
 // 초기화 스크립트를 가장 먼저 import (콘솔 필터 설치)
 import './init';
 
-import { useState, useEffect, useCallback, Suspense, type ReactElement, type CSSProperties } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense, type ReactElement, type CSSProperties } from "react";
 import { lazyRetry as lazy } from "./utils/lazyRetry";
 import { isNegotiationOnly } from "./utils/licensePricing";
 import { usePayment } from "./hooks/usePayment";
@@ -488,6 +488,11 @@ function AppContent() {
         seed: data.seed || "",
         highlightStart: data.highlight_start || 0,
         highlightEnd: data.highlight_end || 15,
+        // 좋아요/조회수 전달(select * 라 응답에 있음) — 누락 시 알림·딥링크·시청기록 진입 영상의
+        //   카운트 seed 가 비던 것 보강. views 는 TEXT 컬럼이라 Number 파싱, 0/무효면 undefined
+        //   (0 을 넘기면 seed-once 0 고착 — LikesContext 참조).
+        likes: typeof data.likes === "number" ? data.likes : 0,
+        views: Number(data.views) > 0 ? Number(data.views) : undefined,
         // Phase 28: Sponsorship
         sponsorBrand: data.sponsor_brand || null,
         sponsorLogoUrl: data.sponsor_logo_url || null,
@@ -960,7 +965,9 @@ function AppContent() {
   //   App 레벨 오버레이(상품/패널/Auth)뿐 아니라 페이지 레벨 모달(햄버거·댓글패널·편집 등)도 LIFO 로 닫힘.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && hasBackHandlers()) {
+      // defaultPrevented: 자체 Escape 처리가 있는 오버레이(전체화면 플레이어·다음영상 카운트다운 등)가
+      //   이미 소비한 ESC 를 여기서 또 back() 하면 이중 pop — 탭 점프/사이트 이탈(2026-07-14 수정).
+      if (e.key === "Escape" && !e.defaultPrevented && hasBackHandlers()) {
         window.history.back();
       }
     };
@@ -972,6 +979,21 @@ function AppContent() {
   useBackButton(!!selectedProduct, () => setSelectedProduct(null));
   useBackButton(!!activePanel, () => setActivePanel(null));
   useBackButton(showAuthModal, () => setShowAuthModal(false));
+
+  // 상세 닫힘 시 ?video= 파라미터 정리 — 잔존하면 탭 URL 동기화·popstate 가 조기 return 되고
+  //   canonical 이 영상 URL 로 고정되며 새로고침 시 상세가 재오픈됨(2026-07-14 수정).
+  //   replaceState 라 back 스택과 충돌 없음. 마운트 직후(딥링크 소비 전)엔 건드리지 않도록 가드.
+  const hadProductRef = useRef(false);
+  useEffect(() => {
+    if (selectedProduct) { hadProductRef.current = true; return; }
+    if (!hadProductRef.current) return;   // 첫 마운트 보호 — ?video= 딥링크가 소비되기 전 삭제 방지
+    hadProductRef.current = false;
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("video")) {
+      url.searchParams.delete("video");
+      window.history.replaceState(window.history.state, "", url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : "") + url.hash);
+    }
+  }, [selectedProduct]);
 
   // 탭 청크 프리페치: 앱 idle 시 메인 탭 lazy 청크를 미리 받아둠 → 첫 탭 전환 시 다운로드 대기(스피너) 제거.
   // (이미 받은 청크는 브라우저가 dedup, 실패해도 무해)

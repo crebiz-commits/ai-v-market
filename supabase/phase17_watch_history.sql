@@ -53,7 +53,8 @@ BEGIN
     v.title,
     v.thumbnail,
     v.creator_id,
-    p.display_name AS creator_name,
+    -- display_name 빈 프로필 폴백(videos.creator 원문) — 없으면 검색 이어보기에서 이름 공백(2026-07-14)
+    COALESCE(NULLIF(p.display_name, ''), v.creator) AS creator_name,
     COALESCE(v.duration_seconds, lv.video_duration) AS duration_seconds,
     lv.watch_seconds,
     lv.watch_ratio,
