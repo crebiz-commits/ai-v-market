@@ -68,9 +68,22 @@ function buildOgHtml(html: string, video: Video, pageUrl: string): string {
     : (rawThumb || `${SITE}/api/og-image`);
   // 동영상 임베드 — videos.id=Bunny GUID → 실제 플레이어(iframe). 페이지 URL(자기 자신)을
   //   embedUrl 로 쓰면 GSC "동영상이 보기 페이지에 없음"으로 색인 실패(sitemap player_loc 과 동일 이슈).
-  const embedUrl = /^[0-9a-f-]{36}$/i.test(video.id)
+  const isBunnyVideo = /^[0-9a-f-]{36}$/i.test(video.id);
+  const embedUrl = isBunnyVideo
     ? `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${video.id}`
     : pageUrl;
+  // og:video 메타 + noscript iframe — VideoObject 만으론 "동영상이 보기 페이지에 없음"이 남는다.
+  //   SPA 라 봇이 JS 미실행 시 페이지에 플레이어가 없어 Google 이 실제 동영상을 못 찾음 →
+  //   봇이 JS 없이도 플레이어를 발견하도록 og:video 와 <noscript> 안 iframe 을 심는다(사용자엔 무영향).
+  const ogVideoMeta = isBunnyVideo ? `
+    <meta property="og:video" content="${escapeHtml(embedUrl)}" />
+    <meta property="og:video:secure_url" content="${escapeHtml(embedUrl)}" />
+    <meta property="og:video:type" content="text/html" />
+    <meta property="og:video:width" content="1280" />
+    <meta property="og:video:height" content="720" />` : "";
+  const noscriptPlayer = isBunnyVideo
+    ? `<iframe src="${escapeHtml(embedUrl)}" width="1280" height="720" style="border:0;max-width:100%" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture" allowfullscreen title="${escapeHtml(video.title || "")}"></iframe>`
+    : "";
 
   // GSC(2026-06-11): uploadDate 는 시간대 포함 완전한 ISO 8601 이어야 함.
   // 날짜만("2026-05-30") → '시간대 누락' 경고, 빈 문자열 → '값 잘못됨' 경고.
@@ -103,7 +116,7 @@ function buildOgHtml(html: string, video: Video, pageUrl: string): string {
     <meta property="og:site_name" content="CREAITE" />
     <meta property="og:title" content="${escapeHtml(title)}" />
     <meta property="og:description" content="${escapeHtml(description)}" />
-    <meta property="og:image" content="${escapeHtml(thumbnail)}" />
+    <meta property="og:image" content="${escapeHtml(thumbnail)}" />${ogVideoMeta}
     <meta property="og:url" content="${escapeHtml(pageUrl)}" />
     <meta property="og:locale" content="ko_KR" />
     <meta property="article:author" content="${escapeHtml(creator)}" />
@@ -115,7 +128,7 @@ function buildOgHtml(html: string, video: Video, pageUrl: string): string {
   `;
 
   // Phase 36 보강: SEO용 콘텐츠 (noscript — JS 활성 브라우저는 무시, 봇은 평가)
-  const noscriptBody = `<noscript><article><h1>${escapeHtml(title)}</h1><p>크리에이터: ${escapeHtml(creator)}</p><p>${escapeHtml(description)}</p><img src="${escapeHtml(thumbnail)}" alt="${escapeHtml(video.title || "")}" /><p><a href="https://www.creaite.net/">CREAITE — 세계 최초 AI 시네마 OTT</a></p></article></noscript>`;
+  const noscriptBody = `<noscript><article><h1>${escapeHtml(title)}</h1><p>크리에이터: ${escapeHtml(creator)}</p><p>${escapeHtml(description)}</p>${noscriptPlayer}<img src="${escapeHtml(thumbnail)}" alt="${escapeHtml(video.title || "")}" /><p><a href="https://www.creaite.net/">CREAITE — 세계 최초 AI 시네마 OTT</a></p></article></noscript>`;
 
   // 기존 <title>, og:* 메타 제거 후 새 메타 주입
   html = html.replace(/<title>[^<]*<\/title>/i, "");
