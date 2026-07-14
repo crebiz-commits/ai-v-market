@@ -24,6 +24,7 @@ RETURNS TABLE (
 LANGUAGE plpgsql
 SECURITY DEFINER
 STABLE
+SET search_path = public   -- SECURITY DEFINER search_path hijack 방어(불변식 게이트 #9)
 AS $$
 DECLARE
   v_user_id UUID := auth.uid();
@@ -82,6 +83,7 @@ CREATE OR REPLACE FUNCTION public.delete_my_watch_history(
 RETURNS INTEGER
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public   -- SECURITY DEFINER search_path hijack 방어(불변식 게이트 #9)
 AS $$
 DECLARE
   v_user_id UUID := auth.uid();
