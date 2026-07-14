@@ -169,6 +169,27 @@ function writeCinemaLS(cacheKey: string, snap: CinemaSnapshot) {
   try { localStorage.setItem(CINEMA_LS_KEY, JSON.stringify({ key: cacheKey, ts: Date.now(), snap })); } catch { /* quota 등 무시 */ }
 }
 
+// ⚡ 데이터 프리페치(App idle에서 호출) — 홈에서 쉬는 동안 번들 RPC 를 미리 받아두고,
+//   탭 진입 시 loadAll 이 이 결과를 우선 소비 → 첫 전환도 네트워크 0회.
+//   원시 번들만 보관(매핑·캐시 기록은 컴포넌트 경로가 그대로 수행 = 로직 중복 없음). 5분 TTL.
+const cinemaBundlePrefetch: Record<string, { ts: number; p: Promise<any | null> }> = {};
+const BUNDLE_PREFETCH_TTL_MS = 5 * 60_000;
+export function prefetchCinemaFeed(userId: string | null, showcase: boolean) {
+  const key = `${userId ?? "anon"}:cinema:${showcase}`;
+  if (cinemaCache[key]) return;  // 이미 데워짐(세션 캐시) — 불필요한 호출 안 함
+  const pre = cinemaBundlePrefetch[key];
+  if (pre && Date.now() - pre.ts < BUNDLE_PREFETCH_TTL_MS) return;  // 진행 중/최근 결과 재사용
+  cinemaBundlePrefetch[key] = {
+    ts: Date.now(),
+    p: Promise.resolve(supabase.rpc("get_feed_bundle", {
+      p_tier: "cinema",
+      p_genres: GENRES,
+      p_categories: FORMAT_DEFS.map((f) => f.category),
+      p_row_limit: 24,
+    })).then((r: any) => (r?.error ? null : (r?.data ?? null))).catch(() => null),
+  };
+}
+
 export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigate, onViewCreator, onSignInClick }: CinemaProps) {
   const { t } = useTranslation();
   const { collections } = useCollections();
@@ -235,13 +256,19 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
         let formatVideos: CarouselVideo[][] | null = null;
         let genreVideos: CarouselVideo[][] | null = null;
         try {
-          const { data: bundle, error: bundleErr } = await supabase.rpc("get_feed_bundle", {
-            p_tier: tier,
-            p_genres: GENRES,
-            p_categories: FORMAT_DEFS.map((f) => f.category),
-            p_row_limit: 24,
-          });
-          if (!bundleErr && bundle) {
+          // idle 프리페치 결과가 있으면 우선 소비(네트워크 0회) — 없거나 만료면 직접 호출
+          const pre = cinemaBundlePrefetch[cacheKey];
+          let bundle: any = (pre && Date.now() - pre.ts < BUNDLE_PREFETCH_TTL_MS) ? await pre.p : null;
+          if (!bundle) {
+            const { data, error: bundleErr } = await supabase.rpc("get_feed_bundle", {
+              p_tier: tier,
+              p_genres: GENRES,
+              p_categories: FORMAT_DEFS.map((f) => f.category),
+              p_row_limit: 24,
+            });
+            if (!bundleErr) bundle = data;
+          }
+          if (bundle) {
             rec = bundle.recommended ?? [];
             trd = bundle.trending ?? [];
             nrl = bundle.new_releases ?? [];

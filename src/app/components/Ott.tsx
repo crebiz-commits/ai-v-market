@@ -166,6 +166,24 @@ function readOttLS(key: string): OttSnapshot | null {
 function writeOttLS(key: string, snap: OttSnapshot) {
   try { localStorage.setItem(OTT_LS_KEY, JSON.stringify({ key, ts: Date.now(), snap })); } catch { /* quota 등 무시 */ }
 }
+
+// ⚡ 데이터 프리페치(App idle에서 호출) — 번들 RPC 를 미리 받아 loadAll 이 우선 소비.
+//   원시 번들만 보관(매핑·showcase 머지는 컴포넌트 경로가 수행 = 로직 중복 없음). 5분 TTL.
+let ottBundlePrefetch: { ts: number; p: Promise<any | null> } | null = null;
+const OTT_BUNDLE_PREFETCH_TTL_MS = 5 * 60_000;
+export function prefetchOttFeed() {
+  if (Object.keys(ottCache).length > 0) return;  // 이미 데워짐(세션 캐시)
+  if (ottBundlePrefetch && Date.now() - ottBundlePrefetch.ts < OTT_BUNDLE_PREFETCH_TTL_MS) return;
+  ottBundlePrefetch = {
+    ts: Date.now(),
+    p: Promise.resolve(supabase.rpc("get_feed_bundle", {
+      p_tier: "ott",
+      p_genres: GENRES,
+      p_categories: OTT_FORMAT_DEFS.map((f) => f.category),
+      p_row_limit: 24,
+    })).then((r: any) => (r?.error ? null : (r?.data ?? null))).catch(() => null),
+  };
+}
 // 히어로 영상 소스 캐시(heroId → src) — 30초(상한) 회전마다 같은 영상 video_url 재조회 방지
 type HeroSrc = { videoId: string; url: string; start: number; end: number; clipUrl?: string; previewUrl?: string };
 const heroSrcCache = new Map<string, HeroSrc>();
@@ -373,13 +391,19 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
         let formatData: (CarouselVideo[] | null)[] | null = null;
         let rows: GenreRow[] | null = null;
         try {
-          const { data: bundle, error: bundleErr } = await supabase.rpc("get_feed_bundle", {
-            p_tier: "ott",
-            p_genres: GENRES,
-            p_categories: OTT_FORMAT_DEFS.map((f) => f.category),
-            p_row_limit: 24,
-          });
-          if (!bundleErr && bundle) {
+          // idle 프리페치 결과가 있으면 우선 소비(네트워크 0회) — 없거나 만료면 직접 호출
+          let bundle: any = (ottBundlePrefetch && Date.now() - ottBundlePrefetch.ts < OTT_BUNDLE_PREFETCH_TTL_MS)
+            ? await ottBundlePrefetch.p : null;
+          if (!bundle) {
+            const { data, error: bundleErr } = await supabase.rpc("get_feed_bundle", {
+              p_tier: "ott",
+              p_genres: GENRES,
+              p_categories: OTT_FORMAT_DEFS.map((f) => f.category),
+              p_row_limit: 24,
+            });
+            if (!bundleErr) bundle = data;
+          }
+          if (bundle) {
             trd = bundle.trending ?? [];
             formatData = OTT_FORMAT_DEFS.map((f) => ((bundle.formats?.[f.category] ?? []) as CarouselVideo[]));
             rows = GENRES.map((g) => ({ category: g, videos: (bundle.genres?.[g] ?? []) as CarouselVideo[] } as GenreRow));

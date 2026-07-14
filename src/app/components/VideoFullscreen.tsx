@@ -1,8 +1,8 @@
 import { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Play, Pause, Volume2, VolumeX, Heart, MessageCircle, Send, Minimize2, Maximize2, Gauge, PictureInPicture2 } from "lucide-react";
-import videojs from "video.js";
-import "video.js/dist/video-js.css";
+// video.js 는 정적 import 금지(홈 피드 선행 의존성 방지) — 마운트 시 지연 로드.
+import { loadVideojs } from "../utils/videojsLoader";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { CreatorAvatar } from "./CreatorAvatar";
 import { trackVideoView } from "../utils/viewTracking";
@@ -77,7 +77,11 @@ export function VideoFullscreen({
     maxWatchedRef.current = 0;
     trackedRef.current = false;
 
-    const player = videojs(videoRef.current, {
+    let cancelled = false;
+    let createdPlayer: any = null;
+    void loadVideojs().then((videojs) => {
+      if (cancelled || !videoRef.current) return;
+      const player = videojs(videoRef.current, {
       autoplay: true,
       controls: false,
       muted: false,
@@ -86,6 +90,7 @@ export function VideoFullscreen({
       preload: "auto",
       html5: { vhs: { withCredentials: false } },
     });
+    createdPlayer = player;
     player.src({
       src: video.videoUrl,
       type: video.videoUrl.includes(".m3u8") ? "application/x-mpegURL" : "video/mp4",
@@ -132,12 +137,14 @@ export function VideoFullscreen({
     player.on("error", () => { toast.error(t("discoveryFeed.videoProcessing")); });
 
     playerRef.current = player;
+    });
     return () => {
+      cancelled = true;
       // unmount/영상교체 시점에 30%에 못 도달했어도 5초+ 시청은 기록
       if (!trackedRef.current && maxWatchedRef.current >= 5 && video.id) {
         trackVideoView(video.id, Math.floor(maxWatchedRef.current));
       }
-      if (player && !player.isDisposed()) player.dispose();
+      if (createdPlayer && !createdPlayer.isDisposed()) createdPlayer.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video.id, video.videoUrl]);

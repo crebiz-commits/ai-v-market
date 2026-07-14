@@ -9,8 +9,8 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { ExternalLink, SkipForward, Volume2, VolumeX, Loader2 } from "lucide-react";
-import videojs from "video.js";
-import "video.js/dist/video-js.css";
+// video.js 는 정적 import 금지(상세 페이지 선행 의존성 방지) — 광고 마운트 시 지연 로드.
+import { loadVideojs } from "../utils/videojsLoader";
 import type Player from "video.js/dist/types/player";
 import { recordAdClick, recordAdImpression, type AdRpcResult, type AdFormat } from "../utils/adFetch";
 import { openExternal } from "../utils/openExternal";
@@ -60,51 +60,55 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
     container.appendChild(videoEl);
 
     const isHls = ad.video_url.includes(".m3u8");
-    const player = videojs(videoEl, {
-      autoplay: true,
-      muted: true,
-      controls: false,
-      preload: "auto",
-      playsinline: true,
-      fill: true,
-      responsive: true,
-      crossOrigin: "anonymous",
-      sources: [{
-        src: ad.video_url,
-        type: isHls ? "application/x-mpegURL" : "video/mp4",
-      }],
-    });
-    playerRef.current = player;
+    let cancelled = false;
+    void loadVideojs().then((videojs) => {
+      if (cancelled) return;
+      const player = videojs(videoEl, {
+        autoplay: true,
+        muted: true,
+        controls: false,
+        preload: "auto",
+        playsinline: true,
+        fill: true,
+        responsive: true,
+        crossOrigin: "anonymous",
+        sources: [{
+          src: ad.video_url,
+          type: isHls ? "application/x-mpegURL" : "video/mp4",
+        }],
+      });
+      playerRef.current = player;
 
-    player.on("timeupdate", () => {
-      if (!playerRef.current || playerRef.current.isDisposed()) return;
-      const t = Math.floor(player.currentTime() || 0);
-      setElapsed(t);
-    });
+      player.on("timeupdate", () => {
+        if (!playerRef.current || playerRef.current.isDisposed()) return;
+        const t = Math.floor(player.currentTime() || 0);
+        setElapsed(t);
+      });
 
-    // 실제 재생 시작 → 로딩 스피너 제거
-    player.on("playing", () => setLoading(false));
+      // 실제 재생 시작 → 로딩 스피너 제거
+      player.on("playing", () => setLoading(false));
 
-    player.on("ended", () => {
-      if (!playerRef.current || playerRef.current.isDisposed()) return;
-      // ⚠️ 노출(impression)은 mount(위 effect)에서 1회만 기록한다. 여기서 다시
-      //    recordAdImpression 하면 예산 NULL(house) 광고는 서버 dedup 이 건너뛰어져
-      //    노출이 2배 집계된다(= 크리에이터 광고수익 2배 과지급). 재기록하지 않는다.
-      safeComplete({ skipped: false });
-    });
+      player.on("ended", () => {
+        if (!playerRef.current || playerRef.current.isDisposed()) return;
+        // ⚠️ 노출(impression)은 mount(위 effect)에서 1회만 기록한다. 여기서 다시
+        //    recordAdImpression 하면 예산 NULL(house) 광고는 서버 dedup 이 건너뛰어져
+        //    노출이 2배 집계된다(= 크리에이터 광고수익 2배 과지급). 재기록하지 않는다.
+        safeComplete({ skipped: false });
+      });
 
-    player.on("error", () => {
-      const err = playerRef.current?.error?.();
-      console.error("[AdMidrollPlayer] video.js error", err);
-      safeComplete({ skipped: false });
-    });
+      player.on("error", () => {
+        const err = playerRef.current?.error?.();
+        console.error("[AdMidrollPlayer] video.js error", err);
+        safeComplete({ skipped: false });
+      });
 
-    // 음소거 자동재생만 사용(가장 안정). 소리는 사용자가 우상단 버튼으로 켬.
-    //   ⚠️ 기존엔 자동 unmute 후 재생을 재시도했는데, 브라우저 autoplay 정책이
-    //   unmute 재생을 차단하면 영상이 멈춰 "검은 화면"이 되는 간헐 버그(3~4회 중 1회) 유발 → 제거.
-    player.ready(() => {
-      if (!playerRef.current || playerRef.current.isDisposed()) return;
-      playerRef.current.play()?.catch(() => {});
+      // 음소거 자동재생만 사용(가장 안정). 소리는 사용자가 우상단 버튼으로 켬.
+      //   ⚠️ 기존엔 자동 unmute 후 재생을 재시도했는데, 브라우저 autoplay 정책이
+      //   unmute 재생을 차단하면 영상이 멈춰 "검은 화면"이 되는 간헐 버그(3~4회 중 1회) 유발 → 제거.
+      player.ready(() => {
+        if (!playerRef.current || playerRef.current.isDisposed()) return;
+        playerRef.current.play()?.catch(() => {});
+      });
     });
 
     // 워치독: 4초 내 재생이 시작되지 않으면(간헐 autoplay 스톨) load+play 1회 재시도
@@ -123,12 +127,16 @@ export function AdMidrollPlayer({ ad, videoId, format, onComplete }: AdMidrollPl
     }, (maxDur + 5) * 1000);
 
     return () => {
+      cancelled = true;
       window.clearTimeout(timeoutId);
       window.clearTimeout(watchdogId);
       if (playerRef.current && !playerRef.current.isDisposed()) {
         playerRef.current.dispose();
+        playerRef.current = null;
+      } else {
+        playerRef.current = null;
+        videoEl.remove();  // 플레이어 생성 전 언마운트 — 고아 <video> 제거
       }
-      playerRef.current = null;
     };
   }, [ad.ad_id, ad.video_url, ad.duration_seconds, videoId, format]);
 

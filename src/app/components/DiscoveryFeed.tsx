@@ -3,8 +3,9 @@ import { useTranslation } from "react-i18next";
 import { Heart, Share2, ShoppingCart, Volume2, VolumeX, Loader2, Play, MessageCircle, MessageSquare, Send, ChevronRight, ChevronLeft, ExternalLink, Maximize2, Search, Eye } from "lucide-react";
 import { formatCompactNumber } from "../i18n/numberFormat";
 import { motion, AnimatePresence } from "motion/react";
-import videojs from "video.js";
-import "video.js/dist/video-js.css";
+// video.js 는 정적 import 금지 — 685KB(gz 204KB)가 홈 피드 청크의 선행 의존성이 돼
+//   첫 행 렌더가 다운로드+파싱을 기다림. 플레이어 마운트 시점에 지연 로드(videojsLoader).
+import { loadVideojs } from "../utils/videojsLoader";
 import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
 import { sendAdEvent } from "../utils/adEvent";
@@ -150,29 +151,38 @@ const AdVideoPlayer = memo(({ src, poster }: { src: string; poster?: string | nu
     if (poster) videoEl.poster = poster;
     container.appendChild(videoEl);
 
-    const player = videojs(videoEl, {
-      autoplay: true, controls: false, loop: true, muted: true,
-      fill: true, responsive: true, playsinline: true, preload: "metadata",
-      crossOrigin: "anonymous",
-      sources: [{ src, type: src.includes(".m3u8") ? "application/x-mpegURL" : "video/mp4" }],
-    });
-    player.muted(true);
-    playerRef.current = player;
+    let cancelled = false;
+    let io: IntersectionObserver | null = null;
+    void loadVideojs().then((videojs) => {
+      if (cancelled) return;
+      const player = videojs(videoEl, {
+        autoplay: true, controls: false, loop: true, muted: true,
+        fill: true, responsive: true, playsinline: true, preload: "metadata",
+        crossOrigin: "anonymous",
+        sources: [{ src, type: src.includes(".m3u8") ? "application/x-mpegURL" : "video/mp4" }],
+      });
+      player.muted(true);
+      playerRef.current = player;
 
-    const io = new IntersectionObserver(
-      ([e]) => {
-        const p = playerRef.current;
-        if (!p || p.isDisposed()) return;
-        if (e.isIntersecting) p.play()?.catch(() => {});
-        else p.pause();
-      },
-      { threshold: 0.4 },
-    );
-    io.observe(container);
+      // IO 는 플레이어 생성 후 등록 — observe 시 현재 교차상태로 1회 즉시 발화하므로
+      //   지연 로드 완료 시점에 이미 화면 안이면 바로 재생이 시작됨.
+      io = new IntersectionObserver(
+        ([e]) => {
+          const p = playerRef.current;
+          if (!p || p.isDisposed()) return;
+          if (e.isIntersecting) p.play()?.catch(() => {});
+          else p.pause();
+        },
+        { threshold: 0.4 },
+      );
+      io.observe(container);
+    });
 
     return () => {
-      io.disconnect();
+      cancelled = true;
+      io?.disconnect();
       if (playerRef.current) { playerRef.current.dispose(); playerRef.current = null; }
+      else videoEl.remove();  // 플레이어 생성 전 언마운트 — 고아 <video> 제거
     };
   }, [src, poster]);
 
@@ -471,78 +481,85 @@ const MovieSection = memo(({
     if (video.thumbnail) videoEl.poster = video.thumbnail;
     container.appendChild(videoEl);
 
-    const player = videojs(videoEl, {
-      autoplay: false,
-      controls: false,
-      loop: true,
-      muted: true,
-      fill: true,
-      responsive: true,
-      playsinline: true,
-      preload: "metadata",
-      crossOrigin: 'anonymous',
-      sources: [{
-        src: video.videoUrl,
-        type: video.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
-      }]
-    });
+    let cancelled = false;
+    void loadVideojs().then((videojs) => {
+      if (cancelled) return;
+      const player = videojs(videoEl, {
+        autoplay: false,
+        controls: false,
+        loop: true,
+        muted: true,
+        fill: true,
+        responsive: true,
+        playsinline: true,
+        preload: "metadata",
+        crossOrigin: 'anonymous',
+        sources: [{
+          src: video.videoUrl,
+          type: video.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
+        }]
+      });
 
-    playerRef.current = player;
-    retryCountRef.current = 0;
-    player.muted(isMuted);
-    player.ready(() => setPlayerReady(true));
+      playerRef.current = player;
+      retryCountRef.current = 0;
+      player.muted(isMuted);
+      player.ready(() => setPlayerReady(true));
 
-    player.on('playing', () => {
-      setIsPlaying(true);
-      retryCountRef.current = 0;  // 재생 성공 시 카운터 초기화
-    });
-    player.on('pause',   () => setIsPlaying(false));
-    player.on('waiting', () => setIsPlaying(false));
-    player.on('ended',   () => setIsPlaying(false));
-    player.on('error',   () => {
-      setIsPlaying(false);
-      const err = player.error();
-      // MEDIA_ERR_NETWORK(2) 또는 MEDIA_ERR_SRC_NOT_SUPPORTED(4) 시 자동 재시도 (최대 2회)
-      if (err && (err.code === 4 || err.code === 2)) {
-        if (retryCountRef.current < 2) {
-          retryCountRef.current += 1;
-          // 1.5초 후 src 재설정 + 재생 시도 (네트워크 회복 / CDN 캐시 안정 대기)
-          setTimeout(() => {
-            const p = playerRef.current;
-            if (!p || p.isDisposed()) return;
-            try {
-              p.src({
-                src: video.videoUrl,
-                type: video.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4',
-              });
-              p.load();
-              p.play()?.catch(() => {});
-            } catch { /* 무시 */ }
-          }, 1500);
-        } else {
-          // 2회 재시도 실패 → 사용자에게 에러 표시
-          setHasError(true);
+      player.on('playing', () => {
+        setIsPlaying(true);
+        retryCountRef.current = 0;  // 재생 성공 시 카운터 초기화
+      });
+      player.on('pause',   () => setIsPlaying(false));
+      player.on('waiting', () => setIsPlaying(false));
+      player.on('ended',   () => setIsPlaying(false));
+      player.on('error',   () => {
+        setIsPlaying(false);
+        const err = player.error();
+        // MEDIA_ERR_NETWORK(2) 또는 MEDIA_ERR_SRC_NOT_SUPPORTED(4) 시 자동 재시도 (최대 2회)
+        if (err && (err.code === 4 || err.code === 2)) {
+          if (retryCountRef.current < 2) {
+            retryCountRef.current += 1;
+            // 1.5초 후 src 재설정 + 재생 시도 (네트워크 회복 / CDN 캐시 안정 대기)
+            setTimeout(() => {
+              const p = playerRef.current;
+              if (!p || p.isDisposed()) return;
+              try {
+                p.src({
+                  src: video.videoUrl,
+                  type: video.videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4',
+                });
+                p.load();
+                p.play()?.catch(() => {});
+              } catch { /* 무시 */ }
+            }, 1500);
+          } else {
+            // 2회 재시도 실패 → 사용자에게 에러 표시
+            setHasError(true);
+          }
         }
-      }
-    });
+      });
 
-    player.on('timeupdate', () => {
-      const s = video.highlightStart || 0;
-      let e = video.highlightEnd || (s + 30);
-      const d = player.duration();
-      if (typeof d === 'number' && d > 0 && e > d) e = d; // 30초 미만이면 전체 재생
-      const t = player.currentTime();
-      if (typeof t === 'number' && t >= e) {
-        player.currentTime(s);
-        player.play()?.catch(() => {});
-      }
+      player.on('timeupdate', () => {
+        const s = video.highlightStart || 0;
+        let e = video.highlightEnd || (s + 30);
+        const d = player.duration();
+        if (typeof d === 'number' && d > 0 && e > d) e = d; // 30초 미만이면 전체 재생
+        const t = player.currentTime();
+        if (typeof t === 'number' && t >= e) {
+          player.currentTime(s);
+          player.play()?.catch(() => {});
+        }
+      });
     });
 
     return () => {
+      cancelled = true;
       setPlayerReady(false);
       if (playerRef.current) {
         playerRef.current.dispose();
         playerRef.current = null;
+      } else {
+        videoEl.remove();  // 플레이어 생성 전 언마운트(빠른 스크롤) — 고아 <video> 제거
       }
     };
   }, [video.id, video.videoUrl, inView, isAgeLocked]); // inView: false→true 생성 / true→false dispose. isAgeLocked: 인증 시 잠금 해제되면 재생성
@@ -1888,31 +1905,38 @@ const DesktopMovieCard = memo(function DesktopMovieCard({ video, onVideoClick, o
     videoEl.setAttribute('playsinline', '');
     container.appendChild(videoEl);
 
-    const p = videojs(videoEl, {
-      autoplay: false, controls: false, loop: true, muted: true,
-      fill: true, responsive: true, playsinline: true, crossOrigin: 'anonymous',
-      sources: [{ src: video.videoUrl, type: video.videoUrl?.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4' }]
+    let cancelled = false;
+    void loadVideojs().then((videojs) => {
+      if (cancelled) { videoEl.remove(); return; }  // 로드 중 호버 해제 — 생성 취소(재생 유령 방지)
+      const p = videojs(videoEl, {
+        autoplay: false, controls: false, loop: true, muted: true,
+        fill: true, responsive: true, playsinline: true, crossOrigin: 'anonymous',
+        sources: [{ src: video.videoUrl, type: video.videoUrl?.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4' }]
+      });
+      playerRef.current = p;
+      p.ready(() => {
+        if (!p || p.isDisposed()) return;
+        p.currentTime(video.highlightStart || 0);
+        const pp = p.play();
+        if (pp) pp.catch(() => {});
+      });
+      // 하이라이트 구간 루프 — 모바일 카드(MovieSection)와 동일: start~end(기본 30초) 반복
+      p.on('timeupdate', () => {
+        const s = video.highlightStart || 0;
+        let e = video.highlightEnd || (s + 30);
+        const d = p.duration();
+        if (typeof d === 'number' && d > 0 && e > d) e = d; // 구간이 영상보다 길면 전체 재생
+        const t = p.currentTime();
+        if (typeof t === 'number' && t >= e) {
+          p.currentTime(s);
+          const pp2 = p.play();
+          if (pp2) pp2.catch(() => {});
+        }
+      });
     });
-    playerRef.current = p;
-    p.ready(() => {
-      if (!p || p.isDisposed()) return;
-      p.currentTime(video.highlightStart || 0);
-      const pp = p.play();
-      if (pp) pp.catch(() => {});
-    });
-    // 하이라이트 구간 루프 — 모바일 카드(MovieSection)와 동일: start~end(기본 30초) 반복
-    p.on('timeupdate', () => {
-      const s = video.highlightStart || 0;
-      let e = video.highlightEnd || (s + 30);
-      const d = p.duration();
-      if (typeof d === 'number' && d > 0 && e > d) e = d; // 구간이 영상보다 길면 전체 재생
-      const t = p.currentTime();
-      if (typeof t === 'number' && t >= e) {
-        p.currentTime(s);
-        const pp2 = p.play();
-        if (pp2) pp2.catch(() => {});
-      }
-    });
+    // 생성 전 이탈(호버 해제·deps 변경) 시 대기 중 생성 취소 — 플레이어가 이미 만들어졌다면
+    //   기존 정책 유지(호버 해제 effect 가 pause, 언마운트 effect 가 dispose).
+    return () => { cancelled = true; if (!playerRef.current) videoEl.remove(); };
   }, [isHovered, video.videoUrl, video.highlightStart, video.highlightEnd, isAgeLocked]);
 
   // 호버 해제 시 일시정지

@@ -13,7 +13,9 @@ import { initReactI18next } from "react-i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
 
 import ko from "./locales/ko.json";
-import en from "./locales/en.json";
+// ⚡ en.json(92KB, gzip 30KB)은 엔트리 번들에서 분리(2026-07-14) — 대다수(한국) 사용자는
+//   다운로드·파싱 자체를 하지 않음. 영어 감지/전환 시에만 동적 로드(ensureLanguageResources).
+//   fallbackLng=ko 라 로드 완료 전 잠깐 한국어가 보이는 게 최악(키 노출·깨짐 없음).
 
 export const SUPPORTED_LANGUAGES = [
   { code: "ko", label: "한국어", nativeLabel: "한국어" },
@@ -22,13 +24,21 @@ export const SUPPORTED_LANGUAGES = [
 
 export type LanguageCode = (typeof SUPPORTED_LANGUAGES)[number]["code"];
 
+/** 해당 언어의 번역 리소스가 로드돼 있음을 보장(en 은 동적 import). 멱등. */
+export async function ensureLanguageResources(code: string): Promise<void> {
+  const base = (code || "ko").split("-")[0];
+  if (base === "en" && !i18n.hasResourceBundle("en", "translation")) {
+    const en = (await import("./locales/en.json")).default;
+    i18n.addResourceBundle("en", "translation", en, true, true);
+  }
+}
+
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources: {
       ko: { translation: ko },
-      en: { translation: en },
     },
     fallbackLng: "ko",
     supportedLngs: SUPPORTED_LANGUAGES.map(l => l.code),
@@ -49,6 +59,12 @@ if (typeof document !== "undefined") {
   const applyLang = (lng?: string) => { document.documentElement.lang = (lng || "ko").split("-")[0]; };
   applyLang(i18n.language);
   i18n.on("languageChanged", applyLang);
+}
+
+// 감지된 언어가 영어(저장값 en 또는 영어권 브라우저 첫 방문)면 번들을 뒤늦게 로드하고
+//   changeLanguage 재호출로 리렌더 — 그 사이엔 fallback(ko)이 표시됨.
+if ((i18n.language || "").split("-")[0] === "en") {
+  void ensureLanguageResources("en").then(() => i18n.changeLanguage(i18n.language));
 }
 
 export default i18n;

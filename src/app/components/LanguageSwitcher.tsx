@@ -4,7 +4,7 @@
 
 import { Globe, Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { SUPPORTED_LANGUAGES, type LanguageCode } from "../i18n";
+import { SUPPORTED_LANGUAGES, ensureLanguageResources, type LanguageCode } from "../i18n";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +23,8 @@ export function LanguageSwitcher({ variant = "icon" }: Props) {
   const current = (i18n.language?.split("-")[0] || "ko") as LanguageCode;
 
   const changeLanguage = (code: LanguageCode) => {
-    i18n.changeLanguage(code);
+    // en 번역 번들은 엔트리에서 분리(지연 로드) — 리소스 확보 후 전환(순간 fallback ko 노출 방지)
+    void ensureLanguageResources(code).then(() => i18n.changeLanguage(code));
   };
 
   return (

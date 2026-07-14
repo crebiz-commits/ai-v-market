@@ -991,6 +991,26 @@ function AppContent() {
     return () => clearTimeout(tmr);
   }, []);
 
+  // ⚡ 시네마/OTT "데이터" 프리페치: 청크에 이어 번들 RPC(get_feed_bundle)도 idle 에 미리 받아
+  //   모듈 캐시를 데워둠 → 첫 탭 전환도 네트워크 대기 없이 즉시 행 표시.
+  //   인증 확정 후 실행(개인화 추천 캐시 키가 user 포함 — 미확정에 돌리면 anon 으로 잘못 데움).
+  //   데이터 절약 모드(saveData)는 존중. 실패는 무해(탭 진입 시 정상 경로가 재시도).
+  useEffect(() => {
+    if (loading) return;
+    if ((navigator as any).connection?.saveData) return;
+    const prefetchData = () => {
+      void Promise.all([
+        import("./components/Cinema"),
+        import("./utils/showcase"),
+      ]).then(([m, s]) => m.prefetchCinemaFeed?.(user?.id ?? null, s.shouldShowShowcase(profile?.is_admin))).catch(() => {});
+      void import("./components/Ott").then((m) => m.prefetchOttFeed?.()).catch(() => {});
+    };
+    const ric: any = (window as any).requestIdleCallback;
+    if (ric) { const id = ric(prefetchData, { timeout: 6000 }); return () => (window as any).cancelIdleCallback?.(id); }
+    const tmr = setTimeout(prefetchData, 3500);
+    return () => clearTimeout(tmr);
+  }, [loading, user?.id, profile?.is_admin]);
+
   if (loading && !authGateTimedOut) {
     return (
       <div className="h-full flex items-center justify-center bg-background">
