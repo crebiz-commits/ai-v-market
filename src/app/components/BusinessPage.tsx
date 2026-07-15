@@ -1,12 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Briefcase, TrendingUp, Handshake, Layers, Send, Loader2, CheckCircle2, ArrowLeft } from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "./ui/button";
-import { supabase } from "../utils/supabaseClient";
+import { projectId, publicAnonKey } from "../../../utils/supabase/info";
 import { Footer } from "./Footer";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+
+// 봇/스팸 방어(선택) — Cloudflare Turnstile 사이트키가 설정된 경우에만 위젯 렌더·토큰 요구.
+//   미설정 환경은 Edge 의 IP rate-limit 로만 보호(캡차는 키 설정 시 자동 활성).
+const TURNSTILE_SITE_KEY = (import.meta as any).env?.VITE_TURNSTILE_SITE_KEY as string | undefined;
 
 type Category = "advertising" | "investment" | "partnership" | "b2b_license";
 
@@ -80,6 +84,32 @@ export function BusinessPage({ onBack, onNavigate }: BusinessPageProps) {
       window.history.replaceState({}, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
     }
   }, []);
+
+  // Turnstile 캡차(사이트키 설정 시) — 스크립트 로드 + 위젯 explicit 렌더
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!TURNSTILE_SITE_KEY) return;
+    const renderWidget = () => {
+      const ts = (window as any).turnstile;
+      if (ts && turnstileRef.current && widgetIdRef.current === null) {
+        try { widgetIdRef.current = ts.render(turnstileRef.current, { sitekey: TURNSTILE_SITE_KEY }); } catch { /* 이미 렌더됨 */ }
+      }
+    };
+    if ((window as any).turnstile) { renderWidget(); return; }
+    const SCRIPT_ID = "cf-turnstile-script";
+    let script = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
+    if (!script) {
+      script = document.createElement("script");
+      script.id = SCRIPT_ID;
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+      script.async = true; script.defer = true;
+      document.head.appendChild(script);
+    }
+    script.addEventListener("load", renderWidget);
+    return () => { script?.removeEventListener("load", renderWidget); };
+  }, []);
+
   const [extra, setExtra] = useState<Record<string, string>>({});
   const [companyName, setCompanyName] = useState("");
   const [contactName, setContactName] = useState("");
@@ -99,6 +129,12 @@ export function BusinessPage({ onBack, onNavigate }: BusinessPageProps) {
       toast.error(t("business.invalidEmail"));
       return;
     }
+    // 캡차 토큰(사이트키 설정 시 필수) — 1회용
+    let turnstileToken = "";
+    if (TURNSTILE_SITE_KEY) {
+      turnstileToken = (window as any).turnstile?.getResponse?.(widgetIdRef.current ?? undefined) || "";
+      if (!turnstileToken) { toast.error(t("business.captchaRequired")); return; }
+    }
     setSubmitting(true);
     try {
       // 분류별 추가 입력값을 내용 앞에 구조화해서 합침
@@ -108,22 +144,29 @@ export function BusinessPage({ onBack, onNavigate }: BusinessPageProps) {
       const composedMessage = extraLines.length
         ? `[${t(`business.cat.${category}.title`)}]\n${extraLines.join("\n")}\n\n${message.trim()}`
         : message.trim();
-      const { error } = await supabase.from("business_inquiries").insert({
-        category,
-        company_name: companyName.trim(),
-        contact_name: contactName.trim(),
-        email: email.trim(),
-        phone: phone.trim() || null,
-        message: composedMessage,
-        source_url: window.location.href,
-        user_agent: navigator.userAgent.substring(0, 200),
-        submitted_by: user?.id || null,
+      // 직접 INSERT 대신 Edge 경유 — 서버측 rate-limit·캡차검증·필드검증
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/server/submit-business-inquiry`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: publicAnonKey, Authorization: `Bearer ${publicAnonKey}` },
+        body: JSON.stringify({
+          category,
+          company_name: companyName.trim(),
+          contact_name: contactName.trim(),
+          email: email.trim(),
+          phone: phone.trim() || null,
+          message: composedMessage,
+          source_url: window.location.href,
+          submitted_by: user?.id || null,
+          turnstileToken,
+        }),
       });
-      if (error) throw error;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || t("business.submitFailed"));
       setSubmitted(true);
       toast.success(t("business.submitSuccess"));
     } catch (err: any) {
       toast.error(err?.message || t("business.submitFailed"));
+      if (TURNSTILE_SITE_KEY) { try { (window as any).turnstile?.reset?.(widgetIdRef.current ?? undefined); } catch { /* noop */ } }
     } finally {
       setSubmitting(false);
     }
@@ -301,6 +344,9 @@ export function BusinessPage({ onBack, onNavigate }: BusinessPageProps) {
             />
             <p className="text-[11px] text-gray-500 text-right mt-1">{message.length}/2000</p>
           </Field>
+
+          {/* 캡차(사이트키 설정 시) */}
+          {TURNSTILE_SITE_KEY && <div ref={turnstileRef} className="flex justify-center" />}
 
           <Button
             type="submit"

@@ -147,6 +147,11 @@ async function verifyUnsubToken(token: string): Promise<string | null> {
   return diff === 0 ? userId : null;
 }
 
+async function sha256Hex(msg: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 // Enable logger
 app.use('*', logger(console.log));
 
@@ -1953,6 +1958,83 @@ const handleUnsubscribe = async (c: any) => {
 };
 app.get('/unsubscribe', handleUnsubscribe);
 app.post('/unsubscribe', handleUnsubscribe);
+
+// 비즈니스 문의 제출 (공개) — 직접 INSERT RLS 를 닫고 이 엔드포인트로 단일화.
+//   IP 해시 rate-limit(시간당 3건) + Turnstile 캡차(TURNSTILE_SECRET_KEY 설정 시) + 서버검증.
+app.post('/submit-business-inquiry', async (c) => {
+  try {
+    const b = await c.req.json().catch(() => ({}));
+    const category = String(b.category || '');
+    const company_name = String(b.company_name || '').trim();
+    const contact_name = String(b.contact_name || '').trim();
+    const email = String(b.email || '').trim();
+    const message = String(b.message || '').trim();
+    const phone = b.phone ? String(b.phone).trim() : null;
+
+    const VALID_CAT = ['advertising', 'investment', 'partnership', 'b2b_license', 'other'];
+    if (!VALID_CAT.includes(category)) return c.json({ error: '잘못된 분류입니다' }, 400);
+    if (!company_name || !contact_name || !email || !message) return c.json({ error: '필수 항목을 입력해 주세요' }, 400);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return c.json({ error: '이메일 형식이 올바르지 않습니다' }, 400);
+    if (message.length > 5000) return c.json({ error: '메시지가 너무 깁니다' }, 400);
+
+    const admin = getSupabaseClient(true);
+    const ip = (c.req.header('x-forwarded-for') || '').split(',')[0].trim()
+      || c.req.header('cf-connecting-ip') || c.req.header('x-real-ip') || 'unknown';
+    const ipHash = await sha256Hex(ip + '|' + (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || 'salt'));
+
+    // ── 캡차(Turnstile) — 시크릿 설정 시에만 강제(미설정 환경은 rate-limit 로만 보호) ──
+    const turnstileSecret = Deno.env.get('TURNSTILE_SECRET_KEY');
+    if (turnstileSecret) {
+      const form = new FormData();
+      form.append('secret', turnstileSecret);
+      form.append('response', String(b.turnstileToken || ''));
+      if (ip !== 'unknown') form.append('remoteip', ip);
+      const vr = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: form });
+      const vj: any = await vr.json().catch(() => ({ success: false }));
+      if (!vj.success) return c.json({ error: '캡차 인증에 실패했습니다. 다시 시도해 주세요.' }, 400);
+    }
+
+    // ── Rate limit — 동일 IP 시간당 3건 ──
+    if (ip !== 'unknown') {
+      const { count } = await admin.from('business_inquiries')
+        .select('id', { count: 'exact', head: true })
+        .eq('ip_hash', ipHash)
+        .gte('created_at', new Date(Date.now() - 3600_000).toISOString());
+      if ((count || 0) >= 3) return c.json({ error: '문의가 너무 많습니다. 잠시 후 다시 시도해 주세요.' }, 429);
+    }
+
+    // submitted_by 위조 방지 — 실제 유저일 때만 기록(FK 위반 방지)
+    let submittedBy: string | null = null;
+    if (b.submitted_by) {
+      const { data: u } = await admin.auth.admin.getUserById(String(b.submitted_by));
+      if (u?.user?.id) submittedBy = u.user.id;
+    }
+
+    const row: Record<string, any> = {
+      category,
+      company_name: company_name.slice(0, 200),
+      contact_name: contact_name.slice(0, 100),
+      email: email.slice(0, 200),
+      phone: phone ? phone.slice(0, 50) : null,
+      message: message.slice(0, 5000),
+      source_url: b.source_url ? String(b.source_url).slice(0, 500) : null,
+      user_agent: (c.req.header('user-agent') || '').slice(0, 200),
+      submitted_by: submittedBy,
+      ip_hash: ipHash,
+    };
+    let ins = await admin.from('business_inquiries').insert(row);
+    if (ins.error && /ip_hash/i.test(ins.error.message || '')) {
+      // ip_hash 컬럼 마이그레이션 미적용 환경 — 컬럼 없이 재시도(배포 순서 무관·순단 방지)
+      delete row.ip_hash;
+      ins = await admin.from('business_inquiries').insert(row);
+    }
+    if (ins.error) { console.error('[submit-business-inquiry] insert 실패', ins.error); return c.json({ error: '제출 처리 중 오류가 발생했습니다.' }, 500); }
+    return c.json({ ok: true });
+  } catch (err: any) {
+    console.error('[submit-business-inquiry] 예외:', err);
+    return c.json({ error: '제출 처리 중 서버 오류' }, 500);
+  }
+});
 
 // 새 비즈니스 문의 → 관리자 이메일 알림 (business_inquiries AFTER INSERT 트리거가 pg_net 로 호출).
 //   secret 없이 self-guard: 전달된 id 로 실제 문의를 조회해 존재·미통지·최근(10분) 인 경우에만
