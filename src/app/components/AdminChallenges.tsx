@@ -6,7 +6,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, Trophy, RefreshCw, Plus, Pencil, Trash2, X, Film } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
-import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
 
@@ -65,7 +64,6 @@ function statusOf(c: { starts_at: string; deadline: string }): { label: string; 
 }
 
 export function AdminChallenges() {
-  const { user } = useAuth();
   const [items, setItems] = useState<ChallengeRow[]>([]);
   const [loading, setLoading] = useState(true);
   // 폼 (작성 + 수정 겸용)
@@ -96,7 +94,8 @@ export function AdminChallenges() {
           .from("videos")
           .select("id", { count: "exact", head: true })
           .contains("tags", [`challenge:${r.tag}`])
-          .eq("is_hidden", false);   // 커뮤니티 출품 집계와 동일 기준(숨김 제외) — 카운트 불일치 방지
+          .eq("is_hidden", false)
+          .or("visibility.eq.public,visibility.is.null");   // 커뮤니티 카운트·상세목록과 동일 기준(숨김+비공개 제외) — 카운트 불일치 방지
         return count || 0;
       })
     );
@@ -147,49 +146,35 @@ export function AdminChallenges() {
     if (form.deadline < form.starts_at) { toast.error("마감일이 시작일보다 빠를 수 없어요."); return; }
 
     setSaving(true);
-    const payload = {
-      tag,
-      title: form.title.trim(),
-      title_en: form.title_en.trim() || null,
-      prize: form.prize.trim() || "홈 히어로 1개월 · 프리미엄 6개월 · 이달의 크리에이터 뱃지 · 공식 SNS 소개",
-      prize_en: form.prize_en.trim() || null,
-      description: form.description.trim(),
-      description_en: form.description_en.trim() || null,
-      image: form.image.trim() || null,
-      starts_at: form.starts_at,
-      deadline: form.deadline,
-    };
-    if (editingId) {
-      const { error } = await supabase
-        .from("challenges")
-        .update({ ...payload, updated_at: new Date().toISOString() })
-        .eq("id", editingId);
-      setSaving(false);
-      if (error) {
-        console.warn("[AdminChallenges] 수정 실패:", error.message);
-        toast.error("수정 실패: " + error.message);
-        return;
-      }
-      toast.success("챌린지를 수정했어요.");
-    } else {
-      const { error } = await supabase
-        .from("challenges")
-        .insert({ ...payload, created_by: user?.id || null });
-      setSaving(false);
-      if (error) {
-        console.warn("[AdminChallenges] 등록 실패:", error.message);
-        toast.error(error.code === "23505" ? "이미 같은 태그의 챌린지가 있어요." : "등록 실패: " + error.message);
-        return;
-      }
-      toast.success("챌린지를 등록했어요. 커뮤니티 챌린지 탭에 바로 노출됩니다. 🏆");
+    // 직접 쓰기 → RPC(admin_logs 기록 + 서버검증 + 태그 orphan 가드). p_id NULL=신규.
+    const { error } = await supabase.rpc("admin_upsert_challenge", {
+      p_id: editingId,
+      p_tag: tag,
+      p_title: form.title.trim(),
+      p_title_en: form.title_en.trim() || null,
+      p_prize: form.prize.trim() || null,
+      p_prize_en: form.prize_en.trim() || null,
+      p_description: form.description.trim(),
+      p_description_en: form.description_en.trim() || null,
+      p_image: form.image.trim() || null,
+      p_starts_at: form.starts_at,
+      p_deadline: form.deadline,
+    });
+    setSaving(false);
+    if (error) {
+      console.warn("[AdminChallenges] 저장 실패:", error.message);
+      const dup = error.code === "23505" || /duplicate|이미 같은/i.test(error.message);
+      toast.error(dup ? "이미 같은 태그의 챌린지가 있어요." : (editingId ? "수정 실패: " : "등록 실패: ") + error.message);
+      return;
     }
+    toast.success(editingId ? "챌린지를 수정했어요." : "챌린지를 등록했어요. 커뮤니티 챌린지 탭에 바로 노출됩니다. 🏆");
     closeForm();
     void load();
   };
 
   const handleDelete = async (c: ChallengeRow) => {
     if (!confirm(`'${c.title}' 챌린지를 삭제할까요?\n출품작 영상은 삭제되지 않고 태그(challenge:${c.tag})만 남습니다.`)) return;
-    const { error } = await supabase.from("challenges").delete().eq("id", c.id);
+    const { error } = await supabase.rpc("admin_delete_challenge", { p_id: c.id });
     if (error) {
       console.warn("[AdminChallenges] 삭제 실패:", error.message);
       toast.error("삭제 실패: " + error.message);
@@ -200,6 +185,10 @@ export function AdminChallenges() {
   };
 
   const inputCls = "w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-[#6366f1] transition-colors";
+
+  // 출품작이 있는 챌린지의 태그는 잠금(변경 시 challenge:<tag> 연결 orphan) — 서버도 동일 차단
+  const editingRow = editingId ? items.find((x) => x.id === editingId) : null;
+  const tagLocked = !!editingRow && (editingRow.entries ?? 0) > 0;
 
   return (
     <div className="space-y-4">
@@ -245,9 +234,15 @@ export function AdminChallenges() {
             </div>
             <div>
               <label className="text-xs font-semibold text-muted-foreground block mb-1">
-                태그 (출품작 연결 슬러그) * {editingId && <span className="text-amber-400">— 수정 시 기존 출품작 연결이 끊어져요</span>}
+                태그 (출품작 연결 슬러그) *{" "}
+                {tagLocked ? (
+                  <span className="text-amber-400">— 출품작 {editingRow!.entries}편 연결됨 · 태그 잠금(변경 불가)</span>
+                ) : editingId ? (
+                  <span className="text-muted-foreground">— 아직 출품작 없어 변경 가능(있으면 잠김)</span>
+                ) : null}
               </label>
-              <input className={inputCls} value={form.tag} maxLength={49}
+              <input className={`${inputCls} ${tagLocked ? "opacity-60 cursor-not-allowed" : ""}`} value={form.tag} maxLength={49}
+                disabled={tagLocked}
                 onChange={(e) => setForm((f) => ({ ...f, tag: e.target.value }))}
                 placeholder="future-city (영문 소문자·숫자·하이픈)" />
             </div>
