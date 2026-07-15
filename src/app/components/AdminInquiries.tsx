@@ -67,10 +67,8 @@ export function AdminInquiries() {
   const setStatus = async (id: string, status: Inquiry["status"]) => {
     const prev = items;
     setItems((cur) => cur.map((it) => (it.id === id ? { ...it, status, reviewed_at: new Date().toISOString() } : it)));
-    const { error } = await supabase
-      .from("business_inquiries")
-      .update({ status, reviewed_at: new Date().toISOString() })
-      .eq("id", id);
+    // 직접 UPDATE 대신 RPC — admin_logs 감사기록 경유(상태변경 추적)
+    const { error } = await supabase.rpc("admin_set_inquiry_status", { p_id: id, p_status: status });
     if (error) {
       console.warn("[AdminInquiries] 상태 변경 실패:", error.message);
       toast.error("상태 변경 실패: " + error.message);
