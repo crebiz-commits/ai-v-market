@@ -172,48 +172,46 @@ export function AdminBanners() {
       return;
     }
     setSaving(true);
-    const payload = {
-      sort_order: form.sort_order || 0,
-      title: form.title.trim(),
-      subtitle: form.subtitle.trim() || null,
-      eyebrow: form.eyebrow.trim() || null,
-      badge: form.badge.trim() || null,
-      badges: form.badges.trim() ? form.badges.split(",").map((s) => s.trim()).filter(Boolean) : null,
-      cta_label: form.cta_label.trim() || null,
-      link: form.link.trim() || null,
-      image: form.image.trim() || null,
-      align: form.align,
-      title_gradient: form.title_gradient,
-      gradient: form.gradient.trim() || null,
-      dark: form.dark,
-      is_active: form.is_active,
-      active_from: fromIso,
-      active_to: toIso,
-    };
-    if (editingId) {
-      const { error } = await supabase.from("event_banners").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editingId);
-      setSaving(false);
-      if (error) { toast.error("수정 실패: " + error.message); return; }
-      toast.success("배너를 수정했어요.");
-    } else {
-      const { error } = await supabase.from("event_banners").insert(payload);
-      setSaving(false);
-      if (error) { toast.error("등록 실패: " + error.message); return; }
-      toast.success("배너를 등록했어요. 시네마 상단에 바로 노출됩니다.");
+    // 직접 쓰기 → RPC(admin_logs 기록 + 서버검증). p_id NULL=신규.
+    const { error } = await supabase.rpc("admin_upsert_event_banner", {
+      p_id: editingId,
+      p_sort_order: form.sort_order || 0,
+      p_title: form.title.trim(),
+      p_subtitle: form.subtitle.trim() || null,
+      p_eyebrow: form.eyebrow.trim() || null,
+      p_badge: form.badge.trim() || null,
+      p_badges: form.badges.trim() ? form.badges.split(",").map((s) => s.trim()).filter(Boolean) : null,
+      p_cta_label: form.cta_label.trim() || null,
+      p_link: form.link.trim() || null,
+      p_image: form.image.trim() || null,
+      p_align: form.align,
+      p_title_gradient: form.title_gradient,
+      p_gradient: form.gradient.trim() || null,
+      p_dark: form.dark,
+      p_is_active: form.is_active,
+      p_active_from: fromIso,
+      p_active_to: toIso,
+    });
+    setSaving(false);
+    if (error) {
+      console.warn("[AdminBanners] 저장 실패:", error.message);
+      toast.error((editingId ? "수정 실패: " : "등록 실패: ") + error.message);
+      return;
     }
+    toast.success(editingId ? "배너를 수정했어요." : "배너를 등록했어요. 시네마 상단에 바로 노출됩니다.");
     closeForm();
     void load();
   };
 
   const toggleActive = async (b: BannerRow) => {
-    const { error } = await supabase.from("event_banners").update({ is_active: !b.is_active, updated_at: new Date().toISOString() }).eq("id", b.id);
+    const { error } = await supabase.rpc("admin_set_event_banner_active", { p_id: b.id, p_active: !b.is_active });
     if (error) { toast.error("변경 실패: " + error.message); return; }
     setItems((prev) => prev.map((x) => (x.id === b.id ? { ...x, is_active: !x.is_active } : x)));
   };
 
   const remove = async (b: BannerRow) => {
     if (!confirm(`'${b.title}' 배너를 삭제할까요?`)) return;
-    const { error } = await supabase.from("event_banners").delete().eq("id", b.id);
+    const { error } = await supabase.rpc("admin_delete_event_banner", { p_id: b.id });
     if (error) { toast.error("삭제 실패: " + error.message); return; }
     setItems((prev) => prev.filter((x) => x.id !== b.id));
     toast.success("배너를 삭제했어요.");
@@ -296,8 +294,9 @@ export function AdminBanners() {
               )}
             </div>
             <div>
-              <label className="text-xs font-semibold text-muted-foreground block mb-1">그라데이션 클래스 (이미지 없을 때)</label>
-              <input className={inputCls} value={form.gradient} onChange={(e) => setForm((f) => ({ ...f, gradient: e.target.value }))} placeholder="from-[#1e1b4b] via-[#3b0764] to-[#0d0d14]" />
+              <label className="text-xs font-semibold text-muted-foreground block mb-1">그라데이션 (이미지 없을 때)</label>
+              <input className={inputCls} value={form.gradient} onChange={(e) => setForm((f) => ({ ...f, gradient: e.target.value }))} placeholder="#1e1b4b, #3b0764, #0d0d14  (또는 CSS linear-gradient(...))" />
+              <p className="text-[11px] text-muted-foreground/80 mt-1">색상 CSS 권장: <code className="bg-muted px-1 rounded">#색1, #색2</code> 또는 <code className="bg-muted px-1 rounded">linear-gradient(135deg,#a,#b)</code>. (기존 Tailwind <code className="bg-muted px-1 rounded">from-[..] via-[..] to-[..]</code>도 유지되나 새 색은 CSS로)</p>
             </div>
             <div>
               <label className="text-xs font-semibold text-muted-foreground block mb-1">정렬</label>
@@ -359,7 +358,7 @@ export function AdminBanners() {
             <div key={b.id} className={`bg-card rounded-xl border p-4 ${b.is_active ? "border-border" : "border-border/40 opacity-60"}`}>
               <div className="flex items-start gap-3">
                 <div className="w-24 h-14 rounded-lg overflow-hidden flex-shrink-0 hidden sm:flex items-center justify-center bg-gradient-to-br from-[#1a1030] to-[#0d0d14]">
-                  {b.image ? <img src={b.image} alt={b.title} className="w-full h-full object-cover" /> : <ImageIcon className="w-5 h-5 text-muted-foreground/40" />}
+                  {b.image ? <img src={b.image} alt={b.title} onError={(e) => { e.currentTarget.style.display = "none"; }} className="w-full h-full object-cover" /> : <ImageIcon className="w-5 h-5 text-muted-foreground/40" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">

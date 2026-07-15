@@ -114,8 +114,21 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
               className="relative w-full h-44 md:h-48 rounded-2xl overflow-hidden text-left group block"
             >
               {/* 배경: 그라데이션을 항상 깔고(폴백), 이미지가 있으면 그 위에 덮음.
-                  이미지 로드 실패(핫링크 차단·만료 등) 시 onError 로 이미지를 숨겨 그라데이션이 드러남 → 빈 배너 방지. */}
-              <div className={`absolute inset-0 bg-gradient-to-br ${b.gradient || "from-[#1a1030] via-[#0d0d14] to-[#0d0d14]"}`} />
+                  이미지 로드 실패(핫링크 차단·만료 등) 시 onError 로 이미지를 숨겨 그라데이션이 드러남 → 빈 배너 방지.
+                  gradient 값 3형태 지원: ① Tailwind 클래스(from-/via-/to- 계열, 시드·소스에 존재) → className,
+                  ② 관리자 입력 CSS(linear-gradient 함수 또는 "#색1, #색2") → inline style(빌드 무관 실동작),
+                  ③ 빈 값 → 기본 다크 그라데이션. (②가 없으면 신규 Tailwind 클래스는 JIT 미생성으로 안 깔림) */}
+              {(() => {
+                const g = b.gradient?.trim();
+                const isTw = !!g && /(^|\s)(from|via|to)-/.test(g);
+                const cssGrad = g && !isTw ? (g.includes("gradient(") ? g : `linear-gradient(135deg, ${g})`) : undefined;
+                return (
+                  <div
+                    className={`absolute inset-0 ${isTw ? `bg-gradient-to-br ${g}` : cssGrad ? "" : "bg-gradient-to-br from-[#1a1030] via-[#0d0d14] to-[#0d0d14]"}`}
+                    style={cssGrad ? { backgroundImage: cssGrad } : undefined}
+                  />
+                );
+              })()}
               {b.image && (
                 <>
                   <img
