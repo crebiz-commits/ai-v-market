@@ -44,21 +44,28 @@ export function AdminContent() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const PAGE = 50;
+  const [loadError, setLoadError] = useState(false);
   // OTT 히어로 지정 영상 id → featured_hero_until (배지/토글 표시용)
   const [heroMap, setHeroMap] = useState<Record<string, string>>({});
-  // 요청 시퀀스 — "더 보기" 인플라이트 중 검색/필터 전환 시 옛 append 결과가 새 목록에
-  //   뒤섞이던 레이스 차단(최신 요청분만 반영, 2026-07-15)
+  // 요청 시퀀스 — "더 보기" 인플라이트 중 검색/필터 전환 시 옛 결과가 새 목록에 뒤섞이던 레이스 차단.
   const seqRef = useRef(0);
+  // 현재 목록이 만들어진 검색어 — "더 보기"·액션후 refresh 는 입력창 라이브값(query)이 아니라
+  //   이 값을 써야 함(안 그러면 목록은 'A' 결과인데 2페이지는 입력 중인 'B'로 조회돼 뒤섞임).
+  const activeQueryRef = useRef("");
 
-  const load = async (append = false) => {
+  //   mode: search(새 목록·offset0) / more(append) / refresh(현 개수 유지 재조회, 액션후)
+  const load = async (mode: "search" | "more" | "refresh" = "search") => {
+    const append = mode === "more";
     if (append && loadingMore) return;                 // 동기 중복 클릭 가드
+    const seq = ++seqRef.current;
+    const q = mode === "search" ? query : activeQueryRef.current;
     const off = append ? videos.length : 0;
-    const seq = ++seqRef.current;                       // 이 요청의 순번
+    const lim = mode === "refresh" ? Math.max(videos.length, PAGE) : PAGE;   // 펼친 개수 보존
     if (append) setLoadingMore(true); else setLoading(true);
     const { data, error } = await supabase.rpc("admin_search_videos", {
-      p_query: query || null,
+      p_query: q || null,
       p_filter: filter,
-      p_limit: PAGE,
+      p_limit: lim,
       p_offset: off,
     });
     if (seq !== seqRef.current) {                       // 더 최신 요청이 이미 떴음 → 결과 폐기
@@ -66,12 +73,20 @@ export function AdminContent() {
       return;
     }
     if (error) {
+      setLoadError(true);
       toast.error("영상 목록 조회 실패: " + error.message);
-      if (!append) setVideos([]);
+      // ⚠️ 목록을 비우지 않음 — 일시 오류가 "영상 없음"(빈 카탈로그)으로 오인되던 것 방지.
     } else {
+      setLoadError(false);
       const rows = (data || []) as VideoRow[];
-      setVideos((prev) => (append ? [...prev, ...rows] : rows));
-      setHasMore(rows.length === PAGE);
+      if (append) {
+        setVideos((prev) => [...prev, ...rows]);
+        setHasMore(rows.length === PAGE);
+      } else {
+        if (mode === "search") activeQueryRef.current = query;   // 새 목록의 기준 검색어 확정
+        setVideos(rows);
+        setHasMore(rows.length === lim);
+      }
     }
     setLoading(false);
     setLoadingMore(false);
@@ -87,7 +102,8 @@ export function AdminContent() {
     setHeroMap(map);
   };
 
-  useEffect(() => { load(); }, [filter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load("search"); }, [filter]);
   useEffect(() => { loadHeroes(); }, []);
 
   const HERO_DAYS = 30;
@@ -112,7 +128,7 @@ export function AdminContent() {
     setProcessingId(null);
     if (error) return toast.error("숨김 실패: " + error.message);
     toast.success("숨김 처리됨");
-    load();
+    load("refresh");
   };
 
   const unhide = async (v: VideoRow) => {
@@ -122,7 +138,7 @@ export function AdminContent() {
     setProcessingId(null);
     if (error) return toast.error("복원 실패: " + error.message);
     toast.success("복원됨");
-    load();
+    load("refresh");
   };
 
   const remove = async (v: VideoRow) => {
@@ -137,7 +153,8 @@ export function AdminContent() {
     setProcessingId(null);
     if (error) return toast.error("삭제 실패: " + error.message);
     toast.success("삭제됨");
-    load();
+    load("refresh");
+    setHeroMap((prev) => { const n = { ...prev }; delete n[v.id]; return n; });   // 삭제 영상 히어로 배지 정리
   };
 
   return (
@@ -150,10 +167,10 @@ export function AdminContent() {
             placeholder="영상 제목 검색"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && load()}
+            onKeyDown={(e) => e.key === "Enter" && load("search")}
           />
         </div>
-        <Button onClick={() => load()} disabled={loading}>검색</Button>
+        <Button onClick={() => load("search")} disabled={loading}>검색</Button>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4">
@@ -168,7 +185,12 @@ export function AdminContent() {
         ))}
       </div>
 
-      {loading ? (
+      {loadError && videos.length === 0 ? (
+        <div className="text-center py-16 text-red-400/80">
+          <p className="mb-3">영상 목록을 불러오지 못했습니다.</p>
+          <Button variant="outline" onClick={() => load("search")} disabled={loading}>다시 시도</Button>
+        </div>
+      ) : loading ? (
         <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 text-[#6366f1] animate-spin" /></div>
       ) : videos.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
@@ -249,7 +271,7 @@ export function AdminContent() {
           ))}
           {hasMore && (
             <div className="flex justify-center pt-2">
-              <Button variant="outline" onClick={() => load(true)} disabled={loadingMore} className="gap-1.5">
+              <Button variant="outline" onClick={() => load("more")} disabled={loadingMore} className="gap-1.5">
                 {loadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : "더 보기"}
               </Button>
             </div>
