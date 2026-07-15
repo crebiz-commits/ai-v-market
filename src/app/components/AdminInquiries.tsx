@@ -84,6 +84,11 @@ export function AdminInquiries() {
     toast.success(`받는사람 이메일(${toEmail})을 복사했어요. Zoho 작성창 '받는사람'에 붙여넣으세요.`, { duration: 5000 });
   };
 
+  // 답변 버튼 클릭 = 처리 착수 → 신규 문의는 '검토중'으로 자동 전환(배지·상태 정합, 방치 방지)
+  const markReviewingIfNew = (it: Inquiry) => {
+    if (it.status === "new") void setStatus(it.id, "reviewing");
+  };
+
   const counts = STATUS.reduce((acc, s) => { acc[s.key] = items.filter((i) => i.status === s.key).length; return acc; }, {} as Record<string, number>);
   const filtered = filter === "all" ? items : items.filter((i) => i.status === filter);
 
@@ -91,17 +96,17 @@ export function AdminInquiries() {
     <div className="space-y-4">
       {/* 필터 + 새로고침 */}
       <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={() => setFilter("all")}
+        <button onClick={() => setFilter("all")} aria-pressed={filter === "all"}
           className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${filter === "all" ? "bg-[#6366f1] text-white border-transparent" : "bg-card text-muted-foreground border-border hover:border-[#6366f1]/50"}`}>
           전체 {items.length}
         </button>
         {STATUS.map((s) => (
-          <button key={s.key} onClick={() => setFilter(s.key)}
+          <button key={s.key} onClick={() => setFilter(s.key)} aria-pressed={filter === s.key}
             className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${filter === s.key ? "bg-[#6366f1] text-white border-transparent" : "bg-card text-muted-foreground border-border hover:border-[#6366f1]/50"}`}>
             {s.label} {counts[s.key] || 0}
           </button>
         ))}
-        <button onClick={() => void load()} className="ml-auto p-2 rounded-lg hover:bg-muted text-muted-foreground" title="새로고침">
+        <button onClick={() => void load()} className="ml-auto p-2 rounded-lg hover:bg-muted text-muted-foreground" title="새로고침" aria-label="새로고침">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
@@ -148,18 +153,19 @@ export function AdminInquiries() {
                 <div className="flex items-center gap-1.5 mt-3 flex-wrap">
                   <span className="text-xs text-muted-foreground mr-1">상태:</span>
                   {STATUS.map((s) => (
-                    <button key={s.key} onClick={() => void setStatus(it.id, s.key)}
+                    <button key={s.key} onClick={() => void setStatus(it.id, s.key)} aria-pressed={it.status === s.key}
                       className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors ${it.status === s.key ? s.cls : "bg-transparent text-muted-foreground border-border hover:bg-muted"}`}>
                       {s.label}
                     </button>
                   ))}
                   <div className="ml-auto flex items-center gap-1.5">
                     <a href={`mailto:${it.email}?subject=${encodeURIComponent("[CREAITE] " + (CATEGORY[it.category] || "") + " 문의 답변")}`}
+                      onClick={() => markReviewingIfNew(it)}
                       className="px-3 py-1 rounded-md text-xs font-semibold border border-border text-muted-foreground hover:bg-muted transition-colors"
                       title="기본 메일 앱으로 답변">
                       기본 메일
                     </a>
-                    <button onClick={() => void replyViaZoho(it.email)}
+                    <button onClick={() => { markReviewingIfNew(it); void replyViaZoho(it.email); }}
                       className="px-3 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white">
                       Zoho로 답변
                     </button>

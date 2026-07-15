@@ -2003,10 +2003,13 @@ app.post('/notify-business-inquiry', async (c) => {
         <a href="https://www.creaite.net/?tab=admin" style="display:inline-block;background:linear-gradient(90deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;font-weight:700;padding:12px 24px;border-radius:10px;">관리자에서 열기</a>
       </div></body></html>`;
 
+    // 제목 헤더 인젝션 방어 — 회사명/카테고리의 CR/LF 제거 + 길이 제한
+    const subjClean = (s: unknown) => String(s || '').replace(/[\r\n]+/g, ' ').slice(0, 120);
+    const subject = `[CREAITE] 새 비즈니스 문의 (${subjClean(cat)}) — ${subjClean(inq.company_name)}`;
     const payload = emails.map((to) => ({
       from: `CREAITE <${fromEmail}>`,
       to: [to],
-      subject: `[CREAITE] 새 비즈니스 문의 (${cat}) — ${inq.company_name}`,
+      subject,
       html,
     }));
     let ok = false;

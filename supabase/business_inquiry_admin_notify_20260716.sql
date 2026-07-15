@@ -6,9 +6,14 @@
 --   설계: AFTER INSERT 트리거가 (a) notifications 벨 INSERT(서버측·항상), (b) pg_net 로
 --         Edge /notify-business-inquiry 비동기 호출(이메일). 둘 다 EXCEPTION 로 감싸
 --         알림/HTTP 실패가 문의 접수를 롤백하지 않게 방어.
---   남용 방지: Edge 는 secret 없이 self-guard — 전달된 id 로 실제 문의를 조회해 존재·
---         미통지(admin_notified_at NULL)·최근(10분) 인 경우에만 이메일 후 admin_notified_at
---         설정(dedup). 임의 POST 로는 관리자에게 스팸 불가.
+--   ⚠️ 증폭 방지(2차 재감사 F1): business_inquiries INSERT 는 공개(anon)라, 트리거가
+--         INSERT 마다 벨 N + 이메일 N 을 무제한 증폭하면 공격자가 대량 INSERT 로 관리자
+--         받은편지함·Resend 비용·발신도메인 평판을 훼손할 수 있음. self-guard(dedup)는
+--         "같은 id 재호출"만 막을 뿐 대량 신규 INSERT 증폭은 못 막음 → 트리거에 전역
+--         스로틀 추가(최근 10분 문의 > 10건이면 알림 스킵. 문의 자체는 저장돼 패널·배지엔
+--         그대로 보임). Edge 도 self-guard(존재·미통지·최근10분) 유지.
+--   감사 강제(F2): 상태변경을 admin_set_inquiry_status RPC 로만 하도록 business_inquiries
+--         의 관리자 직접 UPDATE RLS 정책 제거(RPC=DEFINER, Edge=service_role 로 무영향).
 --   의존: pg_net(billing_cron 에서 이미 활성), Edge 재배포(/notify-business-inquiry 신설).
 --   적용: Supabase Dashboard → SQL Editor → Run (멱등).
 -- ════════════════════════════════════════════════════════════════════════════
@@ -24,7 +29,17 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
   v_cat_label TEXT;
+  v_recent    INT;
 BEGIN
+  -- 전역 스로틀(F1): 최근 10분 문의가 10건 초과면 알림(벨·이메일) 스킵 — 무인증 공개
+  --   INSERT 증폭(이메일 폭탄·Resend 비용·평판) 상한. 문의는 이미 저장돼 패널·배지엔 보임.
+  SELECT count(*) INTO v_recent FROM public.business_inquiries
+    WHERE created_at > now() - interval '10 minutes';
+  IF v_recent > 10 THEN
+    RAISE WARNING '비즈니스 문의 급증(최근10분 %건) — 알림 스로틀 적용, 이번 건 알림 스킵', v_recent;
+    RETURN NEW;
+  END IF;
+
   v_cat_label := CASE NEW.category
     WHEN 'advertising' THEN '광고'  WHEN 'investment' THEN '투자/IR'
     WHEN 'partnership' THEN '제휴'  WHEN 'b2b_license' THEN 'B2B 라이선스'
@@ -65,6 +80,11 @@ DROP TRIGGER IF EXISTS trg_notify_admins_new_business_inquiry ON public.business
 CREATE TRIGGER trg_notify_admins_new_business_inquiry
   AFTER INSERT ON public.business_inquiries
   FOR EACH ROW EXECUTE FUNCTION public.tg_notify_admins_new_business_inquiry();
+
+-- ── F2: 관리자 직접 UPDATE RLS 정책 제거 → 상태변경은 admin_set_inquiry_status RPC 로만 ──
+--   (RPC=SECURITY DEFINER·Edge=service_role 는 RLS 우회라 무영향. 직접 PostgREST UPDATE 로
+--    admin_logs 없이 상태 바꾸던 감사 우회 경로 차단.)
+DROP POLICY IF EXISTS "Admins can update inquiries" ON public.business_inquiries;
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 검증:
