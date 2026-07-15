@@ -1954,6 +1954,83 @@ const handleUnsubscribe = async (c: any) => {
 app.get('/unsubscribe', handleUnsubscribe);
 app.post('/unsubscribe', handleUnsubscribe);
 
+// 새 비즈니스 문의 → 관리자 이메일 알림 (business_inquiries AFTER INSERT 트리거가 pg_net 로 호출).
+//   secret 없이 self-guard: 전달된 id 로 실제 문의를 조회해 존재·미통지·최근(10분) 인 경우에만
+//   관리자에게 이메일 후 admin_notified_at 설정(dedup). 임의 POST 로 관리자 스팸 불가.
+app.post('/notify-business-inquiry', async (c) => {
+  try {
+    const { id } = await c.req.json();
+    if (!id) return c.json({ error: 'id required' }, 400);
+    const admin = getSupabaseClient(true);
+
+    const { data: inq } = await admin.from('business_inquiries')
+      .select('id, category, company_name, contact_name, email, phone, message, created_at, admin_notified_at')
+      .eq('id', id).single();
+    if (!inq) return c.json({ ok: true, skipped: 'not_found' });
+    if (inq.admin_notified_at) return c.json({ ok: true, skipped: 'already' });
+    if (Date.now() - new Date(inq.created_at).getTime() > 10 * 60 * 1000)
+      return c.json({ ok: true, skipped: 'stale' });
+
+    // 관리자 이메일 수집 (is_admin → auth.users)
+    const { data: adminRows } = await admin.from('profiles').select('id').eq('is_admin', true);
+    const emails: string[] = [];
+    for (const r of (adminRows || [])) {
+      const { data: u } = await admin.auth.admin.getUserById((r as any).id);
+      if (u?.user?.email) emails.push(u.user.email);
+    }
+    if (!emails.length) return c.json({ ok: true, skipped: 'no_admins' });
+
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'noreply@mail.creaite.net';
+    if (!resendApiKey) return c.json({ ok: true, skipped: 'no_resend' });
+
+    const e = (s: unknown) => String(s || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const catMap: Record<string, string> = { advertising: '광고', investment: '투자/IR', partnership: '제휴', b2b_license: 'B2B 라이선스', other: '기타' };
+    const cat = catMap[inq.category] || inq.category;
+    const html = `<!doctype html><html><body style="margin:0;background:#0a0a0a;font-family:-apple-system,Segoe UI,Roboto,sans-serif;">
+      <div style="max-width:560px;margin:0 auto;padding:32px 24px;color:#e5e7eb;">
+        <div style="font-weight:900;font-size:18px;color:#a78bfa;margin-bottom:8px;">CREAITE 관리자</div>
+        <h1 style="font-size:19px;color:#fff;margin:0 0 16px;">📥 새 비즈니스 문의 (${e(cat)})</h1>
+        <table style="font-size:14px;color:#d1d5db;border-collapse:collapse;">
+          <tr><td style="padding:4px 12px 4px 0;color:#9ca3af;">회사</td><td>${e(inq.company_name)}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#9ca3af;">담당자</td><td>${e(inq.contact_name)}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#9ca3af;">이메일</td><td><a href="mailto:${e(inq.email)}" style="color:#a78bfa;">${e(inq.email)}</a></td></tr>
+          ${inq.phone ? `<tr><td style="padding:4px 12px 4px 0;color:#9ca3af;">연락처</td><td>${e(inq.phone)}</td></tr>` : ''}
+        </table>
+        <div style="font-size:14px;line-height:1.7;color:#d1d5db;background:#111;border:1px solid #262626;border-radius:10px;padding:14px;margin:16px 0;white-space:pre-line;">${e(String(inq.message).slice(0, 1000))}</div>
+        <a href="https://www.creaite.net/?tab=admin" style="display:inline-block;background:linear-gradient(90deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;font-weight:700;padding:12px 24px;border-radius:10px;">관리자에서 열기</a>
+      </div></body></html>`;
+
+    const payload = emails.map((to) => ({
+      from: `CREAITE <${fromEmail}>`,
+      to: [to],
+      subject: `[CREAITE] 새 비즈니스 문의 (${cat}) — ${inq.company_name}`,
+      html,
+    }));
+    let ok = false;
+    try {
+      const res = await fetch('https://api.resend.com/emails/batch', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      ok = res.ok;
+      if (!res.ok) console.error('[notify-business-inquiry] resend 실패', res.status, await res.text().catch(() => ''));
+    } catch (err) { console.error('[notify-business-inquiry] resend 예외', err); }
+
+    // 성공 시에만 dedup 표시(실패면 벨로 커버 + self-guard 재호출 여지)
+    if (ok) {
+      await admin.from('business_inquiries').update({ admin_notified_at: new Date().toISOString() }).eq('id', id);
+    }
+    return c.json({ ok: true, emailed: ok ? emails.length : 0 });
+  } catch (err: any) {
+    console.error('[notify-business-inquiry] 예외:', err);
+    return c.json({ error: String(err?.message || err) }, 500);
+  }
+});
+
 app.post('/broadcast-email', async (c) => {
   try {
     const admin = getSupabaseClient(true);
