@@ -27,9 +27,11 @@ const LINK_OPTIONS = [
 interface BroadcastResult {
   count: number;                 // 인앱 발송 수
   segment: string;               // 세그먼트 라벨
-  pushed: number | null;         // 잠금화면 푸시 발송 대수 (null=시도 안 함/실패)
-  emailSent: number | null;      // 이메일 발송 수 (null=미발송)
-  emailFailed: boolean;          // 이메일 전량 실패 여부
+  pushed: number | null;         // 잠금화면 푸시 발송 대수 (null=미시도)
+  pushError: boolean;            // 푸시 발송 실패
+  emailSent: number | null;      // 이메일 발송 수 (null=미시도)
+  emailFailedCount: number;      // 이메일 부분 실패 건수
+  emailError: boolean;           // 이메일 하드 실패(응답 없음/전량 실패)
 }
 
 export function AdminBroadcast() {
@@ -75,16 +77,17 @@ export function AdminBroadcast() {
       }
       const count = (data as number) ?? 0;
 
-      // FE2: 대상 0명이면 경고 + 폼 보존(작성 내용 소실·오선택 미인지 방지)
+      // FE2: 대상 0명이면 경고 + 폼 보존(작성내용 소실·오선택 미인지 방지)
       if (count === 0) {
         toast.warning("대상 사용자가 0명입니다 — 세그먼트를 확인하세요");
-        setLastResult({ count: 0, segment: segLabel, pushed: null, emailSent: null, emailFailed: false });
+        setLastResult({ count: 0, segment: segLabel, pushed: null, pushError: false, emailSent: null, emailFailedCount: 0, emailError: false });
         return;
       }
       toast.success(`${count}명에게 인앱 발송됨`);
 
       // ── 2) 잠금화면 푸시 (구독 기기 대상) — 실패해도 인앱은 이미 성공 ──
       let pushed: number | null = null;
+      let pushError = false;
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const res = await fetch(`https://${projectId}.supabase.co/functions/v1/server/broadcast-push`, {
@@ -100,14 +103,20 @@ export function AdminBroadcast() {
         if (res.ok && typeof pd?.pushed === "number") {
           pushed = pd.pushed;
           if (pd.pushed > 0) toast.success(`잠금화면 푸시 ${pd.pushed}대 발송`);
+        } else {
+          pushError = true;
+          toast.warning("잠금화면 푸시 발송 실패 (인앱은 정상)");
         }
       } catch (e) {
+        pushError = true;
         console.warn("[broadcast] 푸시 발송 실패:", e);
+        toast.warning("잠금화면 푸시 발송 실패 (인앱은 정상)");
       }
 
       // ── 3) 이메일 (체크 시) — 수신거부자 제외 Resend 배치 ──
       let emailSent: number | null = null;
-      let emailFailed = false;
+      let emailFailedCount = 0;
+      let emailError = false;
       if (sendEmail) {
         try {
           const { data: { session } } = await supabase.auth.getSession();
@@ -123,25 +132,30 @@ export function AdminBroadcast() {
           const ed = await res.json();
           if (res.ok && typeof ed?.sent === "number") {
             emailSent = ed.sent;
-            // FE4: sent=0 인데 대상(total)이 있으면 전량 실패 — 성공으로 오표시 금지
-            if (ed.sent === 0 && (ed.total ?? 0) > 0) {
-              emailFailed = true;
+            emailFailedCount = ed.failed ?? 0;
+            const total = ed.total ?? 0;
+            if (ed.sent === 0 && total > 0) {
+              // FE4: 전량 실패를 성공으로 오표시 금지
+              emailError = true;
               toast.error("이메일 전량 발송 실패 — 재시도가 필요합니다");
+            } else if (emailFailedCount > 0) {
+              // FE-a2: 부분 실패도 명확히
+              toast.warning(`이메일 ${ed.sent}건 발송 · ${emailFailedCount}건 실패`);
             } else {
               toast.success(`이메일 ${ed.sent}건 발송 (수신거부 제외)`);
             }
           } else {
-            emailFailed = true;
+            emailError = true;
             toast.error("이메일 발송 실패: " + (ed?.error || res.status));
           }
         } catch (e) {
+          emailError = true;
           console.warn("[broadcast] 이메일 발송 실패:", e);
-          emailFailed = true;
           toast.error("이메일 발송 중 오류");
         }
       }
 
-      setLastResult({ count, segment: segLabel, pushed, emailSent, emailFailed });
+      setLastResult({ count, segment: segLabel, pushed, pushError, emailSent, emailFailedCount, emailError });
 
       // 성공 후 폼 초기화 — FE3: 이메일 체크도 해제(다음 공지 오발송 방지)
       setTitle("");
@@ -154,6 +168,8 @@ export function AdminBroadcast() {
       setSending(false);
     }
   };
+
+  const anyChannelError = !!lastResult && (lastResult.pushError || lastResult.emailError || lastResult.emailFailedCount > 0);
 
   return (
     <div className="space-y-5">
@@ -171,7 +187,7 @@ export function AdminBroadcast() {
       {/* 세그먼트 선택 */}
       <div>
         <label className="block text-xs font-bold text-muted-foreground mb-2">발송 대상</label>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <div role="radiogroup" aria-label="발송 대상" className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {SEGMENTS.map(s => {
             const Icon = s.icon;
             const active = segment === s.key;
@@ -180,8 +196,9 @@ export function AdminBroadcast() {
                 key={s.key}
                 role="radio"
                 aria-checked={active}
+                disabled={sending}
                 onClick={() => setSegment(s.key)}
-                className={`p-3 rounded-lg border-2 text-left transition-all flex items-start gap-3 ${
+                className={`p-3 rounded-lg border-2 text-left transition-all flex items-start gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${
                   active
                     ? "border-[#6366f1] bg-[#6366f1]/10"
                     : "border-border hover:border-[#6366f1]/40"
@@ -207,6 +224,7 @@ export function AdminBroadcast() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={100}
+          disabled={sending}
         />
         <p className="text-[10px] text-muted-foreground text-right mt-0.5">{title.length}/100</p>
       </div>
@@ -220,6 +238,7 @@ export function AdminBroadcast() {
           value={body}
           onChange={(e) => setBody(e.target.value)}
           maxLength={500}
+          disabled={sending}
         />
         <p className="text-[10px] text-muted-foreground text-right mt-0.5">{body.length}/500</p>
       </div>
@@ -227,7 +246,7 @@ export function AdminBroadcast() {
       {/* 클릭 시 이동 위치 (선택형) */}
       <div>
         <label className="block text-xs font-bold text-muted-foreground mb-2">클릭 시 이동 위치 (선택)</label>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+        <div role="radiogroup" aria-label="클릭 시 이동 위치" className="grid grid-cols-2 md:grid-cols-3 gap-2">
           {LINK_OPTIONS.map(opt => {
             const active = linkChoice === opt.key;
             return (
@@ -235,8 +254,9 @@ export function AdminBroadcast() {
                 key={opt.key || "none"}
                 role="radio"
                 aria-checked={active}
+                disabled={sending}
                 onClick={() => setLinkChoice(opt.key)}
-                className={`p-2.5 rounded-lg border-2 text-left transition-all ${
+                className={`p-2.5 rounded-lg border-2 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                   active
                     ? "border-[#6366f1] bg-[#6366f1]/10"
                     : "border-border hover:border-[#6366f1]/40"
@@ -257,6 +277,7 @@ export function AdminBroadcast() {
               placeholder="영상 ID 입력 (예: abc123) — 비우면 이동 없음"
               value={videoId}
               onChange={(e) => setVideoId(e.target.value)}
+              disabled={sending}
             />
             <p className="text-[11px] text-muted-foreground mt-1">
               영상 ID는 해당 영상 페이지 주소의 <span className="font-mono text-blue-300/90">?video=</span> 뒤 값입니다.
@@ -271,8 +292,8 @@ export function AdminBroadcast() {
       </div>
 
       {/* 이메일 동시 발송 */}
-      <label className="flex items-start gap-2.5 p-3 rounded-lg border-2 border-border hover:border-[#6366f1]/40 cursor-pointer">
-        <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} className="mt-0.5 w-4 h-4 accent-[#6366f1]" />
+      <label className={`flex items-start gap-2.5 p-3 rounded-lg border-2 border-border hover:border-[#6366f1]/40 ${sending ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+        <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} disabled={sending} className="mt-0.5 w-4 h-4 accent-[#6366f1]" />
         <div>
           <p className="font-semibold text-sm">📧 이메일도 발송</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">인앱·푸시에 더해 이메일도 발송합니다. 공지 이메일 수신을 끈 사용자는 자동 제외됩니다. (제목·본문 그대로 사용)</p>
@@ -301,7 +322,7 @@ export function AdminBroadcast() {
       {/* 마지막 결과 — 채널별 종합(FE5) */}
       {lastResult && (
         <div className={`p-3 rounded-lg border text-sm ${
-          lastResult.count === 0
+          lastResult.count === 0 || anyChannelError
             ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
             : "bg-green-500/10 border-green-500/30 text-green-300"
         }`}>
@@ -309,13 +330,20 @@ export function AdminBroadcast() {
             <>⚠️ <span className="font-bold">{lastResult.segment}</span> — 대상 0명, 발송되지 않음</>
           ) : (
             <>
-              ✅ <span className="font-bold">{lastResult.segment}</span> 발송 완료 —{" "}
+              {anyChannelError ? "⚠️" : "✅"} <span className="font-bold">{lastResult.segment}</span> 발송 —{" "}
               인앱 <span className="font-bold">{lastResult.count}건</span>
-              {lastResult.pushed !== null && <> · 푸시 <span className="font-bold">{lastResult.pushed}대</span></>}
-              {lastResult.emailSent !== null && (
-                <> · 이메일 <span className={`font-bold ${lastResult.emailFailed ? "text-red-400" : ""}`}>
-                  {lastResult.emailFailed ? "실패" : `${lastResult.emailSent}건`}
-                </span></>
+              {(lastResult.pushed !== null || lastResult.pushError) && (
+                <> · 푸시 {lastResult.pushError
+                  ? <span className="font-bold text-red-400">실패</span>
+                  : <span className="font-bold">{lastResult.pushed}대</span>}</>
+              )}
+              {(lastResult.emailSent !== null || lastResult.emailError) && (
+                <> · 이메일 {lastResult.emailError
+                  ? <span className="font-bold text-red-400">실패</span>
+                  : <span className="font-bold">
+                      {lastResult.emailSent}건
+                      {lastResult.emailFailedCount > 0 && <span className="text-red-400"> ({lastResult.emailFailedCount} 실패)</span>}
+                    </span>}</>
               )}
             </>
           )}

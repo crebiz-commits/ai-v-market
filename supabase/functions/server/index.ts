@@ -104,15 +104,47 @@ const safeHttpUrl = (u: unknown): string => {
 //   중복/누락이 없다. 대량 세그먼트(>1000)에서 이메일·푸시가 조용히 앞 1000건만 발송되던 것 방지.
 async function fetchAllRows<T = any>(makeQuery: (from: number, to: number) => any): Promise<T[]> {
   const PAGE = 1000;
+  const MAX_PAGES = 2000;   // 안전장치(200만행 상한) — .range 미적용 등 이상 시 무한루프 방지
   const out: T[] = [];
-  for (let from = 0; ; from += PAGE) {
+  let from = 0;
+  for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await makeQuery(from, from + PAGE - 1);
     if (error) throw error;
     const rows = (data || []) as T[];
     out.push(...rows);
-    if (rows.length < PAGE) break;
+    // 종료는 "0행"으로만 — 프로젝트 Max Rows 가 PAGE 미만이어도(캡<1000) 조기종료/건너뜀 없이
+    //   실제 반환 개수만큼 전진해 전량 수집.
+    if (rows.length === 0) return out;
+    from += rows.length;
   }
+  console.error('[fetchAllRows] MAX_PAGES 도달 — 페이지네이션 이상 의심(부분 결과 반환)');
   return out;
+}
+
+// ── 브로드캐스트 이메일 원클릭 수신거부 토큰(HMAC-SHA256 서명) ───────────────────
+//   List-Unsubscribe/One-Click(RFC 8058)이 "실제로 동작"하려면 인증 없이 수신거부를
+//   처리하는 엔드포인트가 필요. 수신자별 서명 토큰을 URL 에 담아 /unsubscribe 가
+//   검증 후 email_broadcast=false 로 설정한다(무단 대량 수신거부 방지 위해 HMAC 서명).
+const UNSUB_SECRET = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || 'creaite-unsub-fallback-secret';
+async function unsubHmacHex(msg: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(UNSUB_SECRET),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+async function makeUnsubToken(userId: string): Promise<string> {
+  return `${userId}.${await unsubHmacHex(userId)}`;
+}
+async function verifyUnsubToken(token: string): Promise<string | null> {
+  const dot = token.lastIndexOf('.');   // userId(UUID·닷 없음).sig(hex·닷 없음)
+  if (dot < 1) return null;
+  const userId = token.slice(0, dot), sig = token.slice(dot + 1);
+  const expected = await unsubHmacHex(userId);
+  if (sig.length !== expected.length) return null;
+  let diff = 0;                          // 상수시간 비교
+  for (let i = 0; i < sig.length; i++) diff |= sig.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0 ? userId : null;
 }
 
 // Enable logger
@@ -1902,6 +1934,26 @@ app.post('/send-email', async (c) => {
 //   수신거부자(notification_preferences.email_broadcast=false) 제외 + 푸터에 수신거부 링크.
 // ============================================
 // 호출: POST /server/broadcast-email   Body: { segment, title, body, link }
+// 원클릭 수신거부 — 인증 없음(서명 토큰으로 검증). GET=사용자 클릭(안내 페이지),
+//   POST=메일 사업자 One-Click(RFC 8058). 둘 다 email_broadcast=false 로 멱등 설정.
+const handleUnsubscribe = async (c: any) => {
+  try {
+    const token = c.req.query('token') || '';
+    const userId = await verifyUnsubToken(token);
+    if (!userId) return c.html('<!doctype html><meta charset="utf-8"><body style="font-family:sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#333"><h2>유효하지 않은 링크</h2><p>수신거부 링크가 올바르지 않습니다. 로그인 후 알림 설정에서 변경해 주세요.</p></body>', 400);
+    const admin = getSupabaseClient(true);
+    // 없으면 생성, 있으면 email_broadcast 만 false 로
+    await admin.from('notification_preferences')
+      .upsert({ user_id: userId, email_broadcast: false }, { onConflict: 'user_id' });
+    return c.html('<!doctype html><meta charset="utf-8"><body style="font-family:sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#333"><h2>수신거부 완료</h2><p>CREAITE 공지 이메일 수신을 껐습니다.<br>마이페이지 → 알림 설정에서 언제든 다시 켤 수 있어요.</p></body>');
+  } catch (err: any) {
+    console.error('[unsubscribe] 예외:', err);
+    return c.html('<!doctype html><meta charset="utf-8"><body style="font-family:sans-serif;text-align:center;margin-top:60px">잠시 후 다시 시도해 주세요.</body>', 500);
+  }
+};
+app.get('/unsubscribe', handleUnsubscribe);
+app.post('/unsubscribe', handleUnsubscribe);
+
 app.post('/broadcast-email', async (c) => {
   try {
     const admin = getSupabaseClient(true);
@@ -1915,16 +1967,17 @@ app.post('/broadcast-email', async (c) => {
     const { segment = 'all', title, body, link } = await c.req.json();
     if (!title || !String(title).trim()) return c.json({ error: '제목이 필요합니다' }, 400);
 
-    // 전체 대상 수집(1000행 캡 우회) — RPC 결과를 user_id 정렬로 페이지네이션
-    let list: { email: string }[];
+    // 전체 대상 수집(1000행 캡 우회) — RPC 결과를 user_id 정렬로 페이지네이션.
+    //   원클릭 수신거부 토큰 생성을 위해 user_id 를 함께 보관.
+    let list: { user_id: string; email: string }[];
     try {
       const rows = await fetchAllRows<any>((from, to) =>
         admin.rpc('admin_broadcast_email_targets', { p_segment: segment }).order('user_id').range(from, to));
-      list = rows.filter((t: any) => t?.email);
+      list = rows.filter((t: any) => t?.email && t?.user_id);
     } catch (tErr: any) {
       return c.json({ error: '대상 조회 실패: ' + (tErr?.message || tErr) }, 500);
     }
-    if (list.length === 0) return c.json({ success: true, sent: 0, total: 0 });
+    if (list.length === 0) return c.json({ success: true, sent: 0, failed: 0, total: 0 });
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'noreply@mail.creaite.net';
@@ -1939,33 +1992,42 @@ app.post('/broadcast-email', async (c) => {
     // 상대경로(/?tab=...)는 절대 URL 로, http(s) 스킴만 허용(safeHttpUrl 로 저장형 XSS 차단)
     const rawCta = typeof link === 'string' && link ? (link.startsWith('http') ? link : `https://www.creaite.net${link}`) : '';
     const ctaUrl = safeHttpUrl(rawCta);
-    const html = `<!doctype html><html><body style="margin:0;background:#0a0a0a;font-family:-apple-system,Segoe UI,Roboto,sans-serif;">
+    const bodyHtml = body ? `<div style="font-size:14px;line-height:1.7;color:#d1d5db;">${esc(body).replace(/\n/g, '<br>')}</div>` : '';
+    const ctaHtml = ctaUrl ? `<div style="margin:24px 0;"><a href="${esc(ctaUrl)}" style="display:inline-block;background:linear-gradient(90deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;font-weight:700;padding:12px 24px;border-radius:10px;">자세히 보기</a></div>` : '';
+    // 수신자별 수신거부 URL 을 푸터에 주입(원클릭·로그인 불필요). 본문은 공통.
+    const renderHtml = (unsubUrl: string) => `<!doctype html><html><body style="margin:0;background:#0a0a0a;font-family:-apple-system,Segoe UI,Roboto,sans-serif;">
       <div style="max-width:560px;margin:0 auto;padding:32px 24px;color:#e5e7eb;">
         <div style="font-weight:900;font-size:20px;color:#a78bfa;margin-bottom:24px;">CREAITE</div>
         <h1 style="font-size:20px;color:#fff;margin:0 0 16px;">${esc(title)}</h1>
-        ${body ? `<div style="font-size:14px;line-height:1.7;color:#d1d5db;">${esc(body).replace(/\n/g, '<br>')}</div>` : ''}
-        ${ctaUrl ? `<div style="margin:24px 0;"><a href="${esc(ctaUrl)}" style="display:inline-block;background:linear-gradient(90deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;font-weight:700;padding:12px 24px;border-radius:10px;">자세히 보기</a></div>` : ''}
+        ${bodyHtml}
+        ${ctaHtml}
         <hr style="border:none;border-top:1px solid #262626;margin:28px 0;">
         <div style="font-size:11px;color:#6b7280;line-height:1.6;">
-          이 메일은 CREAITE 서비스 공지입니다. 수신을 원치 않으시면 <a href="${settingsUrl}" style="color:#a78bfa;">알림 설정</a>에서 공지 이메일 수신을 끄실 수 있습니다.<br>
+          이 메일은 CREAITE 서비스 공지입니다. 더 이상 받지 않으려면 <a href="${esc(unsubUrl)}" style="color:#a78bfa;">여기서 수신거부</a>(즉시 처리)하거나 <a href="${settingsUrl}" style="color:#a78bfa;">알림 설정</a>에서 변경하세요.<br>
           크레비즈 · 경기도 파주시 평화로342번길 71-5 · <a href="mailto:support@creaite.net" style="color:#a78bfa;">support@creaite.net</a>
         </div>
       </div></body></html>`;
 
+    const funcBase = `${Deno.env.get('SUPABASE_URL')}/functions/v1/server`;
     const subject = `[CREAITE] ${String(title).trim()}`;
-    let sent = 0;
+    let sent = 0, failed = 0;
     // Resend 배치 API: 1회 최대 100건
     for (let i = 0; i < list.length; i += 100) {
       const chunk = list.slice(i, i + 100);
-      const payload = chunk.map((u) => ({
+      // 수신자별 서명 토큰 → 원클릭 수신거부 URL
+      const withTok = await Promise.all(chunk.map(async (u) => ({
+        email: u.email,
+        unsubUrl: `${funcBase}/unsubscribe?token=${encodeURIComponent(await makeUnsubToken(u.user_id))}`,
+      })));
+      const payload = withTok.map((u) => ({
         from: `CREAITE <${fromEmail}>`,
         to: [u.email],
         reply_to: replyTo,
         subject,
-        html,
-        // Gmail/Yahoo 대량발송 규정 — 원클릭 수신거부 헤더(딜리버빌리티/스팸 회피)
+        html: renderHtml(u.unsubUrl),
+        // Gmail/Yahoo 대량발송 규정 — 실제 동작하는 원클릭 수신거부 헤더(수신자별 토큰 URL)
         headers: {
-          'List-Unsubscribe': `<${settingsUrl}>`,
+          'List-Unsubscribe': `<${u.unsubUrl}>`,
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       }));
@@ -1976,12 +2038,13 @@ app.post('/broadcast-email', async (c) => {
           body: JSON.stringify(payload),
         });
         if (res.ok) { sent += chunk.length; }
-        else { console.error('[broadcast-email] batch 실패', res.status, await res.text().catch(() => '')); }
+        else { failed += chunk.length; console.error('[broadcast-email] batch 실패', res.status, await res.text().catch(() => '')); }
       } catch (e) {
+        failed += chunk.length;
         console.error('[broadcast-email] batch 예외', e);
       }
     }
-    return c.json({ success: true, sent, total: list.length });
+    return c.json({ success: true, sent, failed, total: list.length });
   } catch (err: any) {
     console.error('[broadcast-email] 예외:', err);
     return c.json({ error: String(err?.message || err) }, 500);
