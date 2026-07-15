@@ -1,11 +1,14 @@
 // 사용자 상세 모달 (사용자 관리 "상세" 스펙) — admin_get_user_detail RPC
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   X, Loader2, Crown, ShieldCheck, ShieldAlert, Film, EyeOff, MessageSquare,
   FileText, Users, UserPlus, ShoppingBag, CreditCard, Copy, AlertTriangle,
+  Ban, CheckCircle2,
 } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
+import { useAuth } from "../contexts/AuthContext";
 import { UserAvatar } from "./UserAvatar";
+import { Button } from "./ui/button";
 import { toast } from "sonner";
 
 interface UserDetail {
@@ -77,22 +80,29 @@ const PAY_STATUS_LABEL: Record<string, string> = {
   pending: "대기",
 };
 
-export function AdminUserDetailModal({ userId, onClose }: { userId: string; onClose: () => void }) {
+export function AdminUserDetailModal({ userId, onClose, onChanged }: { userId: string; onClose: () => void; onChanged?: () => void }) {
+  const { user } = useAuth();
   const [detail, setDetail] = useState<UserDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [acting, setActing] = useState(false);
+
+  const fetchDetail = useCallback(async (): Promise<UserDetail | null> => {
+    const { data, error } = await supabase.rpc("admin_get_user_detail", { p_user_id: userId });
+    if (error) {
+      toast.error("상세 조회 실패: " + error.message);
+      return null;
+    }
+    return data as UserDetail;
+  }, [userId]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase.rpc("admin_get_user_detail", { p_user_id: userId });
+      const d = await fetchDetail();
       if (cancelled) return;
-      if (error) {
-        toast.error("상세 조회 실패: " + error.message);
-        onClose();
-        return;
-      }
-      setDetail(data as UserDetail);
+      if (!d) { onClose(); return; }
+      setDetail(d);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -109,6 +119,41 @@ export function AdminUserDetailModal({ userId, onClose }: { userId: string; onCl
 
   const p = detail?.profile;
   const s = detail?.stats;
+  const isSelf = !!p && p.id === user?.id;
+
+  // 액션 완료 공통 처리 — 성공 시 모달 상세 + 목록(onChanged) 동시 갱신
+  const finish = async (error: { message: string } | null, okMsg: string, failMsg: string) => {
+    if (error) { toast.error(`${failMsg}: ${error.message}`); setActing(false); return; }
+    toast.success(okMsg);
+    const d = await fetchDetail();
+    if (d) setDetail(d);
+    onChanged?.();
+    setActing(false);
+  };
+
+  const doSuspend = async () => {
+    if (!p) return;
+    const reason = prompt(`'${p.display_name || p.email}' 사용자를 정지하는 이유:`);
+    if (reason === null) return;
+    setActing(true);
+    const { error } = await supabase.rpc("admin_suspend_user", { p_user_id: p.id, p_reason: reason });
+    await finish(error, "정지 처리됨", "정지 실패");
+  };
+  const doUnsuspend = async () => {
+    if (!p) return;
+    if (!confirm(`'${p.display_name || p.email}' 정지를 해제하시겠습니까?`)) return;
+    setActing(true);
+    const { error } = await supabase.rpc("admin_unsuspend_user", { p_user_id: p.id });
+    await finish(error, "정지 해제됨", "해제 실패");
+  };
+  const doToggleAdmin = async () => {
+    if (!p) return;
+    const newRole = !p.is_admin;
+    if (!confirm(`'${p.display_name || p.email}' 에게 어드민 권한을 ${newRole ? "부여" : "회수"}하시겠습니까?`)) return;
+    setActing(true);
+    const { error } = await supabase.rpc("admin_set_admin_role", { p_user_id: p.id, p_is_admin: newRole });
+    await finish(error, newRole ? "어드민 부여됨" : "어드민 회수됨", "권한 변경 실패");
+  };
 
   return (
     <div
@@ -132,6 +177,7 @@ export function AdminUserDetailModal({ userId, onClose }: { userId: string; onCl
             <Loader2 className="w-8 h-8 text-[#6366f1] animate-spin" />
           </div>
         ) : (
+          <>
           <div className="p-5 space-y-5">
             {/* 프로필 요약 */}
             <div className="flex items-start gap-3">
@@ -268,6 +314,30 @@ export function AdminUserDetailModal({ userId, onClose }: { userId: string; onCl
               <button onClick={() => copy(p.id)} className="hover:text-foreground"><Copy className="w-3 h-3" /></button>
             </p>
           </div>
+
+          {/* 액션 푸터 — 정지/해제 · 어드민 부여/회수 (본인 계정 제외) */}
+          <div className="sticky bottom-0 bg-card border-t border-border px-5 py-3 flex items-center gap-2 justify-end">
+            {acting && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-auto" />}
+            {isSelf ? (
+              <span className="text-xs text-muted-foreground">본인 계정 — 셀프 정지/권한 회수 불가</span>
+            ) : (
+              <>
+                {p.is_suspended ? (
+                  <Button size="sm" variant="outline" onClick={doUnsuspend} disabled={acting} className="gap-1 text-green-400 border-green-500/30">
+                    <CheckCircle2 className="w-4 h-4" />정지 해제
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={doSuspend} disabled={acting} className="gap-1 text-red-400 border-red-500/30">
+                    <Ban className="w-4 h-4" />정지
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" onClick={doToggleAdmin} disabled={acting} className="gap-1">
+                  <ShieldCheck className="w-4 h-4" />{p.is_admin ? "어드민 회수" : "어드민 부여"}
+                </Button>
+              </>
+            )}
+          </div>
+          </>
         )}
       </div>
     </div>

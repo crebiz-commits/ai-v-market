@@ -205,7 +205,7 @@ export function AdminUsers() {
         </div>
       )}
 
-      {detailId && <AdminUserDetailModal userId={detailId} onClose={() => setDetailId(null)} />}
+      {detailId && <AdminUserDetailModal userId={detailId} onClose={() => setDetailId(null)} onChanged={() => load()} />}
     </div>
   );
 }
