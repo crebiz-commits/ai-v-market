@@ -2,7 +2,9 @@
 import { useEffect, useState } from "react";
 import { Loader2, Search, ShieldAlert, Crown, ShieldCheck, Ban, CheckCircle2, Users } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
+import { useAuth } from "../contexts/AuthContext";
 import { UserAvatar } from "./UserAvatar";
+import { AdminUserDetailModal } from "./AdminUserDetailModal";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 
@@ -28,6 +30,7 @@ const FILTERS = [
 ];
 
 export function AdminUsers() {
+  const { user } = useAuth();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -35,6 +38,7 @@ export function AdminUsers() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const PAGE = 50;
 
   const load = async (append = false) => {
@@ -134,8 +138,9 @@ export function AdminUsers() {
           {users.map(u => (
             <div key={u.id} className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-start gap-3">
-                <UserAvatar src={u.avatar_url} name={u.display_name} className="w-12 h-12" fallbackClassName="text-lg" />
-                <div className="flex-1 min-w-0">
+                <button type="button" onClick={() => setDetailId(u.id)} title="상세 보기" className="flex items-start gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity">
+                  <UserAvatar src={u.avatar_url} name={u.display_name} className="w-12 h-12" fallbackClassName="text-lg" />
+                  <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold truncate">{u.display_name || "이름 없음"}</span>
                     {u.subscription_tier === "premium" && (
@@ -163,21 +168,29 @@ export function AdminUsers() {
                   {u.is_suspended && u.suspended_reason && (
                     <p className="text-xs text-red-400/80 mt-1">정지 사유: {u.suspended_reason}</p>
                   )}
-                </div>
+                  </div>
+                </button>
                 <div className="flex flex-col gap-1">
-                  {u.is_suspended ? (
-                    <Button size="sm" variant="outline" onClick={() => unsuspend(u)} disabled={processingId === u.id} className="gap-1 text-green-400 border-green-500/30">
-                      <CheckCircle2 className="w-3.5 h-3.5" />해제
-                    </Button>
+                  {u.id === user?.id ? (
+                    // 본인 계정 — 서버가 셀프 정지·셀프 권한회수를 거부하므로 버튼 대신 라벨
+                    <span className="text-[10px] text-muted-foreground px-2 py-1.5 text-center whitespace-nowrap">본인 계정</span>
                   ) : (
-                    <Button size="sm" variant="outline" onClick={() => suspend(u)} disabled={processingId === u.id} className="gap-1 text-red-400 border-red-500/30">
-                      <Ban className="w-3.5 h-3.5" />정지
-                    </Button>
+                    <>
+                      {u.is_suspended ? (
+                        <Button size="sm" variant="outline" onClick={() => unsuspend(u)} disabled={processingId === u.id} className="gap-1 text-green-400 border-green-500/30">
+                          <CheckCircle2 className="w-3.5 h-3.5" />해제
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => suspend(u)} disabled={processingId === u.id} className="gap-1 text-red-400 border-red-500/30">
+                          <Ban className="w-3.5 h-3.5" />정지
+                        </Button>
+                      )}
+                      <Button size="sm" variant="outline" onClick={() => toggleAdmin(u)} disabled={processingId === u.id} className="gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        {u.is_admin ? "어드민 회수" : "어드민 부여"}
+                      </Button>
+                    </>
                   )}
-                  <Button size="sm" variant="outline" onClick={() => toggleAdmin(u)} disabled={processingId === u.id} className="gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    {u.is_admin ? "어드민 회수" : "어드민 부여"}
-                  </Button>
                 </div>
               </div>
             </div>
@@ -191,6 +204,8 @@ export function AdminUsers() {
           )}
         </div>
       )}
+
+      {detailId && <AdminUserDetailModal userId={detailId} onClose={() => setDetailId(null)} />}
     </div>
   );
 }
