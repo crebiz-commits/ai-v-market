@@ -153,7 +153,20 @@ app.post("/auth/signin", async (c) => {
       return c.json({ error: "이메일 또는 비밀번호가 올바르지 않습니다." }, 401);
     }
 
-    return c.json({ 
+    // 정지 계정 로그인 차단(서버측) — is_suspended 는 보호 컬럼이라 service_role 로 조회.
+    //   클라 AuthContext 도 모든 경로에서 차단하지만, 이메일 경로는 여기서 세션 발급 전에 거부해
+    //   로그인 모달에 즉시 안내 + 서버 방어층. OAuth 는 이 엔드포인트를 안 거쳐 클라가 담당.
+    const admin = getSupabaseClient(true);
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("is_suspended")
+      .eq("id", data.user.id)
+      .single();
+    if (prof?.is_suspended) {
+      return c.json({ error: "정지된 계정입니다. 이용이 제한됩니다. 문의: support@creaite.net" }, 403);
+    }
+
+    return c.json({
       success: true,
       session: data.session,
       user: {

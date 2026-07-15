@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 import { supabase } from '../utils/supabaseClient';
 import { sendNotification, buildWelcomeEmail } from '../utils/sendNotification';
@@ -26,6 +27,7 @@ interface Profile {
   subscription_expires_at: string | null;
   payout_info: any | null;
   is_admin: boolean | null;
+  is_suspended: boolean | null;   // get_my_profile 이 SELECT * 라 이미 포함 — 정지 로그인 차단에 사용
   birthdate: string | null;
   age_verified: boolean | null;
 }
@@ -178,7 +180,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // profile 비동기 로드 (실패해도 user 인증은 유지)
       const p = await fetchProfile(supabaseUser.id);
-      if (mounted) setProfile(p);
+      if (!mounted) return;
+      // 정지 계정 로그인 차단 — 프로필 is_suspended=true 면 즉시 로그아웃 + 안내.
+      //   (쓰기·신원수정은 DB에서 이미 차단, 여기선 앱 접근 자체를 봉쇄. 이메일/구글/카카오/
+      //    세션복원 등 모든 진입이 이 헬퍼를 거치므로 로그인 경로 무관하게 공통 차단.)
+      if (p?.is_suspended) {
+        toast.error('정지된 계정입니다. 이용이 제한됩니다. 문의: support@creaite.net', { duration: 10000 });
+        signOut();
+        return;
+      }
+      setProfile(p);
     };
 
     // M2(2026-05-31) + R2(2026-06-11): 신규 가입자 welcome 메일.
