@@ -1,6 +1,6 @@
 // 콘텐츠 관리 페이지 (Phase 10.6) — 영상 검색/강제 숨김/복원/삭제
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Search, Eye, EyeOff, Trash2, Film, Flag, Star, ShoppingBag } from "lucide-react";
+import { Loader2, Search, Eye, EyeOff, Trash2, Film, Flag, Star, ShoppingBag, Play, X } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ interface VideoRow {
   id: string;
   title: string;
   thumbnail: string | null;
+  video_url: string | null;   // 인라인 프리뷰용(HLS → play_720p.mp4 변환)
   creator_id: string | null;
   creator_name: string | null;
   duration_seconds: number;
@@ -47,6 +48,11 @@ export function AdminContent() {
   const [loadError, setLoadError] = useState(false);
   // OTT 히어로 지정 영상 id → featured_hero_until (배지/토글 표시용)
   const [heroMap, setHeroMap] = useState<Record<string, string>>({});
+  // 인라인 프리뷰 열린 영상 id (썸네일 클릭 시 그 영상만 재생, 하나씩)
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  // HLS(.m3u8) → 크롬 네이티브 <video> 미지원이라 mp4 렌디션으로 변환 (AdminAdReview·프리롤과 동일)
+  const toMp4 = (url: string | null) =>
+    url && url.includes("/playlist.m3u8") ? url.replace("/playlist.m3u8", "/play_720p.mp4") : url;
   // 요청 시퀀스 — "더 보기" 인플라이트 중 검색/필터 전환 시 옛 결과가 새 목록에 뒤섞이던 레이스 차단.
   const seqRef = useRef(0);
   // 현재 목록이 만들어진 검색어 — "더 보기"·액션후 refresh 는 입력창 라이브값(query)이 아니라
@@ -86,6 +92,7 @@ export function AdminContent() {
         if (mode === "search") activeQueryRef.current = query;   // 새 목록의 기준 검색어 확정
         setVideos(rows);
         setHasMore(rows.length === lim);
+        setPreviewId(null);   // 새 목록/재조회 시 열려 있던 프리뷰 닫기
       }
     }
     setLoading(false);
@@ -164,7 +171,7 @@ export function AdminContent() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             className="input-base pl-9 w-full"
-            placeholder="영상 제목 검색"
+            placeholder="제목 · 크리에이터명 · 영상 id 검색"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && load("search")}
@@ -202,13 +209,25 @@ export function AdminContent() {
           {videos.map(v => (
             <div key={v.id} className={`bg-card border rounded-xl p-3 ${v.is_hidden ? "border-red-500/30 opacity-70" : "border-border"}`}>
               <div className="flex gap-3">
-                {v.thumbnail ? (
-                  <img src={v.thumbnail} alt="" className="w-24 h-16 rounded object-cover flex-shrink-0" />
-                ) : (
-                  <div className="w-24 h-16 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                    <Film className="w-6 h-6 text-muted-foreground/40" />
-                  </div>
-                )}
+                {/* 썸네일 = 프리뷰 토글 — 관리자가 영상을 재생해보고 숨김/삭제 판단(맹검 방지) */}
+                <button
+                  type="button"
+                  onClick={() => v.video_url && setPreviewId((cur) => (cur === v.id ? null : v.id))}
+                  disabled={!v.video_url}
+                  title={v.video_url ? (previewId === v.id ? "프리뷰 닫기" : "영상 재생") : "영상 소스 없음"}
+                  className="relative w-24 h-16 rounded overflow-hidden flex-shrink-0 group bg-muted disabled:cursor-default"
+                >
+                  {v.thumbnail ? (
+                    <img src={v.thumbnail} alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center"><Film className="w-6 h-6 text-muted-foreground/40" /></div>
+                  )}
+                  {v.video_url && (
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {previewId === v.id ? <X className="w-5 h-5 text-white" /> : <Play className="w-5 h-5 text-white fill-white" />}
+                    </span>
+                  )}
+                </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-sm truncate">{v.title}</p>
@@ -267,6 +286,19 @@ export function AdminContent() {
                   </Button>
                 </div>
               </div>
+              {/* 인라인 프리뷰 — 썸네일 클릭 시 그 영상만 재생(mp4 렌디션). 720p 없으면 안내. */}
+              {previewId === v.id && v.video_url && (
+                <div className="mt-3">
+                  <video
+                    key={v.id}
+                    src={toMp4(v.video_url) || undefined}
+                    poster={v.thumbnail || undefined}
+                    controls autoPlay preload="metadata"
+                    onError={() => toast.error("프리뷰 재생 실패 — 이 영상은 720p 렌디션이 없을 수 있습니다.")}
+                    className="w-full max-w-xl rounded-lg bg-black border border-white/10"
+                  />
+                </div>
+              )}
             </div>
           ))}
           {hasMore && (
