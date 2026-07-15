@@ -1,6 +1,6 @@
 // 공지/알림 발송 페이지 (Phase 10.7)
 import { useState } from "react";
-import { Loader2, Megaphone, Send, Users, Crown, Film } from "lucide-react";
+import { Loader2, Send, Users, Crown, Film } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { projectId, publicAnonKey } from "../../../utils/supabase/info";
 import { Button } from "./ui/button";
@@ -24,6 +24,14 @@ const LINK_OPTIONS = [
   { key: "video",            label: "특정 영상",  desc: "영상 ID 입력" },
 ];
 
+interface BroadcastResult {
+  count: number;                 // 인앱 발송 수
+  segment: string;               // 세그먼트 라벨
+  pushed: number | null;         // 잠금화면 푸시 발송 대수 (null=시도 안 함/실패)
+  emailSent: number | null;      // 이메일 발송 수 (null=미발송)
+  emailFailed: boolean;          // 이메일 전량 실패 여부
+}
+
 export function AdminBroadcast() {
   const [segment, setSegment] = useState("all");
   const [title, setTitle] = useState("");
@@ -32,7 +40,7 @@ export function AdminBroadcast() {
   const [videoId, setVideoId] = useState("");          // linkChoice === "video" 일 때만 사용
   const [sending, setSending] = useState(false);
   const [sendEmail, setSendEmail] = useState(false);   // 이메일도 함께 발송
-  const [lastResult, setLastResult] = useState<{ count: number; segment: string } | null>(null);
+  const [lastResult, setLastResult] = useState<BroadcastResult | null>(null);
 
   // 선택값 → 실제 link 문자열 (없으면 null)
   const resolvedLink =
@@ -46,52 +54,40 @@ export function AdminBroadcast() {
       return;
     }
     const segLabel = SEGMENTS.find(s => s.key === segment)?.label || segment;
+    // FE3: 이메일 동시발송이면 confirm 에 명시(의도치 않은 전체 이메일 방지)
+    const emailNote = sendEmail ? "\n\n⚠️ 이메일도 전체 대상에게 함께 발송됩니다." : "";
     if (!confirm(
-      `${segLabel}에게 공지를 발송합니다.\n\n제목: ${title}\n\n계속하시겠습니까?`
+      `${segLabel}에게 공지를 발송합니다.\n\n제목: ${title}${emailNote}\n\n계속하시겠습니까?`
     )) return;
 
     setSending(true);
-    const { data, error } = await supabase.rpc("admin_broadcast_notification", {
-      p_title: title,
-      p_body: body || null,
-      p_link: resolvedLink,
-      p_segment: segment,
-    });
-    setSending(false);
-
-    if (error) {
-      toast.error("발송 실패: " + error.message);
-      return;
-    }
-    const count = data as number;
-    toast.success(`${count}명에게 인앱 발송됨`);
-    setLastResult({ count, segment: segLabel });
-
-    // 잠금화면 푸시도 발송 (구독 기기 대상) — 실패해도 인앱 발송은 이미 성공
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/server/broadcast-push`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: publicAnonKey,
-          Authorization: `Bearer ${session?.access_token || publicAnonKey}`,
-        },
-        body: JSON.stringify({ segment, title, body: body || null, link: resolvedLink }),
+      // ── 1) 인앱 벨 발송 (RPC) ──
+      const { data, error } = await supabase.rpc("admin_broadcast_notification", {
+        p_title: title,
+        p_body: body || null,
+        p_link: resolvedLink,
+        p_segment: segment,
       });
-      const pd = await res.json();
-      if (res.ok && typeof pd?.pushed === "number" && pd.pushed > 0) {
-        toast.success(`잠금화면 푸시 ${pd.pushed}대 발송`);
+      if (error) {
+        toast.error("발송 실패: " + error.message);
+        return;
       }
-    } catch (e) {
-      console.warn("[broadcast] 푸시 발송 실패:", e);
-    }
+      const count = (data as number) ?? 0;
 
-    // 이메일 발송 (체크 시) — 수신거부자 제외하고 Resend 배치 발송
-    if (sendEmail) {
+      // FE2: 대상 0명이면 경고 + 폼 보존(작성 내용 소실·오선택 미인지 방지)
+      if (count === 0) {
+        toast.warning("대상 사용자가 0명입니다 — 세그먼트를 확인하세요");
+        setLastResult({ count: 0, segment: segLabel, pushed: null, emailSent: null, emailFailed: false });
+        return;
+      }
+      toast.success(`${count}명에게 인앱 발송됨`);
+
+      // ── 2) 잠금화면 푸시 (구독 기기 대상) — 실패해도 인앱은 이미 성공 ──
+      let pushed: number | null = null;
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const res = await fetch(`https://${projectId}.supabase.co/functions/v1/server/broadcast-email`, {
+        const res = await fetch(`https://${projectId}.supabase.co/functions/v1/server/broadcast-push`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -100,22 +96,63 @@ export function AdminBroadcast() {
           },
           body: JSON.stringify({ segment, title, body: body || null, link: resolvedLink }),
         });
-        const ed = await res.json();
-        if (res.ok && typeof ed?.sent === "number") {
-          toast.success(`이메일 ${ed.sent}건 발송 (수신거부 제외)`);
-        } else {
-          toast.error("이메일 발송 실패: " + (ed?.error || res.status));
+        const pd = await res.json();
+        if (res.ok && typeof pd?.pushed === "number") {
+          pushed = pd.pushed;
+          if (pd.pushed > 0) toast.success(`잠금화면 푸시 ${pd.pushed}대 발송`);
         }
       } catch (e) {
-        console.warn("[broadcast] 이메일 발송 실패:", e);
-        toast.error("이메일 발송 중 오류");
+        console.warn("[broadcast] 푸시 발송 실패:", e);
       }
-    }
 
-    setTitle("");
-    setBody("");
-    setLinkChoice("");
-    setVideoId("");
+      // ── 3) 이메일 (체크 시) — 수신거부자 제외 Resend 배치 ──
+      let emailSent: number | null = null;
+      let emailFailed = false;
+      if (sendEmail) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch(`https://${projectId}.supabase.co/functions/v1/server/broadcast-email`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: publicAnonKey,
+              Authorization: `Bearer ${session?.access_token || publicAnonKey}`,
+            },
+            body: JSON.stringify({ segment, title, body: body || null, link: resolvedLink }),
+          });
+          const ed = await res.json();
+          if (res.ok && typeof ed?.sent === "number") {
+            emailSent = ed.sent;
+            // FE4: sent=0 인데 대상(total)이 있으면 전량 실패 — 성공으로 오표시 금지
+            if (ed.sent === 0 && (ed.total ?? 0) > 0) {
+              emailFailed = true;
+              toast.error("이메일 전량 발송 실패 — 재시도가 필요합니다");
+            } else {
+              toast.success(`이메일 ${ed.sent}건 발송 (수신거부 제외)`);
+            }
+          } else {
+            emailFailed = true;
+            toast.error("이메일 발송 실패: " + (ed?.error || res.status));
+          }
+        } catch (e) {
+          console.warn("[broadcast] 이메일 발송 실패:", e);
+          emailFailed = true;
+          toast.error("이메일 발송 중 오류");
+        }
+      }
+
+      setLastResult({ count, segment: segLabel, pushed, emailSent, emailFailed });
+
+      // 성공 후 폼 초기화 — FE3: 이메일 체크도 해제(다음 공지 오발송 방지)
+      setTitle("");
+      setBody("");
+      setLinkChoice("");
+      setVideoId("");
+      setSendEmail(false);
+    } finally {
+      // FE1: 인앱·푸시·이메일 전 파이프라인 종료 후에만 잠금 해제(중복 발송 창 제거)
+      setSending(false);
+    }
   };
 
   return (
@@ -137,12 +174,15 @@ export function AdminBroadcast() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {SEGMENTS.map(s => {
             const Icon = s.icon;
+            const active = segment === s.key;
             return (
               <button
                 key={s.key}
+                role="radio"
+                aria-checked={active}
                 onClick={() => setSegment(s.key)}
                 className={`p-3 rounded-lg border-2 text-left transition-all flex items-start gap-3 ${
-                  segment === s.key
+                  active
                     ? "border-[#6366f1] bg-[#6366f1]/10"
                     : "border-border hover:border-[#6366f1]/40"
                 }`}
@@ -188,20 +228,25 @@ export function AdminBroadcast() {
       <div>
         <label className="block text-xs font-bold text-muted-foreground mb-2">클릭 시 이동 위치 (선택)</label>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {LINK_OPTIONS.map(opt => (
-            <button
-              key={opt.key || "none"}
-              onClick={() => setLinkChoice(opt.key)}
-              className={`p-2.5 rounded-lg border-2 text-left transition-all ${
-                linkChoice === opt.key
-                  ? "border-[#6366f1] bg-[#6366f1]/10"
-                  : "border-border hover:border-[#6366f1]/40"
-              }`}
-            >
-              <p className="font-semibold text-sm">{opt.label}</p>
-              {opt.desc && <p className="text-[11px] text-muted-foreground mt-0.5">{opt.desc}</p>}
-            </button>
-          ))}
+          {LINK_OPTIONS.map(opt => {
+            const active = linkChoice === opt.key;
+            return (
+              <button
+                key={opt.key || "none"}
+                role="radio"
+                aria-checked={active}
+                onClick={() => setLinkChoice(opt.key)}
+                className={`p-2.5 rounded-lg border-2 text-left transition-all ${
+                  active
+                    ? "border-[#6366f1] bg-[#6366f1]/10"
+                    : "border-border hover:border-[#6366f1]/40"
+                }`}
+              >
+                <p className="font-semibold text-sm">{opt.label}</p>
+                {opt.desc && <p className="text-[11px] text-muted-foreground mt-0.5">{opt.desc}</p>}
+              </button>
+            );
+          })}
         </div>
 
         {/* "특정 영상" 선택 시 영상 ID 입력 */}
@@ -253,10 +298,27 @@ export function AdminBroadcast() {
         )}
       </Button>
 
-      {/* 마지막 결과 */}
+      {/* 마지막 결과 — 채널별 종합(FE5) */}
       {lastResult && (
-        <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-300 text-sm">
-          ✅ <span className="font-bold">{lastResult.segment}</span>에게 <span className="font-bold">{lastResult.count}건</span> 공지 발송 완료
+        <div className={`p-3 rounded-lg border text-sm ${
+          lastResult.count === 0
+            ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+            : "bg-green-500/10 border-green-500/30 text-green-300"
+        }`}>
+          {lastResult.count === 0 ? (
+            <>⚠️ <span className="font-bold">{lastResult.segment}</span> — 대상 0명, 발송되지 않음</>
+          ) : (
+            <>
+              ✅ <span className="font-bold">{lastResult.segment}</span> 발송 완료 —{" "}
+              인앱 <span className="font-bold">{lastResult.count}건</span>
+              {lastResult.pushed !== null && <> · 푸시 <span className="font-bold">{lastResult.pushed}대</span></>}
+              {lastResult.emailSent !== null && (
+                <> · 이메일 <span className={`font-bold ${lastResult.emailFailed ? "text-red-400" : ""}`}>
+                  {lastResult.emailFailed ? "실패" : `${lastResult.emailSent}건`}
+                </span></>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

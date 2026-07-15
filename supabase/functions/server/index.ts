@@ -52,18 +52,23 @@ async function sendWebPushToSubs(
   webpush.setVapidDetails("mailto:support@creaite.net", vapidPublic, vapidPrivate);
   const payload = JSON.stringify({ title, body, url });
   let ok = 0;
-  await Promise.all(
-    subs.map((s) =>
-      webpush
-        .sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload)
-        .then(() => { ok++; })
-        .catch(async (e: any) => {
-          if (e?.statusCode === 404 || e?.statusCode === 410) {
-            await supabase.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
-          }
-        })
-    )
-  );
+  // 동시성 제한(100) — 수천 구독을 단일 Promise.all 로 쏘면 Edge CPU/메모리·타임아웃 위험.
+  const CONC = 100;
+  for (let i = 0; i < subs.length; i += CONC) {
+    const chunk = subs.slice(i, i + CONC);
+    await Promise.all(
+      chunk.map((s) =>
+        webpush
+          .sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload)
+          .then(() => { ok++; })
+          .catch(async (e: any) => {
+            if (e?.statusCode === 404 || e?.statusCode === 410) {
+              await supabase.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+            }
+          })
+      )
+    );
+  }
   return ok;
 }
 
@@ -93,6 +98,22 @@ const safeHttpUrl = (u: unknown): string => {
     return '';
   }
 };
+
+// PostgREST 기본 Max Rows(1000) 우회 — .range() 페이지네이션으로 전체 행 수집.
+//   makeQuery(from,to) 는 반드시 결정적 정렬(.order)이 걸린 쿼리빌더를 반환해야 페이지 경계
+//   중복/누락이 없다. 대량 세그먼트(>1000)에서 이메일·푸시가 조용히 앞 1000건만 발송되던 것 방지.
+async function fetchAllRows<T = any>(makeQuery: (from: number, to: number) => any): Promise<T[]> {
+  const PAGE = 1000;
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await makeQuery(from, from + PAGE - 1);
+    if (error) throw error;
+    const rows = (data || []) as T[];
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  return out;
+}
 
 // Enable logger
 app.use('*', logger(console.log));
@@ -1890,9 +1911,15 @@ app.post('/broadcast-email', async (c) => {
     const { segment = 'all', title, body, link } = await c.req.json();
     if (!title || !String(title).trim()) return c.json({ error: '제목이 필요합니다' }, 400);
 
-    const { data: targets, error: tErr } = await admin.rpc('admin_broadcast_email_targets', { p_segment: segment });
-    if (tErr) return c.json({ error: '대상 조회 실패: ' + tErr.message }, 500);
-    const list: { email: string }[] = (targets || []).filter((t: any) => t?.email);
+    // 전체 대상 수집(1000행 캡 우회) — RPC 결과를 user_id 정렬로 페이지네이션
+    let list: { email: string }[];
+    try {
+      const rows = await fetchAllRows<any>((from, to) =>
+        admin.rpc('admin_broadcast_email_targets', { p_segment: segment }).order('user_id').range(from, to));
+      list = rows.filter((t: any) => t?.email);
+    } catch (tErr: any) {
+      return c.json({ error: '대상 조회 실패: ' + (tErr?.message || tErr) }, 500);
+    }
     if (list.length === 0) return c.json({ success: true, sent: 0, total: 0 });
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
@@ -1900,9 +1927,14 @@ app.post('/broadcast-email', async (c) => {
     const replyTo = Deno.env.get('RESEND_REPLY_TO') || 'support@creaite.net';
     if (!resendApiKey) return c.json({ error: 'Resend API key not configured' }, 500);
 
-    const esc = (s: string) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // 텍스트/속성 컨텍스트 모두 안전하게 — 따옴표까지 이스케이프(href 속성 탈출 방지)
+    const esc = (s: string) => String(s || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     const settingsUrl = 'https://www.creaite.net/?tab=mypage&section=settings';
-    const ctaUrl = typeof link === 'string' && link ? (link.startsWith('http') ? link : `https://www.creaite.net${link}`) : '';
+    // 상대경로(/?tab=...)는 절대 URL 로, http(s) 스킴만 허용(safeHttpUrl 로 저장형 XSS 차단)
+    const rawCta = typeof link === 'string' && link ? (link.startsWith('http') ? link : `https://www.creaite.net${link}`) : '';
+    const ctaUrl = safeHttpUrl(rawCta);
     const html = `<!doctype html><html><body style="margin:0;background:#0a0a0a;font-family:-apple-system,Segoe UI,Roboto,sans-serif;">
       <div style="max-width:560px;margin:0 auto;padding:32px 24px;color:#e5e7eb;">
         <div style="font-weight:900;font-size:20px;color:#a78bfa;margin-bottom:24px;">CREAITE</div>
@@ -1921,7 +1953,18 @@ app.post('/broadcast-email', async (c) => {
     // Resend 배치 API: 1회 최대 100건
     for (let i = 0; i < list.length; i += 100) {
       const chunk = list.slice(i, i + 100);
-      const payload = chunk.map((u) => ({ from: `CREAITE <${fromEmail}>`, to: [u.email], reply_to: replyTo, subject, html }));
+      const payload = chunk.map((u) => ({
+        from: `CREAITE <${fromEmail}>`,
+        to: [u.email],
+        reply_to: replyTo,
+        subject,
+        html,
+        // Gmail/Yahoo 대량발송 규정 — 원클릭 수신거부 헤더(딜리버빌리티/스팸 회피)
+        headers: {
+          'List-Unsubscribe': `<${settingsUrl}>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        },
+      }));
       try {
         const res = await fetch('https://api.resend.com/emails/batch', {
           method: 'POST',
@@ -1964,24 +2007,31 @@ app.post('/broadcast-push', async (c) => {
       return c.json({ error: '잘못된 세그먼트' }, 400);
     }
 
-    // 모든 푸시 구독(작은 테이블)을 가져온 뒤 세그먼트로 필터 — 전체 profiles 스캔 회피
-    const { data: subs } = await supabase
-      .from('push_subscriptions')
-      .select('endpoint, p256dh, auth, user_id');
-    if (!subs || !subs.length) return c.json({ success: true, pushed: 0 });
+    // 푸시 구독 + 정지 목록을 전체 수집(1000행 캡 우회, 결정적 정렬).
+    //   정지 제외는 fail-closed 여야 함 — 조회 실패 시 예외로 중단(정지자에게 새는 것 방지).
+    let subs: any[], suspended: any[];
+    try {
+      subs = await fetchAllRows((from, to) =>
+        supabase.from('push_subscriptions').select('endpoint, p256dh, auth, user_id').order('endpoint').range(from, to));
+      suspended = await fetchAllRows((from, to) =>
+        supabase.from('profiles').select('id').eq('is_suspended', true).order('id').range(from, to));
+    } catch (e: any) {
+      return c.json({ error: '대상 조회 실패: ' + (e?.message || e) }, 500);
+    }
+    if (!subs.length) return c.json({ success: true, pushed: 0 });
 
-    // 정지 계정 제외 (정지자는 보통 소수)
-    const { data: suspended } = await supabase.from('profiles').select('id').eq('is_suspended', true);
-    const suspendedSet = new Set((suspended || []).map((r: any) => r.id));
+    const suspendedSet = new Set(suspended.map((r: any) => r.id));
     let allowed = (uid: string) => !suspendedSet.has(uid);
 
     if (segment === 'premium' || segment === 'free') {
-      const { data: tierUsers } = await supabase.from('profiles').select('id').eq('subscription_tier', segment);
-      const tierSet = new Set((tierUsers || []).map((r: any) => r.id));
+      const tierUsers = await fetchAllRows((from, to) =>
+        supabase.from('profiles').select('id').eq('subscription_tier', segment).order('id').range(from, to));
+      const tierSet = new Set(tierUsers.map((r: any) => r.id));
       const base = allowed; allowed = (uid: string) => base(uid) && tierSet.has(uid);
     } else if (segment === 'creators') {
-      const { data: vids } = await supabase.from('videos').select('creator_id');
-      const creatorSet = new Set((vids || []).map((r: any) => r.creator_id).filter(Boolean));
+      const vids = await fetchAllRows((from, to) =>
+        supabase.from('videos').select('creator_id').order('id').range(from, to));
+      const creatorSet = new Set(vids.map((r: any) => r.creator_id).filter(Boolean));
       const base = allowed; allowed = (uid: string) => base(uid) && creatorSet.has(uid);
     }
 
