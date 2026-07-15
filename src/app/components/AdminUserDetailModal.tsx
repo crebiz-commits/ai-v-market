@@ -1,5 +1,5 @@
 // 사용자 상세 모달 (사용자 관리 "상세" 스펙) — admin_get_user_detail RPC
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   X, Loader2, Crown, ShieldCheck, ShieldAlert, Film, EyeOff, MessageSquare,
   FileText, Users, UserPlus, ShoppingBag, CreditCard, Copy, AlertTriangle,
@@ -85,6 +85,8 @@ export function AdminUserDetailModal({ userId, onClose, onChanged }: { userId: s
   const [detail, setDetail] = useState<UserDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const fetchDetail = useCallback(async (): Promise<UserDetail | null> => {
     const { data, error } = await supabase.rpc("admin_get_user_detail", { p_user_id: userId });
@@ -122,12 +124,14 @@ export function AdminUserDetailModal({ userId, onClose, onChanged }: { userId: s
   const isSelf = !!p && p.id === user?.id;
 
   // 액션 완료 공통 처리 — 성공 시 모달 상세 + 목록(onChanged) 동시 갱신
+  // (재조회 도중 모달이 닫히면 언마운트 후 setState 방지 — mountedRef 가드)
   const finish = async (error: { message: string } | null, okMsg: string, failMsg: string) => {
-    if (error) { toast.error(`${failMsg}: ${error.message}`); setActing(false); return; }
+    if (error) { toast.error(`${failMsg}: ${error.message}`); if (mountedRef.current) setActing(false); return; }
     toast.success(okMsg);
     const d = await fetchDetail();
-    if (d) setDetail(d);
     onChanged?.();
+    if (!mountedRef.current) return;
+    if (d) setDetail(d);
     setActing(false);
   };
 
@@ -298,7 +302,7 @@ export function AdminUserDetailModal({ userId, onClose, onChanged }: { userId: s
                         {PAY_TYPE_LABEL[pay.payment_type] || pay.payment_type}
                       </span>
                       <span className="flex-1 truncate text-muted-foreground">{pay.order_id || `#${pay.id}`}</span>
-                      <span className="font-semibold flex-shrink-0">₩{pay.amount.toLocaleString()}</span>
+                      <span className="font-semibold flex-shrink-0">₩{(pay.amount ?? 0).toLocaleString()}</span>
                       <span className={`text-[10px] flex-shrink-0 ${pay.status === "refunded" ? "text-red-400" : pay.status === "completed" ? "text-green-400" : "text-muted-foreground"}`}>
                         {PAY_STATUS_LABEL[pay.status] || pay.status}
                       </span>

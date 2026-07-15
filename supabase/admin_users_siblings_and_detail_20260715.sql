@@ -1,14 +1,17 @@
 -- ════════════════════════════════════════════════════════════════════════════
 -- 🛡️ 관리자 목록 형제 RPC tiebreaker + 사용자 상세 RPC 신규 (2026-07-15)
 --
---   [A] 형제 목록 RPC 3종 결정적 정렬(tiebreaker) — admin_search_users(07-15) 와
+--   [A] 형제 목록 RPC 2종 결정적 정렬(tiebreaker) — admin_search_users(07-15) 와
 --       동일 결함(단일 timestamp DESC → OFFSET "더 보기" 중복/누락) 일괄 해소.
---       ★ 아래 3함수의 새 정본(SSOT) = 이 파일. 각 옛 파일 재실행 금지:
---         · admin_search_videos      ← phase10_6_fix_views_cast.sql
+--       ★ 아래 2함수의 새 정본(SSOT) = 이 파일. 각 옛 파일 재실행 금지:
 --         · admin_get_all_payments   ← phase_admin_payments_refund_reason.sql
 --         · admin_get_activity_logs  ← phase10_7_broadcast_and_logs.sql
 --       변경점: ORDER BY 에 유니크 2차키(id) 추가 + SECURITY DEFINER 인라인
 --       search_path 고정(#9). 반환 시그니처 불변 → CREATE OR REPLACE(DROP 불필요).
+--       ⚠️ admin_search_videos 는 여기서 제외 — 콘텐츠 감사 후속
+--         `admin_content_delete_guard_20260715.sql` 이 orders_completed 컬럼을 추가한
+--         14컬럼 버전을 최신 정본으로 소유(tiebreaker·search_path·anon회수 포함).
+--         이 파일에서 재정의하면 return-type 충돌 + orders_completed 소실 → 넣지 않음.
 --
 --   [B] admin_get_user_detail(uuid) — 사용자 관리 "상세" 스펙 신규 구현.
 --       카드 클릭 시 단일 JSONB(프로필·집계·최근영상5·최근결제5) 반환. 어드민 전용.
@@ -18,72 +21,7 @@
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- [A-1] admin_search_videos — v.id 2차키 + search_path
--- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION public.admin_search_videos(
-  p_query TEXT DEFAULT NULL,
-  p_filter TEXT DEFAULT 'all',
-  p_limit INTEGER DEFAULT 50,
-  p_offset INTEGER DEFAULT 0
-)
-RETURNS TABLE (
-  id              TEXT,
-  title           TEXT,
-  thumbnail       TEXT,
-  creator_id      UUID,
-  creator_name    TEXT,
-  duration_seconds INTEGER,
-  views           BIGINT,
-  price           INTEGER,
-  is_hidden       BOOLEAN,
-  hidden_reason   TEXT,
-  hidden_at       TIMESTAMPTZ,
-  created_at      TIMESTAMPTZ,
-  pending_reports BIGINT
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-STABLE
-SET search_path = public, pg_temp
-AS $$
-BEGIN
-  PERFORM public.assert_admin();
-  RETURN QUERY
-  SELECT
-    v.id::TEXT,
-    v.title,
-    v.thumbnail,
-    v.creator_id,
-    p.display_name,
-    v.duration_seconds,
-    CASE
-      WHEN v.views IS NULL THEN 0::BIGINT
-      WHEN v.views::TEXT ~ '^[0-9]+$' THEN v.views::TEXT::BIGINT
-      ELSE 0::BIGINT
-    END AS views,
-    COALESCE(v.price_standard, 0)::INTEGER AS price,
-    COALESCE(v.is_hidden, false),
-    v.hidden_reason,
-    v.hidden_at,
-    v.created_at,
-    (SELECT COUNT(*) FROM public.reports r
-       WHERE r.target_type = 'video' AND r.target_id = v.id AND r.status = 'pending')::BIGINT
-  FROM public.videos v
-  LEFT JOIN public.profiles p ON p.id = v.creator_id
-  WHERE
-    (p_query IS NULL OR p_query = '' OR v.title ILIKE '%' || p_query || '%')
-    AND (
-      p_filter = 'all'
-      OR (p_filter = 'visible' AND COALESCE(v.is_hidden, false) = false)
-      OR (p_filter = 'hidden'  AND v.is_hidden = true)
-    )
-  ORDER BY v.created_at DESC, v.id DESC   -- 🔑 유니크 2차키
-  LIMIT p_limit OFFSET p_offset;
-END;
-$$;
-
--- ─────────────────────────────────────────────────────────────────────────────
--- [A-2] admin_get_all_payments — pay.id 2차키 + search_path
+-- [A-1] admin_get_all_payments — pay.id 2차키 + search_path
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.admin_get_all_payments(
   p_status TEXT DEFAULT 'all',
@@ -144,7 +82,7 @@ END;
 $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- [A-3] admin_get_activity_logs — l.id 2차키 + search_path
+-- [A-2] admin_get_activity_logs — l.id 2차키 + search_path
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.admin_get_activity_logs(
   p_admin_id UUID DEFAULT NULL,
@@ -248,8 +186,10 @@ BEGIN
       'followers',        (SELECT COUNT(*) FROM public.creator_followers cf WHERE cf.creator_id = p_user_id),
       'following',        (SELECT COUNT(*) FROM public.creator_followers cf WHERE cf.follower_id = p_user_id),
       'orders_completed', (SELECT COUNT(*) FROM public.orders o WHERE o.buyer_id = p_user_id AND o.status = 'completed'),
+      -- 합계·건수 모두 'completed' 기준으로 통일 — "누적 결제 ₩X (N건)" 의 X 와 N 이 같은 집합이라야 함
+      -- (실패/취소/환불 건이 건수에만 섞여 우량 사용자로 오판되던 결함, 2026-07-15 재감사)
       'payments_total',   (SELECT COALESCE(SUM(pay.amount), 0) FROM public.payments pay WHERE pay.user_id = p_user_id AND pay.status = 'completed'),
-      'payments_count',   (SELECT COUNT(*) FROM public.payments pay WHERE pay.user_id = p_user_id)
+      'payments_count',   (SELECT COUNT(*) FROM public.payments pay WHERE pay.user_id = p_user_id AND pay.status = 'completed')
     ),
     'recent_videos', COALESCE((
       SELECT jsonb_agg(x) FROM (
@@ -283,18 +223,27 @@ GRANT EXECUTE ON FUNCTION public.admin_get_user_detail(UUID) TO authenticated;
 COMMENT ON FUNCTION public.admin_get_user_detail(UUID) IS
   '사용자 상세(어드민 전용) — 프로필·집계·최근영상/결제 단일 JSONB. payout_info 원문 미노출.';
 
+-- [A] 형제 목록 RPC 2종도 anon/PUBLIC EXECUTE 회수 — admin_search_users/user_detail 과 방어심층 정합.
+--   (본문 assert_admin 이 최종 게이트라 유출은 없었으나, 최초 CREATE 시 자동부여된 PUBLIC EXECUTE 가
+--    CREATE OR REPLACE 로 보존돼 anon 도 호출 가능했던 비일관 해소, 2026-07-15 재감사 F2)
+--   admin_search_videos 의 anon 회수는 admin_content_delete_guard_20260715.sql 이 포함(그 파일 소유).
+REVOKE ALL ON FUNCTION public.admin_get_all_payments(TEXT, TEXT, INTEGER, INTEGER) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_get_all_payments(TEXT, TEXT, INTEGER, INTEGER) TO authenticated;
+REVOKE ALL ON FUNCTION public.admin_get_activity_logs(UUID, TEXT, INTEGER, INTEGER) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_get_activity_logs(UUID, TEXT, INTEGER, INTEGER) TO authenticated;
+
 -- ════════════════════════════════════════════════════════════════════════════
 -- 검증:
---   -- [A] 페이지 경계 중복 0 (영상/결제/로그 각각):
---   WITH a AS (SELECT id FROM public.admin_search_videos(NULL,'all',50,0)),
---        b AS (SELECT id FROM public.admin_search_videos(NULL,'all',50,50))
+--   -- [A] 페이지 경계 중복 0 (결제/로그 각각):
+--   WITH a AS (SELECT id FROM public.admin_get_all_payments('all','all',50,0)),
+--        b AS (SELECT id FROM public.admin_get_all_payments('all','all',50,50))
 --   SELECT count(*) FROM a JOIN b USING (id);   -- 기대 0
 --
 --   -- [B] 상세 조회(관리자 세션, 임의 uid):
 --   SELECT public.admin_get_user_detail('00000000-0000-0000-0000-000000000000');
 --
---   -- search_path 인라인 고정 확인(4함수 전부 proconfig 에 search_path=...):
+--   -- search_path 인라인 고정 확인(3함수 전부 proconfig 에 search_path=...):
 --   SELECT proname, proconfig FROM pg_proc
---    WHERE proname IN ('admin_search_videos','admin_get_all_payments',
+--    WHERE proname IN ('admin_get_all_payments',
 --                      'admin_get_activity_logs','admin_get_user_detail');
 -- ════════════════════════════════════════════════════════════════════════════
