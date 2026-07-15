@@ -1,6 +1,6 @@
 // 콘텐츠 관리 페이지 (Phase 10.6) — 영상 검색/강제 숨김/복원/삭제
-import { useEffect, useState } from "react";
-import { Loader2, Search, Eye, EyeOff, Trash2, Film, Flag, Star } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Loader2, Search, Eye, EyeOff, Trash2, Film, Flag, Star, ShoppingBag } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ interface VideoRow {
   hidden_at: string | null;
   created_at: string;
   pending_reports: number;
+  orders_completed: number;   // 판매 완료수(구매 라이선스) — 판매분 있으면 영구삭제 차단
 }
 
 const FILTERS = [
@@ -45,10 +46,14 @@ export function AdminContent() {
   const PAGE = 50;
   // OTT 히어로 지정 영상 id → featured_hero_until (배지/토글 표시용)
   const [heroMap, setHeroMap] = useState<Record<string, string>>({});
+  // 요청 시퀀스 — "더 보기" 인플라이트 중 검색/필터 전환 시 옛 append 결과가 새 목록에
+  //   뒤섞이던 레이스 차단(최신 요청분만 반영, 2026-07-15)
+  const seqRef = useRef(0);
 
   const load = async (append = false) => {
     if (append && loadingMore) return;                 // 동기 중복 클릭 가드
     const off = append ? videos.length : 0;
+    const seq = ++seqRef.current;                       // 이 요청의 순번
     if (append) setLoadingMore(true); else setLoading(true);
     const { data, error } = await supabase.rpc("admin_search_videos", {
       p_query: query || null,
@@ -56,6 +61,10 @@ export function AdminContent() {
       p_limit: PAGE,
       p_offset: off,
     });
+    if (seq !== seqRef.current) {                       // 더 최신 요청이 이미 떴음 → 결과 폐기
+      if (append) setLoadingMore(false); else setLoading(false);
+      return;
+    }
     if (error) {
       toast.error("영상 목록 조회 실패: " + error.message);
       if (!append) setVideos([]);
@@ -117,6 +126,11 @@ export function AdminContent() {
   };
 
   const remove = async (v: VideoRow) => {
+    // 판매분 있으면 클라에서 먼저 차단(서버도 거부) — CASCADE 로 구매기록 소실 방지, 숨김 유도
+    if (v.orders_completed > 0) {
+      toast.error(`판매된 영상(${v.orders_completed}건)은 영구삭제할 수 없습니다. "숨김"을 사용하세요(구매기록·정산 보존).`);
+      return;
+    }
     if (!confirm(`'${v.title}' 영상을 영구 삭제하시겠습니까?\n(이 작업은 되돌릴 수 없습니다)`)) return;
     setProcessingId(v.id);
     const { error } = await supabase.rpc("admin_delete_video", { p_video_id: v.id });
@@ -184,6 +198,11 @@ export function AdminContent() {
                         <Flag className="w-3 h-3" />{v.pending_reports}건
                       </span>
                     )}
+                    {v.orders_completed > 0 && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 font-bold flex items-center gap-1" title="판매된 라이선스가 있어 영구삭제 불가 — 숨김 사용">
+                        <ShoppingBag className="w-3 h-3" />판매 {v.orders_completed}
+                      </span>
+                    )}
                     {heroMap[v.id] && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-fuchsia-500/15 text-fuchsia-300 font-bold flex items-center gap-1">
                         <Star className="w-3 h-3 fill-current" />OTT 히어로
@@ -216,7 +235,12 @@ export function AdminContent() {
                       <Star className="w-3.5 h-3.5" />히어로 지정
                     </Button>
                   )}
-                  <Button size="sm" variant="outline" onClick={() => remove(v)} disabled={processingId === v.id} className="gap-1 text-red-400 border-red-500/30">
+                  <Button
+                    size="sm" variant="outline" onClick={() => remove(v)}
+                    disabled={processingId === v.id || v.orders_completed > 0}
+                    title={v.orders_completed > 0 ? "판매된 영상은 영구삭제 불가 — 숨김을 사용하세요" : undefined}
+                    className="gap-1 text-red-400 border-red-500/30 disabled:opacity-40"
+                  >
                     <Trash2 className="w-3.5 h-3.5" />삭제
                   </Button>
                 </div>
