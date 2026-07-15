@@ -26,7 +26,8 @@ export type NotificationType =
   | "revenue_settled"
   | "report_result"
   | "ad_budget_low"
-  | "refund_completed";
+  | "refund_completed"
+  | "support_reply";
 
 interface SendNotificationResult {
   success: boolean;
@@ -106,6 +107,40 @@ export function buildWelcomeEmail(name: string): { subject: string; html: string
   <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
   <p style="font-size: 12px; color: #999;">CREAITE • 세계 최초 AI 시네마 OTT</p>
   <p style="font-size: 12px; color: #999;">알림 설정은 <a href="https://www.creaite.net" style="color: #a78bfa;">마이페이지 → 설정</a>에서 변경 가능합니다.</p>
+</body>
+</html>`;
+  return { subject, html };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 고객 문의 답변 메일 템플릿 (admin → 고객, support_reply)
+// ────────────────────────────────────────────────────────────────────────────
+export function buildSupportReplyEmail(params: {
+  subject: string;      // 문의 제목
+  reply: string;        // 관리자 답변 본문
+  inquiryId: string;    // ?support=<id> 딥링크용
+}): { subject: string; html: string } {
+  const safeSubject = escapeHtml(params.subject || "문의");
+  // 답변 본문: 줄바꿈 보존 + XSS 방어
+  const safeReply = escapeHtml(params.reply).replace(/\n/g, "<br>");
+  const link = `https://www.creaite.net/?support=${encodeURIComponent(params.inquiryId)}`;
+  const subject = `[CREAITE] 「${params.subject || "문의"}」 문의에 답변이 등록되었습니다`;
+  const html = `<!DOCTYPE html>
+<html lang="ko">
+<head><meta charset="utf-8"><title>${escapeHtml(subject)}</title></head>
+<body style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <h1 style="color: #a78bfa; font-size: 20px;">문의에 답변이 등록되었습니다</h1>
+  <p>고객님께서 남기신 문의 「<strong>${safeSubject}</strong>」에 답변을 등록했습니다.</p>
+  <div style="background: #f7f5ff; border: 1px solid #e5e0ff; border-radius: 10px; padding: 16px; margin: 16px 0;">
+    <p style="margin: 0 0 6px; font-size: 12px; color: #8b5cf6; font-weight: bold;">CREAITE 운영팀 답변</p>
+    <p style="margin: 0; white-space: pre-line;">${safeReply}</p>
+  </div>
+  <p style="text-align: center; margin: 24px 0;">
+    <a href="${link}" style="display: inline-block; background: linear-gradient(90deg,#6366f1,#8b5cf6); color: #fff; text-decoration: none; padding: 10px 22px; border-radius: 8px; font-weight: bold;">문의 내역에서 보기</a>
+  </p>
+  <p style="font-size: 13px; color: #777;">추가 문의가 있으시면 회신하시거나 <a href="mailto:support@creaite.net" style="color: #a78bfa;">support@creaite.net</a>으로 알려주세요.</p>
+  <hr style="border: none; border-top: 1px solid #eee; margin: 28px 0;">
+  <p style="font-size: 12px; color: #999;">CREAITE • 세계 최초 AI 시네마 OTT</p>
 </body>
 </html>`;
   return { subject, html };

@@ -6,11 +6,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, Mail, RefreshCw, Inbox, Send, CheckCircle2, Clock } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
+import { sendNotification, buildSupportReplyEmail } from "../utils/sendNotification";
 import { toast } from "sonner";
 
 interface Inquiry {
   id: string;
   created_at: string;
+  user_id: string;   // 답변 이메일·인앱 알림 수신자
   category: string;
   subject: string;
   message: string;
@@ -48,7 +50,7 @@ export function AdminSupportInquiries() {
     setLoading(true);
     const { data, error } = await supabase
       .from("support_inquiries")
-      .select("id, created_at, category, subject, message, email, status, admin_reply, replied_at")
+      .select("id, created_at, user_id, category, subject, message, email, status, admin_reply, replied_at")
       .order("created_at", { ascending: false })
       .limit(300);
     if (error) { toast.error("문의 조회 실패: " + error.message); }
@@ -58,22 +60,28 @@ export function AdminSupportInquiries() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const sendReply = async (id: string) => {
-    const reply = (drafts[id] || "").trim();
+  const sendReply = async (it: Inquiry) => {
+    const reply = (drafts[it.id] || "").trim();
     if (!reply) { toast.error("답변 내용을 입력해 주세요."); return; }
-    setSending(id);
-    const { error } = await supabase.rpc("admin_reply_support_inquiry", { p_id: id, p_reply: reply });
+    setSending(it.id);
+    // ① RPC: 답변 저장 + status=answered + 인앱 알림 + admin_logs (신뢰 경로)
+    const { error } = await supabase.rpc("admin_reply_support_inquiry", { p_id: it.id, p_reply: reply });
+    if (error) { setSending(null); toast.error("답변 전송 실패: " + error.message); return; }
+    // ② 이메일 발송 — 인앱만으론 사이트 미방문 고객이 답변을 못 봄. Edge 가 support_reply 는
+    //    인앱 스킵(RPC가 이미 넣음)하고 이메일만 발송(fire-and-forget, 실패해도 답변은 저장됨).
+    const { subject, html } = buildSupportReplyEmail({ subject: it.subject, reply, inquiryId: it.id });
+    void sendNotification({ user_id: it.user_id, type: "support_reply", subject, html, link: `/?support=${it.id}` });
     setSending(null);
-    if (error) { toast.error("답변 전송 실패: " + error.message); return; }
-    toast.success("답변을 전송했습니다. 고객에게 알림이 갔어요.");
-    setDrafts((d) => { const n = { ...d }; delete n[id]; return n; });
+    toast.success("답변을 전송했습니다. 고객에게 알림·이메일이 갔어요.");
+    setDrafts((d) => { const n = { ...d }; delete n[it.id]; return n; });
     void load();
   };
 
   const setStatus = async (id: string, status: Inquiry["status"]) => {
     const prev = items;
     setItems((cur) => cur.map((it) => (it.id === id ? { ...it, status } : it)));
-    const { error } = await supabase.from("support_inquiries").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
+    // 직접 UPDATE → RPC(admin_logs 기록). 미적용 환경(PGRST202) 폴백 없이 에러 표면화.
+    const { error } = await supabase.rpc("admin_set_support_status", { p_id: id, p_status: status });
     if (error) { toast.error("상태 변경 실패: " + error.message); setItems(prev); }
   };
 
@@ -149,7 +157,7 @@ export function AdminSupportInquiries() {
                         {s.label}
                       </button>
                     ))}
-                    <button onClick={() => void sendReply(it.id)} disabled={sending === it.id}
+                    <button onClick={() => void sendReply(it)} disabled={sending === it.id}
                       className="ml-auto px-3 py-1.5 rounded-md text-xs font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white inline-flex items-center gap-1 disabled:opacity-60">
                       {sending === it.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                       답변 전송

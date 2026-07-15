@@ -1718,7 +1718,7 @@ app.post('/send-email', async (c) => {
 
     // H1: type 별 발신 권한 — self(본인) / admin(어드민) / actor(인증 사용자 행위)
     const SELF_TYPES = ['welcome', 'subscription_receipt'];
-    const ADMIN_TYPES = ['report_result', 'revenue_settled', 'refund_completed', 'ad_budget_low'];
+    const ADMIN_TYPES = ['report_result', 'revenue_settled', 'refund_completed', 'ad_budget_low', 'support_reply'];
     if (SELF_TYPES.includes(type)) {
       if (user_id !== callerId) return c.json({ error: '본인에게만 발송 가능한 알림입니다' }, 403);
     } else if (ADMIN_TYPES.includes(type)) {
@@ -1749,6 +1749,7 @@ app.post('/send-email', async (c) => {
       revenue_settled:         { type: 'sale',     body: '정산이 완료되었습니다',            link: '/?tab=mypage&section=sales' },
       report_result:           { type: 'system',   body: '신고 검토 결과가 도착했습니다',    link: '/' },
       ad_budget_low:           { type: 'system',   body: '광고 예산이 임박했습니다',          link: '/' },
+      support_reply:           { type: 'system',   body: '문의에 답변이 등록되었어요',        link: '/?tab=mypage' },
       new_video_from_followed: { type: 'system',   body: '팔로우한 채널의 새 영상',          link: '/' },
     };
     // 복제(spread) — 아래 new_follower 개인화에서 body/link 를 변형해도 모듈 공유 INAPP 가 오염되지 않게.
@@ -1828,11 +1829,14 @@ app.post('/send-email', async (c) => {
 
     // ── 벨(in-app): inapp 게이트 후 기록 (설정에서 이 타입 벨을 끄면 스킵) ──
     //    inapp_<type> opt-out 컬럼 없는 타입은 should_send 가 fail-open=true 반환(발송 유지).
+    //    ⚠️ support_reply 는 admin_reply_support_inquiry RPC 가 이미 인앱을 넣으므로 여기선 스킵
+    //       (Edge 로는 이메일만) → 인앱 이중 알림 방지.
+    const SKIP_EDGE_INAPP = new Set(['support_reply']);
     const { data: bellOn, error: bellErr } = await supabase.rpc('should_send_notification',
       { p_user_id: user_id, p_type: type, p_channel: 'inapp' });
     if (bellErr) console.warn('[send-email] 벨 게이트 확인 실패(fail-open 유지):', bellErr);
     // 명시 opt-out(false)만 스킵 — 오류/null 은 벨 유지(fail-open, SQL should_send 철학과 일치).
-    if (bellOn !== false) {
+    if (bellOn !== false && !SKIP_EDGE_INAPP.has(type)) {
       try {
         await supabase.from('notifications').insert({
           user_id, type: inapp.type, title: inappTitle, body: inapp.body, link: inappLink, read: false,
