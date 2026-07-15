@@ -4,7 +4,7 @@
 // 출품작은 영상 태그 'challenge:<tag>' 로 연결 (참가하기 → 업로드 시 자동 부착)
 // ════════════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, Trophy, RefreshCw, Plus, Pencil, Trash2, X, Film } from "lucide-react";
+import { Loader2, Trophy, RefreshCw, Plus, Pencil, Trash2, X, Film, Megaphone } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
@@ -71,6 +71,7 @@ export function AdminChallenges() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [announcing, setAnnouncing] = useState<string | null>(null);   // 공지 발송 중인 챌린지 id
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -182,6 +183,22 @@ export function AdminChallenges() {
     }
     setItems((prev) => prev.filter((x) => x.id !== c.id));
     toast.success("챌린지를 삭제했어요.");
+  };
+
+  // 공모전 공지 발송 — 전체 사용자에게 type='challenge' 인앱 알림(딥링크 포함, 정지 제외).
+  //   notifications 의 'challenge' 타입은 이 경로로만 실제 생성됨(그 외엔 미인증 샘플뿐).
+  const handleAnnounce = async (c: ChallengeRow) => {
+    if (statusOf(c).label === "마감") { toast.error("마감된 공모전은 공지할 수 없어요."); return; }
+    if (!confirm(`'${c.title}' 공모전을 전체 사용자에게 알림으로 발송할까요?\n(정지 계정 제외 · 발송은 되돌릴 수 없어요)`)) return;
+    setAnnouncing(c.id);
+    const { data, error } = await supabase.rpc("admin_announce_challenge", { p_id: c.id, p_segment: "all" });
+    setAnnouncing(null);
+    if (error) {
+      console.warn("[AdminChallenges] 공지 실패:", error.message);
+      toast.error("공지 발송 실패: " + error.message);
+      return;
+    }
+    toast.success(`공모전 공지를 ${typeof data === "number" ? data.toLocaleString() + "명에게 " : ""}발송했어요. 🏆`);
   };
 
   const inputCls = "w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-[#6366f1] transition-colors";
@@ -328,6 +345,12 @@ export function AdminChallenges() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
+                    {sm.label !== "마감" && (
+                      <button onClick={() => void handleAnnounce(c)} disabled={announcing === c.id}
+                        className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-[#a5b4fc] disabled:opacity-50" title="전체 사용자에게 공지 발송">
+                        {announcing === c.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Megaphone className="w-4 h-4" />}
+                      </button>
+                    )}
                     <button onClick={() => openEdit(c)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground" title="수정">
                       <Pencil className="w-4 h-4" />
                     </button>
