@@ -351,9 +351,10 @@ export function AdminDashboard() {
       toast.error("랜딩 URL 은 http:// 또는 https:// 로 시작해야 합니다.");
       return;
     }
-    // 예산은 0 이상 정수 — 음수/소수 저장 시 즉시 '소진'으로 오판돼 조용히 미노출되던 것 방지
-    if (form.budget_krw != null && (form.budget_krw < 0 || !Number.isFinite(form.budget_krw))) {
-      toast.error("예산은 0 이상이어야 합니다. (비우면 무제한)");
+    // 예산은 1원 이상 정수 — 0/음수는 즉시 '소진'으로 서빙에서 제외돼 조용히 미노출되므로 거부.
+    //   무제한(자체광고)은 빈칸(null). (onChange 가 음수를 0으로 클램프하므로 여기서 0 도 거부해야 함)
+    if (form.budget_krw != null && (form.budget_krw <= 0 || !Number.isFinite(form.budget_krw))) {
+      toast.error("예산은 1원 이상이어야 합니다. 무제한은 비워두세요.");
       return;
     }
 
@@ -372,6 +373,8 @@ export function AdminDashboard() {
     try {
       const payload = {
         ...form,
+        title: form.title.trim(),
+        link_url: form.link_url.trim(),   // 앞뒤 공백 제거 — 서버 VAST safeLink(trim 없음)에서 클릭 죽던 것 방지
         starts_at: form.starts_at || null,
         ends_at: form.ends_at || null,
       };

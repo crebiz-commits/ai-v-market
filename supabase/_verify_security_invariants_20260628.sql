@@ -219,5 +219,33 @@ SELECT * FROM (
     ) THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 ads_track_event_lockdown_20260717.sql 재적용(REVOKE FROM PUBLIC,anon,authenticated)'
 
+  UNION ALL
+  -- 17) pick_random_video_preroll 안전본만 존재하는가 (2026-07-17)
+  --     무인자 SETOF ads 판(budget/spent/owner_id/review_note 전 내부컬럼·status 무필터)이
+  --     옛 파일 재실행으로 재유입되면 anon 내부컬럼 노출 + 미승인 광고 서빙(안전본 ⑥ 우회).
+  SELECT 17,
+    'pick_random_video_preroll 안전본(오버로드 1개·내부컬럼 미반환)',
+    CASE WHEN (
+      SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='public' AND p.proname='pick_random_video_preroll'
+    ) = 1 AND NOT EXISTS (
+      SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='public' AND p.proname='pick_random_video_preroll'
+        AND pg_get_function_result(p.oid) LIKE '%budget_krw%'
+    ) THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 ads_preroll_overload_guard_20260717.sql 재적용(0-arg SETOF ads 판 DROP)'
+
+  UNION ALL
+  -- 18) get_ad_for_video 가 status=approved 게이트를 갖는가 (2026-07-17)
+  --     phase28 판이 status 필터 없이 CREATE OR REPLACE 로 정본을 덮으면 미승인 광고 서빙
+  --     (is_active 게이트가 대부분 방어하나 관리자 수동 is_active 엣지케이스 노출).
+  SELECT 18,
+    'get_ad_for_video status=approved 게이트',
+    CASE WHEN NOT EXISTS (
+      SELECT 1 FROM pg_proc WHERE proname='get_ad_for_video'
+    ) OR (SELECT bool_and(prosrc ~ 'approved') FROM pg_proc WHERE proname='get_ad_for_video')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 advertiser_self_service_phase1_20260614.sql 의 get_ad_for_video 재적용(status 게이트)'
+
 ) AS gate
 ORDER BY sort;
