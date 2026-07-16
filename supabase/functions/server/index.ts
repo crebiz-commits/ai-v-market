@@ -146,11 +146,7 @@ async function verifyUnsubToken(token: string): Promise<string | null> {
   for (let i = 0; i < sig.length; i++) diff |= sig.charCodeAt(i) ^ expected.charCodeAt(i);
   return diff === 0 ? userId : null;
 }
-
-async function sha256Hex(msg: string): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
-  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+// sha256Hex 는 아래(결제 서명 검증부)에 이미 정의됨 — 중복 선언 금지(ES 모듈 부팅 실패).
 
 // Enable logger
 app.use('*', logger(console.log));
