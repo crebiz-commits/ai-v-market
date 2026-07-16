@@ -107,6 +107,7 @@ interface CinemaProps {
   onAddToCart?: (product: Product) => void;  // 카드 hover '+' 버튼 — App.tsx의 addToCart 호출
   tier?: "cinema" | "ott";   // 시네마(60초+, content_policy_v2) 또는 OTT(10분+)
   onNavigate?: (tab: string, sub?: string) => void;
+  onNavigateLink?: (link: string) => void;       // 배너 내부 딥링크 전체 파싱(video/challenge/section 등)
   onViewCreator?: (creatorId: string) => void;  // 탑 크리에이터 카드 → 채널 이동
   onSignInClick?: () => void;                    // 팔로우 등 로그인 필요 액션
 }
@@ -190,7 +191,7 @@ export function prefetchCinemaFeed(userId: string | null, showcase: boolean) {
   };
 }
 
-export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigate, onViewCreator, onSignInClick }: CinemaProps) {
+export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigate, onNavigateLink, onViewCreator, onSignInClick }: CinemaProps) {
   const { t } = useTranslation();
   const { collections } = useCollections();
   const { profile, user } = useAuth();
@@ -426,7 +427,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
 
       {/* 이벤트/프로모 배너 보드 (활성 이벤트 있을 때만 노출. 넓은 화면 최대 5개 / 모바일 1개 5초 슬라이드) */}
       <div className="mt-3">
-        <EventBannerBoard banners={banners} onNavigate={onNavigate} />
+        <EventBannerBoard banners={banners} onNavigate={onNavigate} onNavigateLink={onNavigateLink} />
       </div>
 
       <div className="mt-4">

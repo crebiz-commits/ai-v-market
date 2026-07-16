@@ -1081,7 +1081,7 @@ function AppContent() {
         }
         return <DiscoveryFeed onVideoClick={setSelectedProduct} onAddToCart={(v) => addToCart(v)} onSignInClick={() => setShowAuthModal(true)} onViewCreator={handleViewCreator} onOpenSearch={(q) => { setPendingSearchQuery(q || ""); setActiveTab("search"); }} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "market":
-        return <Cinema onProductClick={setSelectedProduct} onAddToCart={(p) => addToCart(p)} tier="cinema" onNavigate={(tab, sub) => { setActiveTab(tab as Tab); if (tab === "community" && sub) setPendingCommunityTab(sub); }} onViewCreator={handleViewCreator} onSignInClick={() => setShowAuthModal(true)} />;
+        return <Cinema onProductClick={setSelectedProduct} onAddToCart={(p) => addToCart(p)} tier="cinema" onNavigate={(tab, sub) => { setActiveTab(tab as Tab); if (tab === "community" && sub) setPendingCommunityTab(sub); }} onNavigateLink={handleNotificationNavigate} onViewCreator={handleViewCreator} onSignInClick={() => setShowAuthModal(true)} />;
       case "ott":
         return <Ott onProductClick={setSelectedProduct} onPlayProduct={playProduct} onAddToCart={(p) => addToCart(p)} onNavigate={(tab) => setActiveTab(tab as Tab)} onHeroScroll={setHeroScrolled} />;
       case "upload":

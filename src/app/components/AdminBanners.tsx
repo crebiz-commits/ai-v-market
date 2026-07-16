@@ -272,6 +272,7 @@ export function AdminBanners() {
             <div>
               <label className="text-xs font-semibold text-muted-foreground block mb-1">링크</label>
               <input className={inputCls} value={form.link} onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))} placeholder="/?tab=bug-report 또는 https://..." />
+              <p className="text-[11px] text-muted-foreground/80 mt-1">내부 딥링크: <code className="bg-muted px-1 rounded">/?tab=upload</code> · <code className="bg-muted px-1 rounded">/?video=&lt;id&gt;</code> · <code className="bg-muted px-1 rounded">/?tab=community&amp;sub=challenges&amp;challenge=&lt;id&gt;</code> · 외부는 <code className="bg-muted px-1 rounded">https://</code></p>
             </div>
             <div className="md:col-span-2">
               <label className="text-xs font-semibold text-muted-foreground block mb-1">배경 이미지 (없으면 그라데이션 사용)</label>

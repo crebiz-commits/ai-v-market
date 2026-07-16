@@ -33,9 +33,10 @@ const BRAND = "from-[#a78bfa] via-[#ec4899] to-[#f59e0b]";
 interface Props {
   banners: BoardBanner[];
   onNavigate?: (tab: string, sub?: string) => void;
+  onNavigateLink?: (link: string) => void;   // 내부 딥링크 전체 파서(video/challenge/section 등) — 있으면 우선
 }
 
-export function EventBannerBoard({ banners, onNavigate }: Props) {
+export function EventBannerBoard({ banners, onNavigate, onNavigateLink }: Props) {
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(false);
@@ -43,6 +44,9 @@ export function EventBannerBoard({ banners, onNavigate }: Props) {
   const go = (link?: string) => {
     if (!link) return;
     if (/^https?:\/\//i.test(link)) { window.open(link, "_blank", "noopener"); return; }
+    // 내부 링크: 전체 파서가 있으면 그걸로 위임(video/challenge/section/creator 등 모든 파라미터 반영).
+    //   없을 때만 tab+sub 만 뽑는 폴백(관리자가 특정 영상·챌린지로 링크해도 안 끊기도록).
+    if (onNavigateLink) { onNavigateLink(link); return; }
     try {
       const params = new URL(link, window.location.origin).searchParams;
       const tab = params.get("tab");
