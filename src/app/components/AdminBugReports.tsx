@@ -98,13 +98,14 @@ export function AdminBugReports() {
   useEffect(() => { void load(); }, [load]);
 
   const setStatus = async (id: string, status: BugReport["status"]): Promise<boolean> => {
-    const prev = items;
+    const prevItem = items.find((it) => it.id === id);
     setItems((cur) => cur.map((it) => (it.id === id ? { ...it, status, reviewed_at: new Date().toISOString() } : it)));
     // 직접 UPDATE 대신 RPC — admin_logs 감사기록(쿠폰지급=금전 액션 추적, reviewed_by)
     const { error } = await supabase.rpc("admin_set_bug_status", { p_id: id, p_status: status });
     if (error) {
       toast.error("상태 변경 실패: " + error.message);
-      setItems(prev);
+      // 실패한 항목만 원복 — 다른 항목의 동시 변경을 스냅샷 복원으로 덮어쓰지 않게
+      if (prevItem) setItems((cur) => cur.map((it) => (it.id === id ? prevItem : it)));
       return false;
     }
     return true;
@@ -112,12 +113,16 @@ export function AdminBugReports() {
 
   const remove = async (id: string) => {
     if (!confirm("이 버그 제보를 삭제할까요? (첨부 스크린샷도 함께 삭제)")) return;
-    const prev = items;
     const target = items.find((it) => it.id === id);
     setItems((cur) => cur.filter((it) => it.id !== id));
     // 직접 DELETE 대신 RPC — admin_logs 감사기록. 스토리지 파일은 아래서 정리.
     const { error } = await supabase.rpc("admin_delete_bug_report", { p_id: id });
-    if (error) { toast.error("삭제 실패: " + error.message); setItems(prev); return; }
+    if (error) {
+      toast.error("삭제 실패: " + error.message);
+      // 실패 시 해당 항목만 원위치 복원(created_at 정렬 유지)
+      if (target) setItems((cur) => [...cur, target].sort((a, b) => b.created_at.localeCompare(a.created_at)));
+      return;
+    }
     // 스토리지 정리 — DB 행만 지우면 개인정보가 담길 수 있는 스크린샷이 비공개 버킷에
     //   영구 잔존(2026-07-14). 실패해도 제보 삭제는 유지(고아 파일은 무해, 재시도 가능).
     const paths = (target?.image_urls || []).map(toStoragePath).filter(Boolean);
@@ -134,9 +139,9 @@ export function AdminBugReports() {
     const to = it.reporter_contact || "";
     const isEmail = to.includes("@");
     const prevStatus = it.status;
+    const isResend = prevStatus === "coupon_sent";
     // 이미 지급된 건이면 작성창 열기·복사 전에 확인(중복지급 유도 방지)
-    if (prevStatus === "coupon_sent" &&
-        !confirm("이미 '쿠폰지급'으로 기록된 제보입니다. 그래도 다시 보낼까요?")) return;
+    if (isResend && !confirm("이미 '쿠폰지급'으로 기록된 제보입니다. 그래도 다시 보낼까요?")) return;
 
     try { await navigator.clipboard.writeText(to); } catch {}
     if (isEmail) window.open("https://mail.zoho.com/zm/#compose", "_blank", "noopener");
@@ -145,16 +150,17 @@ export function AdminBugReports() {
       ? `연락처(${to})를 복사했어요. Zoho 작성창에 붙여넣어 커피 쿠폰을 보내세요.`
       : `연락처(${to || "없음"})를 복사했어요. 카카오 등으로 쿠폰을 보내주세요.`;
 
-    if (prevStatus === "coupon_sent") {
-      toast.success(guide, { duration: 5000 });
-      return;
-    }
+    // 신규·재발송 모두 서버 기록(감사 — 매 지급마다 bug_coupon_sent 로그). coupon_sent 로 (재)설정.
     const ok = await setStatus(it.id, "coupon_sent");   // 실패 시 setStatus가 롤백+에러토스트
     if (!ok) return;
-    toast.success(`${guide} '쿠폰지급'으로 기록했어요.`, {
-      duration: 6000,
-      action: { label: "실행취소", onClick: () => { void setStatus(it.id, prevStatus); } },
-    });
+    if (isResend) {
+      toast.success(`${guide} (재발송 기록됨)`, { duration: 5000 });
+    } else {
+      toast.success(`${guide} '쿠폰지급'으로 기록했어요.`, {
+        duration: 6000,
+        action: { label: "실행취소", onClick: () => { void setStatus(it.id, prevStatus); } },
+      });
+    }
   };
 
   // 내부 메모(admin_note) — 컬럼은 있었으나 편집 UI가 없어 팀 공유가 불가했음.

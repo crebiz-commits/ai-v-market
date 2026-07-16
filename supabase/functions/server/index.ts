@@ -1688,14 +1688,30 @@ app.post('/billing-run', async (c) => {
 //   버킷마다 {uid}/ 구조가 아니면 list 가 빈 결과라 무해. best-effort(실패해도 파기는 완료).
 const USER_STORAGE_BUCKETS = [
   'bug-screenshots', 'user-avatars', 'user-banners',
-  'video-thumbnails', 'video-subtitles', 'ad-images',
+  'video-thumbnails', 'video-subtitles', 'ad-images', 'hero-clips',
 ];
 async function pruneUserStorage(admin: any, uid: string): Promise<number> {
   let removed = 0;
   for (const bucket of USER_STORAGE_BUCKETS) {
     try {
-      const { data: files } = await admin.storage.from(bucket).list(uid, { limit: 1000 });
-      const paths = (files || []).filter((f: any) => f?.name).map((f: any) => `${uid}/${f.name}`);
+      // {uid}/ 1레벨 나열. 파일은 바로 수집, 하위 폴더(list 는 폴더를 id=null 로 반환;
+      //   예: video-thumbnails/subtitles 의 {uid}/{videoId}/파일)는 한 단계 더 나열해
+      //   실제 파일 경로 수집. 폴더 placeholder 를 remove 하면 무동작이라 중첩 재귀 필수.
+      //   (이 도메인은 최대 2단계: {uid}/{videoId}/파일)
+      const { data: top } = await admin.storage.from(bucket).list(uid, { limit: 1000 });
+      const paths: string[] = [];
+      for (const e of (top || [])) {
+        if (!e?.name) continue;
+        if (e.id === null) {
+          const sub = `${uid}/${e.name}`;
+          const { data: inner } = await admin.storage.from(bucket).list(sub, { limit: 1000 });
+          for (const f of (inner || [])) {
+            if (f?.name && f.id !== null) paths.push(`${sub}/${f.name}`);
+          }
+        } else {
+          paths.push(`${uid}/${e.name}`);
+        }
+      }
       if (paths.length) {
         const { error } = await admin.storage.from(bucket).remove(paths);
         if (error) console.error(`[purge-deletions] storage remove ${bucket}/${uid} 실패`, error.message);
