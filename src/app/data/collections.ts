@@ -5,8 +5,25 @@
 //   컬렉션으로 깨지지 않게 하는 안전망. DB 값이 있으면 대체된다.
 //   useCollections() 훅으로 구독하면 DB 로드 시 자동 재렌더.
 // ════════════════════════════════════════════════════════════════════════════
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, type CSSProperties } from "react";
 import { supabase } from "../utils/supabaseClient";
+
+// ── 그라데이션 헬퍼 ──────────────────────────────────────────────────────────
+// gradient 값 2형태 지원(이벤트배너와 동일 원리): Tailwind JIT는 빌드에 없는 novel
+// 클래스를 못 만들어, 관리자가 새 그라데이션 "클래스"를 입력하면 안 깔림.
+//   ① Tailwind 클래스(from-/via-/to- 계열, 시드·소스에 존재) → className 그대로
+//   ② 관리자 입력 CSS("#색1, #색2" 또는 "linear-gradient(...)") → inline style(빌드 무관 실동작)
+// 렌더: `bg-gradient-to-br ${gradClass(g)}` + `style={gradStyle(g)}` (style 있으면 우선 적용).
+export function gradClass(gradient?: string | null): string {
+  const g = gradient?.trim();
+  if (!g) return "from-[#1a1030] to-[#0d0d14]";
+  return /(^|\s)(from|via|to)-/.test(g) ? g : "";
+}
+export function gradStyle(gradient?: string | null): CSSProperties | undefined {
+  const g = gradient?.trim();
+  if (!g || /(^|\s)(from|via|to)-/.test(g)) return undefined;
+  return { backgroundImage: g.includes("gradient(") ? g : `linear-gradient(135deg, ${g})` };
+}
 
 export interface Collection {
   slug: string;

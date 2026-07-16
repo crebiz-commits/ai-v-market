@@ -8,7 +8,7 @@ import { Footer } from "./Footer";
 import { BackButton } from "./BackButton";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../utils/supabaseClient";
-import { useCollections } from "../data/collections";
+import { useCollections, gradClass, gradStyle } from "../data/collections";
 import { CreaiteSelectBadge } from "./CreaiteSelectBadge";
 
 interface CollectionsProps {
@@ -98,7 +98,7 @@ export function CollectionsPage({ onBack, onNavigate }: CollectionsProps) {
           <>
             <BackButton onClick={goList} label={t("collections.backToList", "컬렉션 목록")} className="mb-6" />
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              <div className={`relative w-full aspect-[16/5] rounded-2xl overflow-hidden bg-gradient-to-br ${col.gradient} flex items-center justify-center mb-6`}>
+              <div className={`relative w-full aspect-[16/5] rounded-2xl overflow-hidden bg-gradient-to-br ${gradClass(col.gradient)} flex items-center justify-center mb-6`} style={gradStyle(col.gradient)}>
                 <div className="absolute -right-8 -top-8 w-52 h-52 rounded-full bg-white/15 blur-3xl" />
                 <span className="relative text-6xl md:text-8xl drop-shadow-lg">{col.emoji}</span>
               </div>
@@ -156,7 +156,7 @@ export function CollectionsPage({ onBack, onNavigate }: CollectionsProps) {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {collections.filter((c) => c.slug !== col.slug).map((c) => (
                     <a key={c.slug} href={`?info=collections&c=${c.slug}`} className="flex items-center gap-3 p-3 rounded-xl bg-[#141414] border border-white/5 hover:border-[#6366f1]/40 transition-colors">
-                      <div className={`w-11 h-11 rounded-lg bg-gradient-to-br ${c.gradient} flex items-center justify-center shrink-0`}><span className="text-xl">{c.emoji}</span></div>
+                      <div className={`w-11 h-11 rounded-lg bg-gradient-to-br ${gradClass(c.gradient)} flex items-center justify-center shrink-0`} style={gradStyle(c.gradient)}><span className="text-xl">{c.emoji}</span></div>
                       <div className="min-w-0">
                         <div className="text-white text-sm font-bold line-clamp-1">{c.title}</div>
                         <div className="text-white/40 text-[11px] mt-0.5">{c.tagline}</div>
@@ -189,7 +189,7 @@ export function CollectionsPage({ onBack, onNavigate }: CollectionsProps) {
                   transition={{ delay: i * 0.05 }}
                   className="group relative rounded-2xl overflow-hidden border border-white/[0.08] hover:border-[#6366f1]/50 hover:shadow-[0_0_30px_rgba(99,102,241,0.18)] transition-all min-h-[150px] flex"
                 >
-                  <div className={`absolute inset-0 bg-gradient-to-br ${c.gradient}`} />
+                  <div className={`absolute inset-0 bg-gradient-to-br ${gradClass(c.gradient)}`} style={gradStyle(c.gradient)} />
                   <div className="absolute -right-6 -top-6 w-36 h-36 rounded-full bg-white/15 blur-2xl" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
                   <span className="absolute top-4 right-5 text-5xl md:text-6xl opacity-85 group-hover:scale-110 group-hover:rotate-3 transition-transform">{c.emoji}</span>

@@ -16,7 +16,7 @@ import { Loader2, Film } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { VideoRowCarousel, type CarouselVideo } from "./VideoRowCarousel";
-import { useCollections } from "../data/collections";
+import { useCollections, gradClass, gradStyle } from "../data/collections";
 import { TrendingHeroSection } from "./TrendingHeroSection";
 import { Footer } from "./Footer";
 import { useAgeRatings } from "../hooks/useAgeRatings";
@@ -482,7 +482,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
                   href={`?info=collections&c=${c.slug}`}
                   className="shrink-0 w-[44vw] sm:w-[32vw] md:w-[22vw] max-w-[300px] group relative rounded-xl overflow-hidden border border-white/[0.08] hover:border-[#6366f1]/50 transition-all aspect-[16/10] flex"
                 >
-                  <div className={`absolute inset-0 bg-gradient-to-br ${c.gradient}`} />
+                  <div className={`absolute inset-0 bg-gradient-to-br ${gradClass(c.gradient)}`} style={gradStyle(c.gradient)} />
                   <div className="absolute -right-5 -top-5 w-28 h-28 rounded-full bg-white/15 blur-2xl" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
                   <span className="absolute top-2.5 right-3 text-4xl md:text-5xl opacity-85 group-hover:scale-110 transition-transform">{c.emoji}</span>

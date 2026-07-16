@@ -238,8 +238,9 @@ export function AdminCollections() {
             <input type="number" className={inputCls} value={editing.sort_order} onChange={(e) => setEditing({ ...editing, sort_order: parseInt(e.target.value) || 0 })} />
           </div>
           <div className="md:col-span-2">
-            <label className="text-xs font-semibold text-muted-foreground block mb-1">그라데이션 클래스 (tailwind)</label>
-            <input className={inputCls} value={editing.gradient} onChange={(e) => setEditing({ ...editing, gradient: e.target.value })} placeholder="from-[#ef4444] to-[#6366f1]" />
+            <label className="text-xs font-semibold text-muted-foreground block mb-1">그라데이션 (배경)</label>
+            <input className={inputCls} value={editing.gradient} onChange={(e) => setEditing({ ...editing, gradient: e.target.value })} placeholder="#ef4444, #6366f1  (또는 CSS linear-gradient(...))" />
+            <p className="text-[11px] text-muted-foreground/80 mt-1">색상 CSS 권장: <code className="bg-muted px-1 rounded">#색1, #색2</code> 또는 <code className="bg-muted px-1 rounded">linear-gradient(135deg,#a,#b)</code>. (기존 Tailwind <code className="bg-muted px-1 rounded">from-[..] to-[..]</code>도 유지되나 새 색은 CSS로)</p>
           </div>
           <div className="md:col-span-2">
             <label className="text-xs font-semibold text-muted-foreground block mb-1">에디토리얼 소개 (HTML: &lt;p&gt;/&lt;strong&gt;/&lt;em&gt;)</label>
