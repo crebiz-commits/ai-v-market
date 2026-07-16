@@ -9,6 +9,7 @@ import { Button } from "./ui/button";
 import { supabase, supabaseAnonKey } from "../utils/supabaseClient";
 import { tusUploadToBunny } from "../utils/bunnyUpload";
 import { BUNNY_HOST } from "../utils/bunnyHost";
+import { HOME_FEED_SELF_ADS } from "../config/ads";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -345,6 +346,16 @@ export function AdminDashboard() {
   const handleSave = async () => {
     if (!form.title.trim()) { toast.error("광고명을 입력하세요."); return; }
     if (!form.link_url.trim()) { toast.error("랜딩 URL을 입력하세요."); return; }
+    // 랜딩 URL 은 http(s) 만 — javascript:/data: 등 저장형 피싱·XSS 벡터 차단
+    if (!/^https?:\/\//i.test(form.link_url.trim())) {
+      toast.error("랜딩 URL 은 http:// 또는 https:// 로 시작해야 합니다.");
+      return;
+    }
+    // 예산은 0 이상 정수 — 음수/소수 저장 시 즉시 '소진'으로 오판돼 조용히 미노출되던 것 방지
+    if (form.budget_krw != null && (form.budget_krw < 0 || !Number.isFinite(form.budget_krw))) {
+      toast.error("예산은 0 이상이어야 합니다. (비우면 무제한)");
+      return;
+    }
 
     // Phase 28: 형식별 입력 검증
     const videoFormats: AdFormat[] = ["preroll", "midroll", "postroll", "bumper"];
@@ -400,11 +411,20 @@ export function AdminDashboard() {
 
   const handleDelete = async (id: string) => {
     try {
+      const target = ads.find(a => a.id === id);
       const { error } = await supabase.from("ads").delete().eq("id", id);
       if (error) throw error;
       setAds(prev => prev.filter(a => a.id !== id));
       setDeleteConfirm(null);
       toast.success("광고가 삭제되었습니다.");
+      // 첨부 이미지(ad-images 버킷) 정리 — best-effort(고아파일·비용 방지). Bunny 영상은 별도 GC.
+      const marker = "/ad-images/";
+      const iu = target?.image_url || "";
+      const idx = iu.indexOf(marker);
+      if (idx >= 0) {
+        const path = iu.slice(idx + marker.length).split("?")[0];
+        if (path) { const { error: rmErr } = await supabase.storage.from("ad-images").remove([path]); if (rmErr) console.warn("[AdminDashboard] ad-images 정리 실패:", rmErr.message); }
+      }
     } catch (err: any) {
       toast.error("삭제 실패: " + err.message);
     }
@@ -731,6 +751,14 @@ export function AdminDashboard() {
                 </div>
               </Field>
 
+              {/* 자체 피드광고 노출면 OFF 경고 — 등록해도 안 나오는 죽은 설정 방지 */}
+              {form.format === "feed" && !HOME_FEED_SELF_ADS && (
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs leading-relaxed">
+                  ⚠️ 현재 <b>자체 피드 광고 노출면이 꺼져 있어</b> 이 형식으로 등록해도 홈 피드에 노출되지 않습니다.
+                  프리롤·오버레이 등 영상 광고 형식을 쓰거나, 노출면을 켠 뒤 등록하세요.
+                </div>
+              )}
+
               {/* 광고명 */}
               <Field label="광고명 *">
                 <input
@@ -900,7 +928,7 @@ export function AdminDashboard() {
                   value={form.budget_krw ?? ""}
                   onChange={e => setForm(f => ({
                     ...f,
-                    budget_krw: e.target.value === "" ? null : Number(e.target.value),
+                    budget_krw: e.target.value === "" ? null : Math.max(0, Math.round(Number(e.target.value) || 0)),
                   }))}
                 />
                 <p className="text-[11px] text-muted-foreground mt-1">

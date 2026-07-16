@@ -204,5 +204,20 @@ SELECT * FROM (
     ) THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 fix_moderation_rpc_collab_count_20260713.sql ① 재적용(REVOKE FROM PUBLIC)'
 
+  UNION ALL
+  -- 16) track_video_ad_event(VAST 과금 RPC)가 anon/authenticated 에 직접 EXECUTE 부여돼 있지 않은가 (2026-07-17)
+  --     노출 시 PostgREST 직접호출로 Edge /vast-track 의 HMAC·레이트리밋 우회 →
+  --     경쟁 예산광고 소진·크리에이터 광고수익 부풀리기(정산 과지급). 형제 집계 4종은
+  --     service_role 전용인데 이것만 기본 PUBLIC EXECUTE 잔존했던 항목.
+  SELECT 16,
+    'track_video_ad_event anon/authenticated 비노출(VAST 과금 우회 차단)',
+    CASE WHEN NOT EXISTS (
+      SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='public' AND p.proname='track_video_ad_event'
+        AND (has_function_privilege('anon', p.oid, 'EXECUTE')
+             OR has_function_privilege('authenticated', p.oid, 'EXECUTE'))
+    ) THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 ads_track_event_lockdown_20260717.sql 재적용(REVOKE FROM PUBLIC,anon,authenticated)'
+
 ) AS gate
 ORDER BY sort;
