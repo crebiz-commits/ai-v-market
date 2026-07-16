@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { supabase } from "../utils/supabaseClient";
 import { SPOTLIGHTS, getSpotlight } from "../data/spotlights";
 import { useCollections } from "../data/collections";
+import { sanitizeEditorialHtml } from "../utils/sanitizeHtml";
 import { CreaiteSelectBadge } from "./CreaiteSelectBadge";
 
 interface SpotlightProps {
@@ -125,7 +126,7 @@ export function SpotlightPage({ onBack, onNavigate }: SpotlightProps) {
                 <p className="text-lg md:text-xl font-bold text-white/90 leading-snug italic">{sp.quote}</p>
               </blockquote>
 
-              <div className="sp-intro mb-8" dangerouslySetInnerHTML={{ __html: sp.intro }} />
+              <div className="sp-intro mb-8" dangerouslySetInnerHTML={{ __html: sanitizeEditorialHtml(sp.intro) }} />
 
               {/* 대표작 */}
               <h2 className="text-white font-bold mb-4">{t("spotlight.works", "대표작")}</h2>

@@ -9,6 +9,7 @@ import { BackButton } from "./BackButton";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../utils/supabaseClient";
 import { useCollections, gradClass, gradStyle } from "../data/collections";
+import { sanitizeEditorialHtml } from "../utils/sanitizeHtml";
 import { CreaiteSelectBadge } from "./CreaiteSelectBadge";
 
 interface CollectionsProps {
@@ -107,7 +108,7 @@ export function CollectionsPage({ onBack, onNavigate }: CollectionsProps) {
                 <span className="text-white/40 text-xs">{col.tagline}</span>
               </div>
               <h1 className="text-2xl md:text-4xl font-black text-white leading-tight mb-3">{col.title}</h1>
-              <div className="col-intro mb-8" dangerouslySetInnerHTML={{ __html: col.intro }} />
+              <div className="col-intro mb-8" dangerouslySetInnerHTML={{ __html: sanitizeEditorialHtml(col.intro) }} />
 
               {/* 큐레이션 영상 */}
               <h2 className="text-white font-bold mb-4 flex items-center gap-2">

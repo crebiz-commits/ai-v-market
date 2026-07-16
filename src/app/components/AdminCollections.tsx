@@ -37,6 +37,16 @@ const EMPTY_FORM: FormState = {
   sort_order: 100, is_active: true, is_select: false,
 };
 
+// slug 정규화 — URL 식별자(?info=collections&c=<slug>)로 안전하게: 소문자·영숫자·하이픈,
+//   앞뒤/연속 하이픈 제거. 관리자가 "긴장의 밤!" 같이 입력해도 깨지지 않게 자동 정리.
+//   (서버 admin_upsert_collection 도 동일 정규식으로 이중 검증)
+function slugify(raw: string): string {
+  return raw.trim().toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")   // 영숫자 외 → 하이픈
+    .replace(/^-+|-+$/g, "")        // 앞뒤 하이픈 제거
+    .slice(0, 64);
+}
+
 export function AdminCollections() {
   const [collections, setCollections] = useState<CollectionRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,15 +90,21 @@ export function AdminCollections() {
     })));
   };
 
-  const closeEdit = () => { setEditing(null); setAssigned([]); setResults([]); setQuery(""); setVideoDirty(false); };
+  const closeEdit = () => {
+    // 저장 안 한 영상 변경(순서·추가·제거)이 있으면 이탈 전 확인 — 조용한 유실 방지
+    if (videoDirty && !confirm("저장하지 않은 영상 변경이 있어요. 저장하지 않고 목록으로 나갈까요?")) return;
+    setEditing(null); setAssigned([]); setResults([]); setQuery(""); setVideoDirty(false);
+  };
 
   const saveMeta = async () => {
     if (!editing) return;
-    if (!editing.slug.trim()) { toast.error("slug를 입력하세요 (예: night-tension)"); return; }
+    const slug = slugify(editing.slug);
+    if (!slug) { toast.error("slug를 입력하세요 (영문 소문자·숫자·하이픈, 예: night-tension)"); return; }
     if (!editing.title.trim()) { toast.error("제목을 입력하세요"); return; }
+    if (slug !== editing.slug) setEditing({ ...editing, slug });   // 정규화 결과를 폼에 반영(관리자가 확인)
     setSavingMeta(true);
     const { data, error } = await supabase.rpc("admin_upsert_collection", {
-      p_id: editing.id, p_slug: editing.slug.trim(), p_title: editing.title.trim(),
+      p_id: editing.id, p_slug: slug, p_title: editing.title.trim(),
       p_tagline: editing.tagline.trim() || null, p_intro: editing.intro.trim() || null,
       p_emoji: editing.emoji.trim() || null, p_gradient: editing.gradient.trim() || null,
       p_sort_order: editing.sort_order || 100, p_is_active: editing.is_active, p_is_select: editing.is_select,
@@ -220,6 +236,7 @@ export function AdminCollections() {
           <div>
             <label className="text-xs font-semibold text-muted-foreground block mb-1">slug (URL 식별자) *</label>
             <input className={inputCls} value={editing.slug} onChange={(e) => setEditing({ ...editing, slug: e.target.value })} placeholder="night-tension" />
+            <p className="text-[11px] text-muted-foreground/80 mt-1">영문 소문자·숫자·하이픈만 (저장 시 자동 정리). URL에 쓰여요: <code className="bg-muted px-1 rounded">?info=collections&amp;c=slug</code></p>
           </div>
           <div>
             <label className="text-xs font-semibold text-muted-foreground block mb-1">제목 *</label>
