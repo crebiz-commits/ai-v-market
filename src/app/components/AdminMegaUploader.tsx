@@ -48,10 +48,8 @@ export function AdminMegaUploader() {
   const setStatus = async (id: string, status: Milestone["status"]): Promise<boolean> => {
     const prev = items;
     setItems((cur) => cur.map((it) => (it.id === id ? { ...it, status, rewarded_at: status === "coupon_sent" ? new Date().toISOString() : null } : it)));
-    const { error } = await supabase
-      .from("upload_milestones")
-      .update({ status, rewarded_at: status === "coupon_sent" ? new Date().toISOString() : null })
-      .eq("id", id);
+    // 직접 UPDATE → RPC(admin_logs 기록). 지급완료는 금전(쿠폰) 지급 기록이라 감사추적 필수.
+    const { error } = await supabase.rpc("admin_set_milestone_status", { p_id: id, p_status: status });
     if (error) { toast.error("변경 실패: " + error.message); setItems(prev); return false; }
     return true;
   };
