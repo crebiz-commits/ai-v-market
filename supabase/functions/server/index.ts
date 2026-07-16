@@ -1683,6 +1683,31 @@ app.post('/billing-run', async (c) => {
 //   ※ SQL의 purge_pending_deletions 는 auth.uid() 어드민 가드가 있어 cron 호출 불가 →
 //     자동 파기는 이 엔드포인트가 담당. (어드민 수동 호출용으로 SQL 함수는 그대로 보존)
 // ============================================
+// 계정 영구파기 시 사용자 소유 스토리지 폴더 정리 — DB 는 CASCADE 로 지워지지만 스토리지
+//   파일은 남으므로(특히 bug-screenshots 의 PII 스크린샷) 각 버킷의 {uid}/ 폴더 제거(잊힐 권리).
+//   버킷마다 {uid}/ 구조가 아니면 list 가 빈 결과라 무해. best-effort(실패해도 파기는 완료).
+const USER_STORAGE_BUCKETS = [
+  'bug-screenshots', 'user-avatars', 'user-banners',
+  'video-thumbnails', 'video-subtitles', 'ad-images',
+];
+async function pruneUserStorage(admin: any, uid: string): Promise<number> {
+  let removed = 0;
+  for (const bucket of USER_STORAGE_BUCKETS) {
+    try {
+      const { data: files } = await admin.storage.from(bucket).list(uid, { limit: 1000 });
+      const paths = (files || []).filter((f: any) => f?.name).map((f: any) => `${uid}/${f.name}`);
+      if (paths.length) {
+        const { error } = await admin.storage.from(bucket).remove(paths);
+        if (error) console.error(`[purge-deletions] storage remove ${bucket}/${uid} 실패`, error.message);
+        else removed += paths.length;
+      }
+    } catch (e: any) {
+      console.error(`[purge-deletions] storage prune ${bucket}/${uid} 예외`, e?.message || e);
+    }
+  }
+  return removed;
+}
+
 app.post('/purge-deletions', async (c) => {
   try {
     const secret = c.req.header('x-cron-secret');
@@ -1708,6 +1733,8 @@ app.post('/purge-deletions', async (c) => {
         const { error: delErr } = await admin.auth.admin.deleteUser(t.id);
         if (delErr) { console.error('[purge-deletions] deleteUser 실패', t.id, delErr.message); fail++; continue; }
         ok++;
+        // 파기 성공 후 사용자 소유 스토리지 폴더 정리(PII 고아파일 방지). best-effort.
+        await pruneUserStorage(admin, t.id);
       } catch (e: any) {
         console.error('[purge-deletions] 예외', t.id, e?.message || e); fail++;
       }
