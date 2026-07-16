@@ -100,10 +100,8 @@ export function AdminBugReports() {
   const setStatus = async (id: string, status: BugReport["status"]): Promise<boolean> => {
     const prev = items;
     setItems((cur) => cur.map((it) => (it.id === id ? { ...it, status, reviewed_at: new Date().toISOString() } : it)));
-    const { error } = await supabase
-      .from("bug_reports")
-      .update({ status, reviewed_at: new Date().toISOString() })
-      .eq("id", id);
+    // 직접 UPDATE 대신 RPC — admin_logs 감사기록(쿠폰지급=금전 액션 추적, reviewed_by)
+    const { error } = await supabase.rpc("admin_set_bug_status", { p_id: id, p_status: status });
     if (error) {
       toast.error("상태 변경 실패: " + error.message);
       setItems(prev);
@@ -117,7 +115,8 @@ export function AdminBugReports() {
     const prev = items;
     const target = items.find((it) => it.id === id);
     setItems((cur) => cur.filter((it) => it.id !== id));
-    const { error } = await supabase.from("bug_reports").delete().eq("id", id);
+    // 직접 DELETE 대신 RPC — admin_logs 감사기록. 스토리지 파일은 아래서 정리.
+    const { error } = await supabase.rpc("admin_delete_bug_report", { p_id: id });
     if (error) { toast.error("삭제 실패: " + error.message); setItems(prev); return; }
     // 스토리지 정리 — DB 행만 지우면 개인정보가 담길 수 있는 스크린샷이 비공개 버킷에
     //   영구 잔존(2026-07-14). 실패해도 제보 삭제는 유지(고아 파일은 무해, 재시도 가능).
@@ -134,6 +133,11 @@ export function AdminBugReports() {
   const sendCoupon = async (it: BugReport) => {
     const to = it.reporter_contact || "";
     const isEmail = to.includes("@");
+    const prevStatus = it.status;
+    // 이미 지급된 건이면 작성창 열기·복사 전에 확인(중복지급 유도 방지)
+    if (prevStatus === "coupon_sent" &&
+        !confirm("이미 '쿠폰지급'으로 기록된 제보입니다. 그래도 다시 보낼까요?")) return;
+
     try { await navigator.clipboard.writeText(to); } catch {}
     if (isEmail) window.open("https://mail.zoho.com/zm/#compose", "_blank", "noopener");
 
@@ -141,7 +145,6 @@ export function AdminBugReports() {
       ? `연락처(${to})를 복사했어요. Zoho 작성창에 붙여넣어 커피 쿠폰을 보내세요.`
       : `연락처(${to || "없음"})를 복사했어요. 카카오 등으로 쿠폰을 보내주세요.`;
 
-    const prevStatus = it.status;
     if (prevStatus === "coupon_sent") {
       toast.success(guide, { duration: 5000 });
       return;
@@ -178,17 +181,17 @@ export function AdminBugReports() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={() => setFilter("all")}
+        <button onClick={() => setFilter("all")} aria-pressed={filter === "all"}
           className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${filter === "all" ? "bg-[#6366f1] text-white border-transparent" : "bg-card text-muted-foreground border-border hover:border-[#6366f1]/50"}`}>
           전체 {items.length}
         </button>
         {STATUS.map((s) => (
-          <button key={s.key} onClick={() => setFilter(s.key)}
+          <button key={s.key} onClick={() => setFilter(s.key)} aria-pressed={filter === s.key}
             className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${filter === s.key ? "bg-[#6366f1] text-white border-transparent" : "bg-card text-muted-foreground border-border hover:border-[#6366f1]/50"}`}>
             {s.label} {counts[s.key] || 0}
           </button>
         ))}
-        <button onClick={() => void load()} className="ml-auto p-2 rounded-lg hover:bg-muted text-muted-foreground" title="새로고침">
+        <button onClick={() => void load()} className="ml-auto p-2 rounded-lg hover:bg-muted text-muted-foreground" title="새로고침" aria-label="새로고침">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
@@ -241,7 +244,7 @@ export function AdminBugReports() {
                 <div className="flex items-center gap-1.5 mt-3 flex-wrap">
                   <span className="text-xs text-muted-foreground mr-1">상태:</span>
                   {STATUS.map((s) => (
-                    <button key={s.key} onClick={() => void setStatus(it.id, s.key)}
+                    <button key={s.key} onClick={() => void setStatus(it.id, s.key)} aria-pressed={it.status === s.key}
                       className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors ${it.status === s.key ? s.cls : "bg-transparent text-muted-foreground border-border hover:bg-muted"}`}>
                       {s.label}
                     </button>
