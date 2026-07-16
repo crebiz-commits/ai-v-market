@@ -4,7 +4,7 @@
 // 30편 달성 시 트리거가 자동 기록 → 여기 "대기"로 떠서 어드민이 쿠폰 발송 후 처리.
 // ════════════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, Coffee, RefreshCw, Mail, CheckCircle2, RotateCcw } from "lucide-react";
+import { Loader2, Coffee, RefreshCw, Mail, CheckCircle2, RotateCcw, ExternalLink, AlertTriangle } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { toast } from "sonner";
 
@@ -19,6 +19,7 @@ interface Milestone {
   rewarded_at: string | null;
   creator_name: string | null;
   creator_email: string | null;
+  current_visible: number | null;   // 현재 게시(검수통과) 영상 수 — 지급 전 검토 신호
 }
 
 function fmt(iso: string) {
@@ -87,6 +88,7 @@ export function AdminMegaUploader() {
           <p className="text-sm text-foreground/90 leading-relaxed">
             영화 <b className="text-foreground">30편</b> 업로드마다 자동으로 달성자가 등록됩니다 (30·60·90편…).
             {" "}<b className="text-foreground">대기</b>는 쿠폰 미발송, 발송 후 <b className="text-foreground">지급완료</b>로 바꿔주세요.
+            {" "}지급 전 <b className="text-foreground">채널 확인</b>·<b className="text-foreground">현재 게시</b> 편수로 실제 콘텐츠를 검토하세요(<span className="text-amber-400">⚠️ 게시 수가 적으면 정크 업로드 의심</span>).
           </p>
         </div>
       </div>
@@ -125,10 +127,22 @@ export function AdminMegaUploader() {
                     {it.milestone}편
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-foreground">{it.creator_name || "크리에이터"}</p>
+                    <p className="font-bold text-foreground flex items-center gap-2">
+                      {it.creator_name || "크리에이터"}
+                      <a href={`?tab=channel&creator=${it.user_id}`} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-[#a5b4fc] hover:text-[#c7d2fe]" title="달성자 채널을 새 탭에서 확인(지급 전 검토)">
+                        채널 확인 <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </p>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap mt-0.5">
                       {it.creator_email && <span className="flex items-center gap-1"><Mail className="w-3.5 h-3.5" />{it.creator_email}</span>}
-                      <span>누적 {it.video_count}편</span>
+                      <span>달성 {it.video_count}편</span>
+                      {it.current_visible != null && (
+                        <span className={`flex items-center gap-1 ${it.current_visible < it.milestone ? "text-amber-400 font-semibold" : ""}`}>
+                          {it.current_visible < it.milestone && <AlertTriangle className="w-3.5 h-3.5" />}
+                          현재 게시 {it.current_visible}편
+                        </span>
+                      )}
                       <span>· {fmt(it.created_at)} 달성</span>
                     </div>
                   </div>
