@@ -41,6 +41,15 @@ const ADSENSE = {
 export const EXTERNAL_ADS_ACTIVE =
   EXTERNAL_ADS_ON && (!!ADFIT.unit || (!!ADSENSE.client && !!ADSENSE.slot));
 
+// ── 관리자 '외부 광고' 상태판용 파생 플래그 ─────────────────────────────────────
+//   하드코딩 문자열이 아니라, 실제 서빙 컴포넌트가 읽는 것과 "동일한" 빌드타임 env 를
+//   그대로 반영 → 광고가 꺼지면 관리자 화면도 자동으로 '대기'로 바뀜(거짓 '노출 중' 방지).
+export const EXTERNAL_ADS_MASTER_ON = EXTERNAL_ADS_ON;               // VITE_EXTERNAL_ADS_ENABLED
+export const ADFIT_ACTIVE = EXTERNAL_ADS_ON && !!ADFIT.unit;         // 스위치 ON + 광고단위 ID
+export const ADSENSE_ACTIVE = EXTERNAL_ADS_ON && !!ADSENSE.client && !!ADSENSE.slot;
+export const ADSENSE_CONFIGURED = !!ADSENSE.client;                 // 게시자 ID 존재(슬롯/심사 대기 가능)
+export const ADSENSE_CLIENT_ID = ADSENSE.client;                    // ca-pub-... (표시용)
+
 type Network = "adfit" | "adsense";
 
 // env 에 ID 가 채워진 네트워크만 활성 목록에 포함
