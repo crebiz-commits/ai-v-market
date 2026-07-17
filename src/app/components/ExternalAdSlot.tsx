@@ -76,13 +76,20 @@ interface ExternalAdSlotProps {
   /** 피드 내 슬롯 순번 — 네트워크 로테이션 기준(슬롯마다 번갈아 노출) */
   index?: number;
   className?: string;
+  /** 특정 네트워크 강제(라운드로빈 순환용). 해당 네트워크가 활성일 때만 적용, 아니면 index 로테이션. */
+  forceNetwork?: Network;
 }
 
-export function ExternalAdSlot({ index = 0, className = "" }: ExternalAdSlotProps) {
+export function ExternalAdSlot({ index = 0, className = "", forceNetwork }: ExternalAdSlotProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const networks = enabledNetworks();
-  const network: Network | null = networks.length ? networks[index % networks.length] : null;
+  const network: Network | null =
+    forceNetwork && networks.includes(forceNetwork)
+      ? forceNetwork
+      : networks.length
+        ? networks[index % networks.length]
+        : null;
   // 광고 삽입 (애드핏: ins+로더 / 애드센스: ins+push). 비어 있을 때만 호출.
   const injectAd = useCallback(() => {
     const el = containerRef.current;

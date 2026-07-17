@@ -21,7 +21,7 @@ import type { ShowcaseVideo } from "../data/showcaseVideos";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { Lock } from "lucide-react";
 import { VideoFullscreen } from "./VideoFullscreen";
-import { ExternalAdSlot, EXTERNAL_ADS_ACTIVE } from "./ExternalAdSlot";
+import { ExternalAdSlot, ADFIT_ACTIVE, ADSENSE_ACTIVE } from "./ExternalAdSlot";
 import { CreatorAvatar } from "./CreatorAvatar";
 import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { useBackButton } from "../hooks/useBackButton";
@@ -45,13 +45,13 @@ interface Ad {
 type FeedItem =
   | ({ kind: "video" } & Video)
   | ({ kind: "ad"; adIndex?: number } & Ad)
-  | { kind: "extad"; slot: number };   // 외부 광고(애드핏/애드센스) 슬롯
+  | { kind: "extad"; slot: number; network?: "adfit" | "adsense" };   // 외부 광고(애드핏/애드센스) 슬롯
 
-// 데스크탑 그리드 전용 아이템 — 자체광고(selfad) 우선, 소진 시 애드핏(adfit) 폴백
+// 데스크탑 그리드 전용 아이템 — 자체·애드핏·애드센스 라운드로빈 순환
 type DesktopItem =
   | { kind: "video"; video: Video }
   | { kind: "selfad"; ad: Ad; key: string }
-  | { kind: "adfit"; slot: number };
+  | { kind: "adfit"; slot: number; network?: "adfit" | "adsense" };
 
 // 홈피드 광고 정책: 초반에는 직접 광고 수주가 어려워 외부 네트워크(애드핏+애드센스)로만 채움.
 // 직접 광고주가 생기면 true 로 바꾸면 자체광고(feed_display) 우선 노출 + 소진분만 외부 폴백.
@@ -1259,21 +1259,26 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
   // 영상 목록에 광고를 interval_count마다 삽입하여 피드 아이템 배열 생성
   // Phase 24: 차단 사용자 영상은 visibleVideos 기준으로 제외
   const feedItems = useMemo<FeedItem[]>(() => {
-    // 자체광고 ON 이면 광고주 설정 주기(interval_count), OFF 면 외부광고 고정 주기(자체광고 데이터와 분리)
-    const interval = HOME_FEED_SELF_ADS ? ((ads[0]?.interval_count) || 4) : 5;
+    // 라운드로빈 순환: 활성인 광고소스만 광고 슬롯마다 번갈아(자체 → 애드핏 → 애드센스).
+    //   자체광고는 개수만큼 순환(1개면 매 자체턴에 재노출). 외부는 활성 네트워크만 순환에 포함.
+    const sources: Array<"self" | "adfit" | "adsense"> = [];
+    if (HOME_FEED_SELF_ADS && ads.length > 0) sources.push("self");
+    if (ADFIT_ACTIVE) sources.push("adfit");
+    if (ADSENSE_ACTIVE) sources.push("adsense");
+    const interval = (HOME_FEED_SELF_ADS && ads.length > 0) ? ((ads[0]?.interval_count) || 4) : 5;
     const result: FeedItem[] = [];
-    let adSlot = 0;
+    let rot = 0, selfIdx = 0;
     visibleVideos.forEach((v, i) => {
       result.push({ kind: "video", ...v });
-      if ((i + 1) % interval === 0) {
-        // 자체광고 우선(스위치 ON 시) → 없으면 외부 네트워크(애드핏/애드센스). 둘 다 없으면 슬롯 생략(빈 섹션 방지)
-        if (HOME_FEED_SELF_ADS && adSlot < ads.length) {
-          result.push({ kind: "ad", ...ads[adSlot], adIndex: adSlot });
-          adSlot++;
-        } else if (EXTERNAL_ADS_ACTIVE) {
-          result.push({ kind: "extad", slot: adSlot });
-          adSlot++;
+      if (sources.length > 0 && (i + 1) % interval === 0) {
+        const src = sources[rot % sources.length];
+        if (src === "self") {
+          result.push({ kind: "ad", ...ads[selfIdx % ads.length], adIndex: selfIdx });
+          selfIdx++;
+        } else {
+          result.push({ kind: "extad", slot: rot, network: src });
         }
+        rot++;
       }
     });
     return result;
@@ -1283,23 +1288,28 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
   // 핵심: 그리드상 광고 간격 = 영상6 + 광고1 = "7칸 주기"(광고가 들어가며 뒤 영상이 한 칸씩 밀림).
   //   7은 2·3·4열과 서로소 → 광고가 같은 열에 쏠리지 않고 행마다 대각선으로 회전.
   //   (interval=7이면 주기 8 = 4의 배수라 4열에서 매번 오른쪽 끝에 박힘 → 6이어야 함)
-  // 자체광고 먼저(반복 없이) → 소진되면 애드핏(ExternalAdSlot) 폴백
+  // 자체·애드핏·애드센스 라운드로빈 순환(모바일 feedItems 와 동일 규칙)
   const DESKTOP_AD_INTERVAL = 6;
   const desktopItems = useMemo<DesktopItem[]>(() => {
+    const sources: Array<"self" | "adfit" | "adsense"> = [];
+    if (HOME_FEED_SELF_ADS && ads.length > 0) sources.push("self");
+    if (ADFIT_ACTIVE) sources.push("adfit");
+    if (ADSENSE_ACTIVE) sources.push("adsense");
     const out: DesktopItem[] = [];
-    let adSlot = 0;
+    let rot = 0, selfIdx = 0;
     // Phase 24: 차단 사용자 영상 제외 — 모바일(feedItems)과 동일하게 visibleVideos 기준
     visibleVideos.forEach((v, i) => {
       out.push({ kind: "video", video: v });
-      if ((i + 1) % DESKTOP_AD_INTERVAL === 0) {
-        // 자체광고 우선(스위치 ON 시) → 없으면 애드핏/애드센스. 둘 다 없으면 슬롯 생략(빈 셀 방지)
-        if (HOME_FEED_SELF_ADS && adSlot < ads.length) {
-          out.push({ kind: "selfad", ad: ads[adSlot], key: `selfad-${ads[adSlot].id}-${adSlot}` });
-          adSlot++;
-        } else if (EXTERNAL_ADS_ACTIVE) {
-          out.push({ kind: "adfit", slot: adSlot });
-          adSlot++;
+      if (sources.length > 0 && (i + 1) % DESKTOP_AD_INTERVAL === 0) {
+        const src = sources[rot % sources.length];
+        if (src === "self") {
+          const ad = ads[selfIdx % ads.length];
+          out.push({ kind: "selfad", ad, key: `selfad-${ad.id}-${selfIdx}` });
+          selfIdx++;
+        } else {
+          out.push({ kind: "adfit", slot: rot, network: src });
         }
+        rot++;
       }
     });
     return out;
@@ -1474,7 +1484,7 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
             {item.kind === "ad" ? (
               <AdCard ad={item} onImpression={handleAdImpression} />
             ) : item.kind === "extad" ? (
-              <ExternalAdSlot index={item.slot} className="h-full w-full" />
+              <ExternalAdSlot index={item.slot} forceNetwork={item.network} className="h-full w-full" />
             ) : (
               <MovieSection
                 video={item}
@@ -1598,6 +1608,7 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
                   <ExternalAdSlot
                     key={`adfit-${item.slot}`}
                     index={item.slot}
+                    forceNetwork={item.network}
                     className="justify-self-center self-center"
                   />
                 );
