@@ -47,7 +47,7 @@ type AdminPage =
   | "overview"      // 대시보드 (한눈에 보기)
   | "ads"           // 자체 광고 (CREAITE House Ads)
   | "ad_reviews"    // 광고 심사 (광고주 셀프서비스 제출 큐)
-  | "external_ads"  // 외부 광고 (Google AdSense / 쿠팡 등) — placeholder
+  | "external_ads"  // 외부 광고 (애드핏/쿠팡/애드센스) — 대시보드 바로가기 + env 파생 노출상태
   | "sponsorships"  // 크리에이터 스폰서십 검수 — placeholder
   | "policy"        // 수익 정책
   | "settlement"    // 정산 관리

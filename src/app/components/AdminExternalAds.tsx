@@ -35,15 +35,25 @@ const adfitStatus: Status = ADFIT_ACTIVE
     ? { label: "광고단위 미설정", color: AMBER }
     : { label: "대기 (비활성)", color: GRAY };
 
+// 쿠팡은 CoupangBanner 가 하드코딩 기본 위젯ID(env 미설정 시 폴백)로 상시 COUPANG_ACTIVE=true →
+// Footer 에서 항상 노출되므로 실제로 '노출 중'이 맞다. (파트너십 종료 시 서빙 컴포넌트 변경 필요 —
+// 그때 이 GRAY '미설정' 분기가 살아남. 지금은 방어용.)
 const coupangStatus: Status = COUPANG_ACTIVE
   ? { label: "노출 중", color: GREEN }
   : { label: "미설정", color: GRAY };
 
+// 애드센스도 애드핏과 대칭 — 마스터 스위치가 블로커면 '슬롯/심사 대기'(구글 대기)로 오인시키지 말 것.
 const adsenseStatus: Status = ADSENSE_ACTIVE
   ? { label: "노출 중", color: GREEN }
-  : ADSENSE_CONFIGURED
-    ? { label: "슬롯/심사 대기", color: BLUE }
-    : { label: "미설정 (심사 전)", color: GRAY };
+  : !EXTERNAL_ADS_MASTER_ON
+    ? { label: "대기 (비활성)", color: GRAY } // 스위치 OFF 가 실제 블로커(게시자ID·슬롯 유무 무관)
+    : ADSENSE_CONFIGURED
+      ? { label: "슬롯/심사 대기", color: BLUE } // 스위치 ON + 게시자ID 있음, 슬롯 미설정/심사중
+      : { label: "미설정 (심사 전)", color: GRAY };
+
+// 애드센스 게시자 ID 드리프트 — env(VITE_ADSENSE_CLIENT)가 index.html 로더/ads.txt 인증 게시자와
+// 다르면 배지는 '노출 중'이라도 구글이 ads.txt 불일치로 서빙을 차단(=거짓 초록). 불일치 시에만 경고.
+const adsenseDrift = !!ADSENSE_CLIENT_ID && ADSENSE_CLIENT_ID !== VERIFY_PUB_ID;
 
 interface AdNet {
   name: string;
@@ -113,6 +123,21 @@ export function AdminExternalAds() {
             노출되지 않습니다. 승인 후 Vercel 환경변수{" "}
             <code className="text-amber-300">VITE_EXTERNAL_ADS_ENABLED=1</code> 을 설정하고 재배포하세요.
             <span className="text-amber-200/60"> (쿠팡 파트너스 배너는 이 스위치와 무관하게 노출됩니다.)</span>
+          </div>
+        </div>
+      )}
+
+      {/* 애드센스 게시자 ID 불일치 — env 가 index.html 로더/ads.txt 인증 게시자와 다르면
+          '노출 중'으로 보여도 구글이 실제 서빙을 차단(false green). 불일치 시에만 노출. */}
+      {adsenseDrift && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3 text-sm">
+          <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-amber-200/90 leading-relaxed">
+            <b className="text-amber-300">애드센스 게시자 ID 불일치.</b> 환경변수{" "}
+            <code className="text-amber-300">VITE_ADSENSE_CLIENT</code>(<code className="text-amber-300">{ADSENSE_CLIENT_ID}</code>)
+            가 index.html 로더·<code className="text-amber-300">public/ads.txt</code> 인증 게시자
+            (<code className="text-amber-300">{VERIFY_PUB_ID}</code>)와 다릅니다. 세 곳을 같은 게시자로 맞춰야
+            광고가 노출됩니다 (불일치 시 구글이 서빙 차단).
           </div>
         </div>
       )}

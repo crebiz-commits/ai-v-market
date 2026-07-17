@@ -93,7 +93,7 @@ export function Footer({ onNavigate, mobile = false }: FooterProps) {
           </div>
         </div>
 
-        {/* 쿠팡파트너스 보조 배너 — env(VITE_COUPANG_ID/TRACKING) 설정 시에만 노출. 고지 문구 포함 */}
+        {/* 쿠팡파트너스 보조 배너 — 하드코딩 기본 위젯ID(env 로 덮어쓰기 가능)라 상시 노출. 고지 문구 포함 */}
         <CoupangBanner className="mb-6" height={140} />
 
         {/* 4단 링크 메뉴 — 모바일에선 숨김(햄버거 메뉴에 동일 내용). 데스크탑만 노출 */}
