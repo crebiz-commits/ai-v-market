@@ -507,6 +507,8 @@
     "sponsorHeader": "협찬·PPL",
     "sponsorHint": "유료 광고가 포함된 경우 반드시 입력 (법적 고지 의무)",
     "sponsorWillClear": "저장 시 협찬 정보가 모두 제거됩니다",
+    "sponsorLinkInvalid": "협찬 랜딩 URL은 http(s)로 시작해야 합니다",
+    "sponsorLogoInvalid": "협찬 로고 URL은 http(s)로 시작해야 합니다",
     "tagsHeader": "태그",
     "tagsHint": "검색·발견용 태그 (최대 10개)",
     "titleRequired": "제목은 비울 수 없습니다"

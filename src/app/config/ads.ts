@@ -8,4 +8,8 @@
 //   - DiscoveryFeed.tsx  : 피드 광고 셀 렌더(노출면)
 //   - AdCreateModal.tsx  : 광고주 셀프서비스의 "피드 이미지/영상" 상품 판매 게이트
 //     (노출면이 꺼진 동안 피드 광고를 팔면 "결제됐는데 노출 0" 사고가 됨)
-export const HOME_FEED_SELF_ADS: boolean = false;
+//
+// 2026-07-18: 자체(하우스) 피드광고 노출 위해 true 로 전환.
+//   ※ 빌드타임 상수 → Vercel 재배포해야 발효. 하우스광고는 budget_krw=null(무제한)이라 소진 이슈 없음.
+//   ※ 부수효과: AdCreateModal 의 피드 이미지/영상 상품이 다시 판매목록에 뜸(단 결제 OFF라 실판매 불가 = 무해).
+export const HOME_FEED_SELF_ADS: boolean = true;
