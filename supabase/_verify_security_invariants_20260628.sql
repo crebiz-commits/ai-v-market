@@ -260,7 +260,7 @@ SELECT * FROM (
                WHERE proname IN ('get_daily_revenue','get_daily_user_growth','get_daily_views',
                                  'get_top_videos','get_top_creators','get_ad_performance_summary','get_report_stats'))
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
-    'FAIL시 admin_dashboard_assert_admin_20260624.sql 재적용(비관리자 대시보드 유출)'
+    'FAIL시 admin_dashboard_assert_admin_20260624.sql + admin_dashboard_kst_20260718.sql 재적용(후자가 요약/일별 KST 정본 — 순서 이 대로)'
 
 ) AS gate
 ORDER BY sort;
