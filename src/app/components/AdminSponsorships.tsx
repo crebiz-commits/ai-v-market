@@ -134,10 +134,19 @@ export function AdminSponsorships() {
                       )}
                       <span className="text-sm font-semibold text-white">🏷 {v.sponsor_brand}</span>
                       {v.sponsor_link_url && (
-                        <a href={v.sponsor_link_url} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] text-[#8b5cf6] hover:underline break-all">
-                          <ExternalLink className="w-3 h-3" />{v.sponsor_link_url}
-                        </a>
+                        /^https?:\/\//i.test(v.sponsor_link_url) ? (
+                          <a href={v.sponsor_link_url} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-[#8b5cf6] hover:underline break-all">
+                            <ExternalLink className="w-3 h-3" />{v.sponsor_link_url}
+                          </a>
+                        ) : (
+                          // 심층방어: http(s) 아닌 스킴(javascript:/data: 등)은 클릭 링크로 렌더 금지
+                          //   (크리에이터 입력 → 검수 관리자 클릭 시 XSS 차단). 반려 대상.
+                          <span className="inline-flex items-center gap-1 text-[11px] text-red-400 break-all">
+                            <ExternalLink className="w-3 h-3" />{v.sponsor_link_url}
+                            <span className="text-[10px]">(비정상 링크 · 클릭 비활성 · 반려)</span>
+                          </span>
+                        )
                       )}
                     </div>
 

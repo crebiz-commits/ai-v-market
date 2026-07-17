@@ -262,5 +262,18 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 admin_dashboard_assert_admin_20260624.sql + admin_dashboard_kst_20260718.sql 재적용(후자가 요약/일별 KST 정본 — 순서 이 대로)'
 
+  UNION ALL
+  -- 20) videos 가드가 sponsor_review_status 자가승인을 차단하는가 (2026-07-18)
+  --     #14 는 protect_video_update 트리거 "존재"만 확인 → 옛 가드(fix_videos_update_guard_
+  --     20260712.sql)엔 sponsor 검수컬럼이 빠져 크리에이터가 직접 UPDATE 로 자가승인 가능
+  --     (미검수 공시를 "승인됨" 위장, 공정거래법 리스크). 가드 본문이 sponsor_review_status
+  --     를 되돌리는지 확인(fix_video_guard_sponsor_20260718.sql).
+  SELECT 20,
+    'videos 가드 sponsor_review_status 자가승인 차단',
+    CASE WHEN (SELECT bool_and(pg_get_functiondef(oid) LIKE '%NEW.sponsor_review_status%')
+               FROM pg_proc WHERE proname = 'tg_protect_video_update')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 fix_video_guard_sponsor_20260718.sql 재적용(가드에 sponsor 검수컬럼 편입)'
+
 ) AS gate
 ORDER BY sort;
