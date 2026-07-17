@@ -247,5 +247,20 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 advertiser_self_service_phase1_20260614.sql 의 get_ad_for_video 재적용(status 게이트)'
 
+  UNION ALL
+  -- 19) 대시보드 분석 RPC 7종이 assert_admin 가드를 갖는가 (2026-07-17)
+  --     phase10_5 원본은 무가드 SQL 이라 비관리자가 supabase-js 직접호출로 매출·사용자수·
+  --     시청·인기영상/크리에이터·광고성과를 조회 가능했음. admin_dashboard_assert_admin_
+  --     20260624.sql 에서 plpgsql+assert_admin 전환(REVOKE 대신 내부 가드). 내부 가드라
+  --     authenticated EXECUTE 는 열려 있어, #7(admin_*/get_admin_* 이름 스캔)이 get_daily_*/
+  --     get_top_*/get_ad_performance/get_report_stats 를 못 잡는 사각지대 → 원본 재유입 시 유출.
+  SELECT 19,
+    '대시보드 분석 RPC assert_admin 가드(매출·통계 비관리자 유출 차단)',
+    CASE WHEN (SELECT bool_and(prosrc ~ 'assert_admin') FROM pg_proc
+               WHERE proname IN ('get_daily_revenue','get_daily_user_growth','get_daily_views',
+                                 'get_top_videos','get_top_creators','get_ad_performance_summary','get_report_stats'))
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 admin_dashboard_assert_admin_20260624.sql 재적용(비관리자 대시보드 유출)'
+
 ) AS gate
 ORDER BY sort;
