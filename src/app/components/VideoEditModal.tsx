@@ -515,6 +515,18 @@ export function VideoEditModal({
           return;
         }
       }
+      // 협찬 링크·로고 URL 스킴 검증 — http(s)만 허용(javascript:/data: 차단). 서버 CHECK 제약과 이중.
+      const badUrl = (u: string) => u.trim() !== "" && !/^https?:\/\//i.test(u.trim());
+      if (!clearSponsor && badUrl(sponsorLinkUrl)) {
+        toast.error(t("videoEditModal.sponsorLinkInvalid", "협찬 랜딩 URL은 http(s)로 시작해야 합니다"));
+        setSaving(false);
+        return;
+      }
+      if (!clearSponsor && badUrl(sponsorLogoUrl)) {
+        toast.error(t("videoEditModal.sponsorLogoInvalid", "협찬 로고 URL은 http(s)로 시작해야 합니다"));
+        setSaving(false);
+        return;
+      }
       const { error: rpcErr } = await supabase.rpc("update_my_video_metadata", {
         p_video_id: videoId,
         p_thumbnail: finalThumbnail ?? null,
