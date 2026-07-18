@@ -886,10 +886,10 @@ export function AdminDashboard() {
 
               {/* 모바일 전용 이미지(선택) — 피드 카드만. 비우면 데스크탑 이미지로 폴백 */}
               {ff === "feed" && (
-              <Field label="모바일 이미지 URL (선택 · 세로/정사각)" icon={<ImageIcon className="w-4 h-4 text-muted-foreground" />}>
+              <Field label="모바일 이미지 URL (선택 · 가로 4:3)" icon={<ImageIcon className="w-4 h-4 text-muted-foreground" />}>
                 <input
                   className="input-base"
-                  placeholder="https://... (세로 4:5 1080×1350 또는 정사각 1:1 1080×1080)"
+                  placeholder="https://... (가로 4:3 권장, 1080×810 — 데스크탑 16:9보다 세로가 더 보임)"
                   value={form.image_url_mobile || ""}
                   onChange={e => setForm(f => ({ ...f, image_url_mobile: e.target.value || null }))}
                   disabled={imgUploading}
@@ -918,10 +918,10 @@ export function AdminDashboard() {
                 </Button>
 
                 {form.image_url_mobile && (
-                  <img src={form.image_url_mobile} alt="mobile preview" className="mt-2 w-40 h-52 object-cover rounded-lg border border-border mx-auto" />
+                  <img src={form.image_url_mobile} alt="mobile preview" className="mt-2 w-48 h-36 object-cover rounded-lg border border-border mx-auto" />
                 )}
                 <p className="text-xs text-muted-foreground mt-1">
-                  💡 비워두면 모바일에서도 데스크탑 이미지를 사용합니다(좌우 잘림). 세로/정사각 이미지를 넣으면 모바일 카드에 잘림 없이 표시됩니다.
+                  💡 비워두면 모바일에서도 데스크탑 이미지를 사용합니다(좌우 잘림). 모바일 카드는 <b>가로형(대략 4:3~3:2, 기기별로 정사각~3:2)</b>이라 <b>가로 4:3(1080×810)</b> 정도를 넣고 핵심은 가운데 두면 잘림이 크게 줄어듭니다.
                 </p>
               </Field>
               )}
