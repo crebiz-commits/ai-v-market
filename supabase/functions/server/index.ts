@@ -2700,11 +2700,17 @@ app.post('/refund-payment', async (c) => {
 
     const { data: profile, error: profileErr } = await supabase
       .from('profiles')
-      .select('is_admin')
+      .select('is_admin, is_suspended')
       .eq('id', adminUserId)
       .single();
     if (profileErr || !profile?.is_admin) {
       return c.json({ error: '어드민 권한이 필요합니다' }, 403);
+    }
+    // 정지된 관리자 차단 — 토스 cancel(실제 환불) 전에 막아야 함. RPC assert_admin 도 정지를
+    //   막지만 그건 토스 cancel 이후라, 사전체크가 없으면 "토스 환불됐으나 DB 갱신 실패"
+    //   운영위험 상태(권한 미회수·payments desync)가 정지관리자에게 열림(2026-07-18).
+    if (profile.is_suspended) {
+      return c.json({ error: '정지된 관리자 계정입니다. 다른 관리자에게 문의하세요.' }, 403);
     }
 
     // 3) 입력 검증
