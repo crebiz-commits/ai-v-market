@@ -742,20 +742,20 @@ const HeroAdBillboard = memo(function HeroAdBillboard({
       )}
       {/* 하단 그라데이션 */}
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none" />
-      {/* '광고' 배지 */}
-      <div className="absolute top-4 left-4 md:top-6 md:left-8 z-10 px-2.5 py-1 bg-black/50 backdrop-blur-sm border border-white/20 rounded-full text-[11px] font-bold text-white/80 tracking-widest">
-        {t("discoveryFeed.adBadge")}
-      </div>
-      {/* 음소거 토글 */}
+      {/* 음소거 토글 — 상단 헤더와 겹치지 않게 하단 우측(영상 히어로와 동일 위치) */}
       <button
         onClick={onToggleMute}
         aria-label={muted ? t("adPlayer.unmute") : t("adPlayer.mute")}
-        className="absolute top-4 right-4 md:top-6 md:right-8 z-10 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+        className="absolute bottom-6 right-5 md:right-8 z-10 w-11 h-11 rounded-full bg-black/50 backdrop-blur border border-white/30 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
       >
         {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
       </button>
-      {/* 카피 + CTA */}
+      {/* 카피 + CTA — '광고' 배지를 여기 최상단에 배치(상단 헤더에 가려지지 않게) */}
       <div className="absolute bottom-0 left-0 right-0 z-10 p-6 md:p-12">
+        {/* '광고' 배지 */}
+        <span className="inline-block mb-2 px-2.5 py-1 bg-black/50 backdrop-blur-sm border border-white/20 rounded-full text-[11px] font-bold text-white/80 tracking-widest">
+          {t("discoveryFeed.adBadge")}
+        </span>
         {ad.advertiser && <p className="text-sm md:text-base text-white/70 font-medium mb-1">{ad.advertiser}</p>}
         {ad.title && <h2 className="text-2xl md:text-5xl font-black text-white mb-4 max-w-2xl line-clamp-2 drop-shadow-lg">{ad.title}</h2>}
         {ad.link_url && (
