@@ -164,6 +164,9 @@ export function AdminDashboard() {
   // HLS(.m3u8) → 네이티브 <video> 미지원이라 mp4 렌디션으로 변환 (AdminContent·프리롤과 동일)
   const toMp4 = (url: string | null) =>
     url && url.includes("/playlist.m3u8") ? url.replace("/playlist.m3u8", "/play_720p.mp4") : url;
+  // Bunny HLS(video_url)에서 썸네일 유도 — 영상 광고는 thumbnail_url 미설정이 많음(목록 표시용 폴백)
+  const bunnyThumb = (url: string | null) =>
+    url && url.includes("/playlist.m3u8") ? url.replace("/playlist.m3u8", "/thumbnail.jpg") : null;
   // 광고 목록 탭: 자체광고(owner_id 없음) / 광고주 광고(owner_id 있음)
   const [adTab, setAdTab] = useState<"house" | "advertiser">("house");
 
@@ -280,9 +283,11 @@ export function AdminDashboard() {
         setAdUploadProgress(Math.round((loaded / total) * 100));
       });
 
-      // 3. HLS URL 구성 후 폼에 자동 입력
+      // 3. HLS URL 구성 후 폼에 자동 입력 + 썸네일도 같은 videoId 에서 유도 저장(목록·포스터 표시용).
+      //    (인코딩 완료 후 생성되므로 직후 잠시 404일 수 있으나, 목록 img onError 로 아이콘 폴백)
       const hlsUrl = `https://${BUNNY_HOST}/${videoId}/playlist.m3u8`;
-      setForm(f => ({ ...f, video_url: hlsUrl }));
+      const thumbUrl = `https://${BUNNY_HOST}/${videoId}/thumbnail.jpg`;
+      setForm(f => ({ ...f, video_url: hlsUrl, thumbnail_url: f.thumbnail_url || thumbUrl }));
 
       toast.success("광고 영상 업로드 완료! Bunny에 저장됐습니다 (마켓 노출 X)");
     } catch (err: any) {
@@ -573,16 +578,18 @@ export function AdminDashboard() {
                     title={ad.video_url ? (previewId === ad.id ? "프리뷰 닫기" : "영상 재생") : "영상 소재 없음 (이미지 광고)"}
                     className="relative w-20 h-14 rounded-lg overflow-hidden bg-muted flex-shrink-0 group disabled:cursor-default"
                   >
-                    {(ad.thumbnail_url || ad.image_url) ? (
+                    {/* 배경 아이콘 — 썸네일 없거나 로드 실패 시 뒤로 비침 */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Video className="w-6 h-6 text-muted-foreground/40" />
+                    </div>
+                    {(ad.thumbnail_url || ad.image_url || bunnyThumb(ad.video_url)) && (
                       <img
-                        src={ad.thumbnail_url || ad.image_url!}
+                        src={ad.thumbnail_url || ad.image_url || bunnyThumb(ad.video_url)!}
                         alt={ad.title}
-                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                        className="absolute inset-0 w-full h-full object-cover"
                       />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Video className="w-6 h-6 text-muted-foreground/40" />
-                      </div>
                     )}
                     {ad.video_url && (
                       <span className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -716,7 +723,7 @@ export function AdminDashboard() {
                     <video
                       key={ad.id}
                       src={toMp4(ad.video_url) || undefined}
-                      poster={ad.thumbnail_url || ad.image_url || undefined}
+                      poster={ad.thumbnail_url || ad.image_url || bunnyThumb(ad.video_url) || undefined}
                       controls autoPlay preload="metadata"
                       onError={() => toast.error("프리뷰 재생 실패 — 이 영상은 720p 렌디션이 없을 수 있습니다.")}
                       className="w-full max-w-xl max-h-[70vh] rounded-lg bg-black border border-white/10"
