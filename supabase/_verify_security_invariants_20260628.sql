@@ -302,5 +302,19 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 platform_settings_public_hardening_20260718.sql 재적용(임계값 4종 필터 + 테이블 RLS)'
 
+  UNION ALL
+  -- 23) 정산 엔진 2종이 assert_admin 게이트인가 (2026-07-18)
+  --     calculate_monthly_revenue(월 정산=payout 원장 생성)·mark_revenue_paid(지급 확정+
+  --     원천징수)는 최고 민감 금전 함수. 라이브 정본은 게이트됐으나(admin_audit_hardening_
+  --     20260714 / phase32_tax_withholding), 무가드 옛 정의(subscription_pool_actual·
+  --     settlement_zero_correction·phase8_revenue_distributions 등)가 남아 재실행 시 비관리자
+  --     정산/지급확정 가능. 이름이 admin_*/get_admin_* 아니라 #7 사각지대.
+  SELECT 23,
+    '정산 엔진 assert_admin 게이트(calculate_monthly_revenue·mark_revenue_paid)',
+    CASE WHEN (SELECT bool_and(prosrc ~ 'assert_admin') FROM pg_proc
+               WHERE proname IN ('calculate_monthly_revenue', 'mark_revenue_paid'))
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 admin_audit_hardening_20260714.sql①(calculate) + phase32_tax_withholding.sql(mark_paid) 재적용'
+
 ) AS gate
 ORDER BY sort;
