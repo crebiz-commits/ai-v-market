@@ -19,6 +19,7 @@
 //   VITE_ADSENSE_SLOT=xxxxxxxxxx                   # AdSense 300×250 고정 광고 슬롯
 // ════════════════════════════════════════════════════════════════════════════
 import { useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 
 const ENV: any = (import.meta as any).env ?? {};
 const _flag = String(ENV.VITE_EXTERNAL_ADS_ENABLED ?? "").toLowerCase();
@@ -81,6 +82,7 @@ interface ExternalAdSlotProps {
 }
 
 export function ExternalAdSlot({ index = 0, className = "", forceNetwork }: ExternalAdSlotProps) {
+  const { t } = useTranslation();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const networks = enabledNetworks();
@@ -179,6 +181,12 @@ export function ExternalAdSlot({ index = 0, className = "", forceNetwork }: Exte
       ref={wrapperRef}
       className={`relative flex items-center justify-center overflow-hidden bg-[linear-gradient(180deg,#3d2e86_0%,#171022_50%,#3a1a52_100%)] ${className}`}
     >
+      {/* 광고 표기(법적 고지) — 자체광고와 동일 스타일. 여백(그라데이션)의 좌상단에 얹어
+          광고 컨테이너 자체는 가리지 않음(AdFit 정책 준수). pointer-events-none 로 클릭 비방해. */}
+      <div className="absolute top-3 left-3 z-10 px-2 py-0.5 bg-black/50 backdrop-blur-sm border border-white/20 rounded-full text-[10px] font-bold text-white/70 tracking-widest pointer-events-none">
+        {t("discoveryFeed.adBadge")}
+      </div>
+
       {/* 배경(여백)만 브랜드 오로라 그라데이션 — 광고가 작아 생기는 빈 공간을 채움.
           ※ AdFit 정책상 광고 자체는 변형·강조·라운딩·가림 금지 → 아래 광고 컨테이너는 손대지 않음(원본 그대로). */}
       <div ref={containerRef} className="relative flex items-center justify-center" style={{ width: AD_W, height: AD_H }} />
