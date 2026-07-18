@@ -65,7 +65,24 @@ export function AdminReports() {
 
   useEffect(() => { load(); }, []);
 
-  const handleAction = async (id: number, action: "keep" | "remove" | "dismiss", confirmMsg: string) => {
+  // 대상 유형 라벨 — 영상/댓글/사용자/커뮤니티 (이모지 프리픽스 제거)
+  const targetNoun = (tt: string) => TARGET_LABELS[tt]?.replace(/^.+\s/, "") || tt;
+
+  const handleAction = async (report: ReportRow, action: "keep" | "remove" | "dismiss") => {
+    const id = report.id;
+    // user 대상은 백엔드 remove가 콘텐츠 숨김이 아니라 profiles.is_suspended(계정 정지)라
+    //   안내 문구를 분기해야 함(2026-07-18 감사: moderate_report target_type별 처리 확인).
+    const isUser = report.target_type === "user";
+    const confirmMsg =
+      action === "keep"
+        ? (isUser
+            ? "정상 사용자로 판정하시겠습니까?\n(신고를 기각합니다)"
+            : "정상 콘텐츠로 판정하시겠습니까?\n(자동 숨김된 콘텐츠는 복원됩니다)")
+        : action === "remove"
+          ? (isUser
+              ? "가이드라인 위반으로 이 사용자 계정을 정지하시겠습니까?\n(계정 정지)"
+              : "가이드라인 위반으로 콘텐츠를 숨김 처리하시겠습니까?\n(영구 숨김)")
+          : "악성 신고로 반려하시겠습니까?\n(이 신고만 무효 처리)";
     if (!confirm(confirmMsg)) return;
 
     const adminNote = prompt("어드민 메모를 입력하세요 (선택, 사용자에게 보이지 않음)") || null;
@@ -112,12 +129,13 @@ export function AdminReports() {
       }
     }
 
-    const labels = {
-      keep: "유지 처리됨 (자동 숨김도 해제)",
-      remove: "제거 처리됨 (콘텐츠 숨김)",
-      dismiss: "악성 신고로 반려됨",
-    };
-    toast.success(labels[action]);
+    const successMsg =
+      action === "keep"
+        ? (isUser ? "정상 판정됨 (신고 기각)" : "유지 처리됨 (자동 숨김도 해제)")
+        : action === "remove"
+          ? (isUser ? "계정 정지됨" : "제거 처리됨 (콘텐츠 숨김)")
+          : "악성 신고로 반려됨";
+    toast.success(successMsg);
     load();
   };
 
@@ -153,7 +171,7 @@ export function AdminReports() {
           <p className="font-semibold mb-0.5">신고 처리 안내</p>
           <ul className="text-amber-200/80 space-y-0.5">
             <li>• <span className="font-semibold">유지</span>: 정상 콘텐츠 — 자동 숨김됐다면 복원</li>
-            <li>• <span className="font-semibold">제거</span>: 가이드라인 위반 — 콘텐츠 숨김 처리 (영구)</li>
+            <li>• <span className="font-semibold">제거</span>: 가이드라인 위반 — 콘텐츠 숨김(영구) · 사용자 대상은 <span className="font-semibold">계정 정지</span></li>
             <li>• <span className="font-semibold">반려</span>: 악성 신고 — 단일 신고만 무효 처리</li>
             <li>• 같은 대상에 대한 신고는 자동으로 그룹핑됩니다</li>
           </ul>
@@ -276,7 +294,7 @@ export function AdminReports() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleAction(primary.id, "keep", "정상 콘텐츠로 판정하시겠습니까?\n(자동 숨김된 콘텐츠는 복원됩니다)")}
+                    onClick={() => handleAction(primary, "keep")}
                     disabled={processingId === primary.id}
                     className="gap-1 border-green-500/30 text-green-400 hover:bg-green-500/10"
                   >
@@ -285,17 +303,17 @@ export function AdminReports() {
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => handleAction(primary.id, "remove", "가이드라인 위반으로 콘텐츠를 숨김 처리하시겠습니까?\n(영구 숨김)")}
+                    onClick={() => handleAction(primary, "remove")}
                     disabled={processingId === primary.id}
                     className="gap-1 bg-red-500 hover:bg-red-600 text-white"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    제거
+                    {primary.target_type === "user" ? "정지" : "제거"}
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleAction(primary.id, "dismiss", "악성 신고로 반려하시겠습니까?\n(이 신고만 무효 처리)")}
+                    onClick={() => handleAction(primary, "dismiss")}
                     disabled={processingId === primary.id}
                     className="gap-1 border-muted text-muted-foreground"
                   >
