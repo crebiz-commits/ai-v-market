@@ -746,12 +746,13 @@ const HeroAdBillboard = memo(function HeroAdBillboard({
       <button
         onClick={onToggleMute}
         aria-label={muted ? t("adPlayer.unmute") : t("adPlayer.mute")}
-        className="absolute bottom-6 right-5 md:right-8 z-10 w-11 h-11 rounded-full bg-black/50 backdrop-blur border border-white/30 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+        className="absolute bottom-6 right-5 md:right-8 z-20 w-11 h-11 rounded-full bg-black/50 backdrop-blur border border-white/30 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
       >
         {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
       </button>
-      {/* 카피 + CTA — '광고' 배지를 여기 최상단에 배치(상단 헤더에 가려지지 않게) */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 p-6 md:p-12">
+      {/* 카피 + CTA — 컨테이너는 클릭 통과(pointer-events-none), 실제 버튼(CTA)만 클릭 가능.
+          (전체 폭 컨테이너가 하단 우측 음소거 버튼 클릭을 가로채던 것 방지) */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 p-6 md:p-12 pointer-events-none">
         {/* '광고' 배지 */}
         <span className="inline-block mb-2 px-2.5 py-1 bg-black/50 backdrop-blur-sm border border-white/20 rounded-full text-[11px] font-bold text-white/80 tracking-widest">
           {t("discoveryFeed.adBadge")}
@@ -761,7 +762,7 @@ const HeroAdBillboard = memo(function HeroAdBillboard({
         {ad.link_url && (
           <button
             onClick={handleCta}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black text-sm md:text-base font-bold rounded-full hover:bg-white/90 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black text-sm md:text-base font-bold rounded-full hover:bg-white/90 transition-colors pointer-events-auto"
           >
             {ad.cta_text || t("adPlayer.learnMore")} <ExternalLink className="w-4 h-4" />
           </button>
