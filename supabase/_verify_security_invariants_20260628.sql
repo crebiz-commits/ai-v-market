@@ -316,5 +316,19 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 admin_audit_hardening_20260714.sql①(calculate) + phase32_tax_withholding.sql(mark_paid) 재적용'
 
+  UNION ALL
+  -- 24) admin_refund_payment 가 assert_admin + ad_budget 예산차감을 갖는가 (2026-07-18)
+  --     환불 엔진이 6개 파일에 중복 정의(refund_cancel_billing·fixes_audit·refund_settlement_
+  --     reversal·phase_user_payment_history·settlement_clawbacks·admin_audit_hardening) →
+  --     옛 판 재실행 드리프트 시 ad_budget 환불이 광고예산(budget_krw)을 차감 안 해 광고주가
+  --     돈 돌려받고 예산 유지(순손실), 또는 assert_admin 누락. prosrc 에 두 특징 존재 확인.
+  --     이름이 admin_*/get_admin_* 아니라 #7 사각지대.
+  SELECT 24,
+    'admin_refund_payment assert_admin + ad_budget 예산차감(환불 시 광고예산 회수)',
+    CASE WHEN (SELECT bool_and(prosrc ~ 'assert_admin' AND prosrc ~ 'budget_krw')
+               FROM pg_proc WHERE proname = 'admin_refund_payment')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 admin_audit_hardening_20260714.sql⑦(admin_refund_payment) 재적용(단, #21·#23 회귀 주의 → 필요시 타겟 추출)'
+
 ) AS gate
 ORDER BY sort;
