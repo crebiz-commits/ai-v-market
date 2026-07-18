@@ -58,6 +58,7 @@ interface Ad {
   advertiser: string;
   status?: string | null;   // 심사 상태(approved/pending_review/rejected/draft) — 노출 게이트는 approved 만
   image_url: string | null;
+  image_url_mobile: string | null;   // 모바일 피드 카드 전용(선택). 없으면 image_url 폴백.
   video_url: string | null;
   thumbnail_url: string | null;
   link_url: string;
@@ -93,6 +94,7 @@ const emptyForm = (): Omit<Ad, "id" | "impressions" | "clicks" | "created_at" | 
   title: "",
   advertiser: "",
   image_url: null,
+  image_url_mobile: null,
   video_url: null,
   thumbnail_url: null,
   link_url: "",
@@ -177,13 +179,14 @@ export function AdminDashboard() {
 
   // 광고 이미지 직접 업로드 (Supabase Storage 'ad-images' 버킷)
   const adImageFileRef = useRef<HTMLInputElement>(null);
+  const adImageMobileFileRef = useRef<HTMLInputElement>(null);   // 모바일 전용 이미지 업로드
   const [imgUploading, setImgUploading] = useState(false);
 
   const isAdmin = !!profile?.is_admin;
 
-  // 광고 이미지 직접 업로드 핸들러
+  // 광고 이미지 직접 업로드 핸들러 (target: 데스크탑 image_url / 모바일 image_url_mobile)
   // Supabase Storage 'ad-images' 버킷에 업로드 후 public URL을 폼에 자동 입력
-  const handleAdImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAdImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, target: 'image_url' | 'image_url_mobile' = 'image_url') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -219,14 +222,15 @@ export function AdminDashboard() {
         .from('ad-images')
         .getPublicUrl(data.path);
 
-      setForm(f => ({ ...f, image_url: urlData.publicUrl }));
+      setForm(f => ({ ...f, [target]: urlData.publicUrl }));
       toast.success("이미지가 업로드됐습니다!");
     } catch (err: any) {
       console.error('Ad image upload error:', err);
       toast.error("업로드 실패: " + (err.message || '알 수 없는 에러'));
     } finally {
       setImgUploading(false);
-      if (adImageFileRef.current) adImageFileRef.current.value = '';
+      const ref = target === 'image_url_mobile' ? adImageMobileFileRef : adImageFileRef;
+      if (ref.current) ref.current.value = '';
     }
   };
 
@@ -334,6 +338,7 @@ export function AdminDashboard() {
       title: ad.title,
       advertiser: ad.advertiser,
       image_url: ad.image_url,
+      image_url_mobile: ad.image_url_mobile,
       video_url: ad.video_url,
       thumbnail_url: ad.thumbnail_url,
       link_url: ad.link_url,
@@ -826,8 +831,8 @@ export function AdminDashboard() {
               </Field>
 
               {/* 이미지 URL + 직접 업로드 — 피드 카드/오버레이만 */}
-              {showImageField && (
-              <Field label="이미지 URL" icon={<ImageIcon className="w-4 h-4 text-muted-foreground" />}>
+              {showImageField && (<>
+              <Field label={ff === "feed" ? "이미지 URL (데스크탑 · 16:9)" : "이미지 URL"} icon={<ImageIcon className="w-4 h-4 text-muted-foreground" />}>
                 <input
                   className="input-base"
                   placeholder={ff === "feed" ? "https://... (가로 16:9 배너, 1920×1080)" : "https://... (배너 이미지)"}
@@ -871,14 +876,56 @@ export function AdminDashboard() {
 
                 {ff === "feed" && (
                   <p className="text-xs text-[#8b5cf6] mt-1 font-medium leading-relaxed">
-                    📐 홈 피드 카드 권장: <b>가로 16:9 (1920×1080)</b> · 로고·문구·CTA 등 핵심은 <b>이미지 가운데</b>에 배치하세요 (모바일 카드는 좌우가 잘려 가운데만 보임).
+                    📐 데스크탑 피드 카드 권장: <b>가로 16:9 (1920×1080)</b>. 아래 <b>모바일 이미지</b>를 비워두면 모바일에선 이 이미지의 <b>좌우가 잘려 가운데만</b> 보입니다 → 잘림 없이 하려면 모바일 이미지를 따로 넣으세요.
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground mt-1">
                   💡 이미지 직접 업로드 시 Supabase Storage에 저장됩니다 (10MB 이하).
                 </p>
               </Field>
+
+              {/* 모바일 전용 이미지(선택) — 피드 카드만. 비우면 데스크탑 이미지로 폴백 */}
+              {ff === "feed" && (
+              <Field label="모바일 이미지 URL (선택 · 세로/정사각)" icon={<ImageIcon className="w-4 h-4 text-muted-foreground" />}>
+                <input
+                  className="input-base"
+                  placeholder="https://... (세로 4:5 1080×1350 또는 정사각 1:1 1080×1080)"
+                  value={form.image_url_mobile || ""}
+                  onChange={e => setForm(f => ({ ...f, image_url_mobile: e.target.value || null }))}
+                  disabled={imgUploading}
+                />
+
+                <input
+                  ref={adImageMobileFileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={e => handleAdImageFileSelect(e, 'image_url_mobile')}
+                  className="hidden"
+                />
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => adImageMobileFileRef.current?.click()}
+                  disabled={imgUploading}
+                  className="w-full mt-2 gap-2 border-[#6366f1]/40 hover:bg-[#6366f1]/10"
+                >
+                  {imgUploading ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> 업로드 중...</>
+                  ) : (
+                    <><UploadIcon className="w-4 h-4" /> 모바일 이미지 직접 업로드</>
+                  )}
+                </Button>
+
+                {form.image_url_mobile && (
+                  <img src={form.image_url_mobile} alt="mobile preview" className="mt-2 w-40 h-52 object-cover rounded-lg border border-border mx-auto" />
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  💡 비워두면 모바일에서도 데스크탑 이미지를 사용합니다(좌우 잘림). 세로/정사각 이미지를 넣으면 모바일 카드에 잘림 없이 표시됩니다.
+                </p>
+              </Field>
               )}
+              </>)}
 
               {/* Bunny 영상 URL + 직접 업로드 버튼 — 영상 소재 형식만 */}
               {showVideoField && (<>

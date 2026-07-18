@@ -35,6 +35,7 @@ interface Ad {
   title: string;
   advertiser: string;
   image_url: string | null;
+  image_url_mobile: string | null;   // 모바일 피드 카드 전용(선택). 없으면 image_url 폴백.
   video_url: string | null;
   thumbnail_url: string | null;
   link_url: string;
@@ -230,10 +231,10 @@ const AdCard = memo(({ ad, onImpression }: { ad: Ad; onImpression: (id: string) 
       className="discovery-section relative overflow-hidden cursor-pointer group"
       onClick={handleClick}
     >
-      {/* 배경: 이미지 우선, 없으면 영상, 없으면 썸네일 fallback */}
-      {ad.image_url ? (
+      {/* 배경: 모바일 전용 이미지 우선(세로/정사각) → 없으면 데스크탑 image_url 폴백 → 영상 → 썸네일 */}
+      {(ad.image_url_mobile || ad.image_url) ? (
         <img
-          src={ad.image_url}
+          src={ad.image_url_mobile || ad.image_url || ''}
           alt={ad.title}
           onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           className="absolute inset-0 w-full h-full object-cover"
@@ -1161,7 +1162,7 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
         // 민감컬럼(budget_krw/spent_krw/owner_id 등)은 비노출. 여기선 노출형식(feed_display)만 거름.
         // 광고는 첫 영상 페인트에 불필요(피드 interleaving 용) → 비블로킹 병렬(순서 조회 앞에서 await 안 함).
         supabase.from("ads_public")
-          .select("id,title,advertiser,image_url,video_url,thumbnail_url,link_url,cta_text,interval_count,ad_type")
+          .select("id,title,advertiser,image_url,image_url_mobile,video_url,thumbnail_url,link_url,cta_text,interval_count,ad_type")
           .or("ad_type.eq.feed_display,ad_type.is.null")
           .then(({ data }) => { if (!cancelled && data && data.length > 0) setAds(data as Ad[]); }, () => {});
 
