@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  Plus, Pencil, Trash2, ToggleLeft, ToggleRight,
+  Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Play,
   BarChart2, Eye, MousePointerClick, Megaphone,
   ImageIcon, Video, Link, Calendar, Save, X, Loader2, ShieldAlert,
   Upload as UploadIcon
@@ -159,6 +159,11 @@ export function AdminDashboard() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  // 인라인 영상 프리뷰 (콘텐츠 관리와 동일) — 열린 광고 id
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  // HLS(.m3u8) → 네이티브 <video> 미지원이라 mp4 렌디션으로 변환 (AdminContent·프리롤과 동일)
+  const toMp4 = (url: string | null) =>
+    url && url.includes("/playlist.m3u8") ? url.replace("/playlist.m3u8", "/play_720p.mp4") : url;
   // 광고 목록 탭: 자체광고(owner_id 없음) / 광고주 광고(owner_id 있음)
   const [adTab, setAdTab] = useState<"house" | "advertiser">("house");
 
@@ -560,8 +565,14 @@ export function AdminDashboard() {
                 }`}
               >
                 <div className="flex items-start gap-3 p-4">
-                  {/* 썸네일 */}
-                  <div className="w-20 h-14 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                  {/* 썸네일 = 영상 프리뷰 토글 (콘텐츠 관리와 동일). 영상 소재가 있는 광고만 재생 가능. */}
+                  <button
+                    type="button"
+                    onClick={() => ad.video_url && setPreviewId(cur => (cur === ad.id ? null : ad.id))}
+                    disabled={!ad.video_url}
+                    title={ad.video_url ? (previewId === ad.id ? "프리뷰 닫기" : "영상 재생") : "영상 소재 없음 (이미지 광고)"}
+                    className="relative w-20 h-14 rounded-lg overflow-hidden bg-muted flex-shrink-0 group disabled:cursor-default"
+                  >
                     {(ad.thumbnail_url || ad.image_url) ? (
                       <img
                         src={ad.thumbnail_url || ad.image_url!}
@@ -573,7 +584,12 @@ export function AdminDashboard() {
                         <Video className="w-6 h-6 text-muted-foreground/40" />
                       </div>
                     )}
-                  </div>
+                    {ad.video_url && (
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {previewId === ad.id ? <X className="w-5 h-5 text-white" /> : <Play className="w-5 h-5 text-white fill-white" />}
+                      </span>
+                    )}
+                  </button>
 
                   {/* 정보 */}
                   <div className="flex-1 min-w-0">
@@ -693,6 +709,20 @@ export function AdminDashboard() {
                     </button>
                   </div>
                 </div>
+
+                {/* 인라인 영상 프리뷰 — 썸네일 클릭 시 그 광고만 재생 (mp4 렌디션). 세로 소재(히어로)도 max-h로 안전. */}
+                {previewId === ad.id && ad.video_url && (
+                  <div className="px-4 pb-4">
+                    <video
+                      key={ad.id}
+                      src={toMp4(ad.video_url) || undefined}
+                      poster={ad.thumbnail_url || ad.image_url || undefined}
+                      controls autoPlay preload="metadata"
+                      onError={() => toast.error("프리뷰 재생 실패 — 이 영상은 720p 렌디션이 없을 수 있습니다.")}
+                      className="w-full max-w-xl max-h-[70vh] rounded-lg bg-black border border-white/10"
+                    />
+                  </div>
+                )}
 
                 {/* 삭제 확인 */}
                 {deleteConfirm === ad.id && (
