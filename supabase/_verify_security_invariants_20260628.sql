@@ -275,5 +275,18 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 fix_video_guard_sponsor_20260718.sql 재적용(가드에 sponsor 검수컬럼 편입)'
 
+  UNION ALL
+  -- 21) update_platform_setting 이 assert_admin 게이트인가 (2026-07-18)
+  --     수익 정책(구독가·분배율·CPM·결제 킬스위치 payments_enabled) 변경 함수가 인라인
+  --     is_admin 체크만 쓰면 is_suspended 를 안 봐 "정지된 관리자"도 금전정책·결제개통 조작
+  --     가능(정지 실효성 구멍). assert_admin(정지관리자 차단)으로 게이트돼야 함. 이름이
+  --     admin_*/get_admin_* 이 아니라 #7 사각지대.
+  SELECT 21,
+    'update_platform_setting assert_admin 게이트(정지관리자 금전정책 차단)',
+    CASE WHEN (SELECT bool_and(prosrc ~ 'assert_admin') FROM pg_proc
+               WHERE proname = 'update_platform_setting')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 update_platform_setting_assert_admin_20260718.sql 재적용(인라인 is_admin→assert_admin)'
+
 ) AS gate
 ORDER BY sort;
