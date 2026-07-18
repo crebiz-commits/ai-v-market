@@ -793,7 +793,7 @@ export function AdminDashboard() {
               <Field label="이미지 URL" icon={<ImageIcon className="w-4 h-4 text-muted-foreground" />}>
                 <input
                   className="input-base"
-                  placeholder="https://... (배너 이미지)"
+                  placeholder={ff === "feed" ? "https://... (가로 16:9 배너, 1920×1080)" : "https://... (배너 이미지)"}
                   value={form.image_url || ""}
                   onChange={e => setForm(f => ({ ...f, image_url: e.target.value || null }))}
                   disabled={imgUploading}
@@ -832,6 +832,11 @@ export function AdminDashboard() {
                   <img src={form.image_url} alt="preview" className="mt-2 w-full h-32 object-cover rounded-lg border border-border" />
                 )}
 
+                {ff === "feed" && (
+                  <p className="text-xs text-[#8b5cf6] mt-1 font-medium leading-relaxed">
+                    📐 홈 피드 카드 권장: <b>가로 16:9 (1920×1080)</b> · 로고·문구·CTA 등 핵심은 <b>이미지 가운데</b>에 배치하세요 (모바일 카드는 좌우가 잘려 가운데만 보임).
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground mt-1">
                   💡 이미지 직접 업로드 시 Supabase Storage에 저장됩니다 (10MB 이하).
                 </p>
