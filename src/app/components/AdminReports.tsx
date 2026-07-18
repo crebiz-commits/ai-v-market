@@ -24,6 +24,11 @@ interface ReportRow {
   reporter_name: string | null;
   created_at: string;
   report_count: number;
+  // 2차 감사 보강 — 관리자가 대상 실제 내용을 보고 판정하도록 백엔드가 함께 반환
+  target_preview?: string | null;    // 대상 콘텐츠 스니펫(영상제목/댓글본문/글제목/닉네임)
+  target_deleted?: boolean;          // 대상이 삭제된 고아 신고
+  comment_video_id?: string | null;  // 댓글 부모 영상(딥링크용)
+  comment_post_id?: string | null;   // 댓글 부모 커뮤니티글(딥링크용)
 }
 
 const REASON_LABELS: Record<string, { label: string; icon: string; color: string }> = {
@@ -218,13 +223,24 @@ export function AdminReports() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Flag className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p>처리 대기 중인 신고가 없습니다</p>
-          <p className="text-xs mt-1">모든 신고가 처리되었거나, 아직 접수되지 않았습니다.</p>
+          {filterType !== "all" && groupedReports.length > 0 ? (
+            <>
+              <p>이 유형의 신고가 없습니다</p>
+              <p className="text-xs mt-1">다른 유형에는 처리 대기 중인 신고가 있습니다 — '전체'에서 확인하세요.</p>
+            </>
+          ) : (
+            <>
+              <p>처리 대기 중인 신고가 없습니다</p>
+              <p className="text-xs mt-1">모든 신고가 처리되었거나, 아직 접수되지 않았습니다.</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
           {filtered.map(group => {
-            const primary = group[0];
+            // get_pending_reports 정렬이 created_at DESC → group[0]=최신. "최초 신고"는 가장
+            //   오래된 것이므로 group 마지막이 대표(2차 감사: 라벨/데이터 정합).
+            const primary = group[group.length - 1];
             const reasonMeta = REASON_LABELS[primary.reason];
             return (
               <div key={`${primary.target_type}:${primary.target_id}`}
@@ -235,6 +251,12 @@ export function AdminReports() {
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted font-bold">
                       {TARGET_LABELS[primary.target_type] || primary.target_type}
                     </span>
+                    {/* 2차 감사 M2: 대상이 삭제된 고아 신고 표시 */}
+                    {primary.target_deleted && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-500/20 text-gray-400 font-bold">
+                        🗑 대상 삭제됨
+                      </span>
+                    )}
                     {/* L3(2026-05-31): user 신고는 자동 숨김 대상이 아님 → 배지 제외 */}
                     {primary.report_count >= autoHideThreshold && primary.target_type !== "user" && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 font-bold">
@@ -248,13 +270,18 @@ export function AdminReports() {
                     )}
                   </div>
                   {(() => {
-                    // 대상 딥링크: 영상/사용자채널/커뮤니티글은 실제 이동, 댓글은 독립 페이지 없어 평문.
+                    // 대상 딥링크: 영상/사용자채널/커뮤니티글 이동. 댓글은 부모(영상/글)로 이동
+                    //   (백엔드가 comment_video_id/comment_post_id 반환). 삭제된 대상은 링크 없음.
                     const tt = primary.target_type, tid = primary.target_id;
-                    const href = tt === "video" ? `/?video=${tid}`
+                    const href = primary.target_deleted ? null
+                      : tt === "video" ? `/?video=${tid}`
                       : tt === "user" ? `/?tab=channel&creator=${tid}`
                       : tt === "community_post" ? `/?tab=community&sub=posts&post=${tid}`
+                      : tt === "comment" && primary.comment_video_id ? `/?video=${primary.comment_video_id}`
+                      : tt === "comment" && primary.comment_post_id ? `/?tab=community&sub=posts&post=${primary.comment_post_id}`
                       : null;
-                    const idText = `대상 ID: ${tid.slice(0, 18)}…`;
+                    const linkLabel = tt === "comment" ? "원본 위치 보기" : "대상 보기";
+                    const idText = href ? linkLabel : `대상 ID: ${tid.slice(0, 18)}…`;
                     return href ? (
                       <a href={href} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#6366f1] hover:underline flex items-center gap-1">
                         {idText}<ExternalLink className="w-3 h-3" />
@@ -271,11 +298,28 @@ export function AdminReports() {
                   <span>{reasonMeta?.label || primary.reason}</span>
                 </div>
 
-                {/* 설명 */}
-                {primary.description && (
-                  <p className="text-sm text-muted-foreground mt-2 mb-2 p-2 rounded bg-muted/40 italic">
-                    "{primary.description}"
+                {/* 대상 콘텐츠 미리보기 — 관리자가 무엇을 판정하는지 확인 (2차 감사 H1: 특히 댓글 맹검 해소) */}
+                {primary.target_preview ? (
+                  <div className="text-sm mt-1 mb-2 p-2.5 rounded-lg bg-white/[0.04] border border-white/10">
+                    <span className="text-[10px] text-muted-foreground block mb-1">
+                      {primary.target_type === "user" ? "신고된 사용자" : "신고된 내용"}
+                    </span>
+                    <span className="text-foreground/90 whitespace-pre-wrap break-words line-clamp-4">
+                      {primary.target_preview}
+                    </span>
+                  </div>
+                ) : primary.target_deleted ? (
+                  <p className="text-xs text-gray-400 mt-1 mb-2 italic">
+                    ⚠️ 대상이 이미 삭제되었습니다 — 반려로 큐에서 정리하세요.
                   </p>
+                ) : null}
+
+                {/* 신고자 메모(자유입력) — 신고된 내용(preview)과 구분 */}
+                {primary.description && (
+                  <div className="mt-2 mb-2 p-2 rounded bg-muted/40">
+                    <span className="text-[10px] text-muted-foreground block mb-0.5">신고자 메모</span>
+                    <p className="text-sm text-muted-foreground italic">"{primary.description}"</p>
+                  </div>
                 )}
 
                 {/* 신고자 정보 + 다중 신고 */}
