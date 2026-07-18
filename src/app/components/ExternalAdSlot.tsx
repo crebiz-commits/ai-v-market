@@ -79,9 +79,11 @@ interface ExternalAdSlotProps {
   className?: string;
   /** 특정 네트워크 강제(라운드로빈 순환용). 해당 네트워크가 활성일 때만 적용, 아니면 index 로테이션. */
   forceNetwork?: Network;
+  /** 내부 '광고' 배지 표시 여부(기본 true). 카드로 감싸 배지를 밖에서 얹을 땐 false. */
+  badge?: boolean;
 }
 
-export function ExternalAdSlot({ index = 0, className = "", forceNetwork }: ExternalAdSlotProps) {
+export function ExternalAdSlot({ index = 0, className = "", forceNetwork, badge = true }: ExternalAdSlotProps) {
   const { t } = useTranslation();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -182,10 +184,13 @@ export function ExternalAdSlot({ index = 0, className = "", forceNetwork }: Exte
       className={`relative flex items-center justify-center overflow-hidden bg-[linear-gradient(180deg,#3d2e86_0%,#171022_50%,#3a1a52_100%)] ${className}`}
     >
       {/* 광고 표기(법적 고지) — 자체광고와 동일 스타일. 여백(그라데이션)의 좌상단에 얹어
-          광고 컨테이너 자체는 가리지 않음(AdFit 정책 준수). pointer-events-none 로 클릭 비방해. */}
-      <div className="absolute top-3 left-3 z-10 px-2 py-0.5 bg-black/50 backdrop-blur-sm border border-white/20 rounded-full text-[10px] font-bold text-white/70 tracking-widest pointer-events-none">
-        {t("discoveryFeed.adBadge")}
-      </div>
+          광고 컨테이너 자체는 가리지 않음(AdFit 정책 준수). pointer-events-none 로 클릭 비방해.
+          카드로 감싸 밖에서 배지를 얹는 경우(badge=false)엔 내부 배지 생략(중복 방지). */}
+      {badge && (
+        <div className="absolute top-3 left-3 z-10 px-2 py-0.5 bg-black/50 backdrop-blur-sm border border-white/20 rounded-full text-[10px] font-bold text-white/70 tracking-widest pointer-events-none">
+          {t("discoveryFeed.adBadge")}
+        </div>
+      )}
 
       {/* 배경(여백)만 브랜드 오로라 그라데이션 — 광고가 작아 생기는 빈 공간을 채움.
           ※ AdFit 정책상 광고 자체는 변형·강조·라운딩·가림 금지 → 아래 광고 컨테이너는 손대지 않음(원본 그대로). */}

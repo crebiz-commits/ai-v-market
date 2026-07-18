@@ -1603,14 +1603,19 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
                 return <DesktopAdCard key={item.key} ad={item.ad} onImpression={handleAdImpression} />;
               }
               if (item.kind === "adfit") {
-                // 자체광고 소진 시 폴백 — 미설정/비활성이면 ExternalAdSlot 이 null 반환(빈 셀 없음)
+                // 외부광고(애드핏/애드센스) — 영상·자체광고 카드와 동일한 카드 프레임으로 감싸
+                // "허공에 뜬" 느낌 제거. 카드 좌상단에 '광고' 배지(광고 위 겹침 방지 위해 badge=false).
+                // 비활성이면 ExternalAdSlot 이 null → 카드만 남지 않게 상위 로직이 adfit 을 활성 시에만 추가.
                 return (
-                  <ExternalAdSlot
+                  <div
                     key={`adfit-${item.slot}`}
-                    index={item.slot}
-                    forceNetwork={item.network}
-                    className="justify-self-center self-center"
-                  />
+                    className="relative bg-[#141414] rounded-2xl overflow-hidden border border-white/[0.08] flex items-center justify-center min-h-[280px]"
+                  >
+                    <span className="absolute top-3 left-3 z-10 px-2 py-0.5 bg-black/50 backdrop-blur-sm border border-white/20 rounded-full text-[10px] font-bold text-white/70 tracking-widest pointer-events-none">
+                      {t("discoveryFeed.adBadge")}
+                    </span>
+                    <ExternalAdSlot index={item.slot} forceNetwork={item.network} badge={false} />
+                  </div>
                 );
               }
               const v = item.video;
