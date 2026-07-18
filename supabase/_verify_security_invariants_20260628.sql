@@ -344,5 +344,19 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 premium_grant_crown_assert_admin_20260718.sql 재적용(인라인 is_admin→assert_admin)'
 
+  UNION ALL
+  -- 26) get_creator_profile 가 creator_of_month_until 를 반환하는가 (2026-07-18)
+  --     이달의 크리에이터 뱃지(admin_crown_creator 가 세팅)는 CreatorChannel 이 profiles 직접
+  --     SELECT 금지(안전 GRANT 화이트리스트 7종에 creator_of_month_until 없음) → get_creator_
+  --     profile(DEFINER, 컬럼 GRANT 우회) 반환에 전적 의존. 옛 판(phase6_5_channel_enhancements)
+  --     엔 이 컬럼이 없어 재실행 드리프트 시 뱃지가 조용히 죽음(2026-07-09 실제 발생·수정된 HIGH
+  --     버그). 크라운 지급의 표시측 연결 — 반환 시그니처에 컬럼 존재 확인. #7/#25 로는 못 잡는 사각지대.
+  SELECT 26,
+    'get_creator_profile creator_of_month_until 반환(이달의 크리에이터 뱃지 표시 연결)',
+    CASE WHEN (SELECT bool_or(pg_get_function_result(oid) LIKE '%creator_of_month_until%')
+               FROM pg_proc WHERE proname = 'get_creator_profile')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 channel_feed_audit_20260709.sql ①(get_creator_profile) 재적용(phase6_5 재실행 금지=뱃지 사망)'
+
 ) AS gate
 ORDER BY sort;
