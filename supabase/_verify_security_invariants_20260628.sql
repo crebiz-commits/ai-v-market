@@ -330,5 +330,19 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 admin_audit_hardening_20260714.sql⑦(admin_refund_payment) 재적용(단, #21·#23 회귀 주의 → 필요시 타겟 추출)'
 
+  UNION ALL
+  -- 25) 프리미엄 지급·크라운 2종이 assert_admin 게이트인가 (2026-07-18)
+  --     admin_grant_premium(무상 프리미엄 수동지급)·admin_crown_creator(이달의크리에이터 뱃지+
+  --     OTT 히어로 지정)가 인라인 is_admin 체크만 쓰면 is_suspended 를 안 봐 "정지된 관리자"도
+  --     자기 계정에 프리미엄 무제한 지급(정산오염)·홈 히어로 조작 가능. assert_admin 로 게이트돼야.
+  --     이름은 admin_* 라 #7 이 스캔하나, 본문에 'is_admin' 문자열이 있으면 #7 은 통과시켜(거짓
+  --     PASS) → 인라인 is_admin 인지 assert_admin 인지 구분 못함. 이 체크가 그 사각지대를 메움.
+  SELECT 25,
+    '프리미엄 지급·크라운 assert_admin 게이트(정지관리자 무상프리미엄·히어로조작 차단)',
+    CASE WHEN (SELECT bool_and(prosrc ~ 'assert_admin') FROM pg_proc
+               WHERE proname IN ('admin_grant_premium', 'admin_crown_creator'))
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 premium_grant_crown_assert_admin_20260718.sql 재적용(인라인 is_admin→assert_admin)'
+
 ) AS gate
 ORDER BY sort;
