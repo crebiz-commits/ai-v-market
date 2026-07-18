@@ -6,7 +6,7 @@
 //   ↳ 연령 게이트(블러/잠금) + 쇼케이스 합성 유지.
 // ════════════════════════════════════════════════════════════════════════════
 import { useEffect, useMemo, useRef, useState, useCallback, memo } from "react";
-import { Play, Info, Plus, Lock, Loader2, Volume2, VolumeX, Clock, ChevronLeft, ChevronRight, Heart, Eye, Layers } from "lucide-react";
+import { Play, Info, Plus, Lock, Loader2, Volume2, VolumeX, Clock, ChevronLeft, ChevronRight, Heart, Eye, Layers, ExternalLink } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { BUNNY_HOST } from "../utils/bunnyHost";
 import { useAuth } from "../contexts/AuthContext";
@@ -187,6 +187,43 @@ export function prefetchOttFeed() {
 // 히어로 영상 소스 캐시(heroId → src) — 30초(상한) 회전마다 같은 영상 video_url 재조회 방지
 type HeroSrc = { videoId: string; url: string; start: number; end: number; clipUrl?: string; previewUrl?: string };
 const heroSrcCache = new Map<string, HeroSrc>();
+
+// ── 히어로 영상광고 (수주/자체 재사용) ──────────────────────────────────────
+//   ads_public(승인·활성·기간·예산 강제) 에서 영상광고(video_preroll)를 가져와
+//   비디오 히어로 사이에 고르게 삽입(각 광고 순환마다 1번씩 ≈ N편마다 1개).
+type HeroAd = {
+  id: string; title: string; advertiser: string | null;
+  video_url: string; thumbnail_url: string | null; link_url: string | null; cta_text: string | null;
+};
+type HeroItem = { type: "video"; video: CarouselVideo } | { type: "ad"; ad: HeroAd };
+
+function buildHeroItems(videos: CarouselVideo[], ads: HeroAd[]): HeroItem[] {
+  if (ads.length === 0) return videos.map((v) => ({ type: "video", video: v }));
+  const V = videos.length;
+  if (V === 0) return ads.slice(0, 3).map((ad) => ({ type: "ad", ad })); // 영상 없으면 광고만(캡)
+  // 광고를 영상 수보다 많이 넣지 않음(꼬리 클러스터 방지) + 영상 사이에 고르게 1번씩 삽입.
+  const use = ads.slice(0, Math.min(ads.length, V));
+  const A = use.length;
+  const pos = new Set<number>();
+  for (let k = 1; k <= A; k++) pos.add(Math.round((k * V) / (A + 1))); // 균등 위치(영상 인덱스 기준)
+  const items: HeroItem[] = [];
+  let ai = 0;
+  videos.forEach((v, i) => {
+    items.push({ type: "video", video: v });
+    if (pos.has(i + 1) && ai < A) items.push({ type: "ad", ad: use[ai++] });
+  });
+  while (ai < A) items.push({ type: "ad", ad: use[ai++] }); // 위치 겹침 안전망(드묾)
+  return items;
+}
+
+// 외부 광고 링크 안전 오픈 — http(s) 스킴만 허용(javascript:/data: 차단).
+function openAdLinkSafe(rawUrl: string | null | undefined) {
+  if (!rawUrl) return;
+  try {
+    const u = new URL(rawUrl);
+    if (u.protocol === "http:" || u.protocol === "https:") window.open(u.href, "_blank", "noopener,noreferrer");
+  } catch { /* 잘못된 URL 무시 */ }
+}
 // 히어로 프리뷰 seek 상한(초). play_720p.mp4 을 highlight_start 로 seek 하는데 너무 깊은 지점
 //   (예: "야인의 시대" 296초)은 버퍼링이 느려 선명 프레임이 안 떠 저화질 preview 에 고착됨
 //   (바다의 신비 88초는 정상). → 히어로 배경 프리뷰는 이 값까지만 seek(초과분 clamp).
@@ -213,6 +250,7 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
   const [heroMuted, setHeroMuted] = useState(true);
   const [heroIdx, setHeroIdx] = useState(0);   // 히어로 순환 인덱스 (30초 상한 / 클립종료 시 조기전환)
   const [featured, setFeatured] = useState<CarouselVideo[]>([]);  // 피처링(챌린지 우승작) — 히어로 최우선
+  const [heroAds, setHeroAds] = useState<HeroAd[]>([]);           // 히어로 영상광고(수주/자체)
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // CREAITE 셀렉트(공식 선정작) — 히어로 바로 아래 노출. creaite-select videoIds 로 로드.
@@ -288,17 +326,47 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
     _heroSeen.add(v.id);
     return true;
   }).slice(0, 5);
-  const heroId = heroes[heroIdx]?.id;
-  useEffect(() => { setHeroIdx(0); }, [heroes.length]);   // 목록 바뀌면 처음부터
-  // 고정 인터벌 대신 히어로별 타임아웃(30초 상한) — 클립이 ended 로 조기 전환해도
+  // 영상 히어로 사이에 영상광고 삽입 → 순환 아이템(광고면 HeroAdBillboard 로 별도 렌더)
+  const heroItems = buildHeroItems(heroes, heroAds);
+  const currentItem = heroItems[heroIdx] ?? heroItems[0];
+  const currentAd = currentItem?.type === "ad" ? currentItem.ad : null;
+  const currentVideo = currentItem?.type === "video" ? currentItem.video : null;
+  const heroId = currentVideo?.id;   // 광고 아이템이면 undefined → heroSrc 조회 스킵
+  useEffect(() => { setHeroIdx(0); }, [heroItems.length]);   // 목록 바뀌면 처음부터
+  // 고정 인터벌 대신 히어로별 타임아웃(30초 상한) — 클립/광고가 ended 로 조기 전환해도
   // 다음 히어로가 30초를 온전히 갖는다(heroIdx 바뀔 때마다 타이머 리셋).
   useEffect(() => {
-    if (heroes.length <= 1) return;
-    const id = setTimeout(() => setHeroIdx((i) => (i + 1) % heroes.length), 30000);
+    if (heroItems.length <= 1) return;
+    const id = setTimeout(() => setHeroIdx((i) => (i + 1) % heroItems.length), 30000);
     return () => clearTimeout(id);
-  }, [heroes.length, heroIdx]);
-  // 클립 영상이 끝나면 즉시 다음 히어로로 (같은 장면 반복 제거)
-  const advanceHero = useCallback(() => setHeroIdx((i) => (i + 1) % Math.max(heroes.length, 1)), [heroes.length]);
+  }, [heroItems.length, heroIdx]);
+  // 클립/광고 영상이 끝나면 즉시 다음 히어로로 (같은 장면 반복 제거)
+  const advanceHero = useCallback(() => setHeroIdx((i) => (i + 1) % Math.max(heroItems.length, 1)), [heroItems.length]);
+  // 히어로 영상광고 로드 — ads_public(승인·활성·기간·예산 강제) 의 영상광고(video_preroll).
+  //   자체·수주 영상광고 모두 포함. 비디오 히어로 사이에 삽입해 순환.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("ads_public")
+        .select("id,title,advertiser,video_url,thumbnail_url,link_url,cta_text,ad_type")
+        .eq("ad_type", "video_preroll")
+        .not("video_url", "is", null)
+        .order("id", { ascending: true })
+        .limit(12);   // 과다 광고 풀 방어(히어로는 소수만 순환)
+      if (cancelled || !Array.isArray(data)) return;
+      setHeroAds(
+        (data as any[])
+          .filter((a) => a.video_url && String(a.video_url).trim())
+          .map((a) => ({
+            id: a.id, title: a.title || "", advertiser: a.advertiser || null,
+            video_url: a.video_url, thumbnail_url: a.thumbnail_url || null,
+            link_url: a.link_url || null, cta_text: a.cta_text || null,
+          })) as HeroAd[]
+      );
+    })();
+    return () => { cancelled = true; };
+  }, []);
   // 피처링 영상(featured_hero_until 미래) 로드 → 히어로 최우선 노출 (챌린지 우승작 1개월)
   useEffect(() => {
     let cancelled = false;
@@ -510,27 +578,34 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
     <div
       ref={scrollRef}
       onScroll={(e) => onHeroScroll?.((e.currentTarget.scrollTop || 0) > 80)}
-      className={`h-full overflow-y-auto bg-black pb-12 ${heroes.length === 0 ? "pt-20 md:pt-24" : ""}`}
+      className={`h-full overflow-y-auto bg-black pb-12 ${heroItems.length === 0 ? "pt-20 md:pt-24" : ""}`}
     >
-      {/* ━━━ 풀블리드 단일 히어로 (영상 자동재생) ━━━ */}
-      {heroes.length > 0 && (
+      {/* ━━━ 풀블리드 단일 히어로 (영상/광고 자동재생) ━━━ */}
+      {heroItems.length > 0 && currentAd ? (
+        <HeroAdBillboard
+          ad={currentAd}
+          muted={heroMuted}
+          onToggleMute={toggleHeroMute}
+          onEnded={heroItems.length > 1 ? advanceHero : undefined}
+        />
+      ) : heroItems.length > 0 && currentVideo ? (
         <HeroBillboard
-          video={heroes[heroIdx] ?? heroes[0]}
+          video={currentVideo}
           // heroSrc 는 별도 state 라 히어로 전환 직후 한 박자 늦게 갱신됨(이펙트가 렌더 후 실행).
           //   그 사이 (새 video + 직전 src) 조합으로 직전 영상의 하이라이트가 잠깐 새던 것 차단:
           //   src.videoId 가 현재 히어로와 일치할 때만 사용, 불일치면 null(포스터만) 로 대기.
-          src={heroSrc && heroSrc.videoId === (heroes[heroIdx] ?? heroes[0])?.id ? heroSrc : null}
+          src={heroSrc && heroSrc.videoId === currentVideo.id ? heroSrc : null}
           // 사용자 업로드 hero_clip 은 Bunny/Vision 검수를 안 거침 → admin 이 직접 지정(featured)한
           //   히어로에서만 클립 재생 허용. 트렌딩 히어로는 검수된 본편 파생 폴백(preview/mp4)만.
-          allowClip={featured.some((f) => f.id === (heroes[heroIdx] ?? heroes[0])?.id)}
+          allowClip={featured.some((f) => f.id === currentVideo.id)}
           ageGuard={ageGuard}
           muted={heroMuted}
           onToggleMute={toggleHeroMute}
           onClick={handleClick}
           onPlay={handlePlay}
-          onEnded={heroes.length > 1 ? advanceHero : undefined}
+          onEnded={heroItems.length > 1 ? advanceHero : undefined}
         />
-      )}
+      ) : null}
 
       {/* 🏆 CREAITE 셀렉트 — 공식 선정작 (히어로 바로 아래) */}
       {selectVideos.length > 0 && (
@@ -597,6 +672,99 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
 //  · 헤더 영역까지 꽉 차는 배경. 네이티브 <video> 로 클립/mp4(seek) 재생 + preview.webp 폴백.
 //  · 실제 video_url 이 없으면 당분간 샘플 미리보기 영상을 전체 반복 재생 (폴백).
 // ────────────────────────────────────────────────────────────────────────────
+// ── 히어로 영상광고 빌보드 — 광고영상 자동재생 + 제목/CTA(광고 링크) + '광고' 배지.
+//    연령게이트·heroSrc DB조회 없음(광고는 전연령·자체 URL). onEnded 로 다음 히어로 전환.
+//    ※ 집계 미호출(아래 useEffect 주석 참조 — 프리롤 dedup/크리에이터수익 오염 회피).
+const HeroAdBillboard = memo(function HeroAdBillboard({
+  ad, muted, onToggleMute, onEnded,
+}: {
+  ad: HeroAd;
+  muted: boolean;
+  onToggleMute: () => void;
+  onEnded?: () => void;
+}) {
+  const { t } = useTranslation();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoReady, setVideoReady] = useState(false);
+  // Bunny playlist 면 mp4 렌디션(720→480→360→240 폴백), 아니면 원본 URL.
+  const renditions = useMemo(() => {
+    const u = ad.video_url || "";
+    if (/\/playlist\.m3u8$/i.test(u)) return [720, 480, 360, 240].map((r) => u.replace(/\/playlist\.m3u8$/i, `/play_${r}p.mp4`));
+    return u ? [u] : [];
+  }, [ad.video_url]);
+  const [renIdx, setRenIdx] = useState(0);
+  useEffect(() => { setRenIdx(0); setVideoReady(false); }, [ad.id]);
+  const playUrl = renditions[renIdx] || "";
+  // ⚠️ 히어로 광고는 노출/클릭 집계(feed_impression/feed_click)를 호출하지 않는다.
+  //   그 경로는 프리롤과 공유하는 ad_charge_dedup 슬롯을 선점해 (a)실제 프리롤의
+  //   크리에이터 수익 이벤트(ad_video_events)를 억제하고 (b)예산광고를 히어로에서 오과금한다.
+  //   히어로 전용 집계가 필요하면 별도 이벤트 타입/RPC(독립 dedup·무억제·hero CPM)를 신설할 것.
+  useEffect(() => { if (videoRef.current) videoRef.current.muted = muted; }, [muted, videoReady]);
+  // 화면 밖이면 정지(배터리/데이터), 재진입 시 재생
+  useEffect(() => {
+    const v = videoRef.current; if (!v) return;
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) v.play?.().catch(() => {}); else v.pause?.(); }, { threshold: 0.1 });
+    io.observe(v); return () => io.disconnect();
+  }, [playUrl]);
+  const handleCta = () => { openAdLinkSafe(ad.link_url); };
+  return (
+    <section className="relative w-full h-[90vh] md:h-[84vh]">
+      {/* 포스터(베이스) — 영상 준비 전까지 노출 */}
+      {ad.thumbnail_url && (
+        <img
+          src={ad.thumbnail_url}
+          alt=""
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${videoReady ? "opacity-0" : "opacity-100"}`}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+        />
+      )}
+      {/* 광고 영상 */}
+      {playUrl && (
+        <div className={`absolute inset-0 w-full h-full pointer-events-none transition-opacity duration-700 ${videoReady ? "opacity-100" : "opacity-0"}`}>
+          <video
+            key={playUrl}
+            ref={videoRef}
+            className="w-full h-full object-cover"
+            src={playUrl}
+            autoPlay muted playsInline preload="auto" loop={!onEnded}
+            onCanPlay={() => setVideoReady(true)}
+            onPlaying={() => setVideoReady(true)}
+            onEnded={() => onEnded?.()}
+            onError={() => setRenIdx((i) => (i + 1 < renditions.length ? i + 1 : i))}
+          />
+        </div>
+      )}
+      {/* 하단 그라데이션 */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none" />
+      {/* '광고' 배지 */}
+      <div className="absolute top-4 left-4 md:top-6 md:left-8 z-10 px-2.5 py-1 bg-black/50 backdrop-blur-sm border border-white/20 rounded-full text-[11px] font-bold text-white/80 tracking-widest">
+        {t("discoveryFeed.adBadge")}
+      </div>
+      {/* 음소거 토글 */}
+      <button
+        onClick={onToggleMute}
+        aria-label={muted ? t("adPlayer.unmute") : t("adPlayer.mute")}
+        className="absolute top-4 right-4 md:top-6 md:right-8 z-10 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+      >
+        {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+      </button>
+      {/* 카피 + CTA */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 p-6 md:p-12">
+        {ad.advertiser && <p className="text-sm md:text-base text-white/70 font-medium mb-1">{ad.advertiser}</p>}
+        {ad.title && <h2 className="text-2xl md:text-5xl font-black text-white mb-4 max-w-2xl line-clamp-2 drop-shadow-lg">{ad.title}</h2>}
+        {ad.link_url && (
+          <button
+            onClick={handleCta}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black text-sm md:text-base font-bold rounded-full hover:bg-white/90 transition-colors"
+          >
+            {ad.cta_text || t("adPlayer.learnMore")} <ExternalLink className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </section>
+  );
+});
+
 const HeroBillboard = memo(function HeroBillboard({
   video,
   src,
