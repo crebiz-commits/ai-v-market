@@ -48,9 +48,12 @@ const TAX_TYPE_LABEL: Record<string, string> = {
   business_corp: "법인",
 };
 
-// CSV 셀 안전 escape (쉼표/줄바꿈/큰따옴표 처리)
+// CSV 셀 안전 escape (쉼표/줄바꿈/큰따옴표 + 수식 인젝션 방어)
+//   크리에이터 입력(상호·이름)이 =,+,-,@,탭,개행 으로 시작하면 Excel/Sheets 가 수식으로
+//   실행(=HYPERLINK·DDE 등 관리자 PC 공격) → 작은따옴표 prefix 로 무력화(OWASP 권고).
 function csvEscape(v: any): string {
-  const s = String(v ?? "");
+  let s = String(v ?? "");
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
   if (s.includes(",") || s.includes("\n") || s.includes('"')) {
     return `"${s.replace(/"/g, '""')}"`;
   }
