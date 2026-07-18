@@ -342,15 +342,15 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
   }, [heroItems.length, heroIdx]);
   // 클립/광고 영상이 끝나면 즉시 다음 히어로로 (같은 장면 반복 제거)
   const advanceHero = useCallback(() => setHeroIdx((i) => (i + 1) % Math.max(heroItems.length, 1)), [heroItems.length]);
-  // 히어로 영상광고 로드 — ads_public(승인·활성·기간·예산 강제) 의 영상광고(video_preroll).
-  //   자체·수주 영상광고 모두 포함. 비디오 히어로 사이에 삽입해 순환.
+  // 히어로 영상광고 로드 — ads_public(승인·활성·기간·예산 강제) 의 히어로 전용 광고(hero_display).
+  //   프리롤과 독립된 형식(TV 광고처럼 히어로에서 그냥 재생). 자체·수주 모두 포함. 비디오 히어로 사이 삽입.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from("ads_public")
         .select("id,title,advertiser,video_url,thumbnail_url,link_url,cta_text,ad_type")
-        .eq("ad_type", "video_preroll")
+        .eq("ad_type", "hero_display")   // OTT 히어로 전용 광고(프리롤과 독립)
         .not("video_url", "is", null)
         .order("id", { ascending: true })
         .limit(12);   // 과다 광고 풀 방어(히어로는 소수만 순환)
@@ -709,22 +709,28 @@ const HeroAdBillboard = memo(function HeroAdBillboard({
   const handleCta = () => { openAdLinkSafe(ad.link_url); };
   return (
     <section className="relative w-full h-[90vh] md:h-[84vh]">
-      {/* 포스터(베이스) — 영상 준비 전까지 노출 */}
+      {/* 블러 배경 — 세로 소재가 가로(데스크탑) 히어로에서 뜰 때 좌우 여백을 채움(크롭 대신) */}
+      {ad.thumbnail_url && (
+        <img src={ad.thumbnail_url} alt="" aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-60"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+      )}
+      {/* 포스터(베이스) — object-contain(전체 노출), 영상 준비 전까지 */}
       {ad.thumbnail_url && (
         <img
           src={ad.thumbnail_url}
           alt=""
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${videoReady ? "opacity-0" : "opacity-100"}`}
+          className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-500 ${videoReady ? "opacity-0" : "opacity-100"}`}
           onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
         />
       )}
-      {/* 광고 영상 */}
+      {/* 광고 영상 — object-contain(전체 노출·크롭 없음) 으로 세로 소재 대응 */}
       {playUrl && (
         <div className={`absolute inset-0 w-full h-full pointer-events-none transition-opacity duration-700 ${videoReady ? "opacity-100" : "opacity-0"}`}>
           <video
             key={playUrl}
             ref={videoRef}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
             src={playUrl}
             autoPlay muted playsInline preload="auto" loop={!onEnded}
             onCanPlay={() => setVideoReady(true)}

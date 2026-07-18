@@ -45,16 +45,17 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
   //   feed_image → 피드 이미지카드(format='feed',    ad_type='feed_display') : 홈 피드 풀스크린 이미지 카드
   //   feed_video → 피드 영상카드  (format='feed',    ad_type='feed_display') : 홈 피드 풀스크린 영상 카드(자동재생)
   //   preroll    → 영상 프리롤    (format='preroll', ad_type='video_preroll'): 본편 시작 전 풀스크린 영상
-  type AdKind = "overlay" | "feed_image" | "feed_video" | "preroll";
+  type AdKind = "overlay" | "feed_image" | "feed_video" | "preroll" | "hero";
   const initialKind: AdKind =
-    editAd?.format === "preroll" ? "preroll"
+    editAd?.format === "hero" ? "hero"
+    : editAd?.format === "preroll" ? "preroll"
     : editAd?.format === "overlay" ? "overlay"
     : editAd?.format === "feed" ? (editAd?.video_url ? "feed_video" : "feed_image")
     : editAd?.video_url ? "feed_video"
     : "overlay";
   const [kind, setKind] = useState<AdKind>(initialKind);
   const isImageKind = kind === "overlay" || kind === "feed_image";
-  const isVideoKind = kind === "feed_video" || kind === "preroll";
+  const isVideoKind = kind === "feed_video" || kind === "preroll" || kind === "hero";
   // 승인/심사중 광고 편집 → 재심사 흐름. submit RPC를 또 부르면 안 되고(이미 pending) 단일 저장만.
   const reReview = !!editAd && (editAd.status === "approved" || editAd.status === "pending_review");
   const [title, setTitle] = useState(editAd?.title || "");
@@ -122,8 +123,8 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
     setBusy(true);
     try {
       // 유형별 DB 매핑 — 노출면 상호 배타: format(오버레이/프리롤 게이트) + ad_type(피드/프리롤 게이트)
-      const fmt = kind === "overlay" ? "overlay" : kind === "preroll" ? "preroll" : "feed";
-      const adType = kind === "overlay" ? "overlay" : kind === "preroll" ? "video_preroll" : "feed_display";
+      const fmt = kind === "overlay" ? "overlay" : kind === "preroll" ? "preroll" : kind === "hero" ? "hero" : "feed";
+      const adType = kind === "overlay" ? "overlay" : kind === "preroll" ? "video_preroll" : kind === "hero" ? "hero_display" : "feed_display";
       let adId = editAd?.id;
       if (editAd) {
         const { error } = await supabase.rpc("advertiser_update_ad", {
@@ -190,6 +191,7 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
                       ["feed_image", t("ads.create.kindFeedImage"), ImageIcon],
                       ["feed_video", t("ads.create.kindFeedVideo"), Film],
                       ["preroll", t("ads.create.kindPreroll"), Film],
+                      ["hero", t("ads.create.kindHero"), Film],
                     ] as const)
                       // 피드 자체광고 노출면(HOME_FEED_SELF_ADS)이 꺼진 동안엔 피드 상품 판매 중단
                       // — 노출면 없는 광고를 팔면 "결제됐는데 노출 0" 분쟁이 됨 (config/ads.ts 참조)
@@ -208,6 +210,8 @@ export function AdCreateModal({ open, editAd, onClose, onSaved }: Props) {
                       ? t("ads.create.kindFeedImageDesc")
                       : kind === "feed_video"
                       ? t("ads.create.kindFeedVideoDesc")
+                      : kind === "hero"
+                      ? t("ads.create.kindHeroDesc")
                       : t("ads.create.kindPrerollDesc")}
                   </p>
                 </div>

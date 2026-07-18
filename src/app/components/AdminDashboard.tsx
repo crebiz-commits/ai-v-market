@@ -16,9 +16,9 @@ import { toast } from "sonner";
 const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer";
 // ─────────────────────────────────────────────────────────────────
 
-type AdType = "feed_display" | "video_preroll" | "overlay";
+type AdType = "feed_display" | "video_preroll" | "overlay" | "hero_display";
 // Phase 28: 광고 형식 (DB의 ads.format 컬럼)
-type AdFormat = "feed" | "preroll" | "midroll" | "overlay" | "postroll" | "bumper";
+type AdFormat = "feed" | "preroll" | "midroll" | "overlay" | "postroll" | "bumper" | "hero";
 type AdTier = "home" | "cinema" | "ott";
 
 // 광고 형식 메타데이터 (UI 표시용)
@@ -29,6 +29,7 @@ const AD_FORMAT_META: Record<AdFormat, { label: string; emoji: string; desc: str
   overlay:  { label: "Overlay",      emoji: "🎯", desc: "재생 중 하단 배너 (1분+)" },
   postroll: { label: "Post-roll",    emoji: "⏭",  desc: "영상 종료 후 광고" },
   bumper:   { label: "Bumper",       emoji: "⚡", desc: "6초 SKIP 불가 광고" },
+  hero:     { label: "OTT 히어로",   emoji: "🎬", desc: "OTT 상단 히어로 영상광고 (세로 소재)" },
 };
 
 const AD_CATEGORIES = ["AI영화", "AI드라마", "AI애니메이션", "AI다큐멘터리", "AI뮤직비디오", "SF", "액션", "로맨스", "공포", "판타지", "드라마", "코미디", "자연/풍경", "추상", "기타"];
@@ -38,6 +39,7 @@ const AD_TYPE_TO_FORMAT: Record<AdType, AdFormat> = {
   feed_display: "feed",
   video_preroll: "preroll",
   overlay: "overlay",
+  hero_display: "hero",
 };
 // 노출면 상호 배타: overlay 는 ad_type='overlay' 로 (피드 쿼리 ad_type='feed_display' 와 분리).
 const FORMAT_TO_AD_TYPE: Record<AdFormat, AdType> = {
@@ -47,6 +49,7 @@ const FORMAT_TO_AD_TYPE: Record<AdFormat, AdType> = {
   overlay: "overlay",
   postroll: "video_preroll",
   bumper: "video_preroll",
+  hero: "hero_display",
 };
 
 interface Ad {
@@ -129,6 +132,9 @@ function applyFormatDefaults(prev: ReturnType<typeof emptyForm>, format: AdForma
       return { ...base, trigger_position_pct: 100, duration_seconds: 15, skip_after_seconds: 5, min_video_duration_sec: 0 };
     case "bumper":
       return { ...base, trigger_position_pct: 0, duration_seconds: 6, skip_after_seconds: null, min_video_duration_sec: 0 };
+    case "hero":
+      // OTT 히어로 영상광고 — 그냥 재생(트리거·스킵 없음), 세로 소재 30초 권장
+      return { ...base, trigger_position_pct: null, duration_seconds: prev.max_duration || 30, skip_after_seconds: null, min_video_duration_sec: 0 };
     default:
       return base;
   }
@@ -359,7 +365,7 @@ export function AdminDashboard() {
     }
 
     // Phase 28: 형식별 입력 검증
-    const videoFormats: AdFormat[] = ["preroll", "midroll", "postroll", "bumper"];
+    const videoFormats: AdFormat[] = ["preroll", "midroll", "postroll", "bumper", "hero"];
     if (videoFormats.includes(form.format) && !form.video_url?.trim()) {
       toast.error(`${AD_FORMAT_META[form.format].label} 광고는 Bunny 영상 URL이 필수입니다.`);
       return;
