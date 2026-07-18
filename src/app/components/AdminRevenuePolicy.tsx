@@ -111,6 +111,18 @@ export function AdminRevenuePolicy() {
       return;
     }
 
+    // 결제 킬스위치(payments_enabled)는 실사용자 실결제를 여닫는 최중대 토글 — 강한 확인.
+    if (editingKey === "payments_enabled") {
+      const on = finalValue === 1;
+      const ok = confirm(
+        `⚠️ 결제 시스템을 ${on ? "활성화(ON)" : "비활성화(OFF)"} 합니다.\n\n` +
+        (on
+          ? "ON = 실사용자에게 실제 결제(구독·라이선스)가 열립니다.\n토스 live 키 전환·검증 완료 후에만 켜세요.\n\n정말 결제를 여시겠습니까?"
+          : "OFF = 모든 결제 생성이 차단됩니다(무결제 운영).\n\n계속하시겠습니까?")
+      );
+      if (!ok) return;
+    }
+
     // F9: 정산·결제에 직결되는 금전 키는 저장 전 before→after 확인.
     //     분배율(creator_share_*)·가격/단가/최소액(*_krw) 오타 즉시반영 방지.
     const isMoneyKey = /^creator_share_/.test(editingKey) || /_krw$/.test(editingKey);

@@ -288,5 +288,19 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 update_platform_setting_assert_admin_20260718.sql 재적용(인라인 is_admin→assert_admin)'
 
+  UNION ALL
+  -- 22) get_active_platform_settings 가 비관리자에게 어뷰징 임계값을 가리는가 (2026-07-18)
+  --     platform_settings 는 표시=사용 위해 공개 소비(MyPage 분배율·SettingsContext 콘텐츠정책)
+  --     되나, phase8 원본은 테이블 USING(true)+RPC 무필터라 valid_view_min_ratio·ip_dedup_hours·
+  --     new_video_grace_hours·ad_ip_max_keys_per_hour(안티프라우드 임계값)까지 공개 → 우회
+  --     캘리브레이션. RPC(DEFINER, RLS 우회)가 비관리자에게 이 키들을 제외하는지 확인.
+  SELECT 22,
+    'get_active_platform_settings 어뷰징 임계값 비관리자 비노출',
+    CASE WHEN (SELECT bool_and(pg_get_functiondef(oid) LIKE '%valid_view_min_ratio%'
+                               AND pg_get_functiondef(oid) LIKE '%is_admin%')
+               FROM pg_proc WHERE proname = 'get_active_platform_settings')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 platform_settings_public_hardening_20260718.sql 재적용(임계값 4종 필터 + 테이블 RLS)'
+
 ) AS gate
 ORDER BY sort;
