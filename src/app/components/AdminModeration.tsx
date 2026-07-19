@@ -143,25 +143,36 @@ function TabButton({
 // ────────────────────────────────────────────────────────────────────────────
 // 탭 1 — 숨김 콘텐츠 관리 (기존 Phase 10.6)
 // ────────────────────────────────────────────────────────────────────────────
+const HIDDEN_PAGE = 30;
+
 function HiddenContentTab() {
   const [rows, setRows] = useState<HiddenRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [offset, setOffset] = useState(0);
   const [filter, setFilter] = useState("all");
   const [processingKey, setProcessingKey] = useState<string | null>(null);
 
-  const load = async () => {
-    setLoading(true);
-    const { data, error } = await supabase.rpc("admin_get_hidden_content", { p_target_type: filter });
+  const load = async (mode: "reset" | "more" = "reset") => {
+    const off = mode === "reset" ? 0 : offset;
+    if (mode === "reset") setLoading(true); else setLoadingMore(true);
+    const { data, error } = await supabase.rpc("admin_get_hidden_content", {
+      p_target_type: filter, p_limit: HIDDEN_PAGE, p_offset: off,
+    });
     if (error) {
       toast.error("숨김 목록 조회 실패: " + error.message);
-      setRows([]);
+      if (mode === "reset") setRows([]);
     } else {
-      setRows(data || []);
+      const list = (data || []) as HiddenRow[];
+      setRows(prev => (mode === "reset" ? list : [...prev, ...list]));
+      setHasMore(list.length === HIDDEN_PAGE);
+      setOffset(off + list.length);
     }
-    setLoading(false);
+    if (mode === "reset") setLoading(false); else setLoadingMore(false);
   };
 
-  useEffect(() => { load(); }, [filter]);
+  useEffect(() => { load("reset"); }, [filter]);
 
   // H-1: pending(검수 미완) 영상 재검수 — 맹목 복원 대신 Vision 재실행(apply_moderation_result는 pending에서만 동작).
   //   Edge /moderate-video (관리자 호출 가능). Upload.tsx 동일 패턴.
@@ -184,7 +195,7 @@ function HiddenContentTab() {
       toast.error("재검수 실패: " + (e?.message || "알 수 없는 에러"));
     } finally {
       setProcessingKey(null);
-      load();
+      load("reset");
     }
   };
 
@@ -216,7 +227,7 @@ function HiddenContentTab() {
     setProcessingKey(null);
     if (error) return toast.error("복원 실패: " + error.message);
     toast.success("복원됨");
-    load();
+    load("reset");
   };
 
   return (
@@ -231,7 +242,7 @@ function HiddenContentTab() {
             }`}
           >{t.label}</button>
         ))}
-        <Button variant="outline" size="sm" onClick={load} disabled={loading} className="ml-auto gap-1.5">
+        <Button variant="outline" size="sm" onClick={() => load("reset")} disabled={loading} className="ml-auto gap-1.5">
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           새로고침
         </Button>
@@ -305,6 +316,13 @@ function HiddenContentTab() {
               </div>
             );
           })}
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <Button variant="outline" size="sm" onClick={() => load("more")} disabled={loadingMore} className="gap-1.5">
+                {loadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : "더 보기"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -336,42 +354,50 @@ const STATUS_FILTERS = [
   { key: "passed", label: "통과", color: "green" },
 ];
 
+const AI_PAGE = 30;
+
 function AIModerationTab({ onCountChange }: { onCountChange: (n: number) => void }) {
   const [rows, setRows] = useState<ModerationRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [offset, setOffset] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string>("flagged");
   const [processingId, setProcessingId] = useState<string | null>(null);
   // 3차 감사 — 분석 미완(pending) 백로그. Vision 키 미설정/오류 시 영상이 pending+숨김으로
   //   조용히 누적되나 flagged 배지(0)는 이를 못 잡음 → 별도 노출로 파이프라인 중단 인지.
   const [pendingCount, setPendingCount] = useState<number>(0);
-  const loadPendingCount = async () => {
-    const { data } = await supabase.rpc("get_moderation_queue", { p_status: "pending", p_limit: 100 });
-    setPendingCount(Array.isArray(data) ? data.length : 0);
-  };
-  useEffect(() => { loadPendingCount(); }, []);
 
-  const load = async () => {
-    setLoading(true);
+  // 배지 카운트(리스트 페이지네이션과 분리) — flagged(탭 배지) + pending(백로그). 각 100건 cap.
+  const refreshCounts = async () => {
+    const [fl, pd] = await Promise.all([
+      supabase.rpc("get_moderation_queue", { p_status: "flagged", p_limit: 100 }),
+      supabase.rpc("get_moderation_queue", { p_status: "pending", p_limit: 100 }),
+    ]);
+    onCountChange(Array.isArray(fl.data) ? fl.data.length : 0);
+    setPendingCount(Array.isArray(pd.data) ? pd.data.length : 0);
+  };
+  useEffect(() => { refreshCounts(); }, []);
+
+  const load = async (mode: "reset" | "more" = "reset") => {
+    const off = mode === "reset" ? 0 : offset;
+    if (mode === "reset") setLoading(true); else setLoadingMore(true);
     const { data, error } = await supabase.rpc("get_moderation_queue", {
-      p_status: statusFilter,
-      p_limit: 100,  // 배지 카운트(마운트 시 100건 조회)와 목록 상한 일치 — 51~100건 시 목록 누락 방지
+      p_status: statusFilter, p_limit: AI_PAGE, p_offset: off,
     });
     if (error) {
       toast.error("AI 검토 큐 조회 실패: " + error.message);
-      setRows([]);
+      if (mode === "reset") setRows([]);
     } else {
-      setRows((data || []) as ModerationRow[]);
-      if (statusFilter === "flagged") {
-        onCountChange((data || []).length);
-      }
-      if (statusFilter === "pending") {
-        setPendingCount((data || []).length);
-      }
+      const list = (data || []) as ModerationRow[];
+      setRows(prev => (mode === "reset" ? list : [...prev, ...list]));
+      setHasMore(list.length === AI_PAGE);
+      setOffset(off + list.length);
     }
-    setLoading(false);
+    if (mode === "reset") setLoading(false); else setLoadingMore(false);
   };
 
-  useEffect(() => { load(); }, [statusFilter]);
+  useEffect(() => { load("reset"); }, [statusFilter]);
 
   const resolve = async (videoId: string, decision: "pass" | "reject") => {
     const confirmMsg = decision === "pass"
@@ -391,7 +417,8 @@ function AIModerationTab({ onCountChange }: { onCountChange: (n: number) => void
       return;
     }
     toast.success(decision === "pass" ? "통과 처리됨" : "숨김 처리됨");
-    load();
+    load("reset");
+    refreshCounts();
   };
 
   // H-1: pending(분석 안 됨) 영상 재검수 — Vision 재실행(apply_moderation_result는 pending에서만 동작)
@@ -413,8 +440,8 @@ function AIModerationTab({ onCountChange }: { onCountChange: (n: number) => void
       toast.error("재검수 실패: " + (e?.message || "알 수 없는 에러"));
     } finally {
       setProcessingId(null);
-      load();
-      loadPendingCount();
+      load("reset");
+      refreshCounts();
     }
   };
 
@@ -439,7 +466,7 @@ function AIModerationTab({ onCountChange }: { onCountChange: (n: number) => void
             }`}
           >{s.label}{s.key === "pending" && pendingCount > 0 ? ` (${pendingCount > 99 ? "99+" : pendingCount})` : ""}</button>
         ))}
-        <Button variant="outline" size="sm" onClick={load} disabled={loading} className="ml-auto gap-1.5">
+        <Button variant="outline" size="sm" onClick={() => load("reset")} disabled={loading} className="ml-auto gap-1.5">
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           새로고침
         </Button>
@@ -600,6 +627,13 @@ function AIModerationTab({ onCountChange }: { onCountChange: (n: number) => void
               </div>
             </div>
           ))}
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <Button variant="outline" size="sm" onClick={() => load("more")} disabled={loadingMore} className="gap-1.5">
+                {loadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : "더 보기"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
