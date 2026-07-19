@@ -69,6 +69,23 @@ function spotlightListHtml(): string {
   return `<p>주목할 AI 영상 창작자를 조명하는 편집 코너입니다.</p><ul>${items}</ul>`;
 }
 
+// CREAITE 컬렉션 메타(SSR 전용) — collections.ts 는 React 훅(useSyncExternalStore)+supabase 를
+//   import 해 edge 함수에 부적합하므로, sitemap 의 COLLECTION_SLUGS 와 동기화된 메타를 인라인으로 둔다.
+const COLLECTIONS_META: Record<string, { title: string; tagline: string }> = {
+  "creaite-select":  { title: "CREAITE 셀렉트", tagline: "에디터 공식 선정작 · 명예의 전당" },
+  "first-watch":     { title: "처음이라면, 이 다섯 편", tagline: "AI 시네마 입문 셀렉션" },
+  "quick-punch":     { title: "짧고 강렬한", tagline: "1분 안에 끝나는 숏필름 셀렉션" },
+  "night-tension":   { title: "긴장의 밤", tagline: "액션 · 스릴러 · 공포 셀렉션" },
+  "heart-stays":     { title: "마음이 머무는 곳", tagline: "드라마 · 로맨스 셀렉션" },
+  "beyond-the-edge": { title: "경계 너머", tagline: "SF · 판타지 셀렉션" },
+};
+function collectionsListHtml(): string {
+  const items = Object.entries(COLLECTIONS_META).map(([slug, c]) =>
+    `<li><a href="${SITE}/?info=collections&c=${escapeHtml(slug)}">${escapeHtml(c.title)}</a> — ${escapeHtml(c.tagline)}</li>`
+  ).join("");
+  return `<p>에디터가 큐레이션한 AI 시네마 셀렉션입니다.</p><ul>${items}</ul>`;
+}
+
 function resolvePage(info: string, params: URLSearchParams): InfoPage | null {
   if (info === "magazine") {
     const slug = params.get("article");
@@ -101,6 +118,23 @@ function resolvePage(info: string, params: URLSearchParams): InfoPage | null {
       };
     }
     return { title: STATIC_INFO.spotlight.title, description: STATIC_INFO.spotlight.description, canonical: `${SITE}/?info=spotlight`, bodyHtml: spotlightListHtml() };
+  }
+  if (info === "collections") {
+    const slug = params.get("c");
+    if (slug) {
+      // 개별 컬렉션 — canonical 은 항상 자기참조(&c 포함). 이전엔 ?info=collections 로만
+      //   설정돼 개별 컬렉션이 "목록의 대체 페이지"로 색인 제외되던 GSC 버그(2026-07-18 수정).
+      const col = COLLECTIONS_META[slug];
+      return {
+        title: col ? col.title : "CREAITE 컬렉션",
+        description: col ? col.tagline : STATIC_INFO.collections.description,
+        canonical: `${SITE}/?info=collections&c=${slug}`,
+        bodyHtml: col
+          ? `<p><strong>${escapeHtml(col.title)}</strong> — ${escapeHtml(col.tagline)}</p><p>CREAITE가 큐레이션한 AI 시네마 셀렉션입니다.</p>`
+          : `<p>CREAITE가 큐레이션한 AI 시네마 셀렉션입니다.</p>`,
+      };
+    }
+    return { title: STATIC_INFO.collections.title, description: STATIC_INFO.collections.description, canonical: `${SITE}/?info=collections`, bodyHtml: collectionsListHtml() };
   }
   // 기타 정보 페이지 — 메타만(본문은 짧은 소개)
   const s = STATIC_INFO[info];

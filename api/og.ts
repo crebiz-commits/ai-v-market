@@ -170,7 +170,10 @@ export default async function handler(req: Request): Promise<Response> {
     });
   }
 
-  const ogHtml = buildOgHtml(indexHtml, video, url.href);
+  // canonical/og:url 은 정규화된 대표 URL 로 고정 — rewrite 후 url.href 가 /api/og 경로나
+  //   여분 파라미터(utm 등)를 포함할 수 있어, sitemap 과 동일한 깨끗한 ?video=<id> 로 통일.
+  const canonicalUrl = `${SITE}/?video=${encodeURIComponent(videoId)}`;
+  const ogHtml = buildOgHtml(indexHtml, video, canonicalUrl);
   return new Response(ogHtml, {
     headers: {
       "content-type": "text/html; charset=utf-8",
