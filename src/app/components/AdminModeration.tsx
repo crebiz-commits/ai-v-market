@@ -18,6 +18,35 @@ interface HiddenRow {
   reason: string | null;
   hidden_at: string | null;
   creator_name: string | null;
+  // 2차 감사 보강 — 영상 AI 모더레이션 상태(사유 NULL 식별용) + 댓글 부모(딥링크)
+  moderation_status?: string | null;
+  moderation_score?: number | null;
+  comment_video_id?: string | null;
+  comment_post_id?: string | null;
+}
+
+// 사유 라벨 파생 — hidden_reason 이 NULL 인 AI/편집 숨김 영상을 식별 가능하게 (M-1/H-1)
+function hiddenReason(r: HiddenRow): { text: string; cls: string } {
+  if (r.reason) return { text: r.reason, cls: "text-red-400/80" };
+  if (r.target_type === "video" && r.moderation_status) {
+    const sc = r.moderation_score != null ? ` (${r.moderation_score})` : "";
+    if (r.moderation_status === "rejected") return { text: `AI 자동숨김${sc}`, cls: "text-red-400/80" };
+    if (r.moderation_status === "flagged")  return { text: `AI 검토 대기${sc}`, cls: "text-amber-400/90" };
+    if (r.moderation_status === "pending")  return { text: "⏳ AI 검수 미완 — 복원 시 검수 우회 주의", cls: "text-amber-400/90" };
+  }
+  return { text: "사유 없음", cls: "text-muted-foreground" };
+}
+
+// 숨김 대상 딥링크 — 댓글은 부모(영상/글)로 이동
+function hiddenHref(r: HiddenRow): string | null {
+  if (r.target_type === "video") return `/?video=${encodeURIComponent(r.target_id)}`;
+  if (r.target_type === "user") return `/?tab=channel&creator=${encodeURIComponent(r.target_id)}`;
+  if (r.target_type === "community_post") return `/?tab=community&sub=posts&post=${encodeURIComponent(r.target_id)}`;
+  if (r.target_type === "comment") {
+    if (r.comment_video_id) return `/?video=${encodeURIComponent(r.comment_video_id)}`;
+    if (r.comment_post_id) return `/?tab=community&sub=posts&post=${encodeURIComponent(r.comment_post_id)}`;
+  }
+  return null;
 }
 
 const TARGETS = [
@@ -177,7 +206,8 @@ function HiddenContentTab() {
       ) : rows.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <EyeOff className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p>숨김/정지 콘텐츠가 없습니다</p>
+          <p>{filter === "all" ? "숨김/정지 콘텐츠가 없습니다" : "이 유형의 숨김/정지 항목이 없습니다"}</p>
+          {filter !== "all" && <p className="text-xs mt-1">'전체'에서 다른 유형을 확인하세요.</p>}
         </div>
       ) : (
         <div className="space-y-2">
@@ -201,14 +231,27 @@ function HiddenContentTab() {
                       </span>
                       <p className="font-semibold text-sm truncate">{r.title || "(제목 없음)"}</p>
                     </div>
-                    <p className="text-xs text-red-400/80 mt-1">사유: {r.reason || "사유 없음"}</p>
+                    {(() => { const rl = hiddenReason(r); return (
+                      <p className={`text-xs mt-1 ${rl.cls}`}>사유: {rl.text}</p>
+                    ); })()}
                     <p className="text-[11px] text-muted-foreground mt-0.5">
                       {r.creator_name || ""} · {r.hidden_at ? new Date(r.hidden_at).toLocaleString("ko-KR") : "-"}
                     </p>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => restore(r)} disabled={processingKey === key} className="text-green-400 border-green-500/30">
-                    복원
-                  </Button>
+                  {(() => { const href = hiddenHref(r); return (
+                    <div className="flex flex-col gap-1.5 flex-shrink-0">
+                      {href && (
+                        <a href={href} target="_blank" rel="noopener noreferrer"
+                           className="inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-md border border-white/10 text-muted-foreground hover:text-white hover:bg-white/5 transition-colors">
+                          <Eye className="w-3.5 h-3.5" />
+                          {r.target_type === "comment" ? "원본" : "보기"}
+                        </a>
+                      )}
+                      <Button size="sm" variant="outline" onClick={() => restore(r)} disabled={processingKey === key} className="text-green-400 border-green-500/30">
+                        복원
+                      </Button>
+                    </div>
+                  ); })()}
                 </div>
               </div>
             );
@@ -326,8 +369,8 @@ function AIModerationTab({ onCountChange }: { onCountChange: (n: number) => void
             AI 검토 대기 (점수 70~90)
           </p>
           <p className="text-amber-200/70">
-            Google Vision SafeSearch가 콘텐츠 정책 위반 가능성을 감지한 영상입니다. 검토 후 "통과" 또는 "숨김" 결정해주세요.
-            점수 90+ 영상은 자동으로 숨김 처리됩니다.
+            Google Vision SafeSearch가 정책 위반 가능성을 감지한 영상입니다. <span className="font-semibold">검토 대기(70~89) 영상도 안전을 위해 우선 숨김 상태</span>이니,
+            "통과"로 공개하거나 "숨김"으로 유지하세요. 점수 90+ 영상은 자동 숨김(rejected) 처리됩니다.
           </p>
         </div>
       )}
