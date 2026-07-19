@@ -48,6 +48,7 @@ const ACTION_META: Record<string, { label: string; icon: typeof User; color: str
   // ── 2026-07-19 활동로그 감사: 실제 기록되나 라벨 없던 action 보강(원문 영어 표시 해소) ──
   // 금전·권한·정책 (감사 최우선)
   update_setting:         { label: "정책 변경",            icon: Settings,      color: "text-red-400" },
+  calculate_revenue:      { label: "정산 계산",            icon: Coins,         color: "text-amber-300" },
   revenue_payout:         { label: "정산 지급",            icon: Coins,         color: "text-emerald-400" },
   grant_premium:          { label: "프리미엄 지급",        icon: Gift,          color: "text-emerald-400" },
   crown_creator:          { label: "이달의 크리에이터 지정", icon: Crown,        color: "text-yellow-400" },
@@ -95,6 +96,7 @@ const ACTIONS_FILTER = [
   { key: "refund_payment",         label: "환불" },
   { key: "update_setting",         label: "정책 변경" },
   { key: "grant_premium",          label: "프리미엄 지급" },
+  { key: "calculate_revenue",      label: "정산 계산" },
   { key: "revenue_payout",         label: "정산 지급" },
   { key: "broadcast_notification", label: "공지" },
 ];
