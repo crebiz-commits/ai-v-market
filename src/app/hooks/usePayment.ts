@@ -3,7 +3,7 @@
 //
 // 사용법:
 //   const { startSubscription, startLicensePurchase, startAdBudgetTopUp } = usePayment();
-//   await startSubscription();  // 구독 결제 (₩4,900)
+//   await startSubscription();  // 구독 결제 (가격=platform_settings.subscription_price_krw)
 //
 // 결제 흐름:
 //   1. start_payment RPC 호출 → 우리 DB에 pending 결제 행 + order_id 발급
