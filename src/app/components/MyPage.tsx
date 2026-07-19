@@ -489,6 +489,8 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   const [activePlaylistName, setActivePlaylistName] = useState<string>("");
   const [playlistVideos, setPlaylistVideos] = useState<any[]>([]);
   const [playlistVideosLoading, setPlaylistVideosLoading] = useState(false);
+  // 유저 코너 헤더 스탯(시청/보관함) — 지연탭 대신 프로필 탭 즉시 표시용 경량 선로드. 구매는 purchaseHistory 사용.
+  const [userStats, setUserStats] = useState<{ watched: number; playlists: number } | null>(null);
   const [loading, setLoading] = useState(true);
   // 현재 state가 어느 사용자의 데이터인지 추적 — 계정 전환 시 이전 사용자 데이터가
   // 새 사용자 캐시에 저장되거나(오염) 화면에 잔존하는 것을 막는 가드
@@ -508,6 +510,25 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   const [newEmail, setNewEmail] = useState("");
   const [emailChanging, setEmailChanging] = useState(false);
   const [canChangeEmail, setCanChangeEmail] = useState(false);
+
+  // 유저 코너 스탯 선로드 — 시청기록(distinct 영상)·보관함(플레이리스트) 카운트를 프로필 탭 진입 시 미리.
+  //   get_my_watch_history 는 DISTINCT ON(video_id) → length=시청한 영상 수. playlists 는 RLS(owner) 직접 count.
+  useEffect(() => {
+    if (!user?.id || pageMode !== 'user') return;
+    let cancelled = false;
+    (async () => {
+      const [wh, pl] = await Promise.all([
+        supabase.rpc('get_my_watch_history', { p_limit: 500, p_offset: 0 }),
+        supabase.from('playlists').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+      ]);
+      if (cancelled) return;
+      setUserStats({
+        watched: Array.isArray(wh.data) ? wh.data.length : 0,
+        playlists: pl.count ?? 0,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, pageMode]);
 
   const handleAvatarUpload = async (file: File) => {
     if (!user) return;
@@ -1340,11 +1361,20 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
             animate="show"
             className="grid grid-cols-3 gap-3 md:gap-5"
           >
-            {[
-              { label: t("mypage.statsTotalSales"), value: totalSales, color: 'text-[#6366f1]' },
-              { label: t("mypage.statsProducts"), value: myProducts.length, color: 'text-[#8b5cf6]' },
-              { label: t("mypage.statsLikes", "받은 좋아요"), value: totalLikes, color: 'text-[#10b981]' },
-            ].map((stat, idx) => (
+            {(pageMode === 'user'
+              ? [
+                  // 유저 코너: 소비자 관점 스탯 (구매/시청/보관함)
+                  { label: t("mypage.statsPurchases", "구매"), value: purchaseHistory.length, color: 'text-[#6366f1]' },
+                  { label: t("mypage.statsWatched", "시청"), value: userStats?.watched ?? 0, color: 'text-[#8b5cf6]' },
+                  { label: t("mypage.statsPlaylists", "보관함"), value: userStats?.playlists ?? 0, color: 'text-[#10b981]' },
+                ]
+              : [
+                  // 크리에이터 코너: 창작자 관점 스탯 (판매/등록/좋아요)
+                  { label: t("mypage.statsTotalSales"), value: totalSales, color: 'text-[#6366f1]' },
+                  { label: t("mypage.statsProducts"), value: myProducts.length, color: 'text-[#8b5cf6]' },
+                  { label: t("mypage.statsLikes", "받은 좋아요"), value: totalLikes, color: 'text-[#10b981]' },
+                ]
+            ).map((stat, idx) => (
               <motion.div 
                 key={idx}
                 variants={itemVariants} 
