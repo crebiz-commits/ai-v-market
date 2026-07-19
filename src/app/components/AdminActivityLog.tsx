@@ -1,5 +1,5 @@
 // 어드민 활동 로그 페이지 (Phase 10.7)
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Loader2, ClipboardList, RefreshCw, User, EyeOff, Eye, Trash2, RotateCcw, Megaphone, ShieldCheck, ShieldAlert, Ban, Flag, Sparkles, Coins, Gift, Crown, Star, Trophy, Layers, Image as ImageIcon, Bug, MessageSquare, Settings, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
@@ -15,6 +15,13 @@ interface LogRow {
   target_id: string | null;
   details: any;
   created_at: string;
+}
+
+// 관리자별 필터 드롭다운 옵션 (admin_list_admins RPC)
+interface AdminOpt {
+  id: string;
+  display_name: string | null;
+  email: string | null;
 }
 
 const ACTION_META: Record<string, { label: string; icon: typeof User; color: string }> = {
@@ -94,27 +101,61 @@ const ACTIONS_FILTER = [
 
 export function AdminActivityLog() {
   const PAGE_SIZES = [30, 50, 100];
+  const PERIODS = [
+    { key: "all",   label: "전체" },
+    { key: "today", label: "오늘" },
+    { key: "7d",    label: "7일" },
+    { key: "30d",   label: "30일" },
+  ];
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [actionFilter, setActionFilter] = useState("all");
+  const [adminFilter, setAdminFilter] = useState("all");   // 누가 — RPC p_admin_id (기존엔 null 고정이라 미연결)
+  const [period, setPeriod] = useState("all");             // 언제 — RPC p_from
+  const [admins, setAdmins] = useState<AdminOpt[]>([]);
   const [pageSize, setPageSize] = useState(50);
   const [page, setPage] = useState(0);       // 0-indexed
   const [hasMore, setHasMore] = useState(false);
+  const reqIdRef = useRef(0);                // 요청 세대 토큰 — 늦게 도착한 stale 응답 폐기
+
+  // 관리자 목록(누가 필터 드롭다운) — profiles.is_admin 은 클라 직접조회 불가라 DEFINER RPC
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.rpc("admin_list_admins");
+      setAdmins(Array.isArray(data) ? (data as AdminOpt[]) : []);
+    })();
+  }, []);
+
+  const periodFrom = (p: string): string | null => {
+    const now = Date.now();
+    if (p === "today") { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); }
+    if (p === "7d")  return new Date(now - 7 * 86400000).toISOString();
+    if (p === "30d") return new Date(now - 30 * 86400000).toISOString();
+    return null;
+  };
 
   // 페이지 단위 조회 — 끝없는 append 대신 30/50/100개씩 이동(replace)
   const load = async (targetPage: number) => {
+    const myReq = ++reqIdRef.current;
     setLoading(true);
     const { data, error } = await supabase.rpc("admin_get_activity_logs", {
-      p_admin_id: null,
+      p_admin_id: adminFilter === "all" ? null : adminFilter,
       p_action: actionFilter === "all" ? null : actionFilter,
       p_limit: pageSize,
       p_offset: targetPage * pageSize,
+      p_from: periodFrom(period),
+      p_to: null,
     });
+    // 인플라이트 중 필터/페이지크기가 바뀌면 늦게 온 응답이 page·logs 를 덮어써
+    //   오프셋 계산이 어긋남 → 세대 토큰으로 폐기
+    if (myReq !== reqIdRef.current) return;
     if (error) {
       toast.error("로그 조회 실패: " + error.message);
-      setLogs([]);
+      setLoadError(true);        // 실패를 "로그 0건"으로 오인시키지 않음. logs/page 는 직전 상태 유지
     } else {
       const list = (data || []) as LogRow[];
+      setLoadError(false);
       setLogs(list);
       setHasMore(list.length === pageSize);   // 다음 페이지 존재 가능
       setPage(targetPage);
@@ -122,8 +163,8 @@ export function AdminActivityLog() {
     setLoading(false);
   };
 
-  // 필터·페이지 크기 변경 시 첫 페이지로 리셋
-  useEffect(() => { load(0); }, [actionFilter, pageSize]);
+  // 필터(액션·관리자·기간)·페이지 크기 변경 시 첫 페이지로 리셋
+  useEffect(() => { load(0); }, [actionFilter, adminFilter, period, pageSize]);
 
   return (
     <div>
@@ -144,12 +185,49 @@ export function AdminActivityLog() {
         </Button>
       </div>
 
+      {/* 누가(관리자) · 언제(기간) — 감사 추적 핵심 축 */}
+      <div className="flex flex-wrap gap-4 mb-4 items-center text-xs">
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground">관리자</span>
+          <select
+            value={adminFilter}
+            onChange={(e) => setAdminFilter(e.target.value)}
+            disabled={loading}
+            className="bg-muted text-foreground rounded-lg px-2 py-1.5 text-xs font-semibold border border-border disabled:opacity-50"
+          >
+            <option value="all">전체</option>
+            {admins.map(a => (
+              <option key={a.id} value={a.id}>{a.display_name || a.email || a.id.slice(0, 8)}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground">기간</span>
+          {PERIODS.map(p => (
+            <button
+              key={p.key}
+              onClick={() => setPeriod(p.key)}
+              disabled={loading}
+              className={`px-2 py-1 rounded font-semibold transition-colors disabled:opacity-50 ${
+                period === p.key ? "bg-[#6366f1] text-white" : "bg-muted text-muted-foreground hover:bg-muted/70"
+              }`}
+            >{p.label}</button>
+          ))}
+        </div>
+      </div>
+
       <div className="mb-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-200 text-xs">
         어드민이 변경한 모든 작업이 자동 기록됩니다. 보안 감사 + 책임 추적용입니다.
       </div>
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 text-[#6366f1] animate-spin" /></div>
+      ) : loadError ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-30 text-red-400/60" />
+          <p className="text-red-400">로그 조회에 실패했습니다</p>
+          <p className="text-xs mt-1">'새로고침'으로 다시 시도하세요. (0건과 구분됨)</p>
+        </div>
       ) : logs.length === 0 && page === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -180,7 +258,7 @@ export function AdminActivityLog() {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {l.admin_name || l.admin_email || "(알 수 없음)"} ·
+                      {l.admin_name || l.admin_email || (l.admin_id ? `ID ${l.admin_id.slice(0, 8)}` : "(알 수 없음)")} ·
                       {" " + new Date(l.created_at).toLocaleString("ko-KR")}
                     </p>
                     {l.target_id && (
@@ -212,7 +290,8 @@ export function AdminActivityLog() {
               <button
                 key={sz}
                 onClick={() => setPageSize(sz)}
-                className={`px-2 py-1 rounded font-semibold transition-colors ${
+                disabled={loading}
+                className={`px-2 py-1 rounded font-semibold transition-colors disabled:opacity-50 ${
                   pageSize === sz ? "bg-[#6366f1] text-white" : "bg-muted hover:bg-muted/70"
                 }`}
               >{sz}</button>

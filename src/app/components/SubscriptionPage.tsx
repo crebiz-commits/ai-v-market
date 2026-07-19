@@ -35,7 +35,9 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
   const { startAutoBilling } = usePayment();
   const [paying, setPaying] = useState(false);
   const [agreed, setAgreed] = useState(false);   // 자동결제 동의 (전자상거래법)
-  const [billing, setBilling] = useState<{ card_company: string | null; card_last4: string | null; auto_renew: boolean; status: string; next_charge_at: string | null } | null>(null);
+  // amount = 이 구독자에게 실제 청구되는 금액(가입 시점 스냅샷). 정기청구는 설정가가 아니라 이 값을
+  //   쓰므로(Edge billing-run: sub.amount = 요금 락인), 구독자에겐 현재 판매가가 아닌 "내 청구액"을 보여줘야 한다.
+  const [billing, setBilling] = useState<{ card_company: string | null; card_last4: string | null; auto_renew: boolean; status: string; amount: number; next_charge_at: string | null } | null>(null);
   // 구독가 — ★표시=청구 보장: 실제 청구에 쓰는 platform_settings.subscription_price_krw 를 그대로 표시.
   //   (하드코딩하면 관리자가 얼리버드를 종료해 설정을 올려도 화면은 옛 가격 → 표시≠청구 = 전자상거래법 리스크)
   //   폴백 2900 은 usePayment.startSubscription 과 동일. 정상가는 비교 표시용 상수.
@@ -140,7 +142,11 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
               <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
               <div className="text-sm">
                 <span className="font-bold text-emerald-300">{t("subscriptionPage.premiumActive")}</span>
-                {expires && <span className="text-gray-400 ml-2">{hasAutoBilling ? t("subscriptionPage.nextChargeDate", { date: fmtDate(expires) }) : t("subscriptionPage.expiresDate", { date: fmtDate(expires) })}</span>}
+                {expires && <span className="text-gray-400 ml-2">
+                  {hasAutoBilling
+                    ? t("subscriptionPage.nextChargeDate", { date: fmtDate(expires), amount: Number(billing?.amount ?? priceKrw).toLocaleString() })
+                    : t("subscriptionPage.expiresDate", { date: fmtDate(expires) })}
+                </span>}
               </div>
             </div>
             {billing && billing.card_last4 && (
@@ -155,6 +161,26 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
                   ? <button onClick={() => setAutoRenew(false)} className="text-xs font-semibold text-red-400 hover:underline">{t("subscriptionPage.cancelAutoRenew")}</button>
                   : <button onClick={() => setAutoRenew(true)} className="text-xs font-semibold text-emerald-400 hover:underline">{t("subscriptionPage.resumeAutoRenew")}</button>}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* 결제 실패로 중단된 구독 — 프리미엄이 이미 만료된 뒤에도 상태와 재개 경로를 노출.
+            (백엔드 set_my_auto_renew 는 status='failed'→'active'+fail_count=0 회복을 지원하는데,
+             기존엔 isPremium 일 때만 배너를 띄워 만료된 사용자는 원인도 재개 버튼도 못 봤음) */}
+        {isAuthenticated && !isPremium && billing?.status === "failed" && (
+          <div className="mb-6 bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-sm min-w-0">
+              <p className="font-bold text-red-300">{t("subscriptionPage.billingFailedTitle")}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{t("subscriptionPage.billingFailedDesc")}</p>
+            </div>
+            {billing.card_last4 && (
+              <button
+                onClick={() => setAutoRenew(true)}
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-bold text-white transition-colors"
+              >
+                {t("subscriptionPage.resumeAutoRenew")}
+              </button>
             )}
           </div>
         )}
