@@ -28,6 +28,7 @@
 - [ ] 전환 후 기존 test 빌링키 무효 → 자동결제 사용자 카드 재등록 공지 *(현재 빌링 사용자 없음 → 거의 무관)*
 - [ ] 실결제 1건 검증 (소액 결제 → 환불 왕복 확인)
 - [ ] ⚠️ **토스 연결/승인 후 → 푸터·햄버거 사업자정보의 전화번호 제거** — 현재 `010-2797-7009`(개인 휴대폰)을 토스 심사 요건(전자상거래법 §13 전화번호 표시) 때문에 **임시로** 넣어둠. 일반전화 없어 개인번호라 승인 후 바로 빼야 함. (Footer.tsx·HamburgerMenu.tsx의 `010-2797-7009` 라인 삭제 — 토큰 주면 대행)
+- [ ] 🟡 **얼리버드 종료 시 잔존 가격 하드코딩 일괄 정리** (2026-07-19 결정: 지금은 유지) — 구독 ₩2,900(얼리버드)→₩4,900 전환할 때. **결제 페이지·모달은 이미 `subscription_price_krw` 설정을 읽어 표시(얼리버드 배지·취소선도 자동 소멸)라 손댈 필요 없음.** 남은 곳만: ①`StaticPages.tsx` FAQ ko/en 4항목 ②i18n ko/en 잔여 문구(`subscribeCTA`·`hamburger.membershipSub`·`tierBasicPrice`·`ottDescription`·`cinemaDescription`·`descLine1` 등) ③폴백 `let amount = 2900`(`usePayment.ts` + Edge `index.ts` billing-auth-confirm — **Edge 재배포 필요**). `₩2,900` 전역 검색으로 처리. 관련 메모리: subscription-early-bird-pricing.
 
 > 현재: 로컬 `.env` = `test_ck_...` (가상결제). **아직 실결제 아님.**
 
