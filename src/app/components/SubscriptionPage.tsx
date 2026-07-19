@@ -1,7 +1,8 @@
 // ════════════════════════════════════════════════════════════════════════════
 // 멤버십(구독) 전용 페이지 (2026-06-11)
 //   넷플릭스·티빙·디즈니+ 처럼 "원하는 멤버십을 선택하세요" 전용 화면.
-//   현재 요금제는 단일(프리미엄 ₩4,900) — Free vs Premium 비교로 제시.
+//   요금제는 단일(프리미엄) — Free vs Premium 비교로 제시.
+//   ★가격은 하드코딩하지 않고 platform_settings.subscription_price_krw(=실제 청구가)를 표시한다.
 //   결제는 usePayment().startSubscription (토스) 재사용.
 // ════════════════════════════════════════════════════════════════════════════
 import { useState, useEffect } from "react";
@@ -35,6 +36,11 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
   const [paying, setPaying] = useState(false);
   const [agreed, setAgreed] = useState(false);   // 자동결제 동의 (전자상거래법)
   const [billing, setBilling] = useState<{ card_company: string | null; card_last4: string | null; auto_renew: boolean; status: string; next_charge_at: string | null } | null>(null);
+  // 구독가 — ★표시=청구 보장: 실제 청구에 쓰는 platform_settings.subscription_price_krw 를 그대로 표시.
+  //   (하드코딩하면 관리자가 얼리버드를 종료해 설정을 올려도 화면은 옛 가격 → 표시≠청구 = 전자상거래법 리스크)
+  //   폴백 2900 은 usePayment.startSubscription 과 동일. 정상가는 비교 표시용 상수.
+  const REGULAR_PRICE_KRW = 4900;
+  const [priceKrw, setPriceKrw] = useState<number>(2900);
 
   const expires = (profile as any)?.subscription_expires_at as string | undefined;
   // P9/m-2: 만료 반영 — tier 만 보지 말고 만료일(미래)까지 확인(NULL=만료로 취급).
@@ -49,6 +55,19 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
       () => {},
     );
   }, [isAuthenticated]);
+
+  // 실제 청구가 로드(비로그인도 표시해야 하므로 인증 무관). 실패 시 폴백 유지.
+  useEffect(() => {
+    supabase.rpc("get_platform_setting", { p_key: "subscription_price_krw" }).then(
+      ({ data }) => { const n = Number(data); if (n > 0) setPriceKrw(n); },
+      () => {},
+    );
+  }, []);
+
+  // 얼리버드 = 현재 청구가가 정상가 미만일 때만. 설정을 정상가로 올리면 할인 UI 가 자동으로 사라진다.
+  const isEarlyBird = priceKrw < REGULAR_PRICE_KRW;
+  const discountPct = isEarlyBird ? Math.round((1 - priceKrw / REGULAR_PRICE_KRW) * 100) : 0;
+  const priceLabel = priceKrw.toLocaleString();
 
   const subscribe = async () => {
     if (!isAuthenticated) { onSignInClick?.(); return; }
@@ -170,18 +189,22 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
               <Crown className="w-5 h-5 text-amber-400" />
               <p className="text-sm font-black text-amber-300 uppercase tracking-wider">Premium</p>
             </div>
-            {/* 오픈 얼리버드 특가 — 실제 청구가 ₩2,900(subscription_price_krw), ₩4,900 은 이후 정상가 */}
-            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-red-500 to-amber-500 text-white text-[11px] font-black mb-2.5">
-              {t("subscriptionPage.earlyBirdBadge")}
-            </div>
-            <div className="flex items-baseline gap-2 mb-1.5">
-              <span className="text-lg text-gray-500 line-through">₩4,900</span>
-              <span className="text-4xl font-black text-white">₩2,900</span>
+            {/* 가격 = 실제 청구가(subscription_price_krw). 얼리버드(정상가 미만)일 때만 할인 UI 노출 */}
+            {isEarlyBird && (
+              <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-red-500 to-amber-500 text-white text-[11px] font-black mb-2.5">
+                {t("subscriptionPage.earlyBirdBadge", { percent: discountPct })}
+              </div>
+            )}
+            <div className={`flex items-baseline gap-2 ${isEarlyBird ? "mb-1.5" : "mb-5"}`}>
+              {isEarlyBird && <span className="text-lg text-gray-500 line-through">₩{REGULAR_PRICE_KRW.toLocaleString()}</span>}
+              <span className="text-4xl font-black text-white">₩{priceLabel}</span>
               <span className="text-sm text-gray-400 font-medium">{t("subscriptionModal.perMonth")}</span>
             </div>
-            <p className="flex items-center gap-1 text-[11px] font-bold text-amber-300 mb-5">
-              ⏰ {t("subscriptionPage.earlyBirdEnding")}
-            </p>
+            {isEarlyBird && (
+              <p className="flex items-center gap-1 text-[11px] font-bold text-amber-300 mb-5">
+                ⏰ {t("subscriptionPage.earlyBirdEnding", { regular: REGULAR_PRICE_KRW.toLocaleString() })}
+              </p>
+            )}
             <ul className="space-y-2.5 mb-6">
               {premiumFeatures.map((f) => (
                 <li key={f} className="flex items-start gap-2 text-sm text-gray-200">
@@ -209,14 +232,14 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
                 : <><Crown className="w-5 h-5" />{t("subscriptionPage.subscribeCTA")}</>}
             </button>
             <p className="text-[11px] text-gray-500 text-center mt-3">
-              {t("subscriptionPage.footNote")}
+              {t("subscriptionPage.footNote", { price: priceLabel })}
             </p>
           </div>
         </div>
 
         {/* 안내 (자동결제 법적 고지 — 전자상거래법) */}
         <div className="mt-8 text-xs text-gray-500 leading-relaxed space-y-1.5">
-          <p>· {t("subscriptionPage.notice1")}</p>
+          <p>· {t("subscriptionPage.notice1", { price: priceLabel })}</p>
           <p>· {t("subscriptionPage.notice2")}</p>
           <p>· {t("subscriptionPage.notice3")}</p>
           <p>· {t("subscriptionPage.notice4")}</p>
