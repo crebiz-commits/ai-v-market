@@ -341,6 +341,14 @@ function AIModerationTab({ onCountChange }: { onCountChange: (n: number) => void
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("flagged");
   const [processingId, setProcessingId] = useState<string | null>(null);
+  // 3차 감사 — 분석 미완(pending) 백로그. Vision 키 미설정/오류 시 영상이 pending+숨김으로
+  //   조용히 누적되나 flagged 배지(0)는 이를 못 잡음 → 별도 노출로 파이프라인 중단 인지.
+  const [pendingCount, setPendingCount] = useState<number>(0);
+  const loadPendingCount = async () => {
+    const { data } = await supabase.rpc("get_moderation_queue", { p_status: "pending", p_limit: 100 });
+    setPendingCount(Array.isArray(data) ? data.length : 0);
+  };
+  useEffect(() => { loadPendingCount(); }, []);
 
   const load = async () => {
     setLoading(true);
@@ -355,6 +363,9 @@ function AIModerationTab({ onCountChange }: { onCountChange: (n: number) => void
       setRows((data || []) as ModerationRow[]);
       if (statusFilter === "flagged") {
         onCountChange((data || []).length);
+      }
+      if (statusFilter === "pending") {
+        setPendingCount((data || []).length);
       }
     }
     setLoading(false);
@@ -403,6 +414,7 @@ function AIModerationTab({ onCountChange }: { onCountChange: (n: number) => void
     } finally {
       setProcessingId(null);
       load();
+      loadPendingCount();
     }
   };
 
@@ -425,13 +437,26 @@ function AIModerationTab({ onCountChange }: { onCountChange: (n: number) => void
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
               statusFilter === s.key ? "bg-[#a78bfa] text-white" : "bg-muted text-muted-foreground hover:bg-muted/70"
             }`}
-          >{s.label}</button>
+          >{s.label}{s.key === "pending" && pendingCount > 0 ? ` (${pendingCount > 99 ? "99+" : pendingCount})` : ""}</button>
         ))}
         <Button variant="outline" size="sm" onClick={load} disabled={loading} className="ml-auto gap-1.5">
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           새로고침
         </Button>
       </div>
+
+      {/* 3차 감사 — 분석 대기 백로그 경고(파이프라인 중단 인지). 100+ 캡 도달 = 확실한 정체 */}
+      {pendingCount >= 100 && (
+        <div className="bg-red-500/10 border border-red-500/25 rounded-xl p-3 mb-4 text-xs text-red-200">
+          <p className="font-semibold flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            분석 대기(pending) 100건 이상 누적
+          </p>
+          <p className="text-red-200/70 mt-0.5">
+            AI 검수(Google Vision) 파이프라인이 지연·중단됐을 수 있습니다(키 미설정/웹훅 오류). 신규 영상이 계속 숨김 상태로 쌓입니다 — 점검이 필요합니다.
+          </p>
+        </div>
+      )}
 
       {/* 안내문 */}
       {statusFilter === "flagged" && (
