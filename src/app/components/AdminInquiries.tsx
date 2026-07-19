@@ -2,9 +2,10 @@
 // 어드민 — 비즈니스 문의함
 // business_inquiries 조회/상태관리 (RLS: is_admin() — SELECT/UPDATE)
 // ════════════════════════════════════════════════════════════════════════════
-import { useState, useEffect, useCallback } from "react";
 import { Loader2, Mail, Phone, Building2, RefreshCw, Inbox } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
+import { useAdminPagedList } from "../hooks/useAdminPagedList";
+import { AdminPager } from "./AdminPager";
 import { toast } from "sonner";
 
 interface Inquiry {
@@ -35,6 +36,9 @@ const STATUS: { key: Inquiry["status"]; label: string; cls: string }[] = [
   { key: "closed", label: "종료", cls: "bg-white/10 text-gray-400 border-white/20" },
 ];
 const statusMeta = (s: string) => STATUS.find((x) => x.key === s) || STATUS[0];
+// 훅에 넘기는 배열은 모듈 상수여야 함 — 매 렌더 새 배열이면 useCallback 의존성이 매번 바뀌어 재조회 루프
+const STATUS_KEYS = ["new", "reviewing", "replied", "closed"] as const;
+const SELECT_COLS = "id, created_at, category, company_name, contact_name, email, phone, message, status, reviewed_at";
 
 function fmt(iso: string) {
   const d = new Date(iso);
@@ -43,26 +47,17 @@ function fmt(iso: string) {
 }
 
 export function AdminInquiries() {
-  const [items, setItems] = useState<Inquiry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | Inquiry["status"]>("all");
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("business_inquiries")
-      .select("id, created_at, category, company_name, contact_name, email, phone, message, status, reviewed_at")
-      .order("created_at", { ascending: false })
-      .limit(200);
-    if (error) {
-      console.warn("[AdminInquiries] 조회 실패:", error.message);
-      toast.error("문의 조회 실패: " + error.message);
-    }
-    setItems((data || []) as Inquiry[]);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { void load(); }, [load]);
+  // 상태 필터·배지 카운트는 서버 집계, 목록은 페이지 단위 — 200건 하드캡 제거(데이터 유실 해소)
+  const {
+    items, setItems, loading, filter, setFilter,
+    page, pageSize, setPageSize, total, totalAll, counts, hasMore,
+    goToPage, reload, refreshCounts,
+  } = useAdminPagedList<Inquiry, Inquiry["status"]>({
+    table: "business_inquiries",
+    select: SELECT_COLS,
+    statuses: STATUS_KEYS,
+    errorLabel: "문의",
+  });
 
   const setStatus = async (id: string, status: Inquiry["status"]) => {
     const prev = items;
@@ -73,7 +68,10 @@ export function AdminInquiries() {
       console.warn("[AdminInquiries] 상태 변경 실패:", error.message);
       toast.error("상태 변경 실패: " + error.message);
       setItems(prev);
+      return;
     }
+    // 배지는 전체 기준 서버 집계라 낙관적 갱신으로 못 맞춤 → 서버에서 다시 셈
+    void refreshCounts();
   };
 
   // Zoho 무료 플랜은 mailto 기본핸들러 설정이 막혀 있어, Zoho 작성창을 직접 열고
@@ -89,16 +87,13 @@ export function AdminInquiries() {
     if (it.status === "new") void setStatus(it.id, "reviewing");
   };
 
-  const counts = STATUS.reduce((acc, s) => { acc[s.key] = items.filter((i) => i.status === s.key).length; return acc; }, {} as Record<string, number>);
-  const filtered = filter === "all" ? items : items.filter((i) => i.status === filter);
-
   return (
     <div className="space-y-4">
       {/* 필터 + 새로고침 */}
       <div className="flex items-center gap-2 flex-wrap">
         <button onClick={() => setFilter("all")} aria-pressed={filter === "all"}
           className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${filter === "all" ? "bg-[#6366f1] text-white border-transparent" : "bg-card text-muted-foreground border-border hover:border-[#6366f1]/50"}`}>
-          전체 {items.length}
+          전체 {totalAll}
         </button>
         {STATUS.map((s) => (
           <button key={s.key} onClick={() => setFilter(s.key)} aria-pressed={filter === s.key}
@@ -106,21 +101,22 @@ export function AdminInquiries() {
             {s.label} {counts[s.key] || 0}
           </button>
         ))}
-        <button onClick={() => void load()} className="ml-auto p-2 rounded-lg hover:bg-muted text-muted-foreground" title="새로고침" aria-label="새로고침">
+        <button onClick={reload} className="ml-auto p-2 rounded-lg hover:bg-muted text-muted-foreground" title="새로고침" aria-label="새로고침">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-[#6366f1]" /></div>
-      ) : filtered.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
           <Inbox className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p>{filter === "all" ? "아직 들어온 비즈니스 문의가 없습니다." : "해당 상태의 문의가 없습니다."}</p>
         </div>
       ) : (
+        <>
         <div className="space-y-3">
-          {filtered.map((it) => {
+          {items.map((it) => {
             const sm = statusMeta(it.status);
             return (
               <div key={it.id} className="bg-card rounded-xl border border-border p-4">
@@ -175,6 +171,11 @@ export function AdminInquiries() {
             );
           })}
         </div>
+        <AdminPager
+          page={page} pageSize={pageSize} hasMore={hasMore} loading={loading} total={total}
+          onPageChange={goToPage} onPageSizeChange={setPageSize}
+        />
+        </>
       )}
     </div>
   );

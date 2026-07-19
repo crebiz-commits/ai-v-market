@@ -442,6 +442,9 @@ const itemVariants = {
 // 재진입 시 즉시 복원용 모듈 캐시(메모리, 세션 내). 키 = user.id. (stale-while-revalidate — 백그라운드 갱신)
 const myPageCache: Record<string, any> = {};
 
+// 시청 기록 페이지 크기 ('더 보기'로 이어붙임)
+const WATCH_HISTORY_PAGE = 50;
+
 export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigate, initialTab, onInitialTabConsumed }: MyPageProps) {
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
@@ -482,6 +485,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   // Phase 17: 시청 기록
   const [watchHistory, setWatchHistory] = useState<any[]>([]);
   const [watchHistoryLoading, setWatchHistoryLoading] = useState(false);
+  // RPC 는 p_offset 을 지원하는데 0 고정이라 51건째부터 못 보던 것 해소(2026-07-19)
+  const [watchHistoryHasMore, setWatchHistoryHasMore] = useState(false);
+  const [watchHistoryLoadingMore, setWatchHistoryLoadingMore] = useState(false);
   // Phase 18: 플레이리스트
   const [playlists, setPlaylists] = useState<any[]>([]);
   const [playlistsLoading, setPlaylistsLoading] = useState(false);
@@ -880,17 +886,37 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     if (activeTab !== 'history' || !isAuthenticated) return;
     (async () => {
       setWatchHistoryLoading(true);
-      const { data, error } = await supabase.rpc('get_my_watch_history', { p_limit: 50, p_offset: 0 });
+      const { data, error } = await supabase.rpc('get_my_watch_history', { p_limit: WATCH_HISTORY_PAGE, p_offset: 0 });
       if (error) {
         console.warn('[MyPage] watch history 조회 실패:', error.message);
         toast.error(t("mypage.watchHistory.loadFailed", { message: error.message }));
         setWatchHistory([]);
+        setWatchHistoryHasMore(false);
       } else {
-        setWatchHistory(data || []);
+        const list = (data || []) as any[];
+        setWatchHistory(list);
+        setWatchHistoryHasMore(list.length >= WATCH_HISTORY_PAGE);
       }
       setWatchHistoryLoading(false);
     })();
   }, [activeTab, isAuthenticated]);
+
+  // 더 보기 — 다음 페이지를 이어붙임. 재시청으로 순서가 바뀌어도 중복되지 않게 video_id 로 dedup
+  //   (RPC 가 DISTINCT ON(video_id) 라 한 영상당 1행).
+  const loadMoreWatchHistory = async () => {
+    if (watchHistoryLoadingMore || !watchHistoryHasMore) return;
+    setWatchHistoryLoadingMore(true);
+    const { data, error } = await supabase.rpc('get_my_watch_history', {
+      p_limit: WATCH_HISTORY_PAGE, p_offset: watchHistory.length,
+    });
+    setWatchHistoryLoadingMore(false);
+    if (error || !Array.isArray(data)) { setWatchHistoryHasMore(false); return; }
+    setWatchHistory(prev => {
+      const seen = new Set(prev.map((h: any) => h.video_id));
+      return [...prev, ...(data as any[]).filter((h) => !seen.has(h.video_id))];
+    });
+    setWatchHistoryHasMore((data as any[]).length >= WATCH_HISTORY_PAGE);
+  };
 
   const handleDeleteHistoryItem = async (videoId: string) => {
     if (!confirm(t("mypage.watchHistory.confirmDeleteOne"))) return;
@@ -2024,6 +2050,15 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                           </div>
                         );
                       })}
+                      {watchHistoryHasMore && (
+                        <div className="flex justify-center pt-3">
+                          <Button variant="outline" size="sm" onClick={() => void loadMoreWatchHistory()}
+                            disabled={watchHistoryLoadingMore} className="gap-1.5">
+                            {watchHistoryLoadingMore && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                            {t("common.more")}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

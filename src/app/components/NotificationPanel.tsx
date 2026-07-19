@@ -47,6 +47,8 @@ const TYPE_BG: Record<string, string> = {
   collab: "bg-purple-500/10",
 };
 const DEFAULT_BG = "bg-[#6366f1]/10";
+// 알림 페이지 크기 — 기존 .limit(30) 하드캡은 31번째부터 영구 미노출이었음(2026-07-19)
+const NOTIF_PAGE = 30;
 
 interface NotificationPanelProps {
   onClose: () => void;
@@ -87,8 +89,10 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
   ], [t]);
   const { isAuthenticated, user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadTotal, setUnreadTotal] = useState(0);   // 정확한 미읽음 총계(30개 상한과 무관) — 헤더 배지·벨 리포트용
+  const [unreadTotal, setUnreadTotal] = useState(0);   // 정확한 미읽음 총계(페이지 상한과 무관) — 헤더 배지·벨 리포트용
   const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);        // 30건 하드캡 → '더 보기'로 과거 알림까지 도달 가능(2026-07-19)
+  const [loadingMore, setLoadingMore] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);   // 이동 대상 없는 긴 공지/시스템 알림 전문 펼침
   const seenIdsRef = useRef<Set<string>>(new Set());   // fetch+실시간 공통 dedup — 중복 INSERT/재전송 시 미읽음 이중집계 방지
   // 인스턴스별 고유 채널 접미사 — 이 패널은 App 에서 데스크탑 드로어+모바일 시트 두 곳에 동시 마운트되므로,
@@ -103,30 +107,57 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
       const samples = SAMPLE.map((n) => (seen.has(n.id) ? { ...n, read: true } : n));
       setNotifications(samples);
       setUnreadTotal(samples.filter((n) => !n.read).length);
+      setHasMore(false);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      // 최근 30개 목록 + 정확한 미읽음 총계(별도 count) — 30개 상한 밖 미읽음도 벨에 정확히 반영.
+      // 첫 페이지 + 정확한 미읽음 총계(별도 count) — 페이지 상한 밖 미읽음도 벨에 정확히 반영.
       const [{ data, error }, { count }] = await Promise.all([
-        supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(30),
+        supabase.from("notifications").select("*").order("created_at", { ascending: false }).range(0, NOTIF_PAGE - 1),
         supabase.from("notifications").select("id", { count: "exact", head: true }).eq("read", false),
       ]);
       if (error) throw error;
       const notifs = (data as Notification[]) || [];
       seenIdsRef.current = new Set(notifs.map((n) => n.id));   // 목록 확정 시 seen 리셋(실시간 dedup 기준)
       setNotifications(notifs);
+      setHasMore(notifs.length === NOTIF_PAGE);
       const exactUnread = count ?? notifs.filter((n) => !n.read).length;
       setUnreadTotal(exactUnread);
       onUnreadCountChange?.(exactUnread);
     } catch {
       setNotifications([]);   // 에러 시에도 샘플 대신 빈 목록(로그인 유저)
       setUnreadTotal(0);
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
   }, [isAuthenticated, onUnreadCountChange, SAMPLE]);
+
+  // '더 보기' — 다음 페이지를 이어붙임. 실시간 INSERT 로 새 알림이 위에 끼면 offset 이 밀려
+  //   같은 행이 다시 올 수 있으므로 id 로 dedup(실시간 dedup 기준인 seenIds 에도 등록).
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const from = notifications.length;
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .range(from, from + NOTIF_PAGE - 1);
+    setLoadingMore(false);
+    // 조회 실패(알림이 지워져 범위를 벗어난 416 포함) → 눌러도 반응 없는 버튼이 남지 않게 감춤
+    if (error) { setHasMore(false); return; }
+    const next = (data as Notification[]) || [];
+    setNotifications((prev) => {
+      const seen = new Set(prev.map((n) => n.id));
+      const fresh = next.filter((n) => !seen.has(n.id));
+      fresh.forEach((n) => seenIdsRef.current.add(n.id));
+      return [...prev, ...fresh];
+    });
+    setHasMore(next.length === NOTIF_PAGE);
+  };
 
   useEffect(() => {
     fetchNotifications();
@@ -286,6 +317,19 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
               </motion.button>
             ))}
           </AnimatePresence>
+        )}
+        {/* 더 보기 — 30건 상한 밖 과거 알림에 도달하는 유일한 경로 */}
+        {!loading && hasMore && (
+          <div className="flex justify-center py-3">
+            <button
+              onClick={() => void loadMore()}
+              disabled={loadingMore}
+              className="px-4 py-1.5 rounded-full text-xs font-semibold bg-white/5 text-gray-300 hover:bg-white/10 transition-colors inline-flex items-center gap-1.5 disabled:opacity-60"
+            >
+              {loadingMore && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {t("common.more")}
+            </button>
+          </div>
         )}
       </div>
     </div>

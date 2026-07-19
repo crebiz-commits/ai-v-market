@@ -6,10 +6,11 @@
 //   - 각 신고에 대해 유지/제거/반려 액션 (moderate_report RPC)
 //   - 신고 누적이 임계값 넘은 콘텐츠는 자동 숨김 상태로 표시
 // ════════════════════════════════════════════════════════════════════════════
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Loader2, Check, Trash2, X, RefreshCw, Flag, AlertCircle, ExternalLink } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
+import { AdminPager } from "./AdminPager";
 import { toast } from "sonner";
 import { sendNotification, buildReportResultEmail } from "../utils/sendNotification";
 import { useSettings } from "../contexts/SettingsContext";
@@ -55,20 +56,49 @@ export function AdminReports() {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [filterType, setFilterType] = useState<string>("all");
+  // 페이지네이션 — 단위는 "행"이 아니라 "대상(그룹)". 서버가 그룹을 통째로 넘겨주므로
+  //   한 대상의 신고가 페이지 경계에서 쪼개지지 않는다(쪼개지면 결과 통지가 일부 신고자에게 누락).
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(30);
+  const [typeCounts, setTypeCounts] = useState<Record<string, number>>({});
+  const reqSeq = useRef(0);
 
-  const load = async () => {
+  const load = useCallback(async (targetPage: number) => {
+    const seq = ++reqSeq.current;
     setLoading(true);
-    const { data, error } = await supabase.rpc("get_pending_reports");
+    const { data, error } = await supabase.rpc("get_pending_reports", {
+      p_target_type: filterType === "all" ? null : filterType,
+      p_limit: pageSize,
+      p_offset: targetPage * pageSize,
+    });
+    if (seq !== reqSeq.current) return;   // 낡은 응답 폐기(빠른 페이지·필터 전환)
     if (error) {
       toast.error("신고 큐 조회 실패: " + error.message);
       setReports([]);
     } else {
       setReports(data || []);
+      setPage(targetPage);
     }
     setLoading(false);
-  };
+  }, [filterType, pageSize]);
 
-  useEffect(() => { load(); }, []);
+  // 유형별 개수는 전체 기준이어야 함 — 페이지 안에서 세면 "이 페이지에 영상 2건"이 돼버림
+  const refreshCounts = useCallback(async () => {
+    const { data, error } = await supabase.rpc("get_pending_report_counts");
+    if (error) return;   // 배지는 부가정보 — 실패해도 목록 유지(토스트 중복 방지)
+    const next: Record<string, number> = {};
+    let all = 0;
+    for (const row of (data || []) as { target_type: string; group_count: number }[]) {
+      next[row.target_type] = Number(row.group_count) || 0;
+      all += Number(row.group_count) || 0;
+    }
+    next.all = all;
+    setTypeCounts(next);
+  }, []);
+
+  // 필터·페이지 크기 변경 시 첫 페이지로 리셋
+  useEffect(() => { void load(0); }, [load]);
+  useEffect(() => { void refreshCounts(); }, [refreshCounts]);
 
   // 대상 유형 라벨 — 영상/댓글/사용자/커뮤니티 (이모지 프리픽스 제거)
   const targetNoun = (tt: string) => TARGET_LABELS[tt]?.replace(/^.+\s/, "") || tt;
@@ -141,10 +171,13 @@ export function AdminReports() {
           ? (isUser ? "계정 정지됨" : "제거 처리됨 (콘텐츠 숨김)")
           : "악성 신고로 반려됨";
     toast.success(successMsg);
-    load();
+    // 처리된 그룹이 빠져 한 칸 비므로 현재 페이지를 다시 채우고 배지도 갱신
+    void load(page);
+    void refreshCounts();
   };
 
   // 같은 대상의 중복 신고는 묶어서 표시 (대표 1개만 보여주고 나머지는 카운트로)
+  //   서버가 그룹 단위로 페이지를 잘라 보내므로 한 그룹의 행은 이 페이지 안에 전부 들어있다.
   const groupedReports = (() => {
     const groups = new Map<string, ReportRow[]>();
     for (const r of reports) {
@@ -155,18 +188,10 @@ export function AdminReports() {
     return Array.from(groups.values());
   })();
 
-  const filtered = groupedReports.filter(group =>
-    filterType === "all" || group[0].target_type === filterType
-  );
-
-  // 필터 타입별 개수
-  const typeCounts = {
-    all: groupedReports.length,
-    video: groupedReports.filter(g => g[0].target_type === "video").length,
-    comment: groupedReports.filter(g => g[0].target_type === "comment").length,
-    user: groupedReports.filter(g => g[0].target_type === "user").length,
-    community_post: groupedReports.filter(g => g[0].target_type === "community_post").length,
-  };
+  // 유형 필터는 서버가 처리(p_target_type) — 여기서 다시 거르면 페이지가 반쪽이 됨
+  const filtered = groupedReports;
+  const filteredTotal = typeCounts[filterType] ?? 0;
+  const hasMore = (page + 1) * pageSize < filteredTotal;
 
   return (
     <div>
@@ -201,13 +226,13 @@ export function AdminReports() {
                 : "bg-muted text-muted-foreground hover:bg-muted/70"
             }`}
           >
-            {label} ({typeCounts[key as keyof typeof typeCounts]})
+            {label} ({typeCounts[key] ?? 0})
           </button>
         ))}
         <Button
           variant="outline"
           size="sm"
-          onClick={load}
+          onClick={() => { void load(page); void refreshCounts(); }}
           disabled={loading}
           className="gap-1.5 ml-auto"
         >
@@ -223,7 +248,12 @@ export function AdminReports() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Flag className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          {filterType !== "all" && groupedReports.length > 0 ? (
+          {page > 0 ? (
+            <>
+              <p>이 페이지엔 신고가 없습니다</p>
+              <p className="text-xs mt-1">처리되어 줄었을 수 있습니다 — '이전'으로 돌아가세요.</p>
+            </>
+          ) : filterType !== "all" && (typeCounts.all ?? 0) > 0 ? (
             <>
               <p>이 유형의 신고가 없습니다</p>
               <p className="text-xs mt-1">다른 유형에는 처리 대기 중인 신고가 있습니다 — '전체'에서 확인하세요.</p>
@@ -236,6 +266,7 @@ export function AdminReports() {
           )}
         </div>
       ) : (
+        <>
         <div className="space-y-3">
           {filtered.map(group => {
             // get_pending_reports 정렬이 created_at DESC → group[0]=최신. "최초 신고"는 가장
@@ -369,6 +400,12 @@ export function AdminReports() {
             );
           })}
         </div>
+        {/* 페이지 단위는 "대상(그룹)" 수 — 카드 개수와 일치 */}
+        <AdminPager
+          page={page} pageSize={pageSize} hasMore={hasMore} loading={loading} total={filteredTotal}
+          onPageChange={(p) => void load(p)} onPageSizeChange={setPageSize}
+        />
+        </>
       )}
     </div>
   );

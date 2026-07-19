@@ -47,6 +47,9 @@ function daysSince(iso: string | null): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24));
 }
 
+// 결제 내역 페이지 크기 — RPC 는 p_offset 을 지원하는데 0 고정이라 51건째부터 못 보던 것 해소(2026-07-19)
+const PAYMENTS_PAGE = 50;
+
 export function MyPaymentsSection() {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
@@ -56,20 +59,42 @@ export function MyPaymentsSection() {
   const [refundTarget, setRefundTarget] = useState<MyPayment | null>(null);
   const [refundReason, setRefundReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.rpc("get_my_payments", { p_limit: 50, p_offset: 0 });
+    const { data, error } = await supabase.rpc("get_my_payments", { p_limit: PAYMENTS_PAGE, p_offset: 0 });
     if (error) {
       console.error("[MyPaymentsSection] 조회 실패:", error);
       toast.error(t("myPayments.loadError"));
       setLoadError(true);
       setPayments([]);
+      setHasMore(false);
     } else {
       setLoadError(false);
-      setPayments(data || []);
+      const list = (data || []) as MyPayment[];
+      setPayments(list);
+      setHasMore(list.length >= PAYMENTS_PAGE);
     }
     setLoading(false);
+  };
+
+  // 더 보기 — 다음 페이지를 이어붙임. 환불 등으로 순서가 바뀌어도 중복되지 않게 id 로 dedup.
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const { data, error } = await supabase.rpc("get_my_payments", {
+      p_limit: PAYMENTS_PAGE, p_offset: payments.length,
+    });
+    setLoadingMore(false);
+    if (error || !Array.isArray(data)) { setHasMore(false); return; }
+    const next = data as MyPayment[];
+    setPayments((prev) => {
+      const seen = new Set(prev.map((p) => p.id));
+      return [...prev, ...next.filter((p) => !seen.has(p.id))];
+    });
+    setHasMore(next.length >= PAYMENTS_PAGE);
   };
 
   useEffect(() => {
@@ -202,6 +227,14 @@ export function MyPaymentsSection() {
               </div>
             );
           })}
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <Button variant="outline" size="sm" onClick={() => void loadMore()} disabled={loadingMore} className="gap-1.5">
+                {loadingMore && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {t("common.more")}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

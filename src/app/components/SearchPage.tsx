@@ -107,6 +107,8 @@ const DURATION_OPTIONS: { label: string; min: number | null; max: number | null 
   { label: "5~10분", min: 300, max: 600 },
   { label: "10분 이상", min: 600, max: null },
 ];
+// 크리에이터 탭 페이지 크기 — 기존 p_limit:20/offset 고정으로 21번째부터 도달 불가였음(2026-07-19)
+const CREATORS_PAGE = 20;
 const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
   { value: "relevance", label: "관련도순" },
   { value: "latest", label: "최신순" },
@@ -155,6 +157,8 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
   // 결과
   const [videos, setVideos] = useState<VideoResult[]>([]);
   const [creators, setCreators] = useState<CreatorResult[]>([]);
+  const [creatorsHasMore, setCreatorsHasMore] = useState(false);   // 크리에이터 탭도 20명 상한이었음(2026-07-19)
+  const [loadingMoreCreators, setLoadingMoreCreators] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);        // 검색결과 더보기 가능 여부(마지막 페이지가 60개면)
   const [loadingMore, setLoadingMore] = useState(false);
@@ -327,7 +331,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
       const [videosRes, creatorsRes] = await Promise.all([
         supabase.rpc("search_videos", rpcParams),
         trimmed
-          ? supabase.rpc("search_creators", { p_query: trimmed, p_limit: 20 })
+          ? supabase.rpc("search_creators", { p_query: trimmed, p_limit: CREATORS_PAGE, p_offset: 0 })
           : Promise.resolve({ data: [] as CreatorResult[], error: null }),
       ]);
 
@@ -359,8 +363,11 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
       if (creatorsRes.error) {
         console.error("[SearchPage] search_creators:", creatorsRes.error);
         setCreators([]);
+        setCreatorsHasMore(false);
       } else {
-        setCreators((creatorsRes.data ?? []) as CreatorResult[]);
+        const list = (creatorsRes.data ?? []) as CreatorResult[];
+        setCreators(list);
+        setCreatorsHasMore(list.length >= CREATORS_PAGE);
       }
     } finally {
       if (seq === searchSeqRef.current) setLoading(false);
@@ -392,6 +399,27 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
       setLoadingMore(false);
     }
   }, [loadingMore, hasMore, submittedQuery, sort, durationIdx, category, aiTool, videos.length]);
+
+  // 크리에이터 더보기 — 영상 더보기(loadMoreResults)와 동일 구조. 중복 id 제외 + 검색세션 경쟁 가드.
+  const loadMoreCreators = useCallback(async () => {
+    if (loadingMoreCreators || !creatorsHasMore) return;
+    const seq = searchSeqRef.current;
+    setLoadingMoreCreators(true);
+    try {
+      const { data, error } = await supabase.rpc("search_creators", {
+        p_query: submittedQuery, p_limit: CREATORS_PAGE, p_offset: creators.length,
+      });
+      if (seq !== searchSeqRef.current) return;   // 그 사이 새 검색이 시작됐으면 이 페이지 폐기
+      if (error || !Array.isArray(data)) { setCreatorsHasMore(false); return; }
+      setCreators((prev) => {
+        const seen = new Set(prev.map((c) => c.creator_id));
+        return [...prev, ...(data as CreatorResult[]).filter((c) => !seen.has(c.creator_id))];
+      });
+      setCreatorsHasMore((data as any[]).length >= CREATORS_PAGE);
+    } finally {
+      setLoadingMoreCreators(false);
+    }
+  }, [loadingMoreCreators, creatorsHasMore, submittedQuery, creators.length]);
 
   // 활성 필터 여부 — 아래 useEffect 들보다 먼저 선언(선언순서 역전 TDZ 취약점 제거)
   const hasActiveFilter = useMemo(
@@ -957,6 +985,17 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
               {visibleCreators.map((c) => (
                 <CreatorRow key={c.creator_id} creator={c} onClick={() => onViewCreator?.(c.creator_id)} />
               ))}
+              {creatorsHasMore && (
+                <div className="flex justify-center pt-4">
+                  <button
+                    onClick={loadMoreCreators}
+                    disabled={loadingMoreCreators}
+                    className="px-6 py-2.5 rounded-xl text-sm font-bold bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 disabled:opacity-50 transition-colors"
+                  >
+                    {loadingMoreCreators ? t("searchPage.loadingMore") : t("searchPage.loadMore")}
+                  </button>
+                </div>
+              )}
             </div>
           )
         )}

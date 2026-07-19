@@ -3,9 +3,11 @@
 // bug_reports 조회/상태관리 (RLS: is_admin SELECT/UPDATE/DELETE)
 // 상태: new(신규) → reviewing(검토중) → valid(채택)/invalid(반려) → coupon_sent(쿠폰지급)
 // ════════════════════════════════════════════════════════════════════════════
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, Bug, RefreshCw, Mail, Trash2, Coffee, StickyNote } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
+import { useAdminPagedList } from "../hooks/useAdminPagedList";
+import { AdminPager } from "./AdminPager";
 import { toast } from "sonner";
 
 interface BugReport {
@@ -32,6 +34,8 @@ const STATUS: { key: BugReport["status"]; label: string; cls: string }[] = [
   { key: "coupon_sent", label: "쿠폰지급", cls: "bg-pink-500/20 text-pink-300 border-pink-500/40" },
 ];
 const statusMeta = (s: string) => STATUS.find((x) => x.key === s) || STATUS[0];
+// 훅에 넘기는 배열은 모듈 상수여야 함 — 매 렌더 새 배열이면 useCallback 의존성이 매번 바뀌어 재조회 루프
+const STATUS_KEYS = ["new", "reviewing", "valid", "invalid", "coupon_sent"] as const;
 
 // bug-screenshots 는 비공개 버킷(2026-06-25) → 저장값(경로 또는 구 공개URL)에서 경로를 뽑아 서명 URL 로 표시.
 function toStoragePath(stored: string): string {
@@ -76,26 +80,17 @@ function fmt(iso: string) {
 }
 
 export function AdminBugReports() {
-  const [items, setItems] = useState<BugReport[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | BugReport["status"]>("all");
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("bug_reports")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(300);
-    if (error) {
-      console.warn("[AdminBugReports] 조회 실패:", error.message);
-      toast.error("버그 제보 조회 실패: " + error.message);
-    }
-    setItems((data || []) as BugReport[]);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { void load(); }, [load]);
+  // 상태 필터·배지 카운트는 서버 집계, 목록은 페이지 단위 — 300건 하드캡 제거(데이터 유실 해소)
+  const {
+    items, setItems, loading, filter, setFilter,
+    page, pageSize, setPageSize, total, totalAll, counts, hasMore,
+    goToPage, reload, refreshCounts,
+  } = useAdminPagedList<BugReport, BugReport["status"]>({
+    table: "bug_reports",
+    select: "*",
+    statuses: STATUS_KEYS,
+    errorLabel: "버그 제보",
+  });
 
   const setStatus = async (id: string, status: BugReport["status"]): Promise<boolean> => {
     const prevItem = items.find((it) => it.id === id);
@@ -108,6 +103,8 @@ export function AdminBugReports() {
       if (prevItem) setItems((cur) => cur.map((it) => (it.id === id ? prevItem : it)));
       return false;
     }
+    // 배지는 전체 기준 서버 집계라 낙관적 갱신으로 못 맞춤 → 서버에서 다시 셈
+    void refreshCounts();
     return true;
   };
 
@@ -130,6 +127,8 @@ export function AdminBugReports() {
       const { error: rmErr } = await supabase.storage.from("bug-screenshots").remove(paths);
       if (rmErr) console.warn("[AdminBugReports] 스크린샷 스토리지 정리 실패:", rmErr.message);
     }
+    // 삭제로 한 칸 빈 현재 페이지를 다음 항목으로 채우고 배지도 갱신(페이지 단위 조회라 필수)
+    reload();
   };
 
   // 쿠폰 발송: Zoho 작성창 열고 연락처 복사 + '쿠폰지급' 상태 자동 기록.
@@ -181,15 +180,12 @@ export function AdminBugReports() {
     toast.success("메모를 저장했어요.");
   };
 
-  const counts = STATUS.reduce((acc, s) => { acc[s.key] = items.filter((i) => i.status === s.key).length; return acc; }, {} as Record<string, number>);
-  const filtered = filter === "all" ? items : items.filter((i) => i.status === filter);
-
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
         <button onClick={() => setFilter("all")} aria-pressed={filter === "all"}
           className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${filter === "all" ? "bg-[#6366f1] text-white border-transparent" : "bg-card text-muted-foreground border-border hover:border-[#6366f1]/50"}`}>
-          전체 {items.length}
+          전체 {totalAll}
         </button>
         {STATUS.map((s) => (
           <button key={s.key} onClick={() => setFilter(s.key)} aria-pressed={filter === s.key}
@@ -197,21 +193,22 @@ export function AdminBugReports() {
             {s.label} {counts[s.key] || 0}
           </button>
         ))}
-        <button onClick={() => void load()} className="ml-auto p-2 rounded-lg hover:bg-muted text-muted-foreground" title="새로고침" aria-label="새로고침">
+        <button onClick={reload} className="ml-auto p-2 rounded-lg hover:bg-muted text-muted-foreground" title="새로고침" aria-label="새로고침">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-[#6366f1]" /></div>
-      ) : filtered.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
           <Bug className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p>{filter === "all" ? "아직 접수된 버그 제보가 없습니다." : "해당 상태의 제보가 없습니다."}</p>
         </div>
       ) : (
+        <>
         <div className="space-y-3">
-          {filtered.map((it) => {
+          {items.map((it) => {
             const sm = statusMeta(it.status);
             return (
               <div key={it.id} className="bg-card rounded-xl border border-border p-4">
@@ -295,6 +292,11 @@ export function AdminBugReports() {
             );
           })}
         </div>
+        <AdminPager
+          page={page} pageSize={pageSize} hasMore={hasMore} loading={loading} total={total}
+          onPageChange={goToPage} onPageSizeChange={setPageSize}
+        />
+        </>
       )}
     </div>
   );

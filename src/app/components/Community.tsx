@@ -356,7 +356,36 @@ interface CommunityProps {
 
 // 탭 재방문 시 즉시 표시용 모듈 캐시 (stale-while-revalidate). 키: posts=localeTag, challenges=isKo
 const postsCache: Record<string, Post[]> = {};
+const postsHasMoreCache: Record<string, boolean> = {};   // 캐시 복원 시 '더 보기' 노출 여부도 함께 복원
 const challengesCache: Record<string, Challenge[]> = {};
+
+// 게시글 페이지 크기 — 기존 .limit(100) 하드캡은 101번째 글부터 영구 미노출이었음(2026-07-19)
+const POSTS_PAGE = 50;
+
+// 게시글 한 페이지 조회 + 임베드 영상 메타(제목·썸네일) 일괄 채우기.
+//   초기 로드와 '더 보기'가 같은 경로를 쓰도록 분리. 실패 시 null.
+async function fetchPostPage(offset: number, localeTag: string): Promise<Post[] | null> {
+  const { data, error } = await supabase
+    .from("community_posts")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .range(offset, offset + POSTS_PAGE - 1);
+  if (error) {
+    console.warn("[Community] 게시글 조회 실패:", error.message);
+    return null;
+  }
+  const mapped = (data || []).map((r) => rowToPost(r, localeTag));
+  const videoIds = [...new Set(mapped.map((p) => p.videoId).filter(Boolean))] as string[];
+  if (videoIds.length > 0) {
+    const { data: vids } = await supabase.from("videos").select("id,title,thumbnail").in("id", videoIds);
+    const vmap = new Map((vids || []).map((v: any) => [v.id, v]));
+    mapped.forEach((p) => {
+      const v = p.videoId ? vmap.get(p.videoId) : null;
+      if (v) { p.videoTitle = v.title || "Untitled"; p.videoThumbnail = v.thumbnail || ""; }
+    });
+  }
+  return mapped;
+}
 
 export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChallengeParticipate, onPlayVideo, initialCollabPostId, onInitialCollabPostConsumed, initialPostId, onInitialPostConsumed, initialChallengeId, onInitialChallengeConsumed }: CommunityProps = {}) {
   const { t, i18n } = useTranslation();
@@ -377,6 +406,8 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   }, [initialTab, onInitialTabConsumed]);
   const [posts, setPosts] = useState<Post[]>(postsCache[localeTag] ?? []);
   const [loadingPosts, setLoadingPosts] = useState(!postsCache[localeTag]);
+  const [hasMorePosts, setHasMorePosts] = useState<boolean>(postsHasMoreCache[localeTag] ?? false);
+  const [loadingMorePosts, setLoadingMorePosts] = useState(false);
   // 게시글 카테고리 필터 + 정렬 (공지는 항상 상단)
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<"latest" | "popular" | "comments">("latest");
@@ -473,34 +504,38 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     if (cachedPosts) { setPosts(cachedPosts); setLoadingPosts(false); }  // 캐시 즉시 표시 후 아래서 갱신
     else setLoadingPosts(true);
     (async () => {
-      const { data, error } = await supabase
-        .from("community_posts")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100);
+      const mapped = await fetchPostPage(0, localeTag);
       if (cancelled) return;
-      if (error) {
-        console.warn("[Community] 게시글 조회 실패:", error.message);
-      } else {
-        const mapped = (data || []).map((r) => rowToPost(r, localeTag));
-        // 임베드 영상 메타(제목·썸네일) 일괄 로드
-        const videoIds = [...new Set(mapped.map((p) => p.videoId).filter(Boolean))] as string[];
-        if (videoIds.length > 0) {
-          const { data: vids } = await supabase.from("videos").select("id,title,thumbnail").in("id", videoIds);
-          if (cancelled) return;
-          const vmap = new Map((vids || []).map((v: any) => [v.id, v]));
-          mapped.forEach((p) => {
-            const v = p.videoId ? vmap.get(p.videoId) : null;
-            if (v) { p.videoTitle = v.title || "Untitled"; p.videoThumbnail = v.thumbnail || ""; }
-          });
-        }
+      if (mapped) {
+        const more = mapped.length === POSTS_PAGE;
         postsCache[ckey] = mapped;
+        postsHasMoreCache[ckey] = more;
         setPosts(mapped);
+        setHasMorePosts(more);
       }
       setLoadingPosts(false);
     })();
     return () => { cancelled = true; };
   }, [localeTag]);
+
+  // '더 보기' — 다음 페이지를 이어붙임. 새 글이 위에 끼면 offset 이 밀려 중복이 올 수 있어 id 로 dedup.
+  const loadMorePosts = async () => {
+    if (loadingMorePosts || !hasMorePosts) return;
+    setLoadingMorePosts(true);
+    const next = await fetchPostPage(posts.length, localeTag);
+    setLoadingMorePosts(false);
+    // 조회 실패(글이 지워져 범위를 벗어난 416 포함) → 눌러도 반응 없는 버튼이 남지 않게 감춤
+    if (!next) { setHasMorePosts(false); postsHasMoreCache[localeTag] = false; return; }
+    const more = next.length === POSTS_PAGE;
+    setPosts((prev) => {
+      const seen = new Set(prev.map((p) => p.id));
+      const merged = [...prev, ...next.filter((p) => !seen.has(p.id))];
+      postsCache[localeTag] = merged;
+      return merged;
+    });
+    postsHasMoreCache[localeTag] = more;
+    setHasMorePosts(more);
+  };
 
   // 챌린지 DB 로드 + 참여작 수 (영상 태그 challenge:<tag> 카운트)
   useEffect(() => {
@@ -1129,6 +1164,15 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                   </motion.div>
                 ))}
               </AnimatePresence>
+              {/* 더 보기 — 기존 100건 하드캡으로 오래된 글이 영구 매몰되던 문제 해소(2026-07-19) */}
+              {!loadingPosts && hasMorePosts && (
+                <div className="flex justify-center pt-2">
+                  <Button variant="outline" onClick={() => void loadMorePosts()} disabled={loadingMorePosts} className="gap-2">
+                    {loadingMorePosts && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {t("common.more")}
+                  </Button>
+                </div>
+              )}
             </div>
           </TabsContent>
 
