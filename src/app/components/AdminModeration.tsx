@@ -4,9 +4,9 @@
 import { useEffect, useState } from "react";
 import {
   Loader2, EyeOff, Film, MessageSquare, FileText, User, RefreshCw,
-  Shield, AlertTriangle, Check, X, Eye,
+  Shield, AlertTriangle, Check, X, Eye, RotateCw,
 } from "lucide-react";
-import { supabase } from "../utils/supabaseClient";
+import { supabase, supabaseUrl, supabaseAnonKey } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 
@@ -23,6 +23,7 @@ interface HiddenRow {
   moderation_score?: number | null;
   comment_video_id?: string | null;
   comment_post_id?: string | null;
+  pending_reports?: number | null;   // 대상에 남은 미처리 신고(복원 전 경고, M-2)
 }
 
 // 사유 라벨 파생 — hidden_reason 이 NULL 인 AI/편집 숨김 영상을 식별 가능하게 (M-1/H-1)
@@ -162,9 +163,44 @@ function HiddenContentTab() {
 
   useEffect(() => { load(); }, [filter]);
 
+  // H-1: pending(검수 미완) 영상 재검수 — 맹목 복원 대신 Vision 재실행(apply_moderation_result는 pending에서만 동작).
+  //   Edge /moderate-video (관리자 호출 가능). Upload.tsx 동일 패턴.
+  const rescan = async (r: HiddenRow) => {
+    const key = `${r.target_type}:${r.target_id}`;
+    if (!confirm(`AI 재검수를 실행하시겠습니까?\n[영상] ${r.title || "(제목 없음)"}\n(Google Vision으로 다시 분석 → 결과에 따라 자동 공개/숨김)`)) return;
+    setProcessingKey(key);
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`${supabaseUrl}/functions/v1/server/moderate-video`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}`, "apikey": supabaseAnonKey },
+        body: JSON.stringify({ video_id: r.target_id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (data.status === "pending") toast("아직 검수 대기 — 썸네일/인코딩 준비 중일 수 있습니다. 잠시 후 재시도하세요.");
+      else toast.success(`재검수 완료: ${data.status}${data.score != null ? ` (${data.score})` : ""}`);
+    } catch (e: any) {
+      toast.error("재검수 실패: " + (e?.message || "알 수 없는 에러"));
+    } finally {
+      setProcessingKey(null);
+      load();
+    }
+  };
+
   const restore = async (r: HiddenRow) => {
     const key = `${r.target_type}:${r.target_id}`;
-    if (!confirm("복원하시겠습니까?")) return;
+    const typeLabel = TARGETS.find(t => t.key === r.target_type)?.label || r.target_type;
+    // M-2: 미처리 신고가 남았으면 복원 전 경고(신고 큐에서 먼저 처리 권장)
+    const reportWarn = (r.pending_reports && r.pending_reports > 0)
+      ? `⚠️ 이 대상엔 미처리 신고 ${r.pending_reports}건이 남아 있습니다. 복원하면 신고가 미해결인 채 노출됩니다 (신고 큐에서 먼저 처리 권장).\n\n`
+      : "";
+    const baseMsg = r.target_type === "user"
+      ? `이 사용자 계정 정지를 해제하시겠습니까?\n[${r.title || r.target_id}]`
+      : r.target_type === "video" && r.moderation_status === "pending"
+        ? `⚠️ 이 영상은 AI 검수 미완(pending) 상태입니다.\n복원하면 검수를 우회해 공개됩니다. 대신 '재검수'를 권장합니다.\n\n그래도 복원하시겠습니까? — [${typeLabel}] ${r.title || "(제목 없음)"}`
+        : `복원하시겠습니까?\n[${typeLabel}] ${r.title || "(제목 없음)"}`;
+    if (!confirm(reportWarn + baseMsg)) return;
     setProcessingKey(key);
     let error;
     if (r.target_type === "video") {
@@ -229,6 +265,12 @@ function HiddenContentTab() {
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted font-bold">
                         {TARGETS.find(t => t.key === r.target_type)?.label}
                       </span>
+                      {/* M-2: 미처리 신고 경고 배지 */}
+                      {(r.pending_reports ?? 0) > 0 && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-bold flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />신고 {r.pending_reports}
+                        </span>
+                      )}
                       <p className="font-semibold text-sm truncate">{r.title || "(제목 없음)"}</p>
                     </div>
                     {(() => { const rl = hiddenReason(r); return (
@@ -246,6 +288,13 @@ function HiddenContentTab() {
                           <Eye className="w-3.5 h-3.5" />
                           {r.target_type === "comment" ? "원본" : "보기"}
                         </a>
+                      )}
+                      {/* H-1: 검수 미완 영상은 맹목 복원 대신 재검수(권장) */}
+                      {r.target_type === "video" && r.moderation_status === "pending" && (
+                        <Button size="sm" onClick={() => rescan(r)} disabled={processingKey === key} className="bg-[#a78bfa] hover:bg-[#9370f0] text-white gap-1">
+                          <RotateCw className="w-3.5 h-3.5" />
+                          재검수
+                        </Button>
                       )}
                       <Button size="sm" variant="outline" onClick={() => restore(r)} disabled={processingKey === key} className="text-green-400 border-green-500/30">
                         복원
@@ -332,6 +381,29 @@ function AIModerationTab({ onCountChange }: { onCountChange: (n: number) => void
     }
     toast.success(decision === "pass" ? "통과 처리됨" : "숨김 처리됨");
     load();
+  };
+
+  // H-1: pending(분석 안 됨) 영상 재검수 — Vision 재실행(apply_moderation_result는 pending에서만 동작)
+  const rescan = async (videoId: string) => {
+    if (!confirm("AI 재검수를 실행하시겠습니까?\n(Google Vision으로 다시 분석 → 결과에 따라 자동 공개/숨김)")) return;
+    setProcessingId(videoId);
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`${supabaseUrl}/functions/v1/server/moderate-video`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}`, "apikey": supabaseAnonKey },
+        body: JSON.stringify({ video_id: videoId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (data.status === "pending") toast("아직 검수 대기 — 썸네일/인코딩 준비 중일 수 있습니다.");
+      else toast.success(`재검수 완료: ${data.status}${data.score != null ? ` (${data.score})` : ""}`);
+    } catch (e: any) {
+      toast.error("재검수 실패: " + (e?.message || "알 수 없는 에러"));
+    } finally {
+      setProcessingId(null);
+      load();
+    }
   };
 
   const getScoreColor = (score: number | null) => {
@@ -463,6 +535,30 @@ function AIModerationTab({ onCountChange }: { onCountChange: (n: number) => void
                       >
                         <X className="w-3.5 h-3.5" />
                         숨김 처리
+                      </Button>
+                      <a
+                        href={`/?video=${encodeURIComponent(r.video_id)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-white/10 text-muted-foreground hover:text-white hover:bg-white/5 transition-colors"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        영상 보기
+                      </a>
+                    </div>
+                  )}
+
+                  {/* H-1: '분석 안 됨'(pending) 영상 — 재검수(Vision 재실행). pending 에서만 apply_moderation_result 동작 */}
+                  {statusFilter === "pending" && (
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        size="sm"
+                        onClick={() => rescan(r.video_id)}
+                        disabled={processingId === r.video_id}
+                        className="bg-[#a78bfa] hover:bg-[#9370f0] text-white gap-1.5"
+                      >
+                        <RotateCw className="w-3.5 h-3.5" />
+                        재검수
                       </Button>
                       <a
                         href={`/?video=${encodeURIComponent(r.video_id)}`}
