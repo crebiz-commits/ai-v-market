@@ -3,6 +3,7 @@ import { Loader2, Play, Check, AlertCircle, RefreshCw, Download } from "lucide-r
 import { supabase } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
+import { AdminPager } from "./AdminPager";
 import { sendNotification, buildRevenueSettledEmail } from "../utils/sendNotification";
 
 interface Distribution {
@@ -80,6 +81,11 @@ export function AdminRevenueSettlement() {
   const [month, setMonth] = useState(defaultMonth);
   const [rows, setRows] = useState<Distribution[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(50);
+  const [total, setTotal] = useState(0);
+  const [sums, setSums] = useState({ pending: 0, deferred: 0, paid: 0 });
+  const [clawbackTotal, setClawbackTotal] = useState(0);
   const [running, setRunning] = useState(false);
   const [downloadingCsv, setDownloadingCsv] = useState(false);
   const [payingId, setPayingId] = useState<number | null>(null);
@@ -130,28 +136,48 @@ export function AdminRevenueSettlement() {
     toast.success(`${data.length}건 다운로드 완료`);
   };
 
-  const loadDistributions = async (y: number, m: number) => {
+  // 정산 분배는 크리에이터 수 × 월로 늘어남 → 페이지 단위 조회.
+  //   상태별 합계(미지급/이월/지급완료)는 목록에서 reduce 하면 '이 페이지 합계'가 되므로
+  //   RPC 가 기간 전체 기준 윈도우 집계(sum_pending/deferred/paid)를 함께 반환한다.
+  const loadDistributions = async (y: number, m: number, targetPage = 0) => {
     setLoading(true);
     const { data, error } = await supabase.rpc("get_revenue_distributions_by_period", {
       p_year: y,
       p_month: m,
+      p_limit: pageSize,
+      p_offset: targetPage * pageSize,
     });
     if (error) {
       toast.error("정산 내역 조회 실패: " + error.message);
       setRows([]);
+      setTotal(0);
+      setSums({ pending: 0, deferred: 0, paid: 0 });
     } else {
-      setRows(data || []);
+      const list = (data || []) as any[];
+      setRows(list);
+      setTotal(Number(list[0]?.total_count) || 0);
+      setSums({
+        pending: Number(list[0]?.sum_pending) || 0,
+        deferred: Number(list[0]?.sum_deferred) || 0,
+        paid: Number(list[0]?.sum_paid) || 0,
+      });
+      setPage(targetPage);
+      // 지급 처리로 줄어 빈 페이지가 되면 첫 페이지로 자가복구
+      if (list.length === 0 && targetPage > 0) { setLoading(false); void loadDistributions(y, m, 0); return; }
     }
     setLoading(false);
   };
 
-  useEffect(() => { loadDistributions(year, month); }, [year, month]);
+  // 월·페이지크기 변경 시 첫 페이지로
+  useEffect(() => { loadDistributions(year, month, 0); }, [year, month, pageSize]);
 
   // F3: 지급완료 월 환불로 등록된 클로백(수동 차감 대기) 조회
   const loadClawbacks = async () => {
-    const { data, error } = await supabase.rpc("admin_list_clawbacks", { p_status: "pending" });
+    const { data, error } = await supabase.rpc("admin_list_clawbacks", { p_status: "pending", p_limit: 50, p_offset: 0 });
     if (error) { console.warn("[AdminRevenueSettlement] 클로백 조회 실패:", error.message); return; }
-    setClawbacks((data as Clawback[]) || []);
+    const list = (data || []) as any[];
+    setClawbacks(list as Clawback[]);
+    setClawbackTotal(Number(list[0]?.total_count) || 0);   // 배너 건수는 전체 기준(50건 상한 밖 포함)
   };
   useEffect(() => { loadClawbacks(); }, []);
 
@@ -198,7 +224,7 @@ export function AdminRevenueSettlement() {
       return;
     }
     toast.success(`${year}년 ${month}월 정산 완료`);
-    loadDistributions(year, month);
+    loadDistributions(year, month, page);
   };
 
   const markPaid = async (id: number) => {
@@ -259,9 +285,11 @@ export function AdminRevenueSettlement() {
     }
   };
 
-  const totalPending = rows.filter(r => r.payout_status === "pending").reduce((s, r) => s + r.total_revenue, 0);
-  const totalDeferred = rows.filter(r => r.payout_status === "deferred").reduce((s, r) => s + r.total_revenue, 0);
-  const totalPaid = rows.filter(r => r.payout_status === "paid").reduce((s, r) => s + r.total_revenue, 0);
+  // 기간 전체 기준 서버 집계 — 페이지에서 reduce 하면 정산 합계가 실제보다 작게 표시됨
+  const totalPending = sums.pending;
+  const totalDeferred = sums.deferred;
+  const totalPaid = sums.paid;
+  const hasMore = (page + 1) * pageSize < total;
 
   const yearOptions: number[] = [];
   for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) yearOptions.push(y);
@@ -302,7 +330,7 @@ export function AdminRevenueSettlement() {
         </Button>
         <Button
           variant="outline"
-          onClick={() => loadDistributions(year, month)}
+          onClick={() => loadDistributions(year, month, page)}
           disabled={loading}
           className="h-10 gap-2"
         >
@@ -369,7 +397,7 @@ export function AdminRevenueSettlement() {
         <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/5 p-3">
           <p className="text-sm font-bold text-red-300 flex items-center gap-1.5 mb-2">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            클로백 대기 {clawbacks.length}건 — 지급완료 월에 환불 발생, 다음 정산에서 차감 필요
+            클로백 대기 {clawbackTotal || clawbacks.length}건 — 지급완료 월에 환불 발생, 다음 정산에서 차감 필요
           </p>
           <div className="space-y-2">
             {clawbacks.map((c) => (
@@ -519,6 +547,10 @@ export function AdminRevenueSettlement() {
               </div>
             );
           })}
+          <AdminPager
+            page={page} pageSize={pageSize} hasMore={hasMore} loading={loading} total={total}
+            onPageChange={(pg) => void loadDistributions(year, month, pg)} onPageSizeChange={setPageSize}
+          />
         </div>
       )}
     </div>

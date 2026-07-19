@@ -72,6 +72,8 @@ export function AdminRevenuePolicy() {
   const [historyKey, setHistoryKey] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(0);
+  const [historyTotal, setHistoryTotal] = useState(0);
 
   const loadSettings = async () => {
     setLoading(true);
@@ -156,15 +158,22 @@ export function AdminRevenuePolicy() {
     loadSettings();
   };
 
-  const openHistory = async (key: string) => {
+  // 설정 이력은 append-only 로 영구 누적 → 페이지 단위 조회(전엔 LIMIT 없이 전량)
+  const HISTORY_PAGE = 30;
+  const openHistory = async (key: string, targetPage = 0) => {
     setHistoryKey(key);
     setHistoryLoading(true);
-    const { data, error } = await supabase.rpc("get_platform_setting_history", { p_key: key });
+    const { data, error } = await supabase.rpc("get_platform_setting_history", {
+      p_key: key, p_limit: HISTORY_PAGE, p_offset: targetPage * HISTORY_PAGE,
+    });
     if (error) {
       toast.error("이력 조회 실패: " + error.message);
       setHistory([]);
     } else {
-      setHistory(data || []);
+      const rows = (data || []) as any[];
+      setHistory(rows);
+      setHistoryTotal(Number(rows[0]?.total_count) || 0);
+      setHistoryPage(targetPage);
     }
     setHistoryLoading(false);
   };
@@ -352,6 +361,14 @@ export function AdminRevenuePolicy() {
                       {h.updater_name && <p className="text-[10px] text-muted-foreground/60 mt-1">변경: {h.updater_name}</p>}
                     </div>
                   ))}
+                  {historyTotal > (historyPage + 1) * 30 && (
+                    <div className="flex justify-center pt-1">
+                      <Button variant="outline" size="sm" disabled={historyLoading}
+                        onClick={() => historyKey && void openHistory(historyKey, historyPage + 1)}>
+                        더 보기 ({(historyPage + 1) * 30} / {historyTotal})
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

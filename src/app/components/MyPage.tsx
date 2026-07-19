@@ -444,6 +444,32 @@ const myPageCache: Record<string, any> = {};
 
 // 시청 기록 페이지 크기 ('더 보기'로 이어붙임)
 const WATCH_HISTORY_PAGE = 50;
+// 구매내역·내 영상 페이지 크기 — 기존엔 LIMIT 없이 전량(내 영상은 orders 전량 조인까지) 조회했음(2026-07-19)
+const PURCHASES_PAGE = 30;
+const PRODUCTS_PAGE = 30;
+
+// RPC 행 → 화면 모델 (첫 페이지·'더 보기' 공용). 라벨 폴백을 위해 t 를 넘겨받음.
+type TFn = (key: string, opts?: any) => string;
+const mapPurchaseRow = (r: any, t: TFn): Purchase => ({
+  id: r.id,
+  videoId: r.video_id,
+  thumbnail: r.thumbnail || '',
+  title: r.title || t("mypage.watchHistory.noTitle"),
+  license: r.license_type,
+  price: Number(r.amount) || 0,
+  date: new Date(r.created_at).toLocaleDateString('ko-KR'),
+  status: t("mypage.purchases.statusAvailable"),
+});
+const mapProductRow = (r: any, viewMap: Record<string, number>, t: TFn) => ({
+  id: r.id,
+  thumbnail: r.thumbnail,
+  title: r.title,
+  views: viewMap[r.id] ?? 0,   // 유효 조회수(video_views). videos.views(TEXT)는 미갱신이라 미사용
+  likes: Number(r.likes) || 0,
+  sales: Number(r.sales_count) || 0,
+  revenue: Number(r.revenue) || 0,
+  status: r.status || t("mypage.statusOnSale"),
+});
 
 export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigate, initialTab, onInitialTabConsumed }: MyPageProps) {
   const { t, i18n } = useTranslation();
@@ -470,6 +496,14 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     setPayoutInfo(data ?? null);
   };
   const [purchaseHistory, setPurchaseHistory] = useState<Purchase[]>([]);
+  // 목록은 페이지 단위 — 합계·건수는 목록에서 세면 '이 페이지 기준'이 되므로 서버 집계를 따로 보관(2026-07-19)
+  const [purchaseSummary, setPurchaseSummary] = useState({ count: 0, total: 0 });
+  const [purchasesHasMore, setPurchasesHasMore] = useState(false);
+  const [purchasesLoadingMore, setPurchasesLoadingMore] = useState(false);
+  const [creatorSummary, setCreatorSummary] = useState({ videoCount: 0, totalSales: 0, totalRevenue: 0, totalLikes: 0 });
+  const [productsHasMore, setProductsHasMore] = useState(false);
+  const [productsLoadingMore, setProductsLoadingMore] = useState(false);
+  const viewMapRef = useRef<Record<string, number>>({});   // 유효조회수 맵(전 영상) — 더보기에서 재사용
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [myProducts, setMyProducts] = useState<MyProduct[]>([]);
   const [monthlySales, setMonthlySales] = useState<{month: string, sales: number}[]>([]);
@@ -651,127 +685,101 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     if (!silent) setLoading(true);
     let unexpectedError = false;
 
-    // ── 1. 구매 내역 (orders 테이블)
+    // ── 1. 구매 내역 (첫 페이지 + 전체 합계)
+    //   전량 조회 → 페이지 단위로 전환(2026-07-19). 총 구매액·건수는 목록에서 세면
+    //   '이 페이지 안에서의 합계'가 되므로 서버 집계(get_my_purchase_summary)를 따로 받는다.
     try {
-      const { data: purchaseData, error: purchaseError } = await supabase
-        .from('orders')
-        .select('*, videos(title, thumbnail)')
-        .eq('buyer_id', user.id);
-
-      if (purchaseError) {
-        // orders 테이블이 아직 생성 안 됐을 수 있음 (정상 케이스)
-        console.warn('[MyPage] orders 쿼리 실패 (테이블 미생성 가능):', purchaseError.message);
-      } else if (purchaseData) {
-        setPurchaseHistory(purchaseData.map((item: any) => ({
-          id: item.id,
-          videoId: item.video_id,
-          thumbnail: item.videos?.thumbnail || '',
-          title: item.videos?.title || t("mypage.watchHistory.noTitle"),
-          license: item.license_type,
-          price: item.amount,
-          date: new Date(item.created_at).toLocaleDateString('ko-KR'),
-          status: t("mypage.purchases.statusAvailable")
-        })));
+      const [listRes, sumRes] = await Promise.all([
+        supabase.rpc('get_my_purchases', { p_limit: PURCHASES_PAGE, p_offset: 0 }),
+        supabase.rpc('get_my_purchase_summary'),
+      ]);
+      if (listRes.error) {
+        console.warn('[MyPage] 구매내역 조회 실패:', listRes.error.message);
+      } else {
+        const rows = (listRes.data || []) as any[];
+        setPurchaseHistory(rows.map((r) => mapPurchaseRow(r, t)));
+        setPurchasesHasMore(rows.length >= PURCHASES_PAGE);
+      }
+      if (sumRes.error) {
+        console.warn('[MyPage] 구매 합계 조회 실패:', sumRes.error.message);
+      } else {
+        const s = (sumRes.data || [])[0];
+        if (s) setPurchaseSummary({ count: Number(s.purchase_count) || 0, total: Number(s.total_amount) || 0 });
       }
     } catch (err) {
       console.warn('[MyPage] 구매 내역 조회 예외:', err);
       unexpectedError = true;
     }
 
-    // ── 2. 내 등록 영상 + 매출 (videos + orders JOIN)
-    let videoData: any[] | null = null;
+    // ── 2. 내 등록 영상 + 매출 (첫 페이지 + 전체 집계)
+    //   기존엔 videos 전량 × 각 영상의 orders 전량을 한 번에 조인해 판매가 쌓일수록 폭증했다.
+    //   목록은 페이지로, 합계·월별차트·tier맵(전 영상 필요)은 서버 집계로 분리(2026-07-19).
+    let creatorVideoCount = 0;
     try {
-      // orders 테이블이 없을 수 있으므로 JOIN 없이 먼저 시도
-      const { data, error: videoError } = await supabase
-        .from('videos')
-        .select('*, orders(amount, created_at)')
-        .eq('creator_id', user.id);
+      const [listRes, sumRes] = await Promise.all([
+        supabase.rpc('get_my_creator_products', { p_limit: PRODUCTS_PAGE, p_offset: 0 }),
+        supabase.rpc('get_my_creator_summary'),
+      ]);
 
-      if (videoError) {
-        // orders JOIN 실패 시 → orders 없이 videos만 다시 가져옴.
-        // '테이블/관계 없음'(42P01/PGRST200)은 정상 폴백이지만, 그 외 에러는 매출이 "0"으로
-        // 잘못 보일 수 있어 사용자에게 알림(조용한 0 폴백 방지).
-        console.warn('[MyPage] videos+orders JOIN 실패, videos만 조회:', videoError.message);
-        const benign = (videoError as any).code === '42P01' || (videoError as any).code === 'PGRST200';
-        if (!benign) unexpectedError = true;
-        const { data: videosOnly } = await supabase
-          .from('videos')
-          .select('*')
-          .eq('creator_id', user.id);
-        videoData = (videosOnly || []).map((v: any) => ({ ...v, orders: [] }));
-      } else {
-        videoData = data;
-      }
-    } catch (err) {
-      console.warn('[MyPage] videos 조회 예외:', err);
-      unexpectedError = true;
-    }
-
-    if (videoData) {
       // 유효 조회수(video_views 기준) 영상별 집계 — videos.views 컬럼은 갱신 안 되므로 대신 사용.
       const viewMap: Record<string, number> = {};
       try {
         const { data: vc } = await supabase.rpc("get_creator_video_view_counts");
         (vc || []).forEach((r: any) => { viewMap[r.video_id] = Number(r.valid_views) || 0; });
       } catch { /* RPC 미적용 시 0 폴백 */ }
+      viewMapRef.current = viewMap;
 
-      const products = videoData.map((item: any) => {
-        const salesCount = item.orders?.length || 0;
-        const revenue = (item.orders || []).reduce((sum: number, o: any) => sum + (o.amount || 0), 0);
-        return {
-          id: item.id,
-          thumbnail: item.thumbnail,
-          title: item.title,
-          views: viewMap[item.id] ?? 0,   // 유효 조회수(video_views). videos.views(TEXT)는 미갱신이라 미사용
-          likes: Number(item.likes) || 0,
-          sales: salesCount,
-          revenue: revenue,
-          status: item.status || t("mypage.statusOnSale")
-        };
-      });
-      setMyProducts(products);
-
-      // 영상별 tier 매핑 (광고 분배율 가중평균 계산용)
-      const tierMap: Record<string, "home" | "cinema" | "ott"> = {};
-      for (const v of videoData) {
-        if (v.show_on_ott) tierMap[v.id] = "ott";
-        else if (v.show_on_cinema) tierMap[v.id] = "cinema";
-        else tierMap[v.id] = "home";
-      }
-      setVideoTiers(tierMap);
-
-      // 월별 매출 차트 — YYYY-MM 키로 집계(연도 충돌·정렬 버그 방지). 라벨은 렌더용으로 분리.
-      const monthMap: Record<string, number> = {};
-      videoData.forEach((video: any) => {
-        (video.orders || []).forEach((order: any) => {
-          const date = new Date(order.created_at);
-          if (isNaN(date.getTime())) return;
-          const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-          monthMap[key] = (monthMap[key] || 0) + (order.amount || 0);
-        });
-      });
-
-      const chartData = Object.entries(monthMap)
-        .sort((a, b) => a[0].localeCompare(b[0]))   // YYYY-MM 문자열 정렬 = 시간순
-        .map(([key, sales]) => ({
-          month: t("mypage.chartMonth", { n: parseInt(key.slice(5), 10) }),   // "N월" 표시 라벨
-          sales,
-        }));
-
-      if (chartData.length === 0) {
-        const defaultData = [];
-        const now = new Date();
-        for (let i = 5; i >= 0; i--) {
-          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          defaultData.push({ month: t("mypage.chartMonth", { n: d.getMonth() + 1 }), sales: 0 });
-        }
-        setMonthlySales(defaultData);
+      if (listRes.error) {
+        console.warn('[MyPage] 내 영상 조회 실패:', listRes.error.message);
+        unexpectedError = true;
       } else {
-        setMonthlySales(chartData);
+        const rows = (listRes.data || []) as any[];
+        setMyProducts(rows.map((r) => mapProductRow(r, viewMap, t)));
+        setProductsHasMore(rows.length >= PRODUCTS_PAGE);
       }
 
+      if (sumRes.error) {
+        // 합계가 없으면 매출이 "0"으로 잘못 보일 수 있어 조용히 넘기지 않음
+        console.warn('[MyPage] 크리에이터 합계 조회 실패:', sumRes.error.message);
+        unexpectedError = true;
+      } else {
+        const s = (sumRes.data || [])[0];
+        if (s) {
+          creatorVideoCount = Number(s.video_count) || 0;
+          setCreatorSummary({
+            videoCount: creatorVideoCount,
+            totalSales: Number(s.total_sales) || 0,
+            totalRevenue: Number(s.total_revenue) || 0,
+            totalLikes: Number(s.total_likes) || 0,
+          });
+          setVideoTiers((s.video_tiers || {}) as Record<string, "home" | "cinema" | "ott">);
+
+          // 월별 매출 차트 — 서버가 KST 기준 YYYY-MM 오름차순으로 집계해 준다. 라벨만 렌더용 변환.
+          const monthly = (s.monthly_sales || []) as { month: string; sales: number }[];
+          if (monthly.length === 0) {
+            const defaultData = [];
+            const now = new Date();
+            for (let i = 5; i >= 0; i--) {
+              const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+              defaultData.push({ month: t("mypage.chartMonth", { n: d.getMonth() + 1 }), sales: 0 });
+            }
+            setMonthlySales(defaultData);
+          } else {
+            setMonthlySales(monthly.map((m) => ({
+              month: t("mypage.chartMonth", { n: parseInt(m.month.slice(5), 10) }),
+              sales: Number(m.sales) || 0,
+            })));
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[MyPage] videos 조회 예외:', err);
+      unexpectedError = true;
+    }
+
+    {
       // ── 3. 광고 수익 통계 (영상 1개 이상 있는 크리에이터만)
-      if (videoData.length > 0) {
+      if (creatorVideoCount > 0) {
         try {
           const { data: adStatsData, error: adErr } = await supabase.rpc('get_creator_ad_stats');
           if (adErr) {
@@ -864,6 +872,8 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
         if (snap.adStats) setAdStats(snap.adStats);
         if (snap.adStatsByVideo) setAdStatsByVideo(snap.adStatsByVideo);
         if (snap.policyRates) setPolicyRates(snap.policyRates);
+        if (snap.purchaseSummary) setPurchaseSummary(snap.purchaseSummary);
+        if (snap.creatorSummary) setCreatorSummary(snap.creatorSummary);
         stateOwnerRef.current = user.id; // 캐시는 저장 가드에 의해 항상 본인 데이터
         setLoading(false);
       }
@@ -878,8 +888,8 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     // state 소유자와 현재 사용자가 일치할 때만 저장 — 계정 전환 커밋 직후
     // 이전 사용자 데이터가 새 사용자 키로 저장되는 캐시 오염 차단
     if (stateOwnerRef.current !== user.id) return;
-    myPageCache[user.id] = { purchaseHistory, myProducts, videoTiers, monthlySales, adStats, adStatsByVideo, policyRates };
-  }, [loading, user?.id, purchaseHistory, myProducts, videoTiers, monthlySales, adStats, adStatsByVideo, policyRates]);
+    myPageCache[user.id] = { purchaseHistory, myProducts, videoTiers, monthlySales, adStats, adStatsByVideo, policyRates, purchaseSummary, creatorSummary };
+  }, [loading, user?.id, purchaseHistory, myProducts, videoTiers, monthlySales, adStats, adStatsByVideo, policyRates, purchaseSummary, creatorSummary]);
 
   // Phase 17: 시청 기록 탭 활성 시 로드
   useEffect(() => {
@@ -995,9 +1005,43 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     toast.success(t("mypage.playlist.removeSuccess"));
   };
 
-  const totalRevenue = useMemo(() => myProducts.reduce((sum, p) => sum + p.revenue, 0), [myProducts]);
-  const totalSales = useMemo(() => myProducts.reduce((sum, p) => sum + p.sales, 0), [myProducts]);
-  const totalLikes = useMemo(() => myProducts.reduce((sum, p) => sum + ((p as any).likes || 0), 0), [myProducts]);
+  // 구매내역 더 보기 — 다음 페이지 이어붙임(중복 id 제외)
+  const loadMorePurchases = async () => {
+    if (purchasesLoadingMore || !purchasesHasMore) return;
+    setPurchasesLoadingMore(true);
+    const { data, error } = await supabase.rpc('get_my_purchases', {
+      p_limit: PURCHASES_PAGE, p_offset: purchaseHistory.length,
+    });
+    setPurchasesLoadingMore(false);
+    if (error || !Array.isArray(data)) { setPurchasesHasMore(false); return; }
+    setPurchaseHistory((prev) => {
+      const seen = new Set(prev.map((p) => p.id));
+      return [...prev, ...(data as any[]).filter((r) => !seen.has(r.id)).map((r) => mapPurchaseRow(r, t))];
+    });
+    setPurchasesHasMore((data as any[]).length >= PURCHASES_PAGE);
+  };
+
+  // 내 영상 더 보기 — 조회수 맵은 첫 로드 때 받아둔 것(전 영상 대상)을 재사용
+  const loadMoreProducts = async () => {
+    if (productsLoadingMore || !productsHasMore) return;
+    setProductsLoadingMore(true);
+    const { data, error } = await supabase.rpc('get_my_creator_products', {
+      p_limit: PRODUCTS_PAGE, p_offset: myProducts.length,
+    });
+    setProductsLoadingMore(false);
+    if (error || !Array.isArray(data)) { setProductsHasMore(false); return; }
+    setMyProducts((prev) => {
+      const seen = new Set(prev.map((p: any) => p.id));
+      return [...prev, ...(data as any[]).filter((r) => !seen.has(r.id)).map((r) => mapProductRow(r, viewMapRef.current, t))];
+    });
+    setProductsHasMore((data as any[]).length >= PRODUCTS_PAGE);
+  };
+
+  // 합계는 서버 집계(get_my_creator_summary) — 목록이 페이지 단위라 화면에서 reduce 하면
+  //   '현재 페이지까지의 합'이 되어 총매출이 실제보다 작게 표시된다.
+  const totalRevenue = creatorSummary.totalRevenue;
+  const totalSales = creatorSummary.totalSales;
+  const totalLikes = creatorSummary.totalLikes;
 
   // 분배 정책 (platform_settings에서 로드, 미로드 시 기본값 = 정책 메모리 2026-05-12 기준)
   const CREATOR_SHARE_SALE   = policyRates.creator_share_sale            ?? 0.80;
@@ -1030,7 +1074,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   const adCTR = adStats.impressions > 0 ? (adStats.clicks / adStats.impressions) * 100 : 0;
 
   // 크리에이터 여부 — 영상 1개 이상 업로드한 사용자만 판매(크리에이터) 탭 노출
-  const isCreator = myProducts.length > 0;
+  const isCreator = creatorSummary.videoCount > 0;
 
   // 구독 등급 표시용 메타. 'basic'은 예약 티어(판매 경로 없음).
   // 알 수 없는 tier 값이 와도 free 로 폴백 → tierMeta.icon 크래시 방지.
@@ -1390,14 +1434,14 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
             {(pageMode === 'user'
               ? [
                   // 유저 코너: 소비자 관점 스탯 (구매/시청/보관함)
-                  { label: t("mypage.statsPurchases", "구매"), value: purchaseHistory.length, color: 'text-[#6366f1]' },
+                  { label: t("mypage.statsPurchases", "구매"), value: purchaseSummary.count, color: 'text-[#6366f1]' },
                   { label: t("mypage.statsWatched", "시청"), value: userStats?.watched ?? 0, color: 'text-[#8b5cf6]' },
                   { label: t("mypage.statsPlaylists", "보관함"), value: userStats?.playlists ?? 0, color: 'text-[#10b981]' },
                 ]
               : [
                   // 크리에이터 코너: 창작자 관점 스탯 (판매/등록/좋아요)
                   { label: t("mypage.statsTotalSales"), value: totalSales, color: 'text-[#6366f1]' },
-                  { label: t("mypage.statsProducts"), value: myProducts.length, color: 'text-[#8b5cf6]' },
+                  { label: t("mypage.statsProducts"), value: creatorSummary.videoCount, color: 'text-[#8b5cf6]' },
                   { label: t("mypage.statsLikes", "받은 좋아요"), value: totalLikes, color: 'text-[#10b981]' },
                 ]
             ).map((stat, idx) => (
@@ -1600,7 +1644,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                 <div className="bg-gradient-to-r from-[#1E1E24] to-[#121212] p-6 rounded-2xl border border-white/5 shadow-md mb-6 relative overflow-hidden">
                   <div className="relative z-10">
                     <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t("mypage.purchases.totalSpent")}</p>
-                    <p className="text-3xl font-black text-white drop-shadow-sm">₩{purchaseHistory.reduce((sum, p) => sum + p.price, 0).toLocaleString()}</p>
+                    <p className="text-3xl font-black text-white drop-shadow-sm">₩{purchaseSummary.total.toLocaleString()}</p>
                   </div>
                   <ShoppingBag className="absolute right-4 top-1/2 -translate-y-1/2 w-20 h-20 text-[#6366f1]/20 rotate-[-15deg]" />
                 </div>
@@ -1656,6 +1700,15 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                   {purchaseHistory.length === 0 && (
                     <div className="col-span-full py-10 text-center text-gray-500 font-medium bg-[#121212] rounded-2xl border border-white/5">
                       {t("mypage.purchases.empty")}
+                    </div>
+                  )}
+                  {purchasesHasMore && (
+                    <div className="col-span-full flex justify-center pt-2">
+                      <Button variant="outline" size="sm" onClick={() => void loadMorePurchases()}
+                        disabled={purchasesLoadingMore} className="gap-1.5">
+                        {purchasesLoadingMore && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        {t("common.more")}
+                      </Button>
                     </div>
                   )}
                 </motion.div>
@@ -1773,7 +1826,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
                   <h3 className="font-bold text-white mb-5 flex items-center justify-between">
                     {t("mypage.sales.registeredProducts")}
-                    <span className="px-2.5 py-1 bg-white/5 text-gray-400 rounded-md text-[11px]">{t("mypage.sales.productsCount", { count: myProducts.length })}</span>
+                    <span className="px-2.5 py-1 bg-white/5 text-gray-400 rounded-md text-[11px]">{t("mypage.sales.productsCount", { count: creatorSummary.videoCount })}</span>
                   </h3>
                   <div className="space-y-4">
                     {myProducts.map((product) => (
@@ -1832,6 +1885,15 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                        <div className="py-8 text-center text-gray-500 font-medium">
                          {t("mypage.sales.noProducts")}
                        </div>
+                    )}
+                    {productsHasMore && (
+                      <div className="flex justify-center pt-2">
+                        <Button variant="outline" size="sm" onClick={() => void loadMoreProducts()}
+                          disabled={productsLoadingMore} className="gap-1.5">
+                          {productsLoadingMore && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                          {t("common.more")}
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </motion.div>

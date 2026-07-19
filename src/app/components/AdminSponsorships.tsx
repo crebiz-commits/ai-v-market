@@ -9,6 +9,7 @@ import { Loader2, Check, X, ExternalLink, Sparkles, EyeOff, AlertTriangle } from
 import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
 import { toast } from "sonner";
+import { AdminPager } from "./AdminPager";
 
 interface SponsoredVideo {
   id: string; title: string; thumbnail: string | null;
@@ -39,16 +40,34 @@ export function AdminSponsorships() {
   const [items, setItems] = useState<SponsoredVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(30);
+  const [total, setTotal] = useState(0);
+  const hasMore = (page + 1) * pageSize < total;
 
-  const load = useCallback(async (f: Filter) => {
+  // 목록은 페이지 단위(전엔 LIMIT 없이 전량 — 특히 'all' 필터에서 협찬 이력 통째로 내려왔음)
+  const load = useCallback(async (f: Filter, targetPage = 0) => {
     setLoading(true);
-    const { data, error } = await supabase.rpc("admin_list_sponsored_videos", { p_filter: f });
-    if (error) toast.error("불러오기 실패: " + error.message);
-    setItems((data as SponsoredVideo[]) || []);
+    const { data, error } = await supabase.rpc("admin_list_sponsored_videos", {
+      p_filter: f, p_limit: pageSize, p_offset: targetPage * pageSize,
+    });
+    if (error) {
+      toast.error("불러오기 실패: " + error.message);
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+    const rows = (data || []) as any[];
+    setItems(rows as SponsoredVideo[]);
+    setTotal(Number(rows[0]?.total_count) || 0);
+    setPage(targetPage);
     setLoading(false);
-  }, []);
+    // 심사로 목록이 줄어 빈 페이지가 되면 첫 페이지로 자가복구
+    if (rows.length === 0 && targetPage > 0) void load(f, 0);
+  }, [pageSize]);
 
-  useEffect(() => { load(filter); }, [filter, load]);
+  // 필터·페이지 크기 변경 시 첫 페이지로 리셋
+  useEffect(() => { void load(filter, 0); }, [filter, load]);
 
   const review = async (v: SponsoredVideo, approve: boolean) => {
     let note: string | null = null;
@@ -67,7 +86,7 @@ export function AdminSponsorships() {
       });
       if (error) throw error;
       toast.success(approve ? "협찬 표시 승인됨" : (hide ? "반려 + 숨김 처리됨" : "반려 처리됨"));
-      await load(filter);
+      await load(filter, page);   // 현재 페이지 유지하며 갱신(총건수·빈자리 반영)
     } catch (err: any) {
       toast.error(err?.message || "처리 실패");
     } finally {
@@ -180,6 +199,10 @@ export function AdminSponsorships() {
               </div>
             );
           })}
+          <AdminPager
+            page={page} pageSize={pageSize} hasMore={hasMore} loading={loading} total={total}
+            onPageChange={(pg) => void load(filter, pg)} onPageSizeChange={setPageSize}
+          />
         </div>
       )}
     </div>

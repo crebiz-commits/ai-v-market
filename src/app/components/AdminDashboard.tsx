@@ -12,6 +12,7 @@ import { BUNNY_HOST } from "../utils/bunnyHost";
 import { HOME_FEED_SELF_ADS } from "../config/ads";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
+import { AdminPager } from "./AdminPager";
 
 const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer";
 // ─────────────────────────────────────────────────────────────────
@@ -171,6 +172,13 @@ export function AdminDashboard() {
     url && url.includes("/playlist.m3u8") ? url.replace("/playlist.m3u8", "/thumbnail.jpg") : null;
   // 광고 목록 탭: 자체광고(owner_id 없음) / 광고주 광고(owner_id 있음)
   const [adTab, setAdTab] = useState<"house" | "advertiser">("house");
+  const [adPage, setAdPage] = useState(0);
+  const [adPageSize, setAdPageSize] = useState(30);
+  const [adTotal, setAdTotal] = useState(0);
+  const [adsSummary, setAdsSummary] = useState({
+    houseTotal: 0, houseActive: 0, houseImpressions: 0, houseClicks: 0,
+    advTotal: 0, advActive: 0, advImpressions: 0, advClicks: 0,
+  });
 
   // 광고 영상 직접 업로드 (Bunny에만 저장, videos 테이블 미등록)
   const adVideoFileRef = useRef<HTMLInputElement>(null);
@@ -305,23 +313,60 @@ export function AdminDashboard() {
   };
 
   useEffect(() => {
-    if (isAdmin) fetchAds();
+    if (isAdmin) { void fetchAds(0); }
+    // 탭·페이지 크기가 바뀌면 첫 페이지부터 다시(서버 필터라 재조회 필요)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, adTab, adPageSize]);
+
+  useEffect(() => {
+    if (isAdmin) void fetchAdsSummary();
   }, [isAdmin]);
 
-  const fetchAds = async () => {
+  // 목록은 현재 탭 기준 페이지 단위(전량 조회 폐지, 2026-07-19).
+  //   탭 필터를 서버로 보내야 함 — 페이지를 자른 뒤 클라이언트에서 나누면 "이 페이지 안의 자체광고"가 됨.
+  const fetchAds = async (targetPage = adPage) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const from = targetPage * adPageSize;
+      let q = supabase
         .from("ads")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
+        .select("*", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .order("id")                       // tiebreaker: 안정 페이지네이션
+        .range(from, from + adPageSize - 1);
+      q = adTab === "house" ? q.is("owner_id", null) : q.not("owner_id", "is", null);
+
+      const { data, error, count } = await q;
+      if (error) {
+        // 다른 관리자가 지워 범위를 벗어나면 PostgREST 가 416(PGRST103) → 첫 페이지로 자가복구
+        if ((error as any).code === "PGRST103" && targetPage > 0) { setLoading(false); void fetchAds(0); return; }
+        throw error;
+      }
       setAds(data || []);
+      setAdTotal(count ?? 0);
+      setAdPage(targetPage);
     } catch (err: any) {
       toast.error("광고 목록 로드 실패: " + err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  // 탭 배지·노출/클릭 합계는 전체 기준 서버 집계 — 목록에서 세면 '이 페이지 기준'이 됨
+  const fetchAdsSummary = async () => {
+    const { data, error } = await supabase.rpc("admin_get_ads_summary");
+    if (error) return;   // 합계는 부가정보 — 실패해도 목록은 유지(토스트 중복 방지)
+    const s = (data || [])[0];
+    if (s) setAdsSummary({
+      houseTotal: Number(s.house_total) || 0,
+      houseActive: Number(s.house_active) || 0,
+      houseImpressions: Number(s.house_impressions) || 0,
+      houseClicks: Number(s.house_clicks) || 0,
+      advTotal: Number(s.adv_total) || 0,
+      advActive: Number(s.adv_active) || 0,
+      advImpressions: Number(s.adv_impressions) || 0,
+      advClicks: Number(s.adv_clicks) || 0,
+    });
   };
 
   const openCreate = () => {
@@ -411,7 +456,8 @@ export function AdminDashboard() {
       }
 
       setShowForm(false);
-      fetchAds();
+      void fetchAds(adPage);
+      void fetchAdsSummary();
     } catch (err: any) {
       toast.error("저장 실패: " + err.message);
     } finally {
@@ -427,6 +473,7 @@ export function AdminDashboard() {
         .eq("id", ad.id);
       if (error) throw error;
       setAds(prev => prev.map(a => a.id === ad.id ? { ...a, is_active: !a.is_active } : a));
+      void fetchAdsSummary();   // 활성 개수 배지는 전체 기준 서버 집계 → 다시 셈
       toast.success(ad.is_active ? "광고가 비활성화되었습니다." : "광고가 활성화되었습니다.");
     } catch (err: any) {
       toast.error("상태 변경 실패: " + err.message);
@@ -440,6 +487,9 @@ export function AdminDashboard() {
       if (error) throw error;
       setAds(prev => prev.filter(a => a.id !== id));
       setDeleteConfirm(null);
+      // 삭제로 한 칸 빈 현재 페이지를 다음 항목으로 채우고 탭 배지·합계도 갱신
+      void fetchAds(adPage);
+      void fetchAdsSummary();
       toast.success("광고가 삭제되었습니다.");
       // 첨부 이미지(ad-images 버킷) 정리 — best-effort(고아파일·비용 방지). Bunny 영상은 별도 GC.
       const marker = "/ad-images/";
@@ -477,12 +527,13 @@ export function AdminDashboard() {
 
   // ── 메인 대시보드 ────────────────────────────────────────────────
   // 자체광고(운영팀 직접 — 구글애드/오프라인 수주/계열사) vs 광고주 셀프서비스 등록 광고 분리
-  const houseAds = ads.filter(a => !a.owner_id);
-  const advertiserAds = ads.filter(a => a.owner_id);
-  const visibleAds = adTab === "house" ? houseAds : advertiserAds;
-  const totalImpressions = visibleAds.reduce((s, a) => s + a.impressions, 0);
-  const totalClicks = visibleAds.reduce((s, a) => s + a.clicks, 0);
-  const activeCount = visibleAds.filter(a => a.is_active).length;
+  // 탭 필터·합계는 서버로 이동 — ads 는 이미 현재 탭의 한 페이지만 담고 있다.
+  const visibleAds = ads;
+  const isHouse = adTab === "house";
+  const totalImpressions = isHouse ? adsSummary.houseImpressions : adsSummary.advImpressions;
+  const totalClicks      = isHouse ? adsSummary.houseClicks      : adsSummary.advClicks;
+  const activeCount      = isHouse ? adsSummary.houseActive      : adsSummary.advActive;
+  const adsHasMore = (adPage + 1) * adPageSize < adTotal;
 
   // 광고 형식별로 필요한 소재/필드만 노출 (수정 폼) — 포맷마다 입력란이 달라 헷갈리던 문제 해소
   const ff = form.format;
@@ -496,8 +547,8 @@ export function AdminDashboard() {
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="inline-flex p-1 rounded-xl bg-muted/50 border border-border">
           {([
-            ["house", "자체광고", houseAds.length],
-            ["advertiser", "광고주 광고", advertiserAds.length],
+            ["house", "자체광고", adsSummary.houseTotal],
+            ["advertiser", "광고주 광고", adsSummary.advTotal],
           ] as const).map(([key, label, count]) => (
             <button
               key={key}
@@ -749,6 +800,10 @@ export function AdminDashboard() {
               </div>
               );
             })}
+            <AdminPager
+              page={adPage} pageSize={adPageSize} hasMore={adsHasMore} loading={loading} total={adTotal}
+              onPageChange={(p) => void fetchAds(p)} onPageSizeChange={setAdPageSize}
+            />
           </div>
         )}
 

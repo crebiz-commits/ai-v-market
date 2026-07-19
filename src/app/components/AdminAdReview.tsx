@@ -8,6 +8,7 @@ import { Loader2, Check, X, ExternalLink, Megaphone } from "lucide-react";
 import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
 import { toast } from "sonner";
+import { AdminPager } from "./AdminPager";
 
 interface PendingAd {
   id: string; owner_id: string | null; owner_name: string | null; title: string;
@@ -20,16 +21,34 @@ export function AdminAdReview() {
   const [ads, setAds] = useState<PendingAd[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(30);
+  const [total, setTotal] = useState(0);
+  const hasMore = (page + 1) * pageSize < total;
 
-  const load = useCallback(async () => {
+  // 목록은 페이지 단위. "N건 대기" 배지는 전체 기준이어야 하므로 RPC 의 total_count 사용
+  //   (목록에서 세면 '이 페이지에 N건'이 됨).
+  const load = useCallback(async (targetPage = 0) => {
     setLoading(true);
-    const { data, error } = await supabase.rpc("admin_list_pending_ads");
-    if (error) toast.error("불러오기 실패: " + error.message);
-    setAds((data as PendingAd[]) || []);
+    const { data, error } = await supabase.rpc("admin_list_pending_ads", {
+      p_limit: pageSize, p_offset: targetPage * pageSize,
+    });
+    if (error) {
+      toast.error("불러오기 실패: " + error.message);
+      setAds([]);
+      setLoading(false);
+      return;
+    }
+    const rows = (data || []) as any[];
+    setAds(rows as PendingAd[]);
+    setTotal(Number(rows[0]?.total_count) || 0);
+    setPage(targetPage);
     setLoading(false);
-  }, []);
+    // 심사로 목록이 줄어 빈 페이지가 되면 첫 페이지로 자가복구
+    if (rows.length === 0 && targetPage > 0) void load(0);
+  }, [pageSize]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(0); }, [load]);
 
   const review = async (id: string, approve: boolean) => {
     let note: string | null = null;
@@ -47,6 +66,7 @@ export function AdminAdReview() {
     if (error) return toast.error(error.message);
     toast.success(approve ? "승인했습니다." : "반려했습니다.");
     setAds((prev) => prev.filter((a) => a.id !== id));
+    void load(page);   // 대기 배지는 전체 기준 서버값 → 재조회로 갱신 + 빈 자리 채움
   };
 
   return (
@@ -55,7 +75,7 @@ export function AdminAdReview() {
       {ads.length > 0 && (
         <div className="flex items-center gap-2 mb-4">
           <Megaphone className="w-4 h-4 text-[#a78bfa]" />
-          <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-amber-500/15 text-amber-300">{ads.length}건 대기</span>
+          <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-amber-500/15 text-amber-300">{total}건 대기</span>
         </div>
       )}
 
@@ -122,6 +142,10 @@ export function AdminAdReview() {
               </div>
             </div>
           ))}
+          <AdminPager
+            page={page} pageSize={pageSize} hasMore={hasMore} loading={loading} total={total}
+            onPageChange={(pg) => void load(pg)} onPageSizeChange={setPageSize}
+          />
         </div>
       )}
     </div>

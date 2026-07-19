@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Loader2, Coffee, RefreshCw, Mail, CheckCircle2, RotateCcw, ExternalLink, AlertTriangle } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { toast } from "sonner";
+import { AdminPager } from "./AdminPager";
 
 interface Milestone {
   id: string;
@@ -32,19 +33,38 @@ export function AdminMegaUploader() {
   const [items, setItems] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "pending" | "coupon_sent">("pending");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(30);
+  const [total, setTotal] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [allTotal, setAllTotal] = useState(0);   // 필터 무관 전체(탭 배지) — total 은 현재 필터 기준
 
-  const load = useCallback(async () => {
+  // 목록은 페이지 단위 + 필터를 서버로(전엔 전량 받아 클라이언트에서 걸렀음).
+  //   '대기 N' 배지는 필터와 무관한 전체 기준이라 RPC 가 pending_total 을 따로 준다.
+  const load = useCallback(async (targetPage = 0) => {
     setLoading(true);
-    const { data, error } = await supabase.rpc("admin_list_upload_milestones");
+    const { data, error } = await supabase.rpc("admin_list_upload_milestones", {
+      p_status: filter, p_limit: pageSize, p_offset: targetPage * pageSize,
+    });
     if (error) {
       console.warn("[AdminMegaUploader] 조회 실패:", error.message);
       toast.error("달성자 조회 실패: " + error.message);
+      setItems([]);
+    } else {
+      const rows = (data || []) as any[];
+      setItems(rows as Milestone[]);
+      setTotal(Number(rows[0]?.total_count) || 0);
+      setPendingCount(Number(rows[0]?.pending_total) || 0);
+      setAllTotal(Number(rows[0]?.all_total) || 0);
+      setPage(targetPage);
+      // 빈 페이지(다른 관리자가 처리해 줄어듦)면 첫 페이지로 자가복구
+      if (rows.length === 0 && targetPage > 0) { setLoading(false); void load(0); return; }
     }
-    setItems((data || []) as Milestone[]);
     setLoading(false);
-  }, []);
+  }, [filter, pageSize]);
 
-  useEffect(() => { void load(); }, [load]);
+  // 필터·페이지 크기 변경 시 첫 페이지로 리셋
+  useEffect(() => { void load(0); }, [load]);
 
   const setStatus = async (id: string, status: Milestone["status"]): Promise<boolean> => {
     const prev = items;
@@ -52,6 +72,7 @@ export function AdminMegaUploader() {
     // 직접 UPDATE → RPC(admin_logs 기록). 지급완료는 금전(쿠폰) 지급 기록이라 감사추적 필수.
     const { error } = await supabase.rpc("admin_set_milestone_status", { p_id: id, p_status: status });
     if (error) { toast.error("변경 실패: " + error.message); setItems(prev); return false; }
+    void load(page);   // 배지(pending_total)·필터 결과는 서버 기준 → 재조회
     return true;
   };
 
@@ -76,8 +97,9 @@ export function AdminMegaUploader() {
     });
   };
 
-  const pendingCount = items.filter((i) => i.status === "pending").length;
-  const filtered = filter === "all" ? items : items.filter((i) => i.status === filter);
+  // 필터는 서버가 적용 — items 는 이미 현재 필터의 한 페이지
+  const filtered = items;
+  const hasMore = (page + 1) * pageSize < total;
 
   return (
     <div className="space-y-4">
@@ -97,14 +119,14 @@ export function AdminMegaUploader() {
         {([
           { key: "pending" as const, label: `대기 ${pendingCount}` },
           { key: "coupon_sent" as const, label: "지급완료" },
-          { key: "all" as const, label: `전체 ${items.length}` },
+          { key: "all" as const, label: `전체 ${allTotal}` },
         ]).map((f) => (
           <button key={f.key} onClick={() => setFilter(f.key)}
             className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${filter === f.key ? "bg-[#6366f1] text-white border-transparent" : "bg-card text-muted-foreground border-border hover:border-[#6366f1]/50"}`}>
             {f.label}
           </button>
         ))}
-        <button onClick={() => void load()} className="ml-auto p-2 rounded-lg hover:bg-muted text-muted-foreground" title="새로고침">
+        <button onClick={() => void load(page)} className="ml-auto p-2 rounded-lg hover:bg-muted text-muted-foreground" title="새로고침">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
@@ -171,6 +193,10 @@ export function AdminMegaUploader() {
               </div>
             );
           })}
+          <AdminPager
+            page={page} pageSize={pageSize} hasMore={hasMore} loading={loading} total={total}
+            onPageChange={(pg) => void load(pg)} onPageSizeChange={setPageSize}
+          />
         </div>
       )}
     </div>
