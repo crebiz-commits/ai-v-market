@@ -458,7 +458,7 @@ const mapPurchaseRow = (r: any, t: TFn): Purchase => ({
   license: r.license_type,
   price: Number(r.amount) || 0,
   date: new Date(r.created_at).toLocaleDateString('ko-KR'),
-  status: t("mypage.purchases.statusAvailable"),
+  status: r.status || 'completed',   // 원본 상태 보존 — 렌더에서 환불건 구분(전엔 전부 '다운로드 가능'으로 하드코딩)
 });
 const mapProductRow = (r: any, viewMap: Record<string, number>, t: TFn) => ({
   id: r.id,
@@ -497,7 +497,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   };
   const [purchaseHistory, setPurchaseHistory] = useState<Purchase[]>([]);
   // 목록은 페이지 단위 — 합계·건수는 목록에서 세면 '이 페이지 기준'이 되므로 서버 집계를 따로 보관(2026-07-19)
-  const [purchaseSummary, setPurchaseSummary] = useState({ count: 0, total: 0 });
+  const [purchaseSummary, setPurchaseSummary] = useState({ count: 0, total: 0, refunded: 0 });
   const [purchasesHasMore, setPurchasesHasMore] = useState(false);
   const [purchasesLoadingMore, setPurchasesLoadingMore] = useState(false);
   const [creatorSummary, setCreatorSummary] = useState({ videoCount: 0, totalSales: 0, totalRevenue: 0, totalLikes: 0 });
@@ -704,7 +704,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
         console.warn('[MyPage] 구매 합계 조회 실패:', sumRes.error.message);
       } else {
         const s = (sumRes.data || [])[0];
-        if (s) setPurchaseSummary({ count: Number(s.purchase_count) || 0, total: Number(s.total_amount) || 0 });
+        if (s) setPurchaseSummary({ count: Number(s.purchase_count) || 0, total: Number(s.total_amount) || 0, refunded: Number(s.refunded_count) || 0 });
       }
     } catch (err) {
       console.warn('[MyPage] 구매 내역 조회 예외:', err);
@@ -1670,10 +1670,19 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                           <span className="px-2 py-0.5 bg-[#6366f1]/10 border border-[#6366f1]/20 text-[#6366f1] rounded text-[10px] font-bold">
                             {purchase.license}
                           </span>
-                          <span className="font-bold text-gray-300">₩{purchase.price.toLocaleString()}</span>
+                          <span className={`font-bold ${purchase.status === "refunded" ? "text-gray-500 line-through" : "text-gray-300"}`}>
+                            ₩{purchase.price.toLocaleString()}
+                          </span>
                         </div>
-                        
+
                         <div className="flex gap-2 mt-auto">
+                          {/* 환불건은 다운로드 불가 — 서버(log_download)가 status='completed' 만 허용하므로
+                              버튼을 두면 눌렀을 때 "권한 없음" 에러만 남는다. 기록은 남기되 상태를 명시. */}
+                          {purchase.status === "refunded" ? (
+                            <div className="flex-1 py-2 rounded-lg border border-white/5 bg-white/[0.03] text-gray-500 text-xs font-bold text-center">
+                              {t("mypage.purchases.statusRefunded")}
+                            </div>
+                          ) : (
                           <motion.button
                             onClick={() => handleDownloadPurchase(purchase)}
                             disabled={downloadingId === purchase.id}
@@ -1693,6 +1702,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                               </>
                             )}
                           </motion.button>
+                          )}
                         </div>
                       </div>
                     </motion.div>
