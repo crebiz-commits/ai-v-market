@@ -11,13 +11,17 @@
 --     search_path hijack 방어 미비(게이트 #9). 라이브는 security_definer_search_path_sweep 로
 --     이미 고정됐으나 소스가 없어 재실행 시 #9 WARN 회귀. 병렬 세션의 신고/숨김 함수와 정합.
 --     + anon/PUBLIC EXECUTE 회수(심층방어) — assert_admin 이 SSOT 이나 anon 은 호출조차 불가하게.
---   본문 로직은 phase23_admin_comments.sql 과 100% 동일 — search_path·grant 만 추가.
+--   [식별성] admin_search_comments 에 post_id/post_title 반환 추가 — 프론트가 "어떤 영상/커뮤니티글
+--     의 댓글인지"를 클릭 링크(?video=id&comment=1 / ?post=id)로 열 수 있게(2026-07-19 요청).
+--     그 외 본문 로직은 phase23_admin_comments.sql 과 동일 + search_path·grant.
 --   적용: Supabase Dashboard → SQL Editor → 전체 붙여넣기 → Run. 멱등.
 --
 --   ★ 4함수의 새 정본. phase23_admin_comments.sql 재실행 금지(search_path 빠진 판으로 회귀).
 -- ════════════════════════════════════════════════════════════════════════════
 
--- A. 어드민 댓글 검색 (반환 시그니처 동일 → CREATE OR REPLACE)
+-- A. 어드민 댓글 검색 (post_id/post_title 추가 → 반환 시그니처 변경, DROP 선행)
+--    프론트가 어떤 영상/커뮤니티글의 댓글인지 클릭 링크로 이동할 수 있게 위치정보 반환.
+DROP FUNCTION IF EXISTS public.admin_search_comments(TEXT, TEXT, INTEGER, INTEGER);
 CREATE OR REPLACE FUNCTION public.admin_search_comments(
   p_query  TEXT    DEFAULT NULL,
   p_filter TEXT    DEFAULT 'all',
@@ -28,6 +32,8 @@ RETURNS TABLE (
   id              UUID,
   video_id        TEXT,
   video_title     TEXT,
+  post_id         TEXT,       -- 커뮤니티 글 댓글(그 외 NULL) — 딥링크 ?post=
+  post_title      TEXT,       -- 커뮤니티 글 제목
   user_id         UUID,
   author_name     TEXT,
   content         TEXT,
@@ -55,6 +61,8 @@ BEGIN
     c.id,
     c.video_id,
     v.title,
+    c.post_id,
+    cp.title,
     c.user_id,
     p.display_name,
     c.content,
@@ -73,8 +81,9 @@ BEGIN
          AND r.target_id   = c.id::TEXT
          AND r.status      = 'pending')::BIGINT
   FROM public.comments c
-  LEFT JOIN public.videos   v ON v.id = c.video_id
-  LEFT JOIN public.profiles p ON p.id = c.user_id
+  LEFT JOIN public.videos          v  ON v.id = c.video_id
+  LEFT JOIN public.community_posts cp ON cp.id::TEXT = c.post_id
+  LEFT JOIN public.profiles        p  ON p.id = c.user_id
   WHERE
     (p_query IS NULL OR p_query = '' OR
        c.content ILIKE '%' || p_query || '%' OR

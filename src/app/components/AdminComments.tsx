@@ -5,7 +5,7 @@
 // 신고 처리는 AdminReports 가 담당. 본 화면은 어드민이 능동적으로 부적절 댓글을 발견·처리할 때 사용.
 import { useEffect, useState } from "react";
 import {
-  Loader2, Search, Eye, EyeOff, Trash2, MessageSquare, Flag, Filter, Pin, Heart,
+  Loader2, Search, Eye, EyeOff, Trash2, MessageSquare, Flag, Filter, Pin, Heart, Film, ExternalLink,
 } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
@@ -15,6 +15,8 @@ interface CommentRow {
   id: string;
   video_id: string | null;
   video_title: string | null;
+  post_id: string | null;
+  post_title: string | null;
   user_id: string | null;
   author_name: string | null;
   content: string;
@@ -193,10 +195,36 @@ export function AdminComments() {
 
                   <p className="text-sm whitespace-pre-wrap break-words mb-1">{c.content}</p>
 
-                  <p className="text-[11px] text-muted-foreground">
-                    {fmtDate(c.created_at)}
-                    {c.video_title && ` · 영상: ${c.video_title}`}
-                    {` · 좋아요 ${c.likes_count.toLocaleString()}`}
+                  <p className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                    <span>{fmtDate(c.created_at)}</span>
+                    {c.video_id ? (
+                      <a
+                        href={`?video=${encodeURIComponent(c.video_id)}&comment=1`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[#818cf8] hover:underline font-medium"
+                        title="새 탭에서 영상 열기 (댓글 패널 함께)"
+                      >
+                        <Film className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate max-w-[220px]">{c.video_title || "영상 보기"}</span>
+                        <ExternalLink className="w-2.5 h-2.5 opacity-70 flex-shrink-0" />
+                      </a>
+                    ) : c.post_id ? (
+                      <a
+                        href={`?post=${encodeURIComponent(c.post_id)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[#818cf8] hover:underline font-medium"
+                        title="새 탭에서 커뮤니티 글 열기"
+                      >
+                        <MessageSquare className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate max-w-[220px]">{c.post_title || "커뮤니티 글"}</span>
+                        <ExternalLink className="w-2.5 h-2.5 opacity-70 flex-shrink-0" />
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground/50">· 위치 불명</span>
+                    )}
+                    <span>· 좋아요 {c.likes_count.toLocaleString()}</span>
                   </p>
 
                   {c.is_hidden && c.hidden_reason && (
