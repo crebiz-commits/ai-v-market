@@ -130,10 +130,11 @@ interface ProductDetailProps {
   onViewCreator?: (creatorId: string) => void;
   onNavigateToVideo?: (videoId: string) => void | Promise<void>;   // Phase 16: 연속 재생
   autoOpenComments?: boolean;   // 알림(답글) 클릭 진입 시 댓글창 자동 열기
+  targetCommentId?: string;     // 특정 댓글로 스크롤+하이라이트 (관리자 딥링크 ?video=id&comment={id})
   startFullscreen?: boolean;    // OTT "지금 보기" 진입 시 플레이어 자동 전체화면
 }
 
-export function ProductDetail({ product: productProp, onClose, onAddToCart, onSignInClick, onViewCreator, onNavigateToVideo, autoOpenComments, startFullscreen }: ProductDetailProps) {
+export function ProductDetail({ product: productProp, onClose, onAddToCart, onSignInClick, onViewCreator, onNavigateToVideo, autoOpenComments, targetCommentId, startFullscreen }: ProductDetailProps) {
   const { t } = useTranslation();
   // 좋아요는 전역 스토어(LikesContext)로 통일 — 모든 피드 동시 반영
   const { isLiked: isLikedStore, displayCount: likesDisplayCount, seedCount: seedLikeCount, displayViews, seedViews, toggleLike: toggleLikeStore } = useLikes();
@@ -2182,6 +2183,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                 videoCreatorId={product.creatorId}
                 onClose={() => setShowComments(false)}
                 onViewCreator={onViewCreator}
+                targetCommentId={targetCommentId}
                 mode="panel"
               />
             </motion.div>
@@ -2204,6 +2206,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                 videoCreatorId={product.creatorId}
                 onClose={() => setShowComments(false)}
                 onViewCreator={onViewCreator}
+                targetCommentId={targetCommentId}
                 mode="sheet"
               />
             </motion.div>

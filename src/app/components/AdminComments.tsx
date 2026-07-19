@@ -199,11 +199,11 @@ export function AdminComments() {
                     <span>{fmtDate(c.created_at)}</span>
                     {c.video_id ? (
                       <a
-                        href={`?video=${encodeURIComponent(c.video_id)}&comment=1`}
+                        href={`?video=${encodeURIComponent(c.video_id)}&comment=${encodeURIComponent(c.id)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-[#818cf8] hover:underline font-medium"
-                        title="새 탭에서 영상 열기 (댓글 패널 함께)"
+                        title="새 탭에서 영상 열기 (이 댓글로 스크롤)"
                       >
                         <Film className="w-3 h-3 flex-shrink-0" />
                         <span className="truncate max-w-[220px]">{c.video_title || "영상 보기"}</span>

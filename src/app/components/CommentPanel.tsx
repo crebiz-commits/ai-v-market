@@ -47,6 +47,8 @@ interface CommentPanelProps {
    * 호출자가 ProductDetail/DiscoveryFeed 등에서 자체 닫고 채널 라우팅.
    */
   onViewCreator?: (creatorId: string) => void;
+  // 특정 댓글로 스크롤+하이라이트 (관리자 딥링크 ?video=id&comment={commentId})
+  targetCommentId?: string;
   // 모바일: 바텀시트, 데스크탑: 사이드패널
   mode?: "sheet" | "panel";
 }
@@ -109,13 +111,14 @@ interface CommentItemCtx {
   handleToggleHeart: (commentId: string, parentId?: string) => void;
   handleDelete: (commentId: string, parentId?: string) => void;
   handleBlockUser: (targetUserId: string, name: string) => void;
+  highlightId?: string | null;
 }
 
 function CommentItemView({ comment, isReply = false, parentId, ctx }: { comment: Comment; isReply?: boolean; parentId?: string; ctx: CommentItemCtx }) {
   const {
     user, videoCreatorId, isVideoOwner, isAuthenticated, isKo, t, creatorInfo, likedComments,
     openMenu, setOpenMenu, onViewCreator, setReplyTo, inputRef, setReportTarget, setComments,
-    blockUser, handleLike, handleTogglePin, handleToggleHeart, handleDelete, handleBlockUser,
+    blockUser, handleLike, handleTogglePin, handleToggleHeart, handleDelete, handleBlockUser, highlightId,
   } = ctx;
   const isMine = user?.id === comment.user_id;
   const isCommentByCreator = !!videoCreatorId && comment.user_id === videoCreatorId;
@@ -185,9 +188,10 @@ function CommentItemView({ comment, isReply = false, parentId, ctx }: { comment:
 
   return (
     <motion.div
+      id={`comment-${comment.id}`}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`flex gap-3 ${isReply ? "ml-10 mt-2" : ""} ${comment.is_pinned ? "bg-[#6366f1]/5 -mx-4 px-4 py-2 rounded-lg" : ""}`}
+      className={`flex gap-3 scroll-mt-4 ${isReply ? "ml-10 mt-2" : ""} ${comment.is_pinned ? "bg-[#6366f1]/5 -mx-4 px-4 py-2 rounded-lg" : ""} ${comment.id === highlightId ? "ring-2 ring-[#818cf8] bg-[#818cf8]/10 rounded-xl px-2 py-1 transition-all duration-500" : ""}`}
     >
       {onViewCreator ? (
         <button
@@ -394,7 +398,7 @@ function CommentItemView({ comment, isReply = false, parentId, ctx }: { comment:
   );
 }
 
-export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, onCommentPosted, onCommentDeleted, onViewCreator, mode = "sheet" }: CommentPanelProps) {
+export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, onCommentPosted, onCommentDeleted, onViewCreator, targetCommentId, mode = "sheet" }: CommentPanelProps) {
   const { t, i18n } = useTranslation();
   const isKo = i18n.language?.startsWith("ko");
   const { user, isAuthenticated, profile } = useAuth();
@@ -519,6 +523,26 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
   useEffect(() => {
     fetchComments();
   }, [fetchComments]);
+
+  // 관리자 딥링크(?video=id&comment={id}) — 로드 완료 후 해당 댓글로 스크롤 + 하이라이트.
+  //   타겟이 답글이면 부모를 먼저 펼쳐 DOM 에 렌더시킨 뒤 스크롤. 못 찾으면(페이지네이션·삭제) 무동작.
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const scrolledToRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (loading || !targetCommentId || comments.length === 0) return;
+    if (scrolledToRef.current === targetCommentId) return;   // 타겟당 1회만
+    const parent = comments.find((c) => c.replies?.some((r) => r.id === targetCommentId));
+    if (parent) setExpandedReplies((prev) => (prev.has(parent.id) ? prev : new Set([...prev, parent.id])));
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`comment-${targetCommentId}`);
+      if (!el) return;   // 아직 미렌더/미로드 → comments 변화 시 재시도
+      scrolledToRef.current = targetCommentId;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightId(targetCommentId);
+      setTimeout(() => setHighlightId((cur) => (cur === targetCommentId ? null : cur)), 2600);
+    }, 220);   // 답글 펼침 리렌더 반영 대기
+    return () => clearTimeout(timer);
+  }, [loading, targetCommentId, comments]);
 
   // 외부 클릭 시 메뉴 닫기
   useEffect(() => {
@@ -799,7 +823,7 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
   const itemCtx: CommentItemCtx = {
     user, videoCreatorId, isVideoOwner, isAuthenticated, isKo, t, creatorInfo, likedComments,
     openMenu, setOpenMenu, onViewCreator, setReplyTo, inputRef, setReportTarget, setComments,
-    blockUser, handleLike, handleTogglePin, handleToggleHeart, handleDelete, handleBlockUser,
+    blockUser, handleLike, handleTogglePin, handleToggleHeart, handleDelete, handleBlockUser, highlightId,
   };
 
   const containerClass =

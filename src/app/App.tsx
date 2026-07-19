@@ -395,6 +395,7 @@ function AppContent() {
   const [selectedProduct, setSelectedProductRaw] = useState<VideoProduct | null>(null);
   // 알림(답글) 클릭으로 진입 시 ProductDetail 의 댓글창 자동 열기
   const [openCommentsOnOpen, setOpenCommentsOnOpen] = useState(false);
+  const [commentTargetOnOpen, setCommentTargetOnOpen] = useState<string | null>(null);   // 딥링크 특정 댓글로 스크롤
   // OTT "지금 보기" 진입 시 플레이어 자동 전체화면
   const [productFullscreen, setProductFullscreen] = useState(false);
   // Showcase Mode: demo- prefix 영상은 진입 차단 + 안내 토스트
@@ -405,6 +406,7 @@ function AppContent() {
       return;
     }
     setOpenCommentsOnOpen(false); // 일반 진입은 댓글 자동 열기 안 함 (loadAndOpenVideo 가 필요 시 직후 true 설정)
+    setCommentTargetOnOpen(null);
     setProductFullscreen(false);  // "작품 정보"/카드 진입은 전체화면 아님
     setSelectedProductRaw(product);
   };
@@ -456,7 +458,7 @@ function AppContent() {
     window.history.replaceState({ tab: "search" }, "", `${window.location.pathname}?${params.toString()}`);
   }, []);
   // Phase 16/17: 영상 ID로 ProductDetail 열기 (시청 기록 클릭, 연속 재생 등에서 재사용)
-  const loadAndOpenVideo = async (videoId: string, opts?: { openComments?: boolean }) => {
+  const loadAndOpenVideo = async (videoId: string, opts?: { openComments?: boolean; targetCommentId?: string | null }) => {
     try {
       const { data, error } = await supabase
         .from("videos")
@@ -501,6 +503,7 @@ function AppContent() {
       } as VideoProduct);
       // setSelectedProduct 가 먼저 false 로 리셋하므로, 댓글 자동 열기는 그 직후 설정
       if (opts?.openComments) setOpenCommentsOnOpen(true);
+      setCommentTargetOnOpen(opts?.targetCommentId ?? null);   // 없으면 해제(연속재생 stale 방지)
     } catch (err: any) {
       toast.error(t("app.videoFetchFailed", { message: err?.message || err }));
     }
@@ -519,7 +522,7 @@ function AppContent() {
       const post = url.searchParams.get("post");
       const challenge = url.searchParams.get("challenge");
       const creator = url.searchParams.get("creator");
-      if (video) { void loadAndOpenVideo(video, { openComments: url.searchParams.get("comment") === "1" }); return; }
+      if (video) { const cp = url.searchParams.get("comment"); void loadAndOpenVideo(video, { openComments: !!cp, targetCommentId: cp && cp !== "1" ? cp : null }); return; }
       const support = url.searchParams.get("support");
       if (support) { setPendingSupportId(support); setActiveTab("support"); return; }
       if (tab) {
@@ -572,7 +575,8 @@ function AppContent() {
     const params = new URLSearchParams(window.location.search);
     const videoId = params.get("video");
     if (videoId && videoId.trim()) {
-      loadAndOpenVideo(videoId.trim());
+      const cp = params.get("comment");   // ?comment=1(패널만) / ?comment={id}(그 댓글로 스크롤)
+      loadAndOpenVideo(videoId.trim(), { openComments: !!cp, targetCommentId: cp && cp !== "1" ? cp : null });
     }
     // 웹푸시 클릭·새로고침 등 URL 직접 진입 시 딥링크 파라미터 처리
     // (activeTab 초기값은 ?tab= 만 읽으므로 sub/post/section/creator 는 여기서 처리)
@@ -1624,6 +1628,7 @@ function AppContent() {
             onViewCreator={handleViewCreator}
             onNavigateToVideo={loadAndOpenVideo}
             autoOpenComments={openCommentsOnOpen}
+            targetCommentId={commentTargetOnOpen ?? undefined}
             startFullscreen={productFullscreen}
           />
         </Suspense>
