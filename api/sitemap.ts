@@ -76,7 +76,8 @@ export default async function handler(_req: Request): Promise<Response> {
     { loc: `${SITE_URL}/?info=about`, changefreq: "monthly", priority: "0.6" },
     { loc: `${SITE_URL}/?info=faq`, changefreq: "monthly", priority: "0.6" },
     { loc: `${SITE_URL}/?info=notices`, changefreq: "weekly", priority: "0.6" },
-    { loc: `${SITE_URL}/?tab=bug-report`, changefreq: "monthly", priority: "0.5" },
+    // ?tab=bug-report 제거(2026-07-18): index.html 서빙이라 JS canonical 에만 의존(구글 미honor)
+    //   → 홈의 "대체 페이지"로 색인 제외되던 폼 페이지. SEO 가치 없어 sitemap 에서 뺌.
     { loc: `${SITE_URL}/?info=terms`, changefreq: "monthly", priority: "0.5" },
     { loc: `${SITE_URL}/?info=privacy`, changefreq: "monthly", priority: "0.5" },
     // 매거진 (원본 아티클 — 검색 유입·색인 핵심)
