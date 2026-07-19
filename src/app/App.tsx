@@ -1087,7 +1087,9 @@ function AppContent() {
       case "market":
         return <Cinema onProductClick={setSelectedProduct} onAddToCart={(p) => addToCart(p)} tier="cinema" onNavigate={(tab, sub) => { setActiveTab(tab as Tab); if (tab === "community" && sub) setPendingCommunityTab(sub); }} onNavigateLink={handleNotificationNavigate} onViewCreator={handleViewCreator} onSignInClick={() => setShowAuthModal(true)} />;
       case "ott":
-        return <Ott onProductClick={setSelectedProduct} onPlayProduct={playProduct} onAddToCart={(p) => addToCart(p)} onNavigate={(tab) => setActiveTab(tab as Tab)} onHeroScroll={setHeroScrolled} />;
+        // suspended: 상세 모달이 위에 열려 있으면 히어로 영상 정지 — 상세에서 본편이 재생되는 동안
+        //   히어로가 계속 돌아 소리가 겹치던 이중재생 차단(2026-07-19)
+        return <Ott onProductClick={setSelectedProduct} onPlayProduct={playProduct} onAddToCart={(p) => addToCart(p)} onNavigate={(tab) => setActiveTab(tab as Tab)} onHeroScroll={setHeroScrolled} suspended={!!selectedProduct} />;
       case "upload":
         return <Upload onSignInClick={() => setShowAuthModal(true)} onViewMyProducts={() => setActiveTab("mypage")} onNavigate={(tab) => setActiveTab(tab as Tab)} challengeContext={pendingChallenge} onChallengeContextConsumed={() => setPendingChallenge(null)} />;
       case "community":

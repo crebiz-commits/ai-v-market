@@ -55,6 +55,10 @@ interface OttProps {
   onNavigate?: (tab: string) => void;
   // 풀블리드 히어로 스크롤 시 글로벌 헤더 배경 토글 (App.tsx)
   onHeroScroll?: (scrolled: boolean) => void;
+  // 상세 모달 등이 위를 덮고 있으면 히어로 영상 일시정지 — 상세에서 본편이 재생되는 동안
+  //   히어로가 계속 돌아 소리가 겹치던 이중재생 차단(2026-07-19).
+  //   IntersectionObserver 는 오버레이가 가려도 '교차 중'이라 이 신호가 따로 필요함.
+  suspended?: boolean;
 }
 
 function showcaseToCarousel(s: ShowcaseVideo): CarouselVideo {
@@ -230,7 +234,7 @@ function openAdLinkSafe(rawUrl: string | null | undefined) {
 //   실제 highlight_start(상세페이지 하이라이트용)는 DB 그대로 불변 — 히어로 재생 지점만 얕게.
 const HERO_MAX_SEEK_SEC = 90;
 
-export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, onHeroScroll }: OttProps) {
+export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, onHeroScroll, suspended = false }: OttProps) {
   const { t } = useTranslation();
   const { getCollection } = useCollections();
   const { profile, user } = useAuth();
@@ -587,6 +591,7 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
           muted={heroMuted}
           onToggleMute={toggleHeroMute}
           onEnded={heroItems.length > 1 ? advanceHero : undefined}
+          suspended={suspended}
         />
       ) : heroItems.length > 0 && currentVideo ? (
         <HeroBillboard
@@ -604,6 +609,7 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
           onClick={handleClick}
           onPlay={handlePlay}
           onEnded={heroItems.length > 1 ? advanceHero : undefined}
+          suspended={suspended}
         />
       ) : null}
 
@@ -676,12 +682,13 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
 //    연령게이트·heroSrc DB조회 없음(광고는 전연령·자체 URL). onEnded 로 다음 히어로 전환.
 //    ※ 집계 미호출(아래 useEffect 주석 참조 — 프리롤 dedup/크리에이터수익 오염 회피).
 const HeroAdBillboard = memo(function HeroAdBillboard({
-  ad, muted, onToggleMute, onEnded,
+  ad, muted, onToggleMute, onEnded, suspended = false,
 }: {
   ad: HeroAd;
   muted: boolean;
   onToggleMute: () => void;
   onEnded?: () => void;
+  suspended?: boolean;
 }) {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -700,12 +707,15 @@ const HeroAdBillboard = memo(function HeroAdBillboard({
   //   크리에이터 수익 이벤트(ad_video_events)를 억제하고 (b)예산광고를 히어로에서 오과금한다.
   //   히어로 전용 집계가 필요하면 별도 이벤트 타입/RPC(독립 dedup·무억제·hero CPM)를 신설할 것.
   useEffect(() => { if (videoRef.current) videoRef.current.muted = muted; }, [muted, videoReady]);
-  // 화면 밖이면 정지(배터리/데이터), 재진입 시 재생
+  // 화면 밖이면 정지(배터리/데이터), 재진입 시 재생.
+  //   suspended(상세 모달 등 오버레이) 면 IO 를 걸지 않고 즉시 정지 — 오버레이는 가려도
+  //   '교차 중'이라 IO 만으로는 못 잡아 이중재생(소리 겹침)이 났었음.
   useEffect(() => {
     const v = videoRef.current; if (!v) return;
+    if (suspended) { v.pause?.(); return; }
     const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) v.play?.().catch(() => {}); else v.pause?.(); }, { threshold: 0.1 });
     io.observe(v); return () => io.disconnect();
-  }, [playUrl]);
+  }, [playUrl, suspended]);
   const handleCta = () => { openAdLinkSafe(ad.link_url); };
   return (
     <section className="relative w-full h-[90vh] md:h-[84vh]">
@@ -782,6 +792,7 @@ const HeroBillboard = memo(function HeroBillboard({
   onClick,
   onPlay,
   onEnded,
+  suspended = false,
 }: {
   video: CarouselVideo;
   src: HeroSrc | null;
@@ -792,6 +803,7 @@ const HeroBillboard = memo(function HeroBillboard({
   onClick: (v: CarouselVideo) => void;   // 작품 정보 / 섹션 클릭 → 상세
   onPlay: (v: CarouselVideo) => void;    // 지금 보기 → 상세 + 전체화면 재생
   onEnded?: () => void;                  // 클립 재생 끝 → 다음 히어로로 조기 전환 (미주입=단일 히어로, 루프 유지)
+  suspended?: boolean;                   // 상세 모달 등이 덮으면 정지(이중재생 차단)
 }) {
   const { t } = useTranslation();
   const g = ageGuard(video);
@@ -844,17 +856,20 @@ const HeroBillboard = memo(function HeroBillboard({
     if (videoRef.current) videoRef.current.muted = muted;
   }, [muted, videoReady]);
 
-  // 화면 밖이면 히어로 영상 정지(배터리·데이터 절약), 재진입 시 재생 — 아래로 스크롤 시 계속 재생되던 것 개선
+  // 화면 밖이면 히어로 영상 정지(배터리·데이터 절약), 재진입 시 재생 — 아래로 스크롤 시 계속 재생되던 것 개선.
+  //   suspended(상세 모달 등 오버레이) 면 IO 를 걸지 않고 즉시 정지 — 오버레이는 화면을 가려도
+  //   '교차 중'이라 IO 만으로는 못 잡아, 상세에서 본편 재생 시 소리가 겹치던 이중재생 차단(2026-07-19).
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !useVideo) return;
+    if (suspended) { v.pause?.(); return; }
     const io = new IntersectionObserver(
       ([e]) => { if (e.isIntersecting) v.play?.().catch(() => {}); else v.pause?.(); },
       { threshold: 0.1 }
     );
     io.observe(v);
     return () => io.disconnect();
-  }, [useVideo, playUrl]);
+  }, [useVideo, playUrl, suspended]);
 
   return (
     <section className="relative w-full h-[90vh] md:h-[84vh]">
