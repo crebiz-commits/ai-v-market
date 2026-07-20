@@ -418,6 +418,12 @@ const MovieSection = memo(({
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const retryCountRef = useRef(0);  // 자동 재시도 카운터 (최대 2회)
+  // 하이라이트 기본 길이(초) — 관리자 수익 정책에서 조절(feed_highlight_seconds).
+  //   timeupdate 핸들러가 매 틱 읽어야 하는데 이걸 effect 의존성에 넣으면 값 변경 시
+  //   플레이어가 통째로 재생성되므로, ref 로 최신값만 갈아끼운다.
+  const hlSettings = useSettings();
+  const hlSecRef = useRef(hlSettings.feedHighlightSeconds);
+  useEffect(() => { hlSecRef.current = hlSettings.feedHighlightSeconds; }, [hlSettings.feedHighlightSeconds]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
@@ -545,7 +551,8 @@ const MovieSection = memo(({
 
       player.on('timeupdate', () => {
         const s = video.highlightStart || 0;
-        let e = video.highlightEnd || (s + 30);
+        // 영상별 highlight_end 가 있으면 그대로, 없으면 관리자 설정 길이(feed_highlight_seconds, 기본 30초)
+        let e = video.highlightEnd || (s + (hlSecRef.current || 30));
         const d = player.duration();
         if (typeof d === 'number' && d > 0 && e > d) e = d; // 30초 미만이면 전체 재생
         const t = player.currentTime();
@@ -1921,6 +1928,11 @@ const DesktopMovieCard = memo(function DesktopMovieCard({ video, onVideoClick, o
   const [isHovered, setIsHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
+  // 하이라이트 기본 길이 — 관리자 설정(feed_highlight_seconds). ref 로 최신값만 갈아끼워
+  //   플레이어 재생성 없이 다음 timeupdate 부터 반영.
+  const hlSettingsD = useSettings();
+  const hlSecRefD = useRef(hlSettingsD.feedHighlightSeconds);
+  useEffect(() => { hlSecRefD.current = hlSettingsD.feedHighlightSeconds; }, [hlSettingsD.feedHighlightSeconds]);
 
   // Video.js를 React 외부에서 생성 — removeChild 충돌 방지
   useEffect(() => {
@@ -1963,7 +1975,8 @@ const DesktopMovieCard = memo(function DesktopMovieCard({ video, onVideoClick, o
       // 하이라이트 구간 루프 — 모바일 카드(MovieSection)와 동일: start~end(기본 30초) 반복
       p.on('timeupdate', () => {
         const s = video.highlightStart || 0;
-        let e = video.highlightEnd || (s + 30);
+        // 영상별 highlight_end 가 있으면 그대로, 없으면 관리자 설정 길이(feed_highlight_seconds, 기본 30초)
+        let e = video.highlightEnd || (s + (hlSecRefD.current || 30));
         const d = p.duration();
         if (typeof d === 'number' && d > 0 && e > d) e = d; // 구간이 영상보다 길면 전체 재생
         const t = p.currentTime();

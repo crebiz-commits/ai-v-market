@@ -40,6 +40,7 @@ const KEY_META: Record<string, { label: string; unit: "ratio" | "krw" | "hours" 
   cinema_min_duration_seconds:      { label: "시네마 코너 노출 최소 길이",  unit: "seconds", group: "🎬 콘텐츠 정책", hint: "이 길이 이상 영상만 시네마 등록" },
   ott_min_duration_seconds:         { label: "OTT 코너 노출 최소 길이",    unit: "seconds", group: "🎬 콘텐츠 정책", hint: "이 길이 이상 영상만 OTT 등록" },
   cinema_preview_seconds:           { label: "비구독자 미리보기 시간",      unit: "seconds", group: "🎬 콘텐츠 정책", hint: "영상 상세에서 비구독자에게 보여줄 시간" },
+  feed_highlight_seconds:           { label: "홈피드 하이라이트 길이",      unit: "seconds", group: "🎬 콘텐츠 정책", hint: "홈피드 카드에서 반복 재생할 길이 (10~60초). 영상별 하이라이트 구간이 지정돼 있으면 그쪽 우선" },
   min_duration_for_preroll_seconds: { label: "Pre-roll·Overlay 광고 최소", unit: "seconds", group: "📢 광고 정책",   hint: "이 길이 이상 영상에만 본편 광고" },
   min_duration_for_midroll_seconds: { label: "Mid-roll 광고 최소 길이",    unit: "seconds", group: "📢 광고 정책",   hint: "이 길이 이상 영상에만 중간 광고" },
 };

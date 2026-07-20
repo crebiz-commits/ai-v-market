@@ -27,6 +27,8 @@ export interface ContentSettings {
   minDurationForMidroll: number;
   /** 같은 콘텐츠 신고 N건 누적 시 자동 숨김 임계값 */
   autoHideThreshold: number;
+  /** 홈피드 카드 하이라이트 반복 재생 길이 (초). 영상별 highlight_end 가 있으면 그쪽 우선 */
+  feedHighlightSeconds: number;
 }
 
 const DEFAULTS: ContentSettings = {
@@ -37,6 +39,7 @@ const DEFAULTS: ContentSettings = {
   minDurationForPreroll: 60,
   minDurationForMidroll: 600,
   autoHideThreshold: 3,
+  feedHighlightSeconds: 30,
 };
 
 const SettingsContext = createContext<ContentSettings>(DEFAULTS);
@@ -53,6 +56,7 @@ const KEY_MAP: Record<string, keyof ContentSettings> = {
   min_duration_for_preroll_seconds: "minDurationForPreroll",
   min_duration_for_midroll_seconds: "minDurationForMidroll",
   auto_hide_threshold:              "autoHideThreshold",
+  feed_highlight_seconds:           "feedHighlightSeconds",
 };
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
