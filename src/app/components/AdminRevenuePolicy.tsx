@@ -22,7 +22,21 @@ interface HistoryRow {
 }
 
 // key별 표시명 + 단위
-const KEY_META: Record<string, { label: string; unit: "ratio" | "krw" | "hours" | "seconds" | "count"; group: string; hint?: string }> = {
+// 그룹 표시 순서 — 미지정 그룹은 뒤에. 결제 킬스위치는 위험도가 가장 높아 항상 최상단.
+//   (기본 렌더는 키 알파벳순 첫 등장 순서라 payments_enabled 가 하단에 묻혔음)
+const GROUP_ORDER = [
+  "⚠️ 결제 스위치",
+  "💵 가격 / 단가",
+  "💰 분배 비율 (크리에이터)",
+  "🎬 콘텐츠 정책",
+  "📢 광고 정책",
+  "🛡 어뷰징 방지",
+];
+
+const KEY_META: Record<string, { label: string; unit: "ratio" | "krw" | "hours" | "seconds" | "count" | "toggle"; group: string; hint?: string }> = {
+  // 결제 킬스위치 — 실사용자 실결제를 여닫는 최중대 토글. META 가 없어 "기타"에 원문 키 +
+  //   값 "0" 으로만 뜨던 것(0 을 "미설정"으로 오해 → 1 로 바꾸면 실결제 개통) 해소.
+  payments_enabled:                 { label: "결제 시스템", unit: "toggle", group: "⚠️ 결제 스위치", hint: "1 = 실사용자 결제 열림 · 0 = 모든 결제 차단. 토스 live 키 전환·검증 완료 후에만 ON" },
   creator_share_sale:               { label: "판매 라이선스 크리에이터 분배", unit: "ratio", group: "💰 분배 비율 (크리에이터)" },
   creator_share_ad_home:            { label: "광고 — 1분 미만 영상 (현재 미적용)", unit: "ratio", group: "💰 분배 비율 (크리에이터)", hint: "콘텐츠 정책 v2에서 1분 미만 영상은 본편 광고 X. 정책 완화 시에만 적용" },
   creator_share_ad_cinema:          { label: "광고 — 시네마 (1분~10분)",  unit: "ratio", group: "💰 분배 비율 (크리에이터)" },
@@ -60,6 +74,8 @@ function formatValue(key: string, value: number) {
     return value + "초";
   }
   if (meta.unit === "count") return value + "건";
+  // 결제 킬스위치 — 0/1 원문 대신 상태를 그대로 읽히게(0 을 "미설정"으로 오해하는 것 방지)
+  if (meta.unit === "toggle") return value === 1 ? "🟢 열림 (ON)" : "🔴 차단 (OFF)";
   return value.toString();
 }
 
@@ -192,6 +208,12 @@ export function AdminRevenuePolicy() {
   for (const g of Object.keys(grouped)) {
     grouped[g].sort((a, b) => keyOrder.indexOf(a.key) - keyOrder.indexOf(b.key));
   }
+  // 그룹 표시 순서 고정 — 기본은 "키 알파벳순 첫 등장" 이라 결제 스위치가 하단에 묻혔음.
+  //   GROUP_ORDER 에 없는 그룹(기타 등)은 뒤로.
+  const groupedOrdered = Object.entries(grouped).sort(([a], [b]) => {
+    const ia = GROUP_ORDER.indexOf(a), ib = GROUP_ORDER.indexOf(b);
+    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+  });
 
   if (loading) {
     return (
@@ -208,15 +230,20 @@ export function AdminRevenuePolicy() {
         <div>
           <p className="font-semibold mb-0.5">변경 시 주의</p>
           <p className="text-amber-200/80">
-            새 값은 변경 시점부터 적용. 이미 정산된 월(`revenue_distributions`)에는
-            <span className="font-semibold"> 영향 없음</span> (스냅샷 저장됨).
-            과거 비율은 "이력 보기"로 추적 가능.
+            새 값은 변경 시점부터 적용됩니다. 정산 원장(<code>revenue_distributions</code>)은
+            <span className="font-semibold"> 지급완료(paid) 행만 동결</span>되어 영향받지 않습니다.
+            <br />
+            <span className="font-semibold text-amber-100">
+              ⚠️ 미지급(pending·deferred) 월을 다시 계산하면 새 비율로 덮어써집니다
+            </span>
+            {" "}— 분배율·단가를 바꾼 뒤 지난달을 재계산하면 크리에이터 미지급액이 달라질 수 있으니
+            정산 관리에서 대상 월을 확인하세요. 과거 비율은 "이력 보기"로 추적 가능합니다.
           </p>
         </div>
       </div>
 
       <div className="space-y-6">
-        {Object.entries(grouped).map(([group, items]) => (
+        {groupedOrdered.map(([group, items]) => (
           <div key={group}>
             <h3 className="text-sm font-bold text-muted-foreground mb-2 px-1">{group}</h3>
             <div className="bg-card border border-border rounded-xl overflow-hidden">
