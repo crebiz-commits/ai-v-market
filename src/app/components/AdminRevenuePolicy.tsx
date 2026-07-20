@@ -59,6 +59,27 @@ const KEY_META: Record<string, { label: string; unit: "ratio" | "krw" | "hours" 
   min_duration_for_midroll_seconds: { label: "Mid-roll 광고 최소 길이",    unit: "seconds", group: "📢 광고 정책",   hint: "이 길이 이상 영상에만 중간 광고" },
 };
 
+// 서버(update_platform_setting)의 값 검증을 그대로 미러링 — 저장 눌러 서버 에러 토스트를
+//   받는 대신 입력 즉시 안내. 서버가 최종 방어선이고 이건 UX 용이라, 규칙이 갈리지 않게
+//   서버와 동일 조건을 명시적으로 옮겨 둔다(서버 변경 시 여기도 같이 갱신).
+const VALUE_RANGE: Record<string, { min: number; max: number; text: string }> = {
+  feed_highlight_seconds: { min: 10, max: 60, text: "10~60초" },
+};
+const INT_ONLY_KEYS = ["ip_dedup_hours", "new_video_grace_hours", "auto_hide_threshold", "payments_enabled"];
+
+function validateValue(key: string, v: number): string | null {
+  const label = KEY_META[key]?.label || key;
+  const r = VALUE_RANGE[key];
+  if (r && (v < r.min || v > r.max)) return `${label} 은(는) ${r.text} 범위여야 합니다`;
+  if (key === "payments_enabled" && v !== 0 && v !== 1) return "결제 시스템은 0(차단) 또는 1(열림)만 가능합니다";
+  if ((key === "subscription_price_krw" || key === "ad_cpm_krw") && v < 1) return `${label} 은(는) 1원 이상이어야 합니다`;
+  if (key.endsWith("_krw") && !Number.isInteger(v)) return `${label} 은(는) 원 단위 정수여야 합니다`;
+  if ((key.endsWith("_seconds") || INT_ONLY_KEYS.includes(key)) && !Number.isInteger(v)) {
+    return `${label} 은(는) 정수여야 합니다`;
+  }
+  return null;
+}
+
 function formatValue(key: string, value: number) {
   const meta = KEY_META[key];
   if (!meta) return value.toString();
@@ -127,6 +148,12 @@ export function AdminRevenuePolicy() {
     }
     if (finalValue < 0) {
       toast.error("음수는 입력할 수 없습니다");
+      return;
+    }
+    // 서버 검증 미러 (범위·정수·0/1) — 서버 왕복 없이 즉시 안내
+    const vErr = validateValue(editingKey, finalValue);
+    if (vErr) {
+      toast.error(vErr);
       return;
     }
 
@@ -304,8 +331,13 @@ export function AdminRevenuePolicy() {
                     if (u === "krw") return "원";
                     if (u === "seconds") return "초";
                     if (u === "count") return "건";
-                    return "시간";
+                    if (u === "toggle") return "0 = 차단 / 1 = 열림";
+                    if (u === "hours") return "시간";
+                    return "값";   // 미지정 단위에 "시간" 이 붙던 오표기 방지
                   })()})
+                  {VALUE_RANGE[editingKey] && (
+                    <span className="ml-2 text-[10px] text-[#8b5cf6]">허용 {VALUE_RANGE[editingKey].text}</span>
+                  )}
                   {KEY_META[editingKey]?.hint && (
                     <span className="ml-2 text-[10px] text-amber-400/80">— {KEY_META[editingKey]?.hint}</span>
                   )}
@@ -313,6 +345,8 @@ export function AdminRevenuePolicy() {
                 <input
                   type="number"
                   step={KEY_META[editingKey]?.unit === "ratio" ? "0.1" : "1"}
+                  min={VALUE_RANGE[editingKey]?.min ?? (KEY_META[editingKey]?.unit === "toggle" ? 0 : undefined)}
+                  max={VALUE_RANGE[editingKey]?.max ?? (KEY_META[editingKey]?.unit === "toggle" ? 1 : undefined)}
                   className="input-base"
                   value={newValue}
                   onChange={e => setNewValue(e.target.value)}
