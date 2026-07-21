@@ -319,8 +319,11 @@ export function AdminGrantPremium() {
                         수동 지급{r.manual_grants > 1 ? ` ×${r.manual_grants}` : ""}
                       </span>
                     ) : (
+                      // 배지 판정 기준은 "이 화면에서 지급한 이력(admin_logs)이 있는가" 뿐이다.
+                      // 토스 결제분과 DB 에서 직접 설정한 컴프(예: 관리자 영구 프리미엄)를
+                      // 구분하지 못하므로 '결제'라고만 쓰면 오해를 준다(2026-07-21).
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/5 text-muted-foreground border border-border">
-                        결제
+                        결제·직접설정
                       </span>
                     )}
                   </div>
@@ -375,8 +378,10 @@ export function AdminGrantPremium() {
           </div>
         )}
 
-        <p className="text-[11px] text-muted-foreground">
-          · <b>수동 지급</b> 배지 = 이 화면에서 준 것, <b>결제</b> = 토스 구독. · 지급 이력 전체는 <b>활동 로그 → 프리미엄 지급</b> 에서 볼 수 있습니다.
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          · <b>수동 지급</b> = 이 화면에서 지급한 이력이 있는 계정.<br />
+          · <b>결제·직접설정</b> = 그 외 전부 — 토스 결제 구독과 DB 에서 직접 넣은 계정(관리자 영구 프리미엄 등)이 <b>함께</b> 들어갑니다. 둘은 구분하지 않습니다.<br />
+          · 몇 개월씩 줬는지 등 <b>지급 이력 전체</b>는 <b>활동 로그 → 프리미엄 지급</b> 에서 볼 수 있습니다.
         </p>
       </div>
     </div>
