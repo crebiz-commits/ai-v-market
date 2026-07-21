@@ -23,6 +23,8 @@ import { ReferralCard } from "./ReferralCard";
 import { SubscriptionModal } from "./SubscriptionModal";
 import { PayoutInfoModal } from "./PayoutInfoModal";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
+import { useAgeRatings } from "../hooks/useAgeRatings";
+import { shouldBlur } from "./AgeBadge";
 import { Footer } from "./Footer";
 import { formatCompactNumber } from "../i18n/numberFormat";
 
@@ -444,6 +446,16 @@ const myPageCache: Record<string, any> = {};
 
 // 시청 기록 페이지 크기 ('더 보기'로 이어붙임)
 const WATCH_HISTORY_PAGE = 50;
+// 초 → m:ss (1시간 이상 h:mm:ss). 시청 기록의 '본 지점' 표시용
+const fmtClock = (s: number): string => {
+  const total = Math.max(0, Math.floor(s || 0));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = total % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
+    : `${m}:${String(sec).padStart(2, "0")}`;
+};
 // 구매내역·내 영상 페이지 크기 — 기존엔 LIMIT 없이 전량(내 영상은 orders 전량 조인까지) 조회했음(2026-07-19)
 const PURCHASES_PAGE = 30;
 const PRODUCTS_PAGE = 30;
@@ -945,6 +957,10 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     const { error } = await supabase.rpc('delete_my_watch_history', { p_video_id: videoId });
     if (error) return toast.error(t("mypage.watchHistory.deleteFailed", { message: error.message }));
     setWatchHistory(prev => prev.filter(h => h.video_id !== videoId));
+    // 유저 코너 헤더의 '시청 N' 은 마운트 시 1회만 조회한다 — 여기서 같이 줄여주지 않으면
+    //   같은 화면에서 목록은 줄었는데 숫자는 그대로인 불일치가 남는다(RPC 가 DISTINCT video_id
+    //   라 목록 1행 = 카운트 1편이므로 정확히 1 감소).
+    setUserStats(prev => ({ ...prev, watched: Math.max(0, prev.watched - 1) }));
     toast.success(t("mypage.watchHistory.deleteSuccess"));
   };
 
@@ -953,8 +969,40 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     const { error } = await supabase.rpc('delete_my_watch_history', { p_video_id: null });
     if (error) return toast.error(t("mypage.watchHistory.deleteFailed", { message: error.message }));
     setWatchHistory([]);
+    setWatchHistoryHasMore(false);   // 남겨두면 재조회 없이 '더 보기'가 되살아나 이미 없는 페이지를 요청
+    setUserStats(prev => ({ ...prev, watched: 0 }));
     toast.success(t("mypage.watchHistory.clearAllSuccess"));
   };
+
+  // 🔞 청소년보호 — 기록 탭 썸네일 연령 게이트(2026-07-22 감사)
+  //   "이미 본 영상이니 괜찮다"가 성립하지 않는다: 시청 시점엔 'all' 이었어도 이후
+  //   크리에이터 수정(VideoEditModal)·관리자 검수로 19금으로 재등급될 수 있고, 그러면
+  //   미인증 계정의 기록에 19금 썸네일이 무블러로 남는다(다른 목록과 같은 fail-open 클래스).
+  //   본인이 올린 영상은 예외(피드/캐러셀과 동일 규칙).
+  const watchHistoryVideoIds = useMemo(
+    () => watchHistory.map((h: any) => h.video_id).filter(Boolean),
+    [watchHistory],
+  );
+  const watchHistoryRatings = useAgeRatings(watchHistoryVideoIds);
+
+  // 같은 연령 게이트를 구매 탭·보관함 상세 목록에도 적용(2026-07-22 감사).
+  //   "구매했다/담아뒀다"는 '봐도 되는 상태였다'의 증명이 아니다 — 시청 기록과 똑같이
+  //   사후 재등급(크리에이터 수정·관리자 검수)으로 19금이 될 수 있다.
+  const purchaseVideoIds = useMemo(
+    () => purchaseHistory.map((p) => p.videoId).filter(Boolean),
+    [purchaseHistory],
+  );
+  const purchaseRatings = useAgeRatings(purchaseVideoIds);
+  const isPurchaseAgeLocked = (videoId: string) =>
+    shouldBlur(purchaseRatings[videoId], profile?.age_verified);
+
+  const playlistVideoIds = useMemo(
+    () => playlistVideos.map((v: any) => v.id).filter(Boolean),
+    [playlistVideos],
+  );
+  const playlistVideoRatings = useAgeRatings(playlistVideoIds);
+  const isPlaylistVideoAgeLocked = (videoId: string, creatorId?: string | null) =>
+    creatorId !== user?.id && shouldBlur(playlistVideoRatings[videoId], profile?.age_verified);
 
   // Phase 18: 플레이리스트 탭 활성 시 로드
   const loadPlaylists = async () => {
@@ -1687,8 +1735,13 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                           alt={purchase.title}
                           referrerPolicy="no-referrer"
                           onError={(e) => { e.currentTarget.style.display = "none"; }}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${isPurchaseAgeLocked(purchase.videoId) ? "blur-lg scale-110" : ""}`}
                         />
+                        {isPurchaseAgeLocked(purchase.videoId) && (
+                          <div className="absolute inset-0 bg-black/65 flex items-center justify-center">
+                            <span className="w-6 h-6 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center">19</span>
+                          </div>
+                        )}
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#121212]" />
                       </div>
                       <div className="p-4 flex flex-col flex-1 pb-4">
@@ -2095,12 +2148,20 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                   ) : (
                     <div className="space-y-2">
                       {watchHistory.map((h: any) => {
-                        const pct = h.watch_ratio ? Math.round(h.watch_ratio * 100) : 0;
-                        const date = new Date(h.occurred_at);
-                        const dateStr = date.toLocaleString(undefined, {
-                          month: 'short', day: 'numeric',
-                          hour: '2-digit', minute: '2-digit'
-                        });
+                        // 진행 표시는 "최소 이만큼 봤다"는 하한이다 — 시청 기록은 30% 임계 도달 시
+                        //   (미달 시 이탈 시점에) 1회만 적재되고 이후 갱신되지 않는다. 끝까지 본
+                        //   영상도 비율이 30%에서 멈추므로 완주율처럼 "%"로 단정하지 않고
+                        //   '본 지점 / 전체 길이'로 표시한다(2026-07-22 감사).
+                        const watched = Number(h.watch_seconds) || 0;
+                        const total = Number(h.duration_seconds) || 0;
+                        const pct = total > 0 ? Math.min(100, Math.round((watched / total) * 100)) : 0;
+                        const dateStr = new Date(h.occurred_at).toLocaleString(
+                          i18n.language?.startsWith('ko') ? 'ko-KR' : 'en-US',
+                          { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }
+                        );
+                        const isAgeLocked =
+                          h.creator_id !== user?.id &&
+                          shouldBlur(watchHistoryRatings[h.video_id], profile?.age_verified);
                         return (
                           <div
                             key={h.view_id}
@@ -2111,13 +2172,20 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                               className="flex gap-3 flex-1 min-w-0 text-left"
                             >
                               {h.thumbnail ? (
-                                <img
-                                  src={h.thumbnail}
-                                  alt=""
-                                  referrerPolicy="no-referrer"
-                                  onError={(e) => { e.currentTarget.style.display = "none"; }}
-                                  className="w-24 h-16 rounded object-cover flex-shrink-0 bg-muted"
-                                />
+                                <div className="relative w-24 h-16 rounded overflow-hidden flex-shrink-0 bg-muted">
+                                  <img
+                                    src={h.thumbnail}
+                                    alt=""
+                                    referrerPolicy="no-referrer"
+                                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                    className={`w-full h-full object-cover ${isAgeLocked ? "blur-lg scale-110" : ""}`}
+                                  />
+                                  {isAgeLocked && (
+                                    <div className="absolute inset-0 bg-black/65 flex items-center justify-center">
+                                      <span className="w-6 h-6 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center">19</span>
+                                    </div>
+                                  )}
+                                </div>
                               ) : (
                                 <div className="w-24 h-16 rounded bg-muted flex items-center justify-center flex-shrink-0">
                                   <Film className="w-5 h-5 text-muted-foreground/40" />
@@ -2128,16 +2196,19 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                                 <p className="text-[11px] text-gray-500 mt-0.5 truncate">
                                   {h.creator_name || t("mypage.watchHistory.nameless")} · {dateStr}
                                 </p>
+                                {/* 색으로 is_valid(어뷰징 필터 플래그)를 노출하던 것을 제거 —
+                                    self_view·ip_dup 같은 내부 정산 판정이라 사용자에겐 의미가 없고
+                                    범례도 없어 "내 기록이 왜 노란색?"만 유발했다. */}
                                 <div className="flex items-center gap-2 mt-1.5">
                                   <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
                                     <div
-                                      className={`h-full ${
-                                        h.is_valid ? 'bg-[#8b5cf6]' : 'bg-amber-400/50'
-                                      }`}
+                                      className="h-full bg-[#8b5cf6]"
                                       style={{ width: `${Math.max(pct, 2)}%` }}
                                     />
                                   </div>
-                                  <span className="text-[10px] font-mono text-gray-500">{pct}%</span>
+                                  <span className="text-[10px] font-mono text-gray-500 flex-shrink-0">
+                                    {total > 0 ? `${fmtClock(watched)} / ${fmtClock(total)}` : fmtClock(watched)}
+                                  </span>
                                 </div>
                               </div>
                             </button>
@@ -2200,9 +2271,14 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                               title={t("mypage.playlist.playVideo")}
                             >
                               {v.thumbnail ? (
-                                <img src={v.thumbnail} alt={v.title} referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                                <img src={v.thumbnail} alt={v.title} referrerPolicy="no-referrer" className={`w-full h-full object-cover ${isPlaylistVideoAgeLocked(v.id, v.creator_id) ? "blur-lg scale-110" : ""}`} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                               ) : (
                                 <div className="w-full h-full bg-gradient-to-br from-[#1c1c1e] to-[#2d2d30]" />
+                              )}
+                              {isPlaylistVideoAgeLocked(v.id, v.creator_id) && (
+                                <div className="absolute inset-0 bg-black/65 flex items-center justify-center">
+                                  <span className="w-6 h-6 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center">19</span>
+                                </div>
                               )}
                               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 bg-black/40 transition-opacity">
                                 <Play className="w-6 h-6 text-white fill-white" />

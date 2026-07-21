@@ -419,5 +419,33 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 channel_feed_audit4_20260710.sql 의 creator_restore_comment 재적용(phase23_comment_management·audit2 재실행 금지 = 관리자 숨김 복원 뚫림)'
 
+  UNION ALL
+  -- 31) 시청 기록 삭제가 물리 DELETE 가 아닌 익명화인가 (2026-07-22)
+  --     video_views 는 기록 전용 테이블이 아니라 **구독 수익풀 pro-rata 의 분모·분자**
+  --     (calculate_monthly_revenue: SUM(watch_seconds) WHERE is_valid) 이자 크리에이터
+  --     실제 조회수·분석·트렌딩의 SSOT 다. 원본(phase17_watch_history)은 DELETE 라
+  --     **시청자 1명이 '전체 삭제'를 누르면 크리에이터의 조회수가 소급 감소하고 아직
+  --     확정(paid)되지 않은 달의 정산 배분액까지 깎였다** — 제3자의 돈이 걸린 결함.
+  --     DDL 이 이미 viewer_user_id ... ON DELETE SET NULL 로 "행 보존·연결만 절단"을
+  --     선언했고 계정 삭제(phase27)도 DELETE 하지 않는다 → 익명화가 스키마의 계약.
+  SELECT 31,
+    '시청기록 삭제=익명화(크리에이터 조회수·구독정산 기반 보존)',
+    CASE WHEN (SELECT prosrc !~* 'DELETE\s+FROM\s+public\.video_views'
+                  AND prosrc ~* 'UPDATE\s+public\.video_views'
+               FROM pg_proc WHERE proname = 'delete_my_watch_history')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 watch_history_anonymize_20260722.sql 재적용(phase17_watch_history.sql 재실행 금지 = 정산·조회수 소급 파괴)'
+
+  UNION ALL
+  -- 32) 내 시청편수가 목록 RPC 와 같은 필터인가 (2026-07-22)
+  --     헤더 스탯 '시청 N'(get_my_watch_count)과 기록 탭 목록(get_my_watch_history)이
+  --     같은 데이터를 세는데, 원본(my_watch_count_20260721)은 삭제·숨김 영상을 제외하지
+  --     않아 본 뒤 숨겨진 영상이 생기면 헤더 숫자만 더 컸다(같은 화면 내 숫자 불일치).
+  SELECT 32,
+    '내 시청편수 = 기록목록과 동일 필터(삭제·숨김 제외)',
+    CASE WHEN (SELECT prosrc ~ 'is_hidden' FROM pg_proc WHERE proname = 'get_my_watch_count')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 watch_history_anonymize_20260722.sql 재적용(my_watch_count_20260721.sql 재실행 금지 = 헤더 숫자 불일치)'
+
 ) AS gate
 ORDER BY sort;
