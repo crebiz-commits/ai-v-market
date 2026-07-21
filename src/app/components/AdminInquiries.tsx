@@ -6,6 +6,7 @@ import { Loader2, Mail, Phone, Building2, RefreshCw, Inbox } from "lucide-react"
 import { supabase } from "../utils/supabaseClient";
 import { useAdminPagedList } from "../hooks/useAdminPagedList";
 import { AdminPager } from "./AdminPager";
+import { Button } from "./ui/button";
 import { toast } from "sonner";
 
 interface Inquiry {
@@ -50,7 +51,7 @@ export function AdminInquiries() {
   // 상태 필터·배지 카운트는 서버 집계, 목록은 페이지 단위 — 200건 하드캡 제거(데이터 유실 해소)
   const {
     items, setItems, loading, filter, setFilter,
-    page, pageSize, setPageSize, total, totalAll, counts, hasMore,
+    page, pageSize, setPageSize, total, totalAll, counts, hasMore, loadError,
     goToPage, reload, afterStatusChange,
   } = useAdminPagedList<Inquiry, Inquiry["status"]>({
     table: "business_inquiries",
@@ -107,7 +108,14 @@ export function AdminInquiries() {
         </button>
       </div>
 
-      {loading ? (
+      {loadError ? (
+        /* 조회 실패를 "아직 없습니다"로 표시하면 데이터가 멀쩡한데 없다고 단언하게 된다 */
+        <div className="text-center py-20 text-muted-foreground">
+          <Inbox className="w-12 h-12 mx-auto mb-3 opacity-30 text-amber-400/60" />
+          <p className="text-amber-300/90">문의를 불러오지 못했습니다.</p>
+          <Button variant="outline" size="sm" onClick={reload} className="mt-3">다시 시도</Button>
+        </div>
+      ) : loading ? (
         <div className="flex justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-[#6366f1]" /></div>
       ) : items.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
@@ -172,11 +180,14 @@ export function AdminInquiries() {
             );
           })}
         </div>
+        </>
+      )}
+      {/* 페이저는 목록 분기 밖 — 안에 두면 로딩 중 통째로 언마운트돼 클릭 지점이 사라진다 */}
+      {!loadError && (total > 0 || page > 0) && (
         <AdminPager
           page={page} pageSize={pageSize} hasMore={hasMore} loading={loading} total={total}
           onPageChange={goToPage} onPageSizeChange={setPageSize}
         />
-        </>
       )}
     </div>
   );

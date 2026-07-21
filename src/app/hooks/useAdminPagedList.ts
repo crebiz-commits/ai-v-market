@@ -34,11 +34,13 @@ export function useAdminPagedList<T, S extends string>({
   const [page, setPage] = useState(0);            // 0-indexed
   const [pageSize, setPageSize] = useState<number>(initialPageSize);
   const [total, setTotal] = useState(0);          // 현재 필터 기준 전체 건수
+  const [loadError, setLoadError] = useState(false);   // 조회 실패 — "데이터 없음"과 구분(빈 화면 오인 방지)
   const [counts, setCounts] = useState<Record<string, number>>({});   // 상태별 전체 건수(배지)
   const [totalAll, setTotalAll] = useState(0);    // 필터 무관 전체 건수('전체' 배지)
 
   // 페이지·필터를 빠르게 바꾸면 이전 요청이 나중에 도착해 화면을 덮을 수 있음 → 최신 요청만 반영
   const reqSeq = useRef(0);
+  const countSeq = useRef(0);
 
   // ── 목록(현재 페이지) ──
   const loadPage = useCallback(async (targetPage: number) => {
@@ -67,6 +69,7 @@ export function useAdminPagedList<T, S extends string>({
       console.warn(`[useAdminPagedList] ${table} 조회 실패:`, error.message);
       toast.error(`${errorLabel} 조회 실패: ` + error.message);
       setItems([]);
+      setLoadError(true);   // 화면에 "아직 없습니다" 대신 재시도 안내를 띄우기 위함
       setLoading(false);
       return;
     }
@@ -82,6 +85,7 @@ export function useAdminPagedList<T, S extends string>({
     setItems(rows);
     setTotal(exact);
     setPage(targetPage);
+    setLoadError(false);
     setLoading(false);
   }, [table, select, orderColumn, pageSize, filter, errorLabel]);
 
@@ -89,12 +93,14 @@ export function useAdminPagedList<T, S extends string>({
   //    페이지네이션 후엔 클라이언트가 전체를 셀 수 없으므로 head count 로 서버 집계.
   //    목록 조회와 분리 — 페이지 이동마다 다시 셀 필요가 없다(데이터 변경 시에만 갱신).
   const refreshCounts = useCallback(async () => {
+    const seq = ++countSeq.current;   // 연속 상태변경 시 낡은 카운트 응답이 최신 값을 덮는 것 방지
     const results = await Promise.all([
       supabase.from(table).select("id", { count: "exact", head: true }),
       ...statuses.map((s) =>
         supabase.from(table).select("id", { count: "exact", head: true }).eq("status", s),
       ),
     ]);
+    if (seq !== countSeq.current) return;   // 더 새로운 카운트 요청이 진행 중 → 폐기
     const [allRes, ...statusRes] = results;
     if (allRes.error) return;   // 카운트는 부가정보 — 실패해도 목록은 유지(토스트 중복 방지)
     setTotalAll(allRes.count ?? 0);
@@ -125,7 +131,7 @@ export function useAdminPagedList<T, S extends string>({
     items, setItems, loading,
     filter, setFilter,
     page, pageSize, setPageSize,
-    total, totalAll, counts,
+    total, totalAll, counts, loadError,
     hasMore: (page + 1) * pageSize < total,
     goToPage: loadPage,
     reload, refreshCounts, afterStatusChange,

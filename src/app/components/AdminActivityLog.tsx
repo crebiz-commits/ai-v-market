@@ -1,8 +1,9 @@
 // 어드민 활동 로그 페이지 (Phase 10.7)
 import { useEffect, useState, useRef } from "react";
-import { Loader2, ClipboardList, RefreshCw, User, EyeOff, Eye, Trash2, RotateCcw, Megaphone, ShieldCheck, ShieldAlert, Ban, Flag, Sparkles, Coins, Gift, Crown, Star, Trophy, Layers, Image as ImageIcon, Bug, MessageSquare, Settings, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, ClipboardList, RefreshCw, User, EyeOff, Eye, Trash2, RotateCcw, Megaphone, ShieldCheck, ShieldAlert, Ban, Flag, Sparkles, Coins, Gift, Crown, Star, Trophy, Layers, Image as ImageIcon, Bug, MessageSquare, Settings } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
+import { AdminPager } from "./AdminPager";
 import { toast } from "sonner";
 
 interface LogRow {
@@ -102,7 +103,6 @@ const ACTIONS_FILTER = [
 ];
 
 export function AdminActivityLog() {
-  const PAGE_SIZES = [30, 50, 100];
   const PERIODS = [
     { key: "all",   label: "전체" },
     { key: "today", label: "오늘" },
@@ -284,32 +284,11 @@ export function AdminActivityLog() {
             );
           })}
         </div>
-        {/* 페이지네이션 — 30/50/100개씩, 이전/다음 (끝없는 append 대신 페이지 이동) */}
-        <div className="flex items-center justify-between flex-wrap gap-3 pt-4">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>페이지당</span>
-            {PAGE_SIZES.map(sz => (
-              <button
-                key={sz}
-                onClick={() => setPageSize(sz)}
-                disabled={loading}
-                className={`px-2 py-1 rounded font-semibold transition-colors disabled:opacity-50 ${
-                  pageSize === sz ? "bg-[#6366f1] text-white" : "bg-muted hover:bg-muted/70"
-                }`}
-              >{sz}</button>
-            ))}
-            <span>개</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => load(page - 1)} disabled={loading || page === 0} className="gap-1">
-              <ChevronLeft className="w-4 h-4" />이전
-            </Button>
-            <span className="text-xs text-muted-foreground min-w-[3.5rem] text-center">{page + 1} 페이지</span>
-            <Button variant="outline" size="sm" onClick={() => load(page + 1)} disabled={loading || !hasMore} className="gap-1">
-              다음<ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
+        {/* 페이지네이션 — 공용 AdminPager 사용(마크업 중복 제거) */}
+        <AdminPager
+          page={page} pageSize={pageSize} hasMore={hasMore} loading={loading}
+          onPageChange={load} onPageSizeChange={setPageSize}
+        />
         </>
       )}
     </div>

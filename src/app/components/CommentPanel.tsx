@@ -413,21 +413,7 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
   const { seedComments, bumpComments } = useLikes();
   const isVideoOwner = !!(videoId && videoCreatorId && user?.id === videoCreatorId);
 
-  // 영상 댓글 총계를 정확히 세어 전역 스토어에 seed-once → 모든 피드의 "댓글 N" 통일
-  useEffect(() => {
-    if (!videoId) return;
-    let cancelled = false;
-    (async () => {
-      const { count } = await supabase
-        .from("comments")
-        .select("id", { count: "exact", head: true })
-        .eq("video_id", videoId)
-        .is("parent_id", null)
-        .eq("is_hidden", false);
-      if (!cancelled && typeof count === "number") seedComments(videoId, count);
-    })();
-    return () => { cancelled = true; };
-  }, [videoId, seedComments]);
+  // (영상 댓글 총계 seed 는 fetchComments 의 fetchTotal 결과를 재사용 — 같은 쿼리를 두 번 세지 않는다)
 
   const [comments, setComments] = useState<Comment[]>([]);
   const allUserIds: string[] = [];
@@ -505,6 +491,8 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
       if (myId !== fetchIdRef.current) return;   // 그 사이 videoId/postId 전환 → 이 응답 폐기
       setComments(rows);
       setServerTotal(total);
+      // 영상 댓글 총계를 전역 스토어에 seed-once → 모든 피드의 "댓글 N" 통일(별도 쿼리 없이 재사용)
+      if (videoId) seedComments(videoId, total);
       setHasMore(rows.length === COMMENTS_PAGE);
       setExpandedReplies(new Set());   // 대상 전환 시 펼침 초기화
       setLikedComments(new Set());
@@ -515,7 +503,7 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
     } finally {
       if (myId === fetchIdRef.current) setLoading(false);
     }
-  }, [fetchPage, fetchTotal, mergeMyLikes]);
+  }, [fetchPage, fetchTotal, mergeMyLikes, videoId, seedComments]);
 
   // 최상위 더 보기 — 새 댓글이 위에 끼면 offset 이 밀리므로 id 로 dedup
   const loadMoreComments = async () => {

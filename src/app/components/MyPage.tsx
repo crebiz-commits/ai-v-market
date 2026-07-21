@@ -1665,6 +1665,11 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                   <div className="relative z-10">
                     <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t("mypage.purchases.totalSpent")}</p>
                     <p className="text-3xl font-black text-white drop-shadow-sm">₩{purchaseSummary.total.toLocaleString()}</p>
+                    {purchaseSummary.refunded > 0 && (
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        {t("mypage.purchases.statusRefunded")} {purchaseSummary.refunded}건은 합계에서 제외
+                      </p>
+                    )}
                   </div>
                   <ShoppingBag className="absolute right-4 top-1/2 -translate-y-1/2 w-20 h-20 text-[#6366f1]/20 rotate-[-15deg]" />
                 </div>

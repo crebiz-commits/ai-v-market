@@ -134,9 +134,12 @@ export function MyPaymentsSection() {
     }
 
     toast.success(t("myPayments.modal.success"));
+    // 전체 재조회(load)는 더보기로 펼친 목록을 1페이지로 되돌리고 스피너를 띄운다 → 해당 행만 갱신
+    setPayments((prev) => prev.map((p) => (p.id === refundTarget.id
+      ? { ...p, status: "refund_requested", refund_reason: reason, refund_requested_at: new Date().toISOString() }
+      : p)));
     setRefundTarget(null);
     setRefundReason("");
-    load();
   };
 
   const localeTag = i18n.language?.startsWith("ko") ? "ko-KR" : "en-US";
