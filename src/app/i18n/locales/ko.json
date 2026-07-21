@@ -1110,7 +1110,10 @@
       "renameFailed": "이름 변경 실패: {{message}}",
       "renameSuccess": "이름이 변경되었습니다",
       "renamePlaylist": "이름 변경",
-      "nameRequired": "이름을 입력하세요"
+      "nameRequired": "이름을 입력하세요",
+      "reorderFailed": "순서 변경 실패: {{message}}",
+      "moveUp": "위로",
+      "moveDown": "아래로"
     },
     "settings": {
       "accountSecurity": "계정 보안",

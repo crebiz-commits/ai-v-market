@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { UserAvatar } from "./UserAvatar";
-import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus, Clock, Trash2, Film, Tv, FolderPlus, Bookmark, ArrowLeft, Play, MessageSquare, Filter, UserX, Download, AlertTriangle } from "lucide-react";
+import { User, ShoppingBag, CreditCard, Settings, LogOut, TrendingUp, DollarSign, Loader2, Bell, ChevronRight, ChevronUp, ChevronDown, X, Eye, EyeOff, Lock, Pencil, Crown, Sparkles, ImagePlus, Clock, Trash2, Film, Tv, FolderPlus, Bookmark, ArrowLeft, Play, MessageSquare, Filter, UserX, Download, AlertTriangle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Button } from "./ui/button";
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
@@ -550,6 +550,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   const [renameBusy, setRenameBusy] = useState(false);
   // 재시도 트리거 — setActivePlaylistId(같은 값)은 React 가 무시해 재조회가 안 된다.
   const [playlistVideosReload, setPlaylistVideosReload] = useState(0);
+  const [reorderBusy, setReorderBusy] = useState(false);   // 순서 변경 연타 가드
   // 유저 코너 헤더 스탯(시청/보관함) — 지연탭 대신 프로필 탭 즉시 표시용 경량 선로드. 구매는 purchaseHistory 사용.
   const [userStats, setUserStats] = useState<{ watched: number; playlists: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1101,6 +1102,29 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     setActivePlaylistName(prev => (activePlaylistId === playlistId ? name : prev));
     toast.success(t("mypage.playlist.renameSuccess", "이름이 변경되었습니다"));
     await loadPlaylists();
+  };
+
+  // 순서 변경 — 위/아래 한 칸. set_playlist_order 는 "정렬된 id 배열"을 받으므로
+  //   나중에 드래그앤드롭으로 바꿔도 같은 RPC 를 그대로 쓴다.
+  const handleMovePlaylistVideo = async (videoId: string, delta: -1 | 1) => {
+    if (!activePlaylistId || reorderBusy) return;
+    const idx = playlistVideos.findIndex((v: any) => v.id === videoId);
+    const next = idx + delta;
+    if (idx < 0 || next < 0 || next >= playlistVideos.length) return;
+    const before = playlistVideos;
+    const reordered = [...playlistVideos];
+    [reordered[idx], reordered[next]] = [reordered[next], reordered[idx]];
+    setPlaylistVideos(reordered);   // 낙관적 반영
+    setReorderBusy(true);
+    const { error } = await supabase.rpc('set_playlist_order', {
+      p_playlist_id: activePlaylistId,
+      p_video_ids: reordered.map((v: any) => v.id),
+    });
+    setReorderBusy(false);
+    if (error) {
+      setPlaylistVideos(before);    // 실패 시 롤백
+      toast.error(t("mypage.playlist.reorderFailed", { message: error.message }));
+    }
   };
 
   const handleRemoveFromPlaylist = async (videoId: string) => {
@@ -2318,7 +2342,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {playlistVideos.map((v: any) => (
+                        {playlistVideos.map((v: any, idx: number) => (
                           <div key={v.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors group">
                             <button
                               onClick={() => onVideoClick?.(v.id)}
@@ -2351,6 +2375,25 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                               <p className="text-sm font-bold text-white line-clamp-2 leading-tight mb-0.5">{v.title}</p>
                               <p className="text-xs text-gray-500 line-clamp-1">{v.creator_display_name || v.creator}</p>
                             </button>
+                            {/* 순서 변경 — 위/아래 한 칸. 드래그앤드롭 대신 버튼이라 모바일에서도 동작한다. */}
+                            <div className="flex flex-col opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+                              <button
+                                onClick={() => void handleMovePlaylistVideo(v.id, -1)}
+                                disabled={reorderBusy || idx === 0}
+                                className="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent"
+                                title={t("mypage.playlist.moveUp")}
+                              >
+                                <ChevronUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => void handleMovePlaylistVideo(v.id, 1)}
+                                disabled={reorderBusy || idx === playlistVideos.length - 1}
+                                className="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent"
+                                title={t("mypage.playlist.moveDown")}
+                              >
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                             <button
                               onClick={() => handleRemoveFromPlaylist(v.id)}
                               className="p-2 rounded-lg hover:bg-red-500/10 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"

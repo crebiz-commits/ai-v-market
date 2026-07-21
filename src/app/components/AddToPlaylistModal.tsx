@@ -5,7 +5,7 @@
 // 체크박스 토글 즉시 add/remove RPC 호출 (Optimistic UI).
 // 하단에 "+ 새 플레이리스트 만들기" — 인라인 입력 후 자동 추가.
 // ════════════════════════════════════════════════════════════════════════════
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Plus, Check, Bookmark, FolderPlus, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
@@ -91,6 +91,32 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, videoId]);
+
+  // 접근성 — ESC 닫기 + 포커스 트랩. 예전엔 배경 클릭으로만 닫혔고 Tab 이 모달 밖으로 샜다.
+  //   ESC 는 생성 모드일 때 그 모드만 취소하고(입력창 핸들러가 처리), 두 번째 ESC 에 모달이 닫힌다.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (!showCreate) onClose();   // 생성 모드면 입력창 핸들러가 그 모드만 취소
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const root = dialogRef.current;
+      if (!root) return;
+      const items = Array.from(
+        root.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'),
+      ).filter((el) => el.offsetParent !== null);
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, showCreate, onClose]);
 
   const toggleMembership = async (pl: PlaylistRow) => {
     if (busyIds.has(pl.playlist_id)) return;
@@ -194,12 +220,16 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[151] mx-auto max-w-md bg-card border border-border rounded-2xl shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-to-playlist-title"
           >
             {/* Header */}
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FolderPlus className="w-5 h-5 text-[#8b5cf6]" />
-                <h3 className="font-bold text-base">{t("addToPlaylist.title")}</h3>
+                <h3 id="add-to-playlist-title" className="font-bold text-base">{t("addToPlaylist.title")}</h3>
               </div>
               <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted">
                 <X className="w-5 h-5" />
