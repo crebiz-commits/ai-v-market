@@ -21,6 +21,15 @@ interface AdminPagerProps {
 export function AdminPager({
   page, pageSize, hasMore, loading = false, total = null, onPageChange, onPageSizeChange,
 }: AdminPagerProps) {
+  // 한 페이지뿐이면 페이저 자체를 숨긴다 — 1건짜리 목록에 '이전/다음'은 의미가 없다.
+  //   ⚠️ 단 페이지 크기를 이미 키워둔 상태(예: 100)에서 40건이면 hasMore 가 false 라
+  //      그대로 숨기면 30 으로 되돌릴 수단이 사라진다 → 기본 크기일 때만 숨긴다.
+  //   총건수를 모르는 화면(total=null)은 hasMore 로만 판단.
+  const singlePage =
+    page === 0 && !hasMore && pageSize === PAGE_SIZES[0] &&
+    (total == null || total <= PAGE_SIZES[0]);
+  if (singlePage) return null;
+
   const from = page * pageSize + 1;
   const to = total != null ? Math.min((page + 1) * pageSize, total) : (page + 1) * pageSize;
 

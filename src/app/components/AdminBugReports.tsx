@@ -303,7 +303,7 @@ export function AdminBugReports() {
         </>
       )}
       {/* 페이저는 목록 분기 밖 — 안에 두면 로딩 중 통째로 언마운트돼 클릭 지점이 사라진다 */}
-      {!loadError && (total > 0 || page > 0) && (
+      {!loadError && (
         <AdminPager
           page={page} pageSize={pageSize} hasMore={hasMore} loading={loading} total={total}
           onPageChange={goToPage} onPageSizeChange={setPageSize}
