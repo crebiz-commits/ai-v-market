@@ -557,13 +557,14 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     if (!user?.id || pageMode !== 'user') return;
     let cancelled = false;
     (async () => {
-      const [wh, pl] = await Promise.all([
-        supabase.rpc('get_my_watch_history', { p_limit: 500, p_offset: 0 }),
+      // 시청 수는 전용 count RPC — 예전엔 500행을 통째로 받아 .length 를 셌다(501편부터 500 고정 + 페이로드 낭비)
+      const [wc, pl] = await Promise.all([
+        supabase.rpc('get_my_watch_count'),
         supabase.from('playlists').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       ]);
       if (cancelled) return;
       setUserStats({
-        watched: Array.isArray(wh.data) ? wh.data.length : 0,
+        watched: Number((wc.data as any) ?? 0) || 0,
         playlists: pl.count ?? 0,
       });
     })();
@@ -690,15 +691,15 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     //   '이 페이지 안에서의 합계'가 되므로 서버 집계(get_my_purchase_summary)를 따로 받는다.
     try {
       const [listRes, sumRes] = await Promise.all([
-        supabase.rpc('get_my_purchases', { p_limit: PURCHASES_PAGE, p_offset: 0 }),
+        supabase.rpc('get_my_purchases', { p_limit: PURCHASES_PAGE + 1, p_offset: 0 }),   // +1: 다음 페이지 유무 판정용
         supabase.rpc('get_my_purchase_summary'),
       ]);
       if (listRes.error) {
         console.warn('[MyPage] 구매내역 조회 실패:', listRes.error.message);
       } else {
-        const rows = (listRes.data || []) as any[];
-        setPurchaseHistory(rows.map((r) => mapPurchaseRow(r, t)));
-        setPurchasesHasMore(rows.length >= PURCHASES_PAGE);
+        const fetched = (listRes.data || []) as any[];
+        setPurchaseHistory(fetched.slice(0, PURCHASES_PAGE).map((r) => mapPurchaseRow(r, t)));
+        setPurchasesHasMore(fetched.length > PURCHASES_PAGE);
       }
       if (sumRes.error) {
         console.warn('[MyPage] 구매 합계 조회 실패:', sumRes.error.message);
@@ -717,7 +718,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     let creatorVideoCount = 0;
     try {
       const [listRes, sumRes] = await Promise.all([
-        supabase.rpc('get_my_creator_products', { p_limit: PRODUCTS_PAGE, p_offset: 0 }),
+        supabase.rpc('get_my_creator_products', { p_limit: PRODUCTS_PAGE + 1, p_offset: 0 }),   // +1
         supabase.rpc('get_my_creator_summary'),
       ]);
 
@@ -733,9 +734,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
         console.warn('[MyPage] 내 영상 조회 실패:', listRes.error.message);
         unexpectedError = true;
       } else {
-        const rows = (listRes.data || []) as any[];
-        setMyProducts(rows.map((r) => mapProductRow(r, viewMap, t)));
-        setProductsHasMore(rows.length >= PRODUCTS_PAGE);
+        const fetched = (listRes.data || []) as any[];
+        setMyProducts(fetched.slice(0, PRODUCTS_PAGE).map((r) => mapProductRow(r, viewMap, t)));
+        setProductsHasMore(fetched.length > PRODUCTS_PAGE);
       }
 
       if (sumRes.error) {
@@ -906,16 +907,16 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     if (activeTab !== 'history' || !isAuthenticated) return;
     (async () => {
       setWatchHistoryLoading(true);
-      const { data, error } = await supabase.rpc('get_my_watch_history', { p_limit: WATCH_HISTORY_PAGE, p_offset: 0 });
+      const { data, error } = await supabase.rpc('get_my_watch_history', { p_limit: WATCH_HISTORY_PAGE + 1, p_offset: 0 });   // +1
       if (error) {
         console.warn('[MyPage] watch history 조회 실패:', error.message);
         toast.error(t("mypage.watchHistory.loadFailed", { message: error.message }));
         setWatchHistory([]);
         setWatchHistoryHasMore(false);
       } else {
-        const list = (data || []) as any[];
-        setWatchHistory(list);
-        setWatchHistoryHasMore(list.length >= WATCH_HISTORY_PAGE);
+        const fetched = (data || []) as any[];
+        setWatchHistory(fetched.slice(0, WATCH_HISTORY_PAGE));
+        setWatchHistoryHasMore(fetched.length > WATCH_HISTORY_PAGE);
       }
       setWatchHistoryLoading(false);
     })();
@@ -927,15 +928,16 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     if (watchHistoryLoadingMore || !watchHistoryHasMore) return;
     setWatchHistoryLoadingMore(true);
     const { data, error } = await supabase.rpc('get_my_watch_history', {
-      p_limit: WATCH_HISTORY_PAGE, p_offset: watchHistory.length,
+      p_limit: WATCH_HISTORY_PAGE + 1, p_offset: watchHistory.length,
     });
     setWatchHistoryLoadingMore(false);
     if (error || !Array.isArray(data)) { setWatchHistoryHasMore(false); return; }
+    const fetched = data as any[];
     setWatchHistory(prev => {
       const seen = new Set(prev.map((h: any) => h.video_id));
-      return [...prev, ...(data as any[]).filter((h) => !seen.has(h.video_id))];
+      return [...prev, ...fetched.slice(0, WATCH_HISTORY_PAGE).filter((h) => !seen.has(h.video_id))];
     });
-    setWatchHistoryHasMore((data as any[]).length >= WATCH_HISTORY_PAGE);
+    setWatchHistoryHasMore(fetched.length > WATCH_HISTORY_PAGE);
   };
 
   const handleDeleteHistoryItem = async (videoId: string) => {
@@ -1020,15 +1022,16 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     if (purchasesLoadingMore || !purchasesHasMore) return;
     setPurchasesLoadingMore(true);
     const { data, error } = await supabase.rpc('get_my_purchases', {
-      p_limit: PURCHASES_PAGE, p_offset: purchaseHistory.length,
+      p_limit: PURCHASES_PAGE + 1, p_offset: purchaseHistory.length,
     });
     setPurchasesLoadingMore(false);
     if (error || !Array.isArray(data)) { setPurchasesHasMore(false); return; }
+    const fetched = data as any[];
     setPurchaseHistory((prev) => {
       const seen = new Set(prev.map((p) => p.id));
-      return [...prev, ...(data as any[]).filter((r) => !seen.has(r.id)).map((r) => mapPurchaseRow(r, t))];
+      return [...prev, ...fetched.slice(0, PURCHASES_PAGE).filter((r) => !seen.has(r.id)).map((r) => mapPurchaseRow(r, t))];
     });
-    setPurchasesHasMore((data as any[]).length >= PURCHASES_PAGE);
+    setPurchasesHasMore(fetched.length > PURCHASES_PAGE);
   };
 
   // 내 영상 더 보기 — 조회수 맵은 첫 로드 때 받아둔 것(전 영상 대상)을 재사용
@@ -1036,15 +1039,16 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     if (productsLoadingMore || !productsHasMore) return;
     setProductsLoadingMore(true);
     const { data, error } = await supabase.rpc('get_my_creator_products', {
-      p_limit: PRODUCTS_PAGE, p_offset: myProducts.length,
+      p_limit: PRODUCTS_PAGE + 1, p_offset: myProducts.length,
     });
     setProductsLoadingMore(false);
     if (error || !Array.isArray(data)) { setProductsHasMore(false); return; }
+    const fetched = data as any[];
     setMyProducts((prev) => {
       const seen = new Set(prev.map((p: any) => p.id));
-      return [...prev, ...(data as any[]).filter((r) => !seen.has(r.id)).map((r) => mapProductRow(r, viewMapRef.current, t))];
+      return [...prev, ...fetched.slice(0, PRODUCTS_PAGE).filter((r) => !seen.has(r.id)).map((r) => mapProductRow(r, viewMapRef.current, t))];
     });
-    setProductsHasMore((data as any[]).length >= PRODUCTS_PAGE);
+    setProductsHasMore(fetched.length > PRODUCTS_PAGE);
   };
 
   // 합계는 서버 집계(get_my_creator_summary) — 목록이 페이지 단위라 화면에서 reduce 하면

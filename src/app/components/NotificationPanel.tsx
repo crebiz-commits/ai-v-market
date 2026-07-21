@@ -115,14 +115,15 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
     try {
       // 첫 페이지 + 정확한 미읽음 총계(별도 count) — 페이지 상한 밖 미읽음도 벨에 정확히 반영.
       const [{ data, error }, { count }] = await Promise.all([
-        supabase.from("notifications").select("*").order("created_at", { ascending: false }).range(0, NOTIF_PAGE - 1),
+        supabase.from("notifications").select("*").order("created_at", { ascending: false }).range(0, NOTIF_PAGE),   // +1: 한 건 더 받아 다음 페이지 유무를 정확히 판단(정확히 배수일 때 빈 페이지 헛클릭 방지)
         supabase.from("notifications").select("id", { count: "exact", head: true }).eq("read", false),
       ]);
       if (error) throw error;
-      const notifs = (data as Notification[]) || [];
+      const fetched = (data as Notification[]) || [];
+      const notifs = fetched.slice(0, NOTIF_PAGE);
       seenIdsRef.current = new Set(notifs.map((n) => n.id));   // 목록 확정 시 seen 리셋(실시간 dedup 기준)
       setNotifications(notifs);
-      setHasMore(notifs.length === NOTIF_PAGE);
+      setHasMore(fetched.length > NOTIF_PAGE);
       const exactUnread = count ?? notifs.filter((n) => !n.read).length;
       setUnreadTotal(exactUnread);
       onUnreadCountChange?.(exactUnread);
@@ -145,18 +146,19 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
       .from("notifications")
       .select("*")
       .order("created_at", { ascending: false })
-      .range(from, from + NOTIF_PAGE - 1);
+      .range(from, from + NOTIF_PAGE);   // +1
     setLoadingMore(false);
     // 조회 실패(알림이 지워져 범위를 벗어난 416 포함) → 눌러도 반응 없는 버튼이 남지 않게 감춤
     if (error) { setHasMore(false); return; }
-    const next = (data as Notification[]) || [];
+    const fetched = (data as Notification[]) || [];
+    const next = fetched.slice(0, NOTIF_PAGE);
     setNotifications((prev) => {
       const seen = new Set(prev.map((n) => n.id));
       const fresh = next.filter((n) => !seen.has(n.id));
       fresh.forEach((n) => seenIdsRef.current.add(n.id));
       return [...prev, ...fresh];
     });
-    setHasMore(next.length === NOTIF_PAGE);
+    setHasMore(fetched.length > NOTIF_PAGE);
   };
 
   useEffect(() => {

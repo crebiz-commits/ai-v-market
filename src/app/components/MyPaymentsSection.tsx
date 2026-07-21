@@ -64,7 +64,8 @@ export function MyPaymentsSection() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.rpc("get_my_payments", { p_limit: PAYMENTS_PAGE, p_offset: 0 });
+    // +1: 한 건 더 받아 다음 페이지 유무를 정확히 판단(정확히 배수일 때 빈 페이지 헛클릭 방지)
+    const { data, error } = await supabase.rpc("get_my_payments", { p_limit: PAYMENTS_PAGE + 1, p_offset: 0 });
     if (error) {
       console.error("[MyPaymentsSection] 조회 실패:", error);
       toast.error(t("myPayments.loadError"));
@@ -73,9 +74,9 @@ export function MyPaymentsSection() {
       setHasMore(false);
     } else {
       setLoadError(false);
-      const list = (data || []) as MyPayment[];
-      setPayments(list);
-      setHasMore(list.length >= PAYMENTS_PAGE);
+      const fetched = (data || []) as MyPayment[];
+      setPayments(fetched.slice(0, PAYMENTS_PAGE));
+      setHasMore(fetched.length > PAYMENTS_PAGE);
     }
     setLoading(false);
   };
@@ -85,16 +86,17 @@ export function MyPaymentsSection() {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
     const { data, error } = await supabase.rpc("get_my_payments", {
-      p_limit: PAYMENTS_PAGE, p_offset: payments.length,
+      p_limit: PAYMENTS_PAGE + 1, p_offset: payments.length,
     });
     setLoadingMore(false);
     if (error || !Array.isArray(data)) { setHasMore(false); return; }
-    const next = data as MyPayment[];
+    const fetched = data as MyPayment[];
+    const next = fetched.slice(0, PAYMENTS_PAGE);
     setPayments((prev) => {
       const seen = new Set(prev.map((p) => p.id));
       return [...prev, ...next.filter((p) => !seen.has(p.id))];
     });
-    setHasMore(next.length >= PAYMENTS_PAGE);
+    setHasMore(fetched.length > PAYMENTS_PAGE);
   };
 
   useEffect(() => {

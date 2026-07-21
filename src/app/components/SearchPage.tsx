@@ -331,7 +331,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
       const [videosRes, creatorsRes] = await Promise.all([
         supabase.rpc("search_videos", rpcParams),
         trimmed
-          ? supabase.rpc("search_creators", { p_query: trimmed, p_limit: CREATORS_PAGE, p_offset: 0 })
+          ? supabase.rpc("search_creators", { p_query: trimmed, p_limit: CREATORS_PAGE + 1, p_offset: 0 })
           : Promise.resolve({ data: [] as CreatorResult[], error: null }),
       ]);
 
@@ -365,9 +365,9 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
         setCreators([]);
         setCreatorsHasMore(false);
       } else {
-        const list = (creatorsRes.data ?? []) as CreatorResult[];
-        setCreators(list);
-        setCreatorsHasMore(list.length >= CREATORS_PAGE);
+        const fetched = (creatorsRes.data ?? []) as CreatorResult[];
+        setCreators(fetched.slice(0, CREATORS_PAGE));   // +1 로 받아 다음 페이지 유무만 판단
+        setCreatorsHasMore(fetched.length > CREATORS_PAGE);
       }
     } finally {
       if (seq === searchSeqRef.current) setLoading(false);
@@ -407,15 +407,16 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
     setLoadingMoreCreators(true);
     try {
       const { data, error } = await supabase.rpc("search_creators", {
-        p_query: submittedQuery, p_limit: CREATORS_PAGE, p_offset: creators.length,
+        p_query: submittedQuery, p_limit: CREATORS_PAGE + 1, p_offset: creators.length,
       });
       if (seq !== searchSeqRef.current) return;   // 그 사이 새 검색이 시작됐으면 이 페이지 폐기
       if (error || !Array.isArray(data)) { setCreatorsHasMore(false); return; }
+      const fetched = data as CreatorResult[];
       setCreators((prev) => {
         const seen = new Set(prev.map((c) => c.creator_id));
-        return [...prev, ...(data as CreatorResult[]).filter((c) => !seen.has(c.creator_id))];
+        return [...prev, ...fetched.slice(0, CREATORS_PAGE).filter((c) => !seen.has(c.creator_id))];
       });
-      setCreatorsHasMore((data as any[]).length >= CREATORS_PAGE);
+      setCreatorsHasMore(fetched.length > CREATORS_PAGE);
     } finally {
       setLoadingMoreCreators(false);
     }

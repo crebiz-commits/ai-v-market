@@ -364,17 +364,19 @@ const POSTS_PAGE = 50;
 
 // 게시글 한 페이지 조회 + 임베드 영상 메타(제목·썸네일) 일괄 채우기.
 //   초기 로드와 '더 보기'가 같은 경로를 쓰도록 분리. 실패 시 null.
-async function fetchPostPage(offset: number, localeTag: string): Promise<Post[] | null> {
+async function fetchPostPage(offset: number, localeTag: string): Promise<{ posts: Post[]; hasMore: boolean } | null> {
   const { data, error } = await supabase
     .from("community_posts")
     .select("*")
     .order("created_at", { ascending: false })
-    .range(offset, offset + POSTS_PAGE - 1);
+    .range(offset, offset + POSTS_PAGE);   // +1: 한 건 더 받아 다음 페이지 유무를 정확히 판단(정확히 배수일 때 빈 페이지 헛클릭 방지)
   if (error) {
     console.warn("[Community] 게시글 조회 실패:", error.message);
     return null;
   }
-  const mapped = (data || []).map((r) => rowToPost(r, localeTag));
+  const rows = (data || []).slice(0, POSTS_PAGE);
+  const hasMore = (data || []).length > POSTS_PAGE;
+  const mapped = rows.map((r) => rowToPost(r, localeTag));
   const videoIds = [...new Set(mapped.map((p) => p.videoId).filter(Boolean))] as string[];
   if (videoIds.length > 0) {
     const { data: vids } = await supabase.from("videos").select("id,title,thumbnail").in("id", videoIds);
@@ -384,7 +386,7 @@ async function fetchPostPage(offset: number, localeTag: string): Promise<Post[] 
       if (v) { p.videoTitle = v.title || "Untitled"; p.videoThumbnail = v.thumbnail || ""; }
     });
   }
-  return mapped;
+  return { posts: mapped, hasMore };
 }
 
 export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChallengeParticipate, onPlayVideo, initialCollabPostId, onInitialCollabPostConsumed, initialPostId, onInitialPostConsumed, initialChallengeId, onInitialChallengeConsumed }: CommunityProps = {}) {
@@ -504,14 +506,13 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     if (cachedPosts) { setPosts(cachedPosts); setLoadingPosts(false); }  // 캐시 즉시 표시 후 아래서 갱신
     else setLoadingPosts(true);
     (async () => {
-      const mapped = await fetchPostPage(0, localeTag);
+      const res = await fetchPostPage(0, localeTag);
       if (cancelled) return;
-      if (mapped) {
-        const more = mapped.length === POSTS_PAGE;
-        postsCache[ckey] = mapped;
-        postsHasMoreCache[ckey] = more;
-        setPosts(mapped);
-        setHasMorePosts(more);
+      if (res) {
+        postsCache[ckey] = res.posts;
+        postsHasMoreCache[ckey] = res.hasMore;
+        setPosts(res.posts);
+        setHasMorePosts(res.hasMore);
       }
       setLoadingPosts(false);
     })();
@@ -526,15 +527,14 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
     setLoadingMorePosts(false);
     // 조회 실패(글이 지워져 범위를 벗어난 416 포함) → 눌러도 반응 없는 버튼이 남지 않게 감춤
     if (!next) { setHasMorePosts(false); postsHasMoreCache[localeTag] = false; return; }
-    const more = next.length === POSTS_PAGE;
     setPosts((prev) => {
       const seen = new Set(prev.map((p) => p.id));
-      const merged = [...prev, ...next.filter((p) => !seen.has(p.id))];
+      const merged = [...prev, ...next.posts.filter((p) => !seen.has(p.id))];
       postsCache[localeTag] = merged;
       return merged;
     });
-    postsHasMoreCache[localeTag] = more;
-    setHasMorePosts(more);
+    postsHasMoreCache[localeTag] = next.hasMore;
+    setHasMorePosts(next.hasMore);
   };
 
   // 챌린지 DB 로드 + 참여작 수 (영상 태그 challenge:<tag> 카운트)
