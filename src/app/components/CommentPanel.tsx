@@ -553,11 +553,22 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
       const { data, error } = await rq;
       if (error) throw error;
       const rows = (data || []).map((r: any) => ({ ...r, author_name: r.author_name || t("community.anonymous") })) as Comment[];
-      setComments((prev) => prev.map((c) => {
-        if (c.id !== parentId) return c;
-        const seen = new Set((c.replies || []).map((r) => r.id));
-        return { ...c, replies: [...(c.replies || []), ...rows.filter((r) => !seen.has(r.id))] };
-      }));
+      // ⚠️ 새로 붙는 답글이 없으면 **같은 참조를 반환**해야 한다. .map() 은 항상 새 배열을
+      //    만들어 comments 아이덴티티를 바꾸는데, 딥링크 useEffect 가 comments 를 구독하므로
+      //    "0건 응답 → 새 참조 → 이펙트 재실행 → loadReplies 재호출" 무한 루프가 된다.
+      //    (숨김 답글 딥링크처럼 타겟을 영원히 못 찾는 경우 종료 조건이 없다)
+      let changed = false;
+      setComments((prev) => {
+        const next = prev.map((c) => {
+          if (c.id !== parentId) return c;
+          const seen = new Set((c.replies || []).map((r) => r.id));
+          const fresh = rows.filter((r) => !seen.has(r.id));
+          if (fresh.length === 0) return c;
+          changed = true;
+          return { ...c, replies: [...(c.replies || []), ...fresh] };
+        });
+        return changed ? next : prev;
+      });
       await mergeMyLikes(rows.map((r) => r.id));
     } catch (err) {
       console.warn("[CommentPanel] 답글 조회 실패:", err);
@@ -701,11 +712,17 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
           await loadReplies(replyTo.id);
         }
         setComments((prev) =>
-          prev.map((c) =>
-            c.id === replyTo.id
-              ? { ...c, replies: [...(c.replies || []), newComment], replyCount: (c.replyCount || 0) + 1 }
-              : c
-          )
+          prev.map((c) => {
+            if (c.id !== replyTo.id) return c;
+            // 위 loadReplies 가 INSERT 이후 서버를 읽었다면 새 답글이 이미 들어와 있다 → 중복 append 방지
+            //   (중복되면 duplicate key + 화면에 2개, 하나 지우면 둘 다 사라지는데 카운트는 1만 감소)
+            const already = (c.replies || []).some((r) => r.id === newComment.id);
+            return {
+              ...c,
+              replies: already ? c.replies : [...(c.replies || []), newComment],
+              replyCount: (c.replyCount || 0) + 1,   // 서버 집계는 INSERT 이전 값이라 항상 +1
+            };
+          })
         );
         setExpandedReplies((prev) => new Set([...prev, replyTo.id]));
         setServerTotal((n) => (postId ? n + 1 : n));   // 커뮤니티 배지는 답글 포함
