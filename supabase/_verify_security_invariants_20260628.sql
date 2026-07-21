@@ -387,5 +387,20 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 creator_ad_stats_settlement_parity_20260721.sql 재적용(high_fixes_20260614·creator_ad_stats 재실행 금지)'
 
+  UNION ALL
+  -- 29) 크리에이터 "다음 정산 예정"이 gross 혼합 과대가 아닌가 (2026-07-22)
+  --     원본(phase21_creator_dashboard.sql)은 pending = 이번달 gross orders 합 + pending 분배액
+  --     으로 **단위를 섞어 과대** 표시했다. revenue_distributions.total_revenue 는 이미 크리에이터
+  --     순수령(share 적용 후)인데, 플랫폼 몫 차감 전 gross 를 또 더한 것.
+  --     channel_feed_audit3_20260710 이 "확정 pending 분배액만"으로 수정(HIGH), audit5 도 보존.
+  --     원본 재실행 시 크리에이터가 받을 금액이 실제보다 크게 표시 → 정산일 CS·신뢰 손상
+  --     (#28 광고통계 부풀림과 같은 '표시>지급' 클래스). 원본에만 있는 누적 패턴 부재로 판별.
+  SELECT 29,
+    '크리에이터 다음정산 예정액 gross 혼합 과대 아님(순수령 분배액만)',
+    CASE WHEN (SELECT bool_and(prosrc !~ 'v_pending := v_pending') FROM pg_proc
+               WHERE proname = 'get_creator_dashboard_summary')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 channel_feed_audit5_20260710.sql 의 get_creator_dashboard_summary 재적용(phase21_creator_dashboard.sql 재실행 금지)'
+
 ) AS gate
 ORDER BY sort;
