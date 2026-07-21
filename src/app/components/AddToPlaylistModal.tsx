@@ -7,7 +7,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Plus, Check, Bookmark, FolderPlus, Loader2 } from "lucide-react";
+import { X, Plus, Check, Bookmark, FolderPlus, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../utils/supabaseClient";
 import { useTranslation } from "react-i18next";
@@ -35,10 +35,16 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [loadError, setLoadError] = useState(false);   // 조회 실패 — "없음"과 구분
+  const [wlBusy, setWlBusy] = useState(false);         // 나중에 보기 토글 진행중
 
   // 플레이리스트 멤버십 조회
   const load = async () => {
-    if (!videoId) return;
+    if (!videoId) {
+      // 가드가 setLoading(true) 뒤에 있으면 스피너가 영원히 남는다(초기값 true).
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const { data, error } = await supabase.rpc("get_playlist_memberships", {
@@ -46,10 +52,34 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
       });
       if (error) throw error;
       setPlaylists((data as PlaylistRow[]) || []);
+      setLoadError(false);
     } catch (err: any) {
-      toast.error(t("addToPlaylist.fetchFailed"));
+      // ★ 실패 시 반드시 비운다. 안 비우면 **이전 영상의 체크 상태**가 다음 영상 화면에 남아,
+      //   사용자가 체크를 풀면 담긴 적 없는 영상에 remove 를 날리게 된다(2026-07-22 감사).
+      setPlaylists([]);
+      setLoadError(true);
+      // 서버가 '로그인이 필요합니다' 같은 구체 사유를 RAISE 하는데 고정문구로 덮으면 원인이 가려진다.
+      toast.error(err?.message || t("addToPlaylist.fetchFailed"));
     } finally {
       setLoading(false);
+    }
+  };
+
+  // "나중에 보기" 토글 — 이 RPC 가 watch-later 플레이리스트를 lazy create 하는 유일한 경로다.
+  //   (2026-07-22 이전엔 호출부가 0건이라 기능 전체가 도달 불가였다)
+  const toggleWatchLater = async () => {
+    if (wlBusy) return;
+    setWlBusy(true);
+    try {
+      const { data, error } = await supabase.rpc("toggle_watch_later", { p_video_id: videoId });
+      if (error) throw error;
+      toast.success(data ? t("addToPlaylist.addedToast") : t("addToPlaylist.removedToast"));
+      await load();   // 최초 호출이면 플레이리스트가 새로 생기므로 목록 재조회 필요
+      onChange?.();
+    } catch (err: any) {
+      toast.error(err?.message || t("addToPlaylist.fetchFailed"));
+    } finally {
+      setWlBusy(false);
     }
   };
 
@@ -104,16 +134,21 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
 
   const createAndAdd = async () => {
     const name = newName.trim();
-    if (!name) return;
+    if (!name) {
+      toast.error(t("addToPlaylist.minLength"));   // 공백만 입력 시 무반응이던 것
+      return;
+    }
     setCreating(true);
+    let createdId: string | null = null;
     try {
       const { data: newId, error } = await supabase.rpc("create_playlist", {
         p_name: name,
         p_description: null,
       });
       if (error) throw error;
+      createdId = newId as string;
       const { error: addErr } = await supabase.rpc("add_to_playlist", {
-        p_playlist_id: newId as string,
+        p_playlist_id: createdId,
         p_video_id: videoId,
       });
       if (addErr) throw addErr;
@@ -123,11 +158,23 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
       await load();
       onChange?.();
     } catch (err: any) {
-      toast.error(t("addToPlaylist.createFailed"));
+      // ★ 생성은 됐는데 담기만 실패한 경우를 구분한다. 예전엔 뭉뚱그려 "생성 실패"를 띄우고
+      //   목록도 갱신 안 해, 사용자가 재시도하면 같은 이름 플레이리스트가 계속 쌓였다.
+      if (createdId) {
+        setNewName("");
+        setShowCreate(false);
+        await load();       // 방금 만든 것이 목록에 보이도록
+        onChange?.();
+      }
+      toast.error(err?.message || t("addToPlaylist.createFailed"));
     } finally {
       setCreating(false);
     }
   };
+
+  // 나중에 보기는 목록에서 분리해 맨 위 고정 행으로 렌더한다(플레이리스트가 아직 없어도 항상 보이게).
+  const watchLaterRow = playlists.find((p) => p.is_watch_later) || null;
+  const normalPlaylists = playlists.filter((p) => !p.is_watch_later);
 
   return (
     <AnimatePresence>
@@ -172,13 +219,51 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
                 <div className="py-10 flex items-center justify-center">
                   <Loader2 className="w-5 h-5 animate-spin text-[#8b5cf6]" />
                 </div>
-              ) : playlists.length === 0 ? (
-                <div className="py-8 text-center text-sm text-muted-foreground px-5">
-                  {t("addToPlaylist.empty")}
+              ) : loadError ? (
+                /* 조회 실패를 "없음"으로 보여주면 사용자가 데이터가 사라진 줄 안다 → 구분 표시 + 재시도 */
+                <div className="py-8 px-5 text-center space-y-3">
+                  <AlertTriangle className="w-6 h-6 text-amber-400 mx-auto" />
+                  <p className="text-sm text-amber-200/90">{t("addToPlaylist.fetchFailed")}</p>
+                  <button
+                    onClick={load}
+                    className="px-3 py-1.5 rounded-lg border border-border text-xs font-semibold hover:border-white/40"
+                  >
+                    {t("common.retry", "다시 시도")}
+                  </button>
                 </div>
               ) : (
                 <div className="py-2">
-                  {playlists.map((pl) => {
+                  {/* ── 나중에 보기 (고정 행) ── 플레이리스트가 하나도 없어도 항상 보인다 ── */}
+                  <button
+                    onClick={toggleWatchLater}
+                    disabled={wlBusy}
+                    className="w-full flex items-center gap-3 px-5 py-3 hover:bg-muted transition-colors text-left disabled:opacity-60 border-b border-border/60"
+                  >
+                    <div
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                        watchLaterRow?.contains
+                          ? "bg-gradient-to-br from-[#ec4899] to-[#f43f5e] border-transparent"
+                          : "border-white/30"
+                      }`}
+                    >
+                      {wlBusy ? (
+                        <Loader2 className="w-3 h-3 animate-spin text-white" />
+                      ) : watchLaterRow?.contains ? (
+                        <Check className="w-3.5 h-3.5 text-white" />
+                      ) : null}
+                    </div>
+                    <p className="text-sm font-bold flex items-center gap-1.5">
+                      <Bookmark className="w-3.5 h-3.5 text-[#ec4899] fill-[#ec4899]" />
+                      {t("addToPlaylist.watchLaterLabel")}
+                    </p>
+                  </button>
+
+                  {normalPlaylists.length === 0 && (
+                    <div className="py-6 text-center text-sm text-muted-foreground px-5">
+                      {t("addToPlaylist.empty")}
+                    </div>
+                  )}
+                  {normalPlaylists.map((pl) => {
                     const busy = busyIds.has(pl.playlist_id);
                     return (
                       <button
@@ -239,6 +324,14 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
                     className="px-3 py-2 rounded-lg bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#ec4899] text-white text-xs font-bold disabled:opacity-50 flex items-center gap-1"
                   >
                     {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : t("addToPlaylist.create")}
+                  </button>
+                  {/* 취소 버튼 — 예전엔 ESC 로만 빠져나갈 수 있어 모바일에선 탈출 불가였다 */}
+                  <button
+                    onClick={() => { setShowCreate(false); setNewName(""); }}
+                    disabled={creating}
+                    className="px-3 py-2 rounded-lg border border-border text-xs font-semibold text-muted-foreground hover:border-white/40 disabled:opacity-50"
+                  >
+                    {t("addToPlaylist.cancel")}
                   </button>
                 </div>
               ) : (

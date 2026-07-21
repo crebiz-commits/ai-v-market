@@ -541,6 +541,15 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   const [activePlaylistName, setActivePlaylistName] = useState<string>("");
   const [playlistVideos, setPlaylistVideos] = useState<any[]>([]);
   const [playlistVideosLoading, setPlaylistVideosLoading] = useState(false);
+  // 조회 실패를 "없음"과 구분(빈 화면 오인 방지) — 2026-07-22 보관함 감사
+  const [playlistsError, setPlaylistsError] = useState(false);
+  const [playlistVideosError, setPlaylistVideosError] = useState(false);
+  // 인라인 이름 변경
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renameBusy, setRenameBusy] = useState(false);
+  // 재시도 트리거 — setActivePlaylistId(같은 값)은 React 가 무시해 재조회가 안 된다.
+  const [playlistVideosReload, setPlaylistVideosReload] = useState(0);
   // 유저 코너 헤더 스탯(시청/보관함) — 지연탭 대신 프로필 탭 즉시 표시용 경량 선로드. 구매는 purchaseHistory 사용.
   const [userStats, setUserStats] = useState<{ watched: number; playlists: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -873,6 +882,14 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
         setPolicyRates({});
         setPayoutInfo(null);
         setWatchHistory([]);
+        // 보관함도 함께 비운다 — watchHistory 만 챙기고 빠뜨려 있어서, 계정 전환 시
+        //   이전 사용자의 플레이리스트가 화면에 잔존했다(2026-07-22 보관함 감사).
+        setPlaylists([]);
+        setPlaylistVideos([]);
+        setActivePlaylistId(null);
+        setActivePlaylistName("");
+        setRenamingId(null);
+        setUserStats(null);
         setLoading(true);
       }
       const snap = myPageCache[user.id];
@@ -1012,8 +1029,12 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
       console.warn('[MyPage] 플레이리스트 조회 실패:', error.message);
       toast.error(t("mypage.playlist.playlistFetchFailed", { message: error.message }));
       setPlaylists([]);
+      // ★ 실패와 "0개"를 구분한다. 예전엔 둘 다 빈 배열이라 조회 실패인데도
+      //   "아직 플레이리스트가 없습니다"가 떠서 사용자가 데이터가 지워진 줄 알았다(2026-07-22 감사).
+      setPlaylistsError(true);
     } else {
       setPlaylists(data || []);
+      setPlaylistsError(false);
     }
     setPlaylistsLoading(false);
   };
@@ -1021,7 +1042,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     if (activeTab !== 'playlists' || !isAuthenticated) return;
     loadPlaylists();
     setActivePlaylistId(null);  // 탭 재진입 시 그리드로 돌아감
-  }, [activeTab, isAuthenticated]);
+    // user?.id 포함 — 계정 전환(isAuthenticated 는 계속 true)에서도 재로드돼야
+    //   이전 사용자 플레이리스트가 화면에 남지 않는다.
+  }, [activeTab, isAuthenticated, user?.id]);
 
   // 특정 플레이리스트 진입 시 영상 목록 로드
   useEffect(() => {
@@ -1037,13 +1060,15 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
       if (error) {
         toast.error(t("mypage.playlist.videoLoadFailed", { message: error.message }));
         setPlaylistVideos([]);
+        setPlaylistVideosError(true);   // 실패를 "비어있음"으로 보여주지 않기 위함
       } else {
         setPlaylistVideos(data || []);
+        setPlaylistVideosError(false);
       }
       setPlaylistVideosLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [activePlaylistId]);
+  }, [activePlaylistId, playlistVideosReload]);
 
   const handleDeletePlaylist = async (playlistId: string, name: string, isWatchLater: boolean) => {
     if (isWatchLater) {
@@ -1055,6 +1080,27 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     if (error) return toast.error(t("mypage.playlist.deleteFailed", { message: error.message }));
     toast.success(t("mypage.playlist.deleteSuccess"));
     await loadPlaylists();
+    // 프로필 탭 헤더의 '보관함 N' 도 같이 줄인다 — 안 하면 목록은 줄었는데 숫자만 옛값으로 남는다.
+    setUserStats(prev => (prev ? { ...prev, playlists: Math.max(0, prev.playlists - 1) } : prev));
+  };
+
+  // 플레이리스트 이름 변경 — update_playlist RPC 는 있었으나 호출부가 0건이라
+  //   오타로 만든 이름을 고칠 방법이 삭제 후 재생성뿐이었다(2026-07-22 감사).
+  const handleRenamePlaylist = async (playlistId: string) => {
+    const name = renameDraft.trim();
+    if (!name) { toast.error(t("mypage.playlist.nameRequired", "이름을 입력하세요")); return; }
+    setRenameBusy(true);
+    const { error } = await supabase.rpc('update_playlist', {
+      p_playlist_id: playlistId, p_name: name, p_description: null,
+    });
+    setRenameBusy(false);
+    if (error) return toast.error(t("mypage.playlist.renameFailed", { message: error.message }));
+    setRenamingId(null);
+    setRenameDraft("");
+    // 상세 화면 제목도 같이 갱신(같은 플레이리스트를 열어둔 채 이름을 바꾼 경우)
+    setActivePlaylistName(prev => (activePlaylistId === playlistId ? name : prev));
+    toast.success(t("mypage.playlist.renameSuccess", "이름이 변경되었습니다"));
+    await loadPlaylists();
   };
 
   const handleRemoveFromPlaylist = async (videoId: string) => {
@@ -1063,6 +1109,8 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     if (error) return toast.error(t("mypage.playlist.removeFailed", { message: error.message }));
     setPlaylistVideos(prev => prev.filter(v => v.id !== videoId));
     toast.success(t("mypage.playlist.removeSuccess"));
+    // 그리드로 돌아갔을 때 카드 개수가 옛값으로 남던 것 — 목록을 다시 받아 맞춘다.
+    await loadPlaylists();
   };
 
   // 구매내역 더 보기 — 다음 페이지 이어붙임(중복 id 제외)
@@ -2257,6 +2305,13 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       <div className="py-12 flex items-center justify-center">
                         <Loader2 className="w-6 h-6 animate-spin text-[#8b5cf6]" />
                       </div>
+                    ) : playlistVideosError ? (
+                      <div className="py-12 text-center space-y-3">
+                        <p className="text-sm text-amber-300">{t("mypage.playlist.loadFailed")}</p>
+                        <Button variant="outline" size="sm" onClick={() => setPlaylistVideosReload(n => n + 1)}>
+                          {t("common.retry")}
+                        </Button>
+                      </div>
                     ) : playlistVideos.length === 0 ? (
                       <div className="py-12 text-center text-sm text-gray-500">
                         {t("mypage.playlist.playlistEmpty")}
@@ -2323,6 +2378,14 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       <div className="py-12 flex items-center justify-center">
                         <Loader2 className="w-6 h-6 animate-spin text-[#8b5cf6]" />
                       </div>
+                    ) : playlistsError ? (
+                      /* 조회 실패 — "아직 없습니다"로 보여주면 데이터가 지워진 줄 안다 */
+                      <div className="py-12 text-center space-y-3">
+                        <p className="text-sm text-amber-300">{t("mypage.playlist.loadFailed")}</p>
+                        <Button variant="outline" size="sm" onClick={() => void loadPlaylists()}>
+                          {t("common.retry")}
+                        </Button>
+                      </div>
                     ) : playlists.length === 0 ? (
                       <div className="py-12 text-center">
                         <FolderPlus className="w-12 h-12 mx-auto text-gray-600 mb-3" />
@@ -2364,6 +2427,51 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                                 <p className="text-sm font-bold text-white line-clamp-1">{pl.name}</p>
                               </div>
                             </button>
+                            {/* 인라인 이름 변경 — 카드 버튼 밖(형제)이라 클릭이 상세 진입으로 새지 않는다 */}
+                            {renamingId === pl.id && (
+                              <div className="absolute inset-x-0 bottom-0 p-2 bg-[#121212] border-t border-white/10 flex gap-1.5">
+                                <input
+                                  autoFocus
+                                  value={renameDraft}
+                                  onChange={(e) => setRenameDraft(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") void handleRenamePlaylist(pl.id);
+                                    if (e.key === "Escape") { setRenamingId(null); setRenameDraft(""); }
+                                  }}
+                                  maxLength={60}
+                                  disabled={renameBusy}
+                                  className="input-base flex-1 text-xs min-w-0"
+                                />
+                                <button
+                                  onClick={() => void handleRenamePlaylist(pl.id)}
+                                  disabled={renameBusy || !renameDraft.trim()}
+                                  className="px-2 rounded-lg bg-[#6366f1] text-white text-[11px] font-bold disabled:opacity-50 flex-shrink-0"
+                                >
+                                  {renameBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : t("common.save")}
+                                </button>
+                                <button
+                                  onClick={() => { setRenamingId(null); setRenameDraft(""); }}
+                                  disabled={renameBusy}
+                                  className="px-2 rounded-lg border border-border text-[11px] text-muted-foreground flex-shrink-0"
+                                >
+                                  {t("common.cancel")}
+                                </button>
+                              </div>
+                            )}
+                            {/* 이름 변경 버튼 (Watch Later 는 시스템 생성이라 제외 — 삭제 규칙과 동일) */}
+                            {!pl.is_watch_later && renamingId !== pl.id && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRenamingId(pl.id);
+                                  setRenameDraft(pl.name);
+                                }}
+                                className="absolute top-2 right-11 p-1.5 rounded-lg bg-black/70 hover:bg-[#6366f1]/80 text-white opacity-0 group-hover:opacity-100 transition-all"
+                                title={t("mypage.playlist.renamePlaylist", "이름 변경")}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             {/* 삭제 버튼 (Watch Later 제외) */}
                             {!pl.is_watch_later && (
                               <button

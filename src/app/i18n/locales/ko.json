@@ -1106,7 +1106,11 @@
       "removeSuccess": "영상 제거됨",
       "removeFailed": "제거 실패: {{message}}",
       "playlistEmpty": "이 플레이리스트는 비어있습니다",
-      "loadFailed": "로드 실패"
+      "loadFailed": "로드 실패",
+      "renameFailed": "이름 변경 실패: {{message}}",
+      "renameSuccess": "이름이 변경되었습니다",
+      "renamePlaylist": "이름 변경",
+      "nameRequired": "이름을 입력하세요"
     },
     "settings": {
       "accountSecurity": "계정 보안",
