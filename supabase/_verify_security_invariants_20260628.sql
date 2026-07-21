@@ -402,5 +402,22 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 channel_feed_audit5_20260710.sql 의 get_creator_dashboard_summary 재적용(phase21_creator_dashboard.sql 재실행 금지)'
 
+  UNION ALL
+  -- 30) creator_restore_comment 가 화이트리스트 가드인가 (2026-07-22)
+  --     크리에이터는 자기 영상 댓글을 숨기고 되살릴 수 있는데, "누가 숨겼는지"를 안 보면
+  --     **관리자·신고로 숨긴 댓글까지 되살려 플랫폼 모더레이션을 무력화**한다(가이드라인 위반
+  --     댓글 부활). 프론트에 복원버튼 가드가 있으나 PostgREST 직접호출로 우회 가능 → 서버 가드 필수.
+  --     3판 존재: phase23_comment_management(가드 없음) / channel_feed_audit2(블록리스트라
+  --     '관리자 강제 숨김' 통과 = 불완전) / channel_feed_audit4(화이트리스트 = 정본, HIGH 수정).
+  --     화이트리스트 판만 크리에이터 사유 3종을 모두 참조하므로 그 존재로 판별.
+  SELECT 30,
+    '크리에이터 복원 화이트리스트(관리자·신고 숨김은 복원 불가)',
+    CASE WHEN (SELECT bool_and(prosrc ~ '크리에이터 차단'
+                           AND prosrc ~ '크리에이터 금칙어 매칭'
+                           AND prosrc ~ '크리에이터 숨김')
+               FROM pg_proc WHERE proname = 'creator_restore_comment')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 channel_feed_audit4_20260710.sql 의 creator_restore_comment 재적용(phase23_comment_management·audit2 재실행 금지 = 관리자 숨김 복원 뚫림)'
+
 ) AS gate
 ORDER BY sort;
