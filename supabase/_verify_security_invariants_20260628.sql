@@ -372,5 +372,20 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 admin_audit_hardening_20260714.sql 의 admin_reply_support_inquiry 재적용(support_inquiries_20260611.sql 재실행 금지)'
 
+  UNION ALL
+  -- 28) 크리에이터 광고통계가 정산과 같은 기준(유료광고만)인가 (2026-07-21)
+  --     정산 엔진(calculate_monthly_revenue, F1 2026-07-11 'ad_impression_basis=paid_only')은
+  --     ads 를 조인해 ad.budget_krw IS NOT NULL(유료광고) + ad_eligibility_at 이후만 집계한다.
+  --     그런데 마이페이지 판매 탭이 쓰는 get_creator_ad_stats(_by_video) 옛 판(high_fixes_20260614)
+  --     은 ads 조인 자체가 없어 **자체광고(house)까지 전량 집계** → 크리에이터에게 실제 정산보다
+  --     큰 예상수익을 표시(표시>지급). 옛 파일 재실행 시 재발하므로 두 필터 존재를 감시.
+  --     #13 은 같은 함수의 IDOR 가드(is_admin)만 보고 집계 기준은 안 봄 → 사각지대.
+  SELECT 28,
+    '크리에이터 광고통계 정산기준 일치(유료광고만·적격시점 이후)',
+    CASE WHEN (SELECT bool_and(prosrc ~ 'budget_krw' AND prosrc ~ 'ad_eligibility_at')
+               FROM pg_proc WHERE proname IN ('get_creator_ad_stats','get_creator_ad_stats_by_video'))
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 creator_ad_stats_settlement_parity_20260721.sql 재적용(high_fixes_20260614·creator_ad_stats 재실행 금지)'
+
 ) AS gate
 ORDER BY sort;
