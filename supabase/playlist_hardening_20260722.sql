@@ -291,8 +291,16 @@ SELECT '② video_id FK(ON DELETE CASCADE) 생성',
   CASE WHEN EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_playlist_videos_video')
     THEN '✅ PASS' ELSE '🔴 FAIL' END
 UNION ALL
-SELECT '③ 시리즈 접힘 제거(피드뷰 미사용)',
-  CASE WHEN (SELECT prosrc NOT LIKE '%v_available_videos%' FROM pg_proc
+-- ⚠️ 이 검사는 "JOIN 구문"만 봐야 한다. 단순히 prosrc 에 v_available_videos 문자열이 있는지
+--    보면 **본문 주석에 그 단어가 있다는 이유로 거짓 FAIL** 이 난다(2026-07-22 실제 발생).
+--    정의만 보는 검증의 함정과 같은 계열 — 문자열 존재 ≠ 실제 사용.
+SELECT '③ 시리즈 접힘 제거(피드뷰 조인 없음)',
+  CASE WHEN (SELECT prosrc NOT LIKE '%JOIN public.v_available_videos%' FROM pg_proc
+             WHERE proname = 'get_playlist_videos')
+    THEN '✅ PASS' ELSE '🔴 FAIL' END
+UNION ALL
+SELECT '③-2 videos 직접 조인으로 교체됨',
+  CASE WHEN (SELECT prosrc LIKE '%JOIN public.videos v ON v.id = pv.video_id%' FROM pg_proc
              WHERE proname = 'get_playlist_videos')
     THEN '✅ PASS' ELSE '🔴 FAIL' END
 UNION ALL
