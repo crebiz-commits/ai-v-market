@@ -1839,9 +1839,20 @@ app.post('/send-email', async (c) => {
     //   딥링크를 서버가 직접 구성한다(클라 link/html 불신 유지 → 피싱 안전). 동시에 최근 동일 팔로워
     //   알림이 있으면 전체 스킵(언팔→재팔 반복 스팸 디듀프). 링크에 actor id 를 심어 그걸로 디듀프.
     if (isActor && type === 'new_follower') {
+      // 이름 폴백은 채널 페이지(get_creator_profile RPC, channel_feed_audit_20260709.sql)와
+      //   **같은 순서**여야 한다: display_name → auth 메타 name → full_name → 'AI Creator'.
+      //   display_name 만 보면 소셜 로그인(구글·카카오) 사용자는 이름이 auth 메타에만 있어
+      //   알림에서 '누군가'로 떨어지는데, 그 알림을 눌러 들어간 채널엔 실제 이름이 떠서
+      //   같은 사람이 두 이름으로 보였다(2026-07-21 발견).
       const { data: actorProf } = await supabase
         .from('profiles').select('display_name').eq('id', callerId).maybeSingle();
-      const followerName = String(actorProf?.display_name || '').slice(0, 30) || '누군가';
+      let followerName = String(actorProf?.display_name || '').trim();
+      if (!followerName) {
+        const { data: actorAuth } = await supabase.auth.admin.getUserById(callerId);
+        const meta = (actorAuth?.user?.user_metadata ?? {}) as Record<string, unknown>;
+        followerName = String(meta.name || meta.full_name || '').trim();
+      }
+      followerName = followerName.slice(0, 30) || 'AI Creator';
       inapp.body = `${followerName}님이 회원님을 팔로우하기 시작했어요`;
       inapp.link = `/?tab=channel&creator=${callerId}`;   // 팔로워 채널 직행(서버구성이라 안전)
 
