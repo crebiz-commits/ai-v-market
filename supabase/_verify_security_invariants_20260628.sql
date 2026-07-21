@@ -358,5 +358,19 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 channel_feed_audit_20260709.sql ①(get_creator_profile) 재적용(phase6_5 재실행 금지=뱃지 사망)'
 
+  UNION ALL
+  -- 27) admin_reply_support_inquiry 가 admin_logs 를 남기는가 (2026-07-21)
+  --     고객 문의 답변은 결제·환불 안내를 포함한 대외 커뮤니케이션이라 "누가 무엇을 답했는지"
+  --     책임추적이 필요. 그런데 옛 정의(support_inquiries_20260611.sql)엔 admin_logs INSERT 가
+  --     없어 그 파일 재실행 시 답변 감사기록만 조용히 소멸한다(상태변경 admin_set_support_status
+  --     는 계속 남으므로 "일부만 남은 로그"가 되어 더 헷갈림). 정본=admin_audit_hardening_20260714.
+  --     이름이 admin_* 라 #7 이 스캔하지만 #7 은 "권한 게이트 유무"만 보고 로깅은 안 봄 → 사각지대.
+  SELECT 27,
+    'admin_reply_support_inquiry 감사로그 기록(문의 답변 책임추적)',
+    CASE WHEN (SELECT bool_and(prosrc ~ 'admin_logs') FROM pg_proc
+               WHERE proname = 'admin_reply_support_inquiry')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 admin_audit_hardening_20260714.sql 의 admin_reply_support_inquiry 재적용(support_inquiries_20260611.sql 재실행 금지)'
+
 ) AS gate
 ORDER BY sort;
