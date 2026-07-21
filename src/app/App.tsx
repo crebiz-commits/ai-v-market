@@ -458,6 +458,20 @@ function AppContent() {
     window.history.replaceState({ tab: "search" }, "", `${window.location.pathname}?${params.toString()}`);
   }, []);
   // Phase 16/17: 영상 ID로 ProductDetail 열기 (시청 기록 클릭, 연속 재생 등에서 재사용)
+  // ?video= / ?comment= 딥링크 파라미터 제거.
+  //   이 둘이 URL 에 남아 있으면 탭 URL 동기화가 통째로 멈추고(:355 조기 return),
+  //   그 상태에서 새로고침하면 어느 화면에 있든 그 영상 상세가 다시 열린다(2026-07-21).
+  //   comment 도 같이 지운다 — video 없이 홀로 남으면 아무 의미가 없다.
+  const stripVideoParams = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("video") && !url.searchParams.has("comment")) return;
+    url.searchParams.delete("video");
+    url.searchParams.delete("comment");
+    const qs = url.searchParams.toString();
+    window.history.replaceState(window.history.state, "", url.pathname + (qs ? `?${qs}` : "") + url.hash);
+  }, []);
+
   const loadAndOpenVideo = async (videoId: string, opts?: { openComments?: boolean; targetCommentId?: string | null }) => {
     try {
       const { data, error } = await supabase
@@ -506,6 +520,9 @@ function AppContent() {
       setCommentTargetOnOpen(opts?.targetCommentId ?? null);   // 없으면 해제(연속재생 stale 방지)
     } catch (err: any) {
       toast.error(t("app.videoFetchFailed", { message: err?.message || err }));
+      // 조회 실패 시 딥링크 파라미터를 남겨두면 상세가 안 열리므로 정리 effect 도 못 돌고
+      //   ?video= 가 URL 에 영구히 박힌다 → 새로고침할 때마다 같은 실패 반복. 여기서 지운다.
+      stripVideoParams();
     }
   };
 
@@ -992,12 +1009,20 @@ function AppContent() {
     if (selectedProduct) { hadProductRef.current = true; return; }
     if (!hadProductRef.current) return;   // 첫 마운트 보호 — ?video= 딥링크가 소비되기 전 삭제 방지
     hadProductRef.current = false;
-    const url = new URL(window.location.href);
-    if (url.searchParams.has("video")) {
-      url.searchParams.delete("video");
-      window.history.replaceState(window.history.state, "", url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : "") + url.hash);
-    }
-  }, [selectedProduct]);
+    stripVideoParams();
+  }, [selectedProduct, stripVideoParams]);
+
+  // 탭 이동 = "이 영상에서 나간다" → 열려 있던 상세를 닫는다(닫히면 위 effect 가 ?video= 도 지움).
+  //   예전엔 탭을 옮겨도 모달이 새 탭 위에 그대로 떠 있었고, 더 나쁜 건 URL 에 ?video= 가 남아
+  //   탭 URL 동기화가 통째로 멈춘다는 것(:355 조기 return). 그 상태로 새로고침하면 관리자 등
+  //   다른 화면에 있어도 그 영상 상세가 다시 열렸다(2026-07-21).
+  //   ※ 마운트 직후엔 발동하지 않는다(초기값 비교) → ?tab=admin&video= 딥링크 정상 소비.
+  const prevTabRef = useRef(activeTab);
+  useEffect(() => {
+    if (prevTabRef.current === activeTab) return;
+    prevTabRef.current = activeTab;
+    setSelectedProduct(null);   // 이 setter 가 fullscreen·댓글 자동열기 상태도 함께 리셋(:402)
+  }, [activeTab]);
 
   // 탭 청크 프리페치: 앱 idle 시 메인 탭 lazy 청크를 미리 받아둠 → 첫 탭 전환 시 다운로드 대기(스피너) 제거.
   // (이미 받은 청크는 브라우저가 dedup, 실패해도 무해)
