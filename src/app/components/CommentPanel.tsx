@@ -27,6 +27,7 @@ interface Comment {
   creator_hearted?: boolean;
   liked?: boolean;
   replies?: Comment[];
+  replyCount?: number;   // 서버 집계(대댓글 전량 선로드 폐지) — 펼치기 전엔 replies 가 비어 있음
 }
 
 interface CommentPanelProps {
@@ -398,6 +399,12 @@ function CommentItemView({ comment, isReply = false, parentId, ctx }: { comment:
   );
 }
 
+// 댓글 페이지 크기 — 기존 .limit(50) 하드캡은 51번째부터 영구 미노출이었음(2026-07-21)
+const COMMENTS_PAGE = 30;
+// 대댓글 페이지 크기 — 기존엔 최상위 전체의 대댓글을 .in() 으로 **무제한** 한 번에 받아왔다.
+//   이제 '펼치기' 한 부모의 답글만 페이지 단위로 가져온다.
+const REPLIES_PAGE = 20;
+
 export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, onCommentPosted, onCommentDeleted, onViewCreator, targetCommentId, mode = "sheet" }: CommentPanelProps) {
   const { t, i18n } = useTranslation();
   const isKo = i18n.language?.startsWith("ko");
@@ -433,6 +440,10 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
+  const [hasMore, setHasMore] = useState(false);            // 최상위 댓글 다음 페이지 존재
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [serverTotal, setServerTotal] = useState(0);        // 헤더 "댓글 N"(서버 집계 — 페이지와 무관)
+  const [repliesLoading, setRepliesLoading] = useState<Set<string>>(new Set());
   const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<{ id: string; name: string } | null>(null);
@@ -442,83 +453,128 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
   const deletingRef = useRef<Set<string>>(new Set());   // 삭제 in-flight 가드(더블탭 이중 차감 방지)
   const fetchIdRef = useRef(0);                          // fetch 경쟁 방지(늦게 온 stale 응답 폐기)
 
+  // 내 좋아요 상태를 주어진 id 들에 대해 조회해 기존 집합에 합침(페이지·답글 로드마다 호출)
+  const mergeMyLikes = useCallback(async (ids: string[]) => {
+    if (!isAuthenticated || ids.length === 0) return;
+    const { data: liked } = await supabase.rpc("get_my_comment_likes", { p_comment_ids: ids });
+    if (liked) setLikedComments((prev) => new Set([...prev, ...(liked as any[]).map((row) => row.comment_id)]));
+  }, [isAuthenticated]);
+
+  // 최상위 댓글 한 페이지. 대댓글은 **개수만**(임베드 집계) 받고 본문은 펼칠 때 가져온다.
+  //   기존엔 페이지의 모든 부모에 대해 .in("parent_id", ids) 로 답글을 무제한 선로드했다.
+  const fetchPage = useCallback(async (offset: number) => {
+    const cols = "id, user_id, video_id, post_id, parent_id, content, likes_count, created_at, author_name, is_pinned, creator_hearted, is_hidden";
+    let q = supabase
+      .from("comments")
+      .select(cols + ", replies:comments!parent_id(count)")
+      .is("parent_id", null)
+      .eq("is_hidden", false)
+      .eq("replies.is_hidden", false)   // 숨김 답글은 개수에서 제외
+      .order("is_pinned", { ascending: false })
+      .order("created_at", { ascending: false })
+      .order("id")                      // tiebreaker: 동시각 댓글 페이지 경계 안정
+      .range(offset, offset + COMMENTS_PAGE - 1);
+    if (videoId) q = q.eq("video_id", videoId);
+    else if (postId) q = q.eq("post_id", postId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data || []).map((c: any) => ({
+      ...c,
+      author_name: c.author_name || t("community.anonymous"),
+      replies: [],
+      replyCount: Number(c.replies?.[0]?.count) || 0,
+    })) as Comment[];
+  }, [videoId, postId, t]);
+
+  // 헤더 "댓글 N" — 목록이 페이지 단위라 화면에서 셀 수 없어 서버 집계로 받는다.
+  //   영상 배지 = 최상위만 / 커뮤니티 배지 = 답글 포함 (기존 totalCount 규칙 유지)
+  const fetchTotal = useCallback(async () => {
+    let q = supabase.from("comments").select("id", { count: "exact", head: true }).eq("is_hidden", false);
+    if (videoId) q = q.eq("video_id", videoId).is("parent_id", null);
+    else if (postId) q = q.eq("post_id", postId);
+    const { count } = await q;
+    return count ?? 0;
+  }, [videoId, postId]);
+
   const fetchComments = useCallback(async () => {
     const myId = ++fetchIdRef.current;   // 이 fetch 세션 id — 늦게 온 응답이 최신 상태를 덮지 않게
     setLoading(true);
     try {
-      const cols = `
-        id, user_id, video_id, post_id, parent_id,
-        content, likes_count, created_at, author_name,
-        is_pinned, creator_hearted, is_hidden
-      `;
-
-      let query = supabase
-        .from("comments")
-        .select(cols)
-        .is("parent_id", null)
-        .eq("is_hidden", false)
-        .order("is_pinned", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      if (videoId) query = query.eq("video_id", videoId);
-      else if (postId) query = query.eq("post_id", postId);
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      const enriched: Comment[] = (data || []).map((c: any) => ({
-        ...c,
-        author_name: c.author_name || t("community.anonymous"),
-        replies: [],
-      }));
-
-      // 대댓글 (숨김 제외)
-      const parentIds = enriched.map((c) => c.id);
-      if (parentIds.length > 0) {
-        const { data: repData } = await supabase
-          .from("comments")
-          .select("id, user_id, parent_id, content, likes_count, created_at, author_name, creator_hearted, is_hidden")
-          .in("parent_id", parentIds)
-          .eq("is_hidden", false)
-          .order("created_at", { ascending: true });
-
-        if (repData) {
-          const repMap: Record<string, Comment[]> = {};
-          repData.forEach((r: any) => {
-            if (!repMap[r.parent_id]) repMap[r.parent_id] = [];
-            repMap[r.parent_id].push({ ...r, author_name: r.author_name || t("community.anonymous") });
-          });
-          enriched.forEach((c) => {
-            c.replies = repMap[c.id] || [];
-          });
-        }
-      }
-
+      const [rows, total] = await Promise.all([fetchPage(0), fetchTotal()]);
       if (myId !== fetchIdRef.current) return;   // 그 사이 videoId/postId 전환 → 이 응답 폐기
-      setComments(enriched);
-
-      // 현재 사용자의 좋아요 상태 일괄 조회
-      if (isAuthenticated) {
-        const allIds: string[] = [];
-        enriched.forEach((c) => {
-          allIds.push(c.id);
-          c.replies?.forEach((r) => allIds.push(r.id));
-        });
-        if (allIds.length > 0) {
-          const { data: liked } = await supabase.rpc("get_my_comment_likes", { p_comment_ids: allIds });
-          if (liked) {
-            setLikedComments(new Set((liked as any[]).map((row) => row.comment_id)));
-          }
-        }
-      }
+      setComments(rows);
+      setServerTotal(total);
+      setHasMore(rows.length === COMMENTS_PAGE);
+      setExpandedReplies(new Set());   // 대상 전환 시 펼침 초기화
+      setLikedComments(new Set());
+      await mergeMyLikes(rows.map((c) => c.id));
     } catch (err) {
       console.error("[CommentPanel] fetch error:", err);
-      if (myId === fetchIdRef.current) setComments([]);
+      if (myId === fetchIdRef.current) { setComments([]); setHasMore(false); }
     } finally {
       if (myId === fetchIdRef.current) setLoading(false);
     }
-  }, [videoId, postId, isAuthenticated]);
+  }, [fetchPage, fetchTotal, mergeMyLikes]);
+
+  // 최상위 더 보기 — 새 댓글이 위에 끼면 offset 이 밀리므로 id 로 dedup
+  const loadMoreComments = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const next = await fetchPage(comments.length);
+      setComments((prev) => {
+        const seen = new Set(prev.map((c) => c.id));
+        return [...prev, ...next.filter((c) => !seen.has(c.id))];
+      });
+      setHasMore(next.length === COMMENTS_PAGE);
+      await mergeMyLikes(next.map((c) => c.id));
+    } catch {
+      setHasMore(false);   // 실패 시 반응 없는 버튼이 남지 않게
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // 한 부모의 답글만 페이지 단위로 로드(펼칠 때 / '답글 더 보기')
+  const loadReplies = useCallback(async (parentId: string) => {
+    if (repliesLoading.has(parentId)) return;
+    setRepliesLoading((prev) => new Set([...prev, parentId]));
+    try {
+      const offset = comments.find((c) => c.id === parentId)?.replies?.length || 0;
+      const { data, error } = await supabase
+        .from("comments")
+        .select("id, user_id, parent_id, content, likes_count, created_at, author_name, creator_hearted, is_hidden")
+        .eq("parent_id", parentId)
+        .eq("is_hidden", false)
+        .order("created_at", { ascending: true })
+        .order("id")
+        .range(offset, offset + REPLIES_PAGE - 1);
+      if (error) throw error;
+      const rows = (data || []).map((r: any) => ({ ...r, author_name: r.author_name || t("community.anonymous") })) as Comment[];
+      setComments((prev) => prev.map((c) => {
+        if (c.id !== parentId) return c;
+        const seen = new Set((c.replies || []).map((r) => r.id));
+        return { ...c, replies: [...(c.replies || []), ...rows.filter((r) => !seen.has(r.id))] };
+      }));
+      await mergeMyLikes(rows.map((r) => r.id));
+    } catch (err) {
+      console.warn("[CommentPanel] 답글 조회 실패:", err);
+    } finally {
+      setRepliesLoading((prev) => { const n = new Set(prev); n.delete(parentId); return n; });
+    }
+  }, [comments, repliesLoading, mergeMyLikes, t]);
+
+  // 답글 펼치기/접기 — 처음 펼칠 때 서버에서 로드
+  const toggleReplies = useCallback((parentId: string) => {
+    setExpandedReplies((prev) => {
+      const next = new Set(prev);
+      if (next.has(parentId)) next.delete(parentId);
+      else next.add(parentId);
+      return next;
+    });
+    const parent = comments.find((c) => c.id === parentId);
+    if (parent && (parent.replies?.length || 0) === 0 && (parent.replyCount || 0) > 0) void loadReplies(parentId);
+  }, [comments, loadReplies]);
 
   useEffect(() => {
     fetchComments();
@@ -531,8 +587,22 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
   useEffect(() => {
     if (loading || !targetCommentId || comments.length === 0) return;
     if (scrolledToRef.current === targetCommentId) return;   // 타겟당 1회만
-    const parent = comments.find((c) => c.replies?.some((r) => r.id === targetCommentId));
-    if (parent) setExpandedReplies((prev) => (prev.has(parent.id) ? prev : new Set([...prev, parent.id])));
+    // 대댓글은 지연 로드라 아직 안 받았을 수 있음 → 타겟이 화면에 없으면 서버에서 부모를 조회해 펼친다.
+    //   (기존엔 답글이 전량 선로드돼 있어 로컬 탐색만으로 됐음)
+    const loadedParent = comments.find((c) => c.replies?.some((r) => r.id === targetCommentId));
+    if (loadedParent) {
+      setExpandedReplies((prev) => (prev.has(loadedParent.id) ? prev : new Set([...prev, loadedParent.id])));
+    } else if (!comments.some((c) => c.id === targetCommentId)) {
+      // 최상위도 아니고 로드된 답글도 아님 → 답글일 가능성. 부모를 물어보고 그 부모가 이 페이지에 있으면 펼침.
+      void (async () => {
+        const { data } = await supabase.from("comments").select("parent_id").eq("id", targetCommentId).maybeSingle();
+        const pid = (data as any)?.parent_id;
+        if (!pid) return;                                   // 삭제됐거나 최상위 → 무동작(기존과 동일)
+        if (!comments.some((c) => c.id === pid)) return;     // 부모가 아직 페이지 밖 → 무동작(기존과 동일)
+        setExpandedReplies((prev) => (prev.has(pid) ? prev : new Set([...prev, pid])));
+        await loadReplies(pid);
+      })();
+    }
     const timer = setTimeout(() => {
       const el = document.getElementById(`comment-${targetCommentId}`);
       if (!el) return;   // 아직 미렌더/미로드 → comments 변화 시 재시도
@@ -597,14 +667,20 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
       };
 
       if (replyTo) {
+        // 아직 답글을 안 받은 부모면 먼저 로드해야 새 답글만 덩그러니 보이지 않는다
+        const parentState = comments.find((c) => c.id === replyTo.id);
+        if (parentState && (parentState.replies?.length || 0) === 0 && (parentState.replyCount || 0) > 0) {
+          await loadReplies(replyTo.id);
+        }
         setComments((prev) =>
           prev.map((c) =>
             c.id === replyTo.id
-              ? { ...c, replies: [...(c.replies || []), newComment] }
+              ? { ...c, replies: [...(c.replies || []), newComment], replyCount: (c.replyCount || 0) + 1 }
               : c
           )
         );
         setExpandedReplies((prev) => new Set([...prev, replyTo.id]));
+        setServerTotal((n) => (postId ? n + 1 : n));   // 커뮤니티 배지는 답글 포함
 
         // Phase 34 — 원댓글 작성자에게 답글 알림 메일 (fire-and-forget)
         try {
@@ -661,13 +737,18 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
       if (parentId) {
         setComments(prev => prev.map(c =>
           c.id === parentId
-            ? { ...c, replies: (c.replies || []).filter(r => r.id !== commentId) }
+            ? { ...c, replies: (c.replies || []).filter(r => r.id !== commentId),
+                replyCount: Math.max(0, (c.replyCount || 0) - 1) }
             : c
         ));
+        setServerTotal(n => (postId ? Math.max(0, n - 1) : n));
       } else {
         const target = comments.find(c => c.id === commentId);
-        removed = 1 + (target?.replies?.length || 0);
+        // 답글은 지연 로드라 replies.length 가 0 일 수 있음 → 서버 집계(replyCount)로 계산해야
+        //   cascade 삭제된 답글 수가 피드 카운트에 정확히 반영된다
+        removed = 1 + (target?.replyCount ?? target?.replies?.length ?? 0);
         setComments(prev => prev.filter(c => c.id !== commentId));
+        setServerTotal(n => Math.max(0, n - (postId ? removed : 1)));
         // 최상위 댓글 삭제만 피드 카운트 -1 (답글 삭제는 top-level 수 불변)
         if (videoId) bumpComments(videoId, -1);
       }
@@ -814,9 +895,9 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
   // 헤더 "댓글 N" 을 각 컨텍스트의 피드 배지와 같은 의미로 맞춘다(불일치 해소):
   //   · 영상 배지 = 최상위만(seedComments·bumpComments·DiscoveryFeed 전부 parent_id null 기준) → 답글 제외.
   //   · 커뮤니티 배지 = 트리거가 답글 포함 전체 재계산 → 답글 포함.
-  const totalCount = videoId
-    ? visibleComments.length
-    : visibleComments.reduce((acc, c) => acc + 1 + (c.replies?.length || 0), 0);
+  // 목록이 페이지 단위라 화면에서 세면 "이 페이지까지의 수"가 된다 → 서버 집계 사용.
+  //   (차단 사용자 제외분은 반영되지 않지만, 기존엔 50건 상한 때문에 어차피 부정확했다)
+  const totalCount = serverTotal;
 
   // CommentItemView(모듈 스코프)에 주입할 핸들러/상태 번들 — 인라인 재정의 제거로 리마운트 방지.
   // (매 렌더 새 객체지만 컴포넌트 타입은 고정 → 리렌더는 되어도 언마운트/리마운트는 안 일어남)
@@ -870,18 +951,11 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
               <div key={comment.id}>
                 <CommentItemView comment={comment} ctx={itemCtx} />
 
-                {/* 답글 토글 */}
-                {comment.replies && comment.replies.length > 0 && (
+                {/* 답글 토글 — 개수는 서버 집계(replyCount), 본문은 펼칠 때 로드 */}
+                {(comment.replyCount || 0) > 0 && (
                   <div className="ml-10 mt-1.5">
                     <button
-                      onClick={() =>
-                        setExpandedReplies((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(comment.id)) next.delete(comment.id);
-                          else next.add(comment.id);
-                          return next;
-                        })
-                      }
+                      onClick={() => toggleReplies(comment.id)}
                       className="flex items-center gap-1 text-xs text-[#8b5cf6] hover:text-[#a78bfa] transition-colors"
                     >
                       {expandedReplies.has(comment.id) ? (
@@ -889,19 +963,45 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
                       ) : (
                         <ChevronDown className="w-3.5 h-3.5" />
                       )}
-                      {t("commentPanel.reply")} {comment.replies.length}
+                      {t("commentPanel.reply")} {comment.replyCount}
+                      {repliesLoading.has(comment.id) && <Loader2 className="w-3 h-3 animate-spin ml-0.5" />}
                     </button>
                     <AnimatePresence>
                       {expandedReplies.has(comment.id) &&
-                        comment.replies.map((reply) => (
+                        (comment.replies || []).map((reply) => (
                           <CommentItemView key={reply.id} comment={reply} isReply parentId={comment.id} ctx={itemCtx} />
                         ))}
                     </AnimatePresence>
+                    {/* 답글이 페이지 크기를 넘으면 이어서 로드 */}
+                    {expandedReplies.has(comment.id)
+                      && (comment.replies?.length || 0) > 0
+                      && (comment.replies?.length || 0) < (comment.replyCount || 0) && (
+                      <button
+                        onClick={() => void loadReplies(comment.id)}
+                        disabled={repliesLoading.has(comment.id)}
+                        className="mt-1 text-[11px] text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-50"
+                      >
+                        {t("common.more")} ({comment.replies?.length}/{comment.replyCount})
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
             ))}
           </AnimatePresence>
+        )}
+        {/* 댓글 더 보기 — 기존 50건 하드캡으로 오래된 댓글이 영구 매몰되던 문제 해소(2026-07-21) */}
+        {!loading && hasMore && (
+          <div className="flex justify-center py-3">
+            <button
+              onClick={() => void loadMoreComments()}
+              disabled={loadingMore}
+              className="px-4 py-1.5 rounded-full text-xs font-semibold bg-white/5 text-gray-300 hover:bg-white/10 transition-colors inline-flex items-center gap-1.5 disabled:opacity-60"
+            >
+              {loadingMore && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {t("common.more")}
+            </button>
+          </div>
         )}
       </div>
 
