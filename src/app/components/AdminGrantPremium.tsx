@@ -1,10 +1,10 @@
 // 관리자 — 프리미엄 수동 지급 (챌린지 우승 보상 등)
 //   이메일 + 개월수 입력 → admin_grant_premium RPC 호출.
 //   RPC 가 관리자 인증 + 구독 컬럼 업데이트(protect 트리거 우회는 SECURITY DEFINER 소유자=postgres) + 감사로그.
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../utils/supabaseClient";
 import { toast } from "sonner";
-import { Crown, Loader2 } from "lucide-react";
+import { Crown, Loader2, RefreshCw, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface GrantResult {
   display_name: string | null;
@@ -12,6 +12,24 @@ interface GrantResult {
   subscription_tier: string;
   subscription_expires_at: string;
 }
+
+// 프리미엄 현황 목록 (admin_list_premium_users RPC)
+interface PremiumRow {
+  user_id: string;
+  email: string;
+  display_name: string | null;
+  subscription_tier: string;
+  subscription_started_at: string | null;
+  subscription_expires_at: string;
+  days_left: number;          // KST 날짜 기준. 음수 = 만료 후 경과일
+  is_active: boolean;
+  manual_grants: number;      // 0 이면 결제 구독
+  last_granted_at: string | null;
+  total_count: number;        // 서버가 같은 필터로 센 전체 건수
+}
+
+type ListFilter = "active" | "expired" | "all";
+const LIST_PAGE = 20;
 
 export function AdminGrantPremium() {
   const [email, setEmail] = useState("");
@@ -24,6 +42,42 @@ export function AdminGrantPremium() {
   const [crownVideo, setCrownVideo] = useState("");
   const [crownBusy, setCrownBusy] = useState(false);
   const [crownDone, setCrownDone] = useState<{ video_title?: string | null } | null>(null);
+
+  // ── 프리미엄 현황 목록 ──
+  const [rows, setRows] = useState<PremiumRow[]>([]);
+  const [listFilter, setListFilter] = useState<ListFilter>("active");
+  const [listPage, setListPage] = useState(0);       // 0-indexed
+  const [listTotal, setListTotal] = useState(0);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState(false); // 조회 실패 — "없음"과 구분(빈 화면 오인 방지)
+  // 필터·페이지를 빠르게 바꾸면 이전 요청이 나중에 도착해 화면을 덮는다 → 최신 요청만 반영
+  const reqSeq = useRef(0);
+
+  const loadList = useCallback(async (filter: ListFilter, page: number) => {
+    const seq = ++reqSeq.current;
+    setListLoading(true);
+    const { data, error } = await supabase.rpc("admin_list_premium_users", {
+      p_filter: filter, p_limit: LIST_PAGE, p_offset: page * LIST_PAGE,
+    });
+    if (seq !== reqSeq.current) return;   // 낡은 응답 폐기
+    if (error) {
+      setRows([]); setListTotal(0); setListError(true); setListLoading(false);
+      toast.error("현황 조회 실패: " + error.message);
+      return;
+    }
+    const list = (data || []) as PremiumRow[];
+    setRows(list);
+    // 총건수는 서버가 같은 필터로 센 값을 쓴다(클라가 세면 페이지네이션에서 숫자가 틀어짐)
+    setListTotal(list.length > 0 ? Number(list[0].total_count) : 0);
+    setListError(false);
+    setListLoading(false);
+  }, []);
+
+  useEffect(() => { void loadList(listFilter, listPage); }, [loadList, listFilter, listPage]);
+
+  const lastPage = Math.max(0, Math.ceil(listTotal / LIST_PAGE) - 1);
+  const fmtDay = (s: string | null) =>
+    s ? new Date(s).toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit" }) : "—";
 
   const extractVideoId = (s: string): string => {
     const t = s.trim();
@@ -73,6 +127,9 @@ export function AdminGrantPremium() {
       toast.success(
         `${row.display_name || e} 프리미엄 지급 완료 (만료 ${new Date(row.subscription_expires_at).toLocaleDateString("ko-KR")})`,
       );
+      // 방금 지급한 사람이 아래 현황에 바로 보이도록 첫 페이지로 리로드
+      setListPage(0);
+      void loadList(listFilter, 0);
     } catch (err: any) {
       toast.error(err?.message || "지급 실패");
     } finally {
@@ -83,7 +140,7 @@ export function AdminGrantPremium() {
   const inputCls = "h-10 rounded-lg bg-card border border-border px-3 text-sm outline-none focus:border-[#6366f1]";
 
   return (
-    <div className="max-w-lg space-y-5">
+    <div className="max-w-2xl space-y-5">
       <div className="rounded-xl border border-border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2 text-[#a78bfa] font-bold">
           <Crown className="w-5 h-5" /> 프리미엄 수동 지급
@@ -187,6 +244,140 @@ export function AdminGrantPremium() {
         <p>· 챌린지 우승 보상 등 <b>수동 지급</b>용 (토스 결제와 무관).</p>
         <p>· 지급 즉시 해당 계정에 영상 광고 제거·프리미엄 기능 적용.</p>
         <p>· 모든 지급은 활동 로그(감사)에 기록됩니다.</p>
+      </div>
+
+      {/* ── 프리미엄 현황 ── 누구에게 줬는지·언제 끝나는지(2026-07-21 추가) ── */}
+      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 text-[#a78bfa] font-bold">
+            <Crown className="w-5 h-5" /> 프리미엄 현황
+            {!listLoading && !listError && (
+              <span className="text-xs font-semibold text-muted-foreground">{listTotal}명</span>
+            )}
+          </div>
+          <button
+            onClick={() => void loadList(listFilter, listPage)}
+            disabled={listLoading}
+            className="h-8 px-3 rounded-lg border border-border text-xs font-semibold text-muted-foreground hover:border-white/30 flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${listLoading ? "animate-spin" : ""}`} /> 새로고침
+          </button>
+        </div>
+
+        {/* 필터 */}
+        <div className="flex gap-1.5">
+          {([["active", "구독 중"], ["expired", "만료됨"], ["all", "전체"]] as [ListFilter, string][]).map(
+            ([key, label]) => (
+              <button
+                key={key}
+                onClick={() => { setListFilter(key); setListPage(0); }}
+                className={`px-3 h-9 rounded-lg text-sm font-semibold border transition-colors ${
+                  listFilter === key
+                    ? "bg-[#6366f1]/15 border-[#6366f1] text-[#a5b4fc]"
+                    : "bg-card border-border text-muted-foreground hover:border-white/30"
+                }`}
+              >
+                {label}
+              </button>
+            ),
+          )}
+        </div>
+
+        {listLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-5 h-5 animate-spin text-[#8b5cf6]" />
+          </div>
+        ) : listError ? (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-[13px] text-amber-200/90">
+              목록을 불러오지 못했습니다. 새로고침을 눌러 다시 시도하세요.
+              <br />
+              <span className="text-amber-200/60">
+                (SQL <code>admin_list_premium_users_20260721.sql</code> 적용이 필요할 수 있습니다)
+              </span>
+            </p>
+          </div>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">
+            {listFilter === "expired" ? "만료된 구독자가 없습니다." : "아직 프리미엄 구독자가 없습니다."}
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {rows.map((r) => (
+              <div
+                key={r.user_id}
+                className="rounded-lg border border-border bg-background/40 px-3 py-2.5 flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-sm font-semibold text-white truncate">
+                      {r.display_name || r.email}
+                    </span>
+                    {r.manual_grants > 0 ? (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                        수동 지급{r.manual_grants > 1 ? ` ×${r.manual_grants}` : ""}
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/5 text-muted-foreground border border-border">
+                        결제
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground truncate">{r.email}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    만료 {fmtDay(r.subscription_expires_at)}
+                    {r.last_granted_at && ` · 마지막 지급 ${fmtDay(r.last_granted_at)}`}
+                  </p>
+                </div>
+                {/* 남은 기간 — 7일 이하는 경고색으로(연장 판단용) */}
+                <div className="shrink-0 text-right">
+                  {r.is_active ? (
+                    <span
+                      className={`text-sm font-bold ${
+                        r.days_left <= 7 ? "text-amber-400" : "text-emerald-400"
+                      }`}
+                    >
+                      D-{r.days_left}
+                    </span>
+                  ) : (
+                    <span className="text-sm font-bold text-red-400">만료</span>
+                  )}
+                  <p className="text-[10px] text-muted-foreground">
+                    {r.is_active ? "남음" : `${Math.abs(r.days_left)}일 지남`}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 페이지네이션 — 총건수는 서버 기준 */}
+        {!listLoading && !listError && listTotal > LIST_PAGE && (
+          <div className="flex items-center justify-between pt-1">
+            <button
+              onClick={() => setListPage((p) => Math.max(0, p - 1))}
+              disabled={listPage === 0}
+              className="h-8 px-2.5 rounded-lg border border-border text-xs text-muted-foreground disabled:opacity-40 hover:border-white/30 flex items-center gap-1"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> 이전
+            </button>
+            <span className="text-xs text-muted-foreground">
+              {listPage + 1} / {lastPage + 1}
+            </span>
+            <button
+              onClick={() => setListPage((p) => Math.min(lastPage, p + 1))}
+              disabled={listPage >= lastPage}
+              className="h-8 px-2.5 rounded-lg border border-border text-xs text-muted-foreground disabled:opacity-40 hover:border-white/30 flex items-center gap-1"
+            >
+              다음 <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        <p className="text-[11px] text-muted-foreground">
+          · <b>수동 지급</b> 배지 = 이 화면에서 준 것, <b>결제</b> = 토스 구독. · 지급 이력 전체는 <b>활동 로그 → 프리미엄 지급</b> 에서 볼 수 있습니다.
+        </p>
       </div>
     </div>
   );
