@@ -215,8 +215,13 @@ export function AdminRevenuePolicy() {
       setHistory([]);
     } else {
       const rows = (data || []) as any[];
-      setHistory(rows);
-      setHistoryTotal(Number(rows[0]?.total_count) || 0);
+      // '더 보기'인데 교체하면 앞 30건이 사라진다 → 0페이지는 대체, 이후는 이어붙임(id dedup)
+      setHistory((prev) => {
+        if (targetPage === 0) return rows;
+        const seen = new Set(prev.map((h: any) => h.id));
+        return [...prev, ...rows.filter((h: any) => !seen.has(h.id))];
+      });
+      if (rows.length > 0) setHistoryTotal(Number(rows[0]?.total_count) || 0);
       setHistoryPage(targetPage);
     }
     setHistoryLoading(false);
@@ -423,11 +428,11 @@ export function AdminRevenuePolicy() {
                       {h.updater_name && <p className="text-[10px] text-muted-foreground/60 mt-1">변경: {h.updater_name}</p>}
                     </div>
                   ))}
-                  {historyTotal > (historyPage + 1) * 30 && (
+                  {history.length < historyTotal && (
                     <div className="flex justify-center pt-1">
                       <Button variant="outline" size="sm" disabled={historyLoading}
                         onClick={() => historyKey && void openHistory(historyKey, historyPage + 1)}>
-                        더 보기 ({(historyPage + 1) * 30} / {historyTotal})
+                        더 보기 ({history.length} / {historyTotal})
                       </Button>
                     </div>
                   )}

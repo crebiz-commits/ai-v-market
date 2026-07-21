@@ -28,7 +28,8 @@ interface Comment {
   liked?: boolean;
   replies?: Comment[];
   replyCount?: number;        // 서버 집계 — 펼치기 전엔 replies 가 비어 있음
-  loadedReplyCount?: number;  // 차단 필터 이전에 실제 로드된 답글 수 — 더보기 offset 판정 기준
+  loadedReplyCount?: number;  // 차단 필터 이전에 실제 로드된 답글 수 — 더보기 버튼 표시 기준
+  fetchedReplies?: number;    // **서버에서 받아온** 답글 수(내가 방금 쓴 낙관적 답글 제외) = 다음 offset
 }
 
 interface CommentPanelProps {
@@ -100,6 +101,8 @@ interface CommentItemCtx {
   t: (key: string, opts?: any) => string;
   creatorInfo: Record<string, { name?: string; avatar?: string | null } | undefined>;
   likedComments: Set<string>;
+  /** 수정이 자동필터에 걸려 숨김 처리됐을 때 카운트 보정 — 상태는 CommentPanel 이 소유 */
+  onAutoHidden: (parentId: string | undefined, removedReplyCount: number) => void;
   openMenu: string | null;
   setOpenMenu: (v: string | null) => void;
   onViewCreator?: (creatorId: string) => void;
@@ -158,17 +161,26 @@ function CommentItemView({ comment, isReply = false, parentId, ctx }: { comment:
     // 자동 필터에 걸려 숨김된 경우 — 목록에서 제거 + 안내
     if ((data as any).is_hidden) {
       toast.error(t("comment.filtered"));
+      // 삭제 경로와 동일하게 카운트도 줄여야 한다 — 안 그러면 "답글 5"인데 4개만 보이고
+      //   '더 보기 (4/5)' 유령 버튼이 생기며, 최상위면 헤더·피드 배지가 부풀린 채 남는다.
+      let removedReplies = 0;
       if (parentId) {
         setComments((prev) =>
           prev.map((c) =>
             c.id === parentId
-              ? { ...c, replies: (c.replies || []).filter((r) => r.id !== comment.id) }
+              ? { ...c, replies: (c.replies || []).filter((r) => r.id !== comment.id),
+                  replyCount: Math.max(0, (c.replyCount || 0) - 1),
+                  fetchedReplies: Math.max(0, (c.fetchedReplies ?? 0) - 1) }
               : c
           )
         );
       } else {
-        setComments((prev) => prev.filter((c) => c.id !== comment.id));
+        setComments((prev) => {
+          removedReplies = prev.find((c) => c.id === comment.id)?.replyCount ?? 0;
+          return prev.filter((c) => c.id !== comment.id);
+        });
       }
+      ctx.onAutoHidden(parentId, removedReplies);
       return;
     }
     setComments((prev) =>
@@ -506,6 +518,11 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
       setHasMore(page.more);
       setExpandedReplies(new Set());   // 대상 전환 시 펼침 초기화
       setLikedComments(new Set());
+      // 영상/글이 바뀌면 이전 대상에 대한 입력 컨텍스트도 버려야 한다.
+      //   안 버리면 "@홍길동에게 답글" 배너가 남은 채 전송돼 parent_id 는 A, video_id 는 B 인
+      //   행이 만들어지고(FK 는 comments.id 만 봄) 화면 어디에도 안 나타난다.
+      setReplyTo(null);
+      setReportTarget(null);
       await mergeMyLikes(page.rows.map((c) => c.id));
     } catch (err) {
       console.error("[CommentPanel] fetch error:", err);
@@ -518,9 +535,13 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
   // 최상위 더 보기 — 새 댓글이 위에 끼면 offset 이 밀리므로 id 로 dedup
   const loadMoreComments = async () => {
     if (loadingMore || !hasMore) return;
+    const myId = fetchIdRef.current;   // 이 시점의 대상(videoId/postId) 세션
     setLoadingMore(true);
     try {
       const next = await fetchPage(comments.length);
+      // 응답 도착 전 영상이 바뀌었으면 폐기 — 안 그러면 **다른 영상의 댓글이 목록 하단에 붙는다**
+      //   (붙은 댓글이 좋아요·삭제·답글까지 동작해 오조작으로 이어짐)
+      if (myId !== fetchIdRef.current) return;
       setComments((prev) => {
         const seen = new Set(prev.map((c) => c.id));
         return [...prev, ...next.rows.filter((c) => !seen.has(c.id))];
@@ -539,7 +560,10 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
     if (repliesLoading.has(parentId)) return;
     setRepliesLoading((prev) => new Set([...prev, parentId]));
     try {
-      const offset = comments.find((c) => c.id === parentId)?.replies?.length || 0;
+      // ⚠️ offset 은 **서버에서 받아온 수**여야 한다. 내가 방금 쓴 답글을 낙관적으로 append 하면
+      //    replies.length 가 1 부풀어, 다음 페이지에서 한 건을 건너뛰고 '더 보기'가 죽는다.
+      const parentNow = comments.find((c) => c.id === parentId);
+      const offset = parentNow?.fetchedReplies ?? (parentNow?.replies?.length || 0);
       let rq = supabase
         .from("comments")
         .select("id, user_id, parent_id, content, likes_count, created_at, author_name, creator_hearted, is_hidden")
@@ -563,9 +587,13 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
           if (c.id !== parentId) return c;
           const seen = new Set((c.replies || []).map((r) => r.id));
           const fresh = rows.filter((r) => !seen.has(r.id));
-          if (fresh.length === 0) return c;
+          const nextFetched = (c.fetchedReplies ?? 0) + rows.length;   // 중복분도 서버가 준 건 맞으므로 포함
+          if (fresh.length === 0) {
+            // 붙일 게 없어도 서버 진행분은 기록해야 다음 offset 이 전진한다(무한 재요청 방지)
+            return nextFetched === (c.fetchedReplies ?? 0) ? c : { ...c, fetchedReplies: nextFetched };
+          }
           changed = true;
-          return { ...c, replies: [...(c.replies || []), ...fresh] };
+          return { ...c, replies: [...(c.replies || []), ...fresh], fetchedReplies: nextFetched };
         });
         return changed ? next : prev;
       });
@@ -636,7 +664,14 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
       void (async () => {
         const { data } = await supabase.from("comments").select("parent_id").eq("id", targetCommentId).maybeSingle();
         const pid = (data as any)?.parent_id;
-        if (!pid) return;                                   // 삭제됐거나 최상위 → 무동작(기존과 동일)
+        if (!pid) {
+          // 최상위 댓글인데 아직 이 페이지에 없다 = 페이지네이션 뒤쪽에 있음.
+          //   답글은 부모를 펼쳐 자동 페이징하면서 최상위만 방치되어, 31번째 이후 댓글로 온
+          //   알림 링크가 스크롤도 배너도 없이 조용히 무반응이었다 → 다음 페이지를 당겨온다.
+          //   (comments 가 늘면 이 이펙트가 재실행되며 재시도, hasMore 가 false 가 되면 종료)
+          if (hasMore && !loadingMore) void loadMoreComments();
+          return;
+        }
         if (!comments.some((c) => c.id === pid)) return;     // 부모가 아직 페이지 밖 → 무동작(기존과 동일)
         setExpandedReplies((prev) => (prev.has(pid) ? prev : new Set([...prev, pid])));
         await loadReplies(pid);
@@ -721,6 +756,10 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
               ...c,
               replies: already ? c.replies : [...(c.replies || []), newComment],
               replyCount: (c.replyCount || 0) + 1,   // 서버 집계는 INSERT 이전 값이라 항상 +1
+              // fetchedReplies 는 **건드리지 않는다**.
+              //   · already=true  → 위 loadReplies 가 이미 서버 진행분에 포함시켰다(또 더하면 이중계산)
+              //   · already=false → 낙관적 추가분이라 서버 페이지 진행도가 아니다
+              //   어느 쪽이든 올리면 다음 '더 보기'가 한 건을 건너뛴다.
             };
           })
         );
@@ -760,6 +799,9 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
         setComments((prev) => [newComment, ...prev]);
         // 최상위 댓글만 피드의 "댓글 N" 에 반영(+1). 답글은 미집계.
         if (videoId) bumpComments(videoId, 1);
+        // 헤더 카운트도 함께 — 삭제 경로는 serverTotal 을 줄이는데 작성만 빠져 있어
+        //   쓰고 지우기를 반복하면 헤더가 실제보다 계속 작아졌다(영상·커뮤니티 공통 +1).
+        setServerTotal((n) => n + 1);
       }
 
       onCommentPosted?.();
@@ -951,10 +993,21 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
 
   // CommentItemView(모듈 스코프)에 주입할 핸들러/상태 번들 — 인라인 재정의 제거로 리마운트 방지.
   // (매 렌더 새 객체지만 컴포넌트 타입은 고정 → 리렌더는 되어도 언마운트/리마운트는 안 일어남)
+  // 수정이 자동필터에 걸려 숨김됐을 때의 카운트 보정(삭제 경로와 대칭)
+  const handleAutoHidden = useCallback((parentId: string | undefined, removedReplyCount: number) => {
+    if (parentId) {
+      setServerTotal((n) => (postId ? Math.max(0, n - 1) : n));   // 커뮤니티 배지는 답글 포함
+      return;
+    }
+    setServerTotal((n) => Math.max(0, n - (postId ? 1 + removedReplyCount : 1)));
+    if (videoId) bumpComments(videoId, -1);
+  }, [postId, videoId, bumpComments]);
+
   const itemCtx: CommentItemCtx = {
     user, videoCreatorId, isVideoOwner, isAuthenticated, isKo, t, creatorInfo, likedComments,
     openMenu, setOpenMenu, onViewCreator, setReplyTo, inputRef, setReportTarget, setComments,
     blockUser, handleLike, handleTogglePin, handleToggleHeart, handleDelete, handleBlockUser, highlightId,
+    onAutoHidden: handleAutoHidden,
   };
 
   const containerClass =

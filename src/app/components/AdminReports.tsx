@@ -61,6 +61,7 @@ export function AdminReports() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(30);
   const [typeCounts, setTypeCounts] = useState<Record<string, number>>({});
+  const [countsFailed, setCountsFailed] = useState(false);   // 집계 실패 시 페이저를 hasMore 로 대체
   const reqSeq = useRef(0);
 
   const load = useCallback(async (targetPage: number) => {
@@ -76,7 +77,11 @@ export function AdminReports() {
       toast.error("신고 큐 조회 실패: " + error.message);
       setReports([]);
     } else {
-      setReports(data || []);
+      const rows = (data || []) as ReportRow[];
+      // 마지막 페이지의 마지막 그룹을 처리하면 빈 페이지에 갇힌다(안내 문구는 '이전'을 누르라는데
+      //   페이저는 목록 분기 안이라 렌더되지 않았다) → 다른 관리자 화면과 동일하게 앞 페이지로 복구
+      if (rows.length === 0 && targetPage > 0) { setLoading(false); void load(targetPage - 1); return; }
+      setReports(rows);
       setPage(targetPage);
     }
     setLoading(false);
@@ -85,7 +90,14 @@ export function AdminReports() {
   // 유형별 개수는 전체 기준이어야 함 — 페이지 안에서 세면 "이 페이지에 영상 2건"이 돼버림
   const refreshCounts = useCallback(async () => {
     const { data, error } = await supabase.rpc("get_pending_report_counts");
-    if (error) return;   // 배지는 부가정보 — 실패해도 목록 유지(토스트 중복 방지)
+    if (error) {
+      // ⚠️ 조용히 넘기면 filteredTotal=0 → hasMore=false → 페이저가 통째로 사라져
+      //    31번째 이후 그룹에 **접근할 방법이 없어진다**(목록 RPC 는 멀쩡해 화면은 정상으로 보임).
+      console.warn("[AdminReports] 신고 집계 조회 실패:", error.message);
+      setCountsFailed(true);
+      return;
+    }
+    setCountsFailed(false);
     const next: Record<string, number> = {};
     let all = 0;
     for (const row of (data || []) as { target_type: string; group_count: number }[]) {
@@ -191,7 +203,10 @@ export function AdminReports() {
   // 유형 필터는 서버가 처리(p_target_type) — 여기서 다시 거르면 페이지가 반쪽이 됨
   const filtered = groupedReports;
   const filteredTotal = typeCounts[filterType] ?? 0;
-  const hasMore = (page + 1) * pageSize < filteredTotal;
+  //   집계 RPC 가 실패했을 땐 total 을 믿을 수 없다 → 이번 페이지가 꽉 찼는지로 판단(페이저 유지)
+  const hasMore = countsFailed
+    ? groupedReports.length >= pageSize
+    : (page + 1) * pageSize < filteredTotal;
 
   return (
     <div>

@@ -25,9 +25,11 @@ export function AdminPager({
   //   ⚠️ 단 페이지 크기를 이미 키워둔 상태(예: 100)에서 40건이면 hasMore 가 false 라
   //      그대로 숨기면 30 으로 되돌릴 수단이 사라진다 → 기본 크기일 때만 숨긴다.
   //   총건수를 모르는 화면(total=null)은 hasMore 로만 판단.
+  //   총건수를 알면 "가장 작은 페이지 크기로도 한 페이지"일 때만 숨긴다 → 크기를 키워둔 상태에서
+  //   되돌릴 수단이 사라지는 함정도 막고, 기본 크기가 30이 아닌 화면(정산=50)에서도 의도대로 동작.
   const singlePage =
-    page === 0 && !hasMore && pageSize === PAGE_SIZES[0] &&
-    (total == null || total <= PAGE_SIZES[0]);
+    page === 0 && !hasMore &&
+    (total != null ? total <= PAGE_SIZES[0] : pageSize === PAGE_SIZES[0]);
   if (singlePage) return null;
 
   const from = page * pageSize + 1;

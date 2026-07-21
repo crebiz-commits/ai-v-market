@@ -54,8 +54,20 @@ export function AdminMegaUploader() {
       const rows = (data || []) as any[];
       setItems(rows as Milestone[]);
       setTotal(Number(rows[0]?.total_count) || 0);
-      setPendingCount(Number(rows[0]?.pending_total) || 0);
-      setAllTotal(Number(rows[0]?.all_total) || 0);
+      // pending_total·all_total 은 **필터 무관 전체**라 현재 페이지가 0행이어도 유효한 값이 있다.
+      //   rows[0] 에서만 읽으면 "대기 0건" 상태로 진입했을 때 전체 배지까지 0으로 덮인다.
+      if (rows.length > 0) {
+        setPendingCount(Number(rows[0]?.pending_total) || 0);
+        setAllTotal(Number(rows[0]?.all_total) || 0);
+      } else if (filter !== "all") {
+        // 현재 필터가 0건 → 전체 기준 배지는 'all' 로 한 건만 읽어 보정
+        const probe = await supabase.rpc("admin_list_upload_milestones", { p_status: "all", p_limit: 1, p_offset: 0 });
+        const p0 = (probe.data || [])[0] as any;
+        setPendingCount(Number(p0?.pending_total) || 0);
+        setAllTotal(Number(p0?.all_total) || 0);
+      } else {
+        setPendingCount(0); setAllTotal(0);   // 전체가 0건이면 진짜 0
+      }
       setPage(targetPage);
       // 빈 페이지(다른 관리자가 처리해 줄어듦)면 첫 페이지로 자가복구
       if (rows.length === 0 && targetPage > 0) { setLoading(false); void load(0); return; }

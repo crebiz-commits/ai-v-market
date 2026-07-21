@@ -206,6 +206,7 @@ export function AdminRevenueSettlement() {
       if (error) { toast.error("처리 실패: " + error.message); return; }
       toast.success(`클로백 ${label} 처리됨`);
       setClawbacks((cur) => cur.filter((x) => x.id !== c.id));
+      void loadClawbacks();   // 배너 총계(clawbackTotal)는 서버값 — 낙관적 제거만 하면 숫자가 낡는다
     } finally {
       setResolvingId(null);
     }
@@ -246,16 +247,40 @@ export function AdminRevenueSettlement() {
       setRows((prev) => prev.map((r) =>
         r.id === id ? { ...r, payout_status: "paid" as const, paid_at: new Date().toISOString() } : r));
 
-      // 갱신된 정산 데이터 재조회 — net_amount/원천징수 확보 + UI 반영
+      // 갱신된 정산 데이터 재조회 — net_amount/원천징수 확보 + UI 반영.
+      //   ⚠️ 페이지 인자를 빼면 SQL 기본값(LIMIT 50 OFFSET 0)이 적용돼 ①현재 페이지가 1페이지로
+      //      바뀌고 ②51번째 이후 행은 fresh 에 없어 아래 메일이 지급 전 스냅샷(net_amount=null)을
+      //      쓰게 된다 → buildRevenueSettledEmail 이 netAmount ?? totalAmount 로 폴백해
+      //      **세전 금액**으로 메일이 나간다(실지급액과 불일치).
       const { data: fresh } = await supabase.rpc("get_revenue_distributions_by_period", {
         p_year: year,
         p_month: month,
+        p_limit: pageSize,
+        p_offset: page * pageSize,
       });
-      if (fresh) setRows(fresh);
+      if (fresh) {
+        const list = fresh as any[];
+        setRows(list);
+        setTotal(Number(list[0]?.total_count) || 0);
+        setSums({
+          pending: Number(list[0]?.sum_pending) || 0,
+          deferred: Number(list[0]?.sum_deferred) || 0,
+          paid: Number(list[0]?.sum_paid) || 0,
+        });
+      }
 
       // Phase 34 — 크리에이터에게 정산 완료 메일 (세후 net 금액 기준, fire-and-forget)
       try {
-        const row = (fresh || []).find((r: Distribution) => r.id === id) || rows.find((r) => r.id === id);
+        // 현재 페이지 재조회분에 없으면(다른 페이지로 밀렸을 때) 그 행만 콕 집어 다시 읽는다 —
+        //   지급 전 스냅샷으로 폴백하면 세전 금액이 나가므로 절대 안 된다.
+        let row: any = (fresh as any[] | null)?.find((r: Distribution) => r.id === id);
+        if (!row?.net_amount) {
+          const { data: one } = await supabase.rpc("get_revenue_distributions_by_period", {
+            p_year: year, p_month: month, p_limit: 1000, p_offset: 0,
+          });
+          row = (one as any[] | null)?.find((r: Distribution) => r.id === id) || row;
+        }
+        if (!row) row = rows.find((r) => r.id === id);
         if (row?.creator_id) {
           const { subject, html } = buildRevenueSettledEmail({
             year,
