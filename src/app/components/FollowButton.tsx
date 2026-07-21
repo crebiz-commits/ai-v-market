@@ -36,7 +36,10 @@ export function FollowButton({
     setLoading(false);
   };
 
-  // 영상 카드/상세에서 쓰는 sm: 원형 아이콘 (좋아요/댓글/공유와 통일된 스타일)
+  // 영상 카드/상세에서 쓰는 sm: 원형 아이콘.
+  //   크기는 28px — 바로 옆 CreatorAvatar(xs=24px)·이름(13px)과 맞춘 값.
+  //   오른쪽 액션 레일(좋아요/댓글/공유, 36px)과 같은 스타일이되 크기는 따라가지 않는다.
+  //   (36px이면 크리에이터 줄에서 아바타의 1.5배가 돼 혼자 튐)
   if (size === "sm") {
     return (
       <motion.button
@@ -48,18 +51,18 @@ export function FollowButton({
         className="flex-shrink-0"
       >
         <div
-          className={`w-9 h-9 rounded-full backdrop-blur-xl flex items-center justify-center border-2 transition-all ${
+          className={`w-7 h-7 rounded-full backdrop-blur-xl flex items-center justify-center border-2 transition-all ${
             following
               ? "bg-[#8b5cf6]/30 border-[#a78bfa] shadow-[0_0_14px_rgba(139,92,246,0.5)]"
               : "bg-white/10 border-white/30 hover:bg-white/20"
           } ${loading ? "opacity-60 cursor-wait" : ""}`}
         >
           {loading ? (
-            <Loader2 className="w-4 h-4 animate-spin text-white" />
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
           ) : following ? (
-            <UserCheck className="w-[18px] h-[18px] text-white" strokeWidth={2} />
+            <UserCheck className="w-[15px] h-[15px] text-white" strokeWidth={2.2} />
           ) : (
-            <UserPlus className="w-[18px] h-[18px] text-white" strokeWidth={2} />
+            <UserPlus className="w-[15px] h-[15px] text-white" strokeWidth={2.2} />
           )}
         </div>
       </motion.button>
