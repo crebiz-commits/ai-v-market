@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback, type Dispatch, type SetStateAction, type RefObject } from "react";
-import { X, Send, Heart, ChevronDown, ChevronUp, Loader2, MessageCircle, Trash2, Pin, MoreVertical, Ban, Flag, UserX, Pencil } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, type Dispatch, type SetStateAction, type RefObject, useMemo } from "react";
+import { X, Send, Heart, ChevronDown, ChevronUp, Loader2, MessageCircle, Trash2, Pin, MoreVertical, Ban, Flag, UserX, Pencil, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -434,7 +434,12 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
   const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<{ id: string; name: string } | null>(null);
-  const { isBlocked, blockUser } = useBlockedUsers();
+  const { isBlocked, blockUser, blockedIds } = useBlockedUsers();
+  // 차단 사용자 제외를 **서버로** 넘긴다. 클라에서만 걸러내면 서버 집계(replyCount·총계)와
+  //   화면 목록이 어긋나 "답글 3"인데 2개만 보이고 '더 보기'가 죽는다.
+  //   Set 은 notify() 때만 새로 만들어지지만, 내용이 같은데 재조회가 도는 걸 막으려고 문자열 키로 고정.
+  const blockedKey = useMemo(() => [...blockedIds].sort().join(","), [blockedIds]);
+  const blockedList = blockedKey ? `(${blockedKey})` : null;
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const deletingRef = useRef<Set<string>>(new Set());   // 삭제 in-flight 가드(더블탭 이중 차감 방지)
@@ -460,18 +465,22 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
       .order("is_pinned", { ascending: false })
       .order("created_at", { ascending: false })
       .order("id")                      // tiebreaker: 동시각 댓글 페이지 경계 안정
-      .range(offset, offset + COMMENTS_PAGE - 1);
+      // 한 건 더 받아 다음 페이지 유무를 판단한다 — length === PAGE 로 판단하면 건수가 정확히
+      //   페이지 크기의 배수일 때 빈 페이지를 부르는 헛클릭이 생긴다.
+      .range(offset, offset + COMMENTS_PAGE);
     if (videoId) q = q.eq("video_id", videoId);
     else if (postId) q = q.eq("post_id", postId);
+    if (blockedList) q = q.not("user_id", "in", blockedList).not("replies.user_id", "in", blockedList);
     const { data, error } = await q;
     if (error) throw error;
-    return (data || []).map((c: any) => ({
+    const rows = (data || []).map((c: any) => ({
       ...c,
       author_name: c.author_name || t("community.anonymous"),
       replies: [],
       replyCount: Number(c.replies?.[0]?.count) || 0,
     })) as Comment[];
-  }, [videoId, postId, t]);
+    return { rows: rows.slice(0, COMMENTS_PAGE), more: rows.length > COMMENTS_PAGE };
+  }, [videoId, postId, t, blockedList]);
 
   // 헤더 "댓글 N" — 목록이 페이지 단위라 화면에서 셀 수 없어 서버 집계로 받는다.
   //   영상 배지 = 최상위만 / 커뮤니티 배지 = 답글 포함 (기존 totalCount 규칙 유지)
@@ -479,24 +488,25 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
     let q = supabase.from("comments").select("id", { count: "exact", head: true }).eq("is_hidden", false);
     if (videoId) q = q.eq("video_id", videoId).is("parent_id", null);
     else if (postId) q = q.eq("post_id", postId);
+    if (blockedList) q = q.not("user_id", "in", blockedList);   // 화면 목록과 같은 기준으로 세야 함
     const { count } = await q;
     return count ?? 0;
-  }, [videoId, postId]);
+  }, [videoId, postId, blockedList]);
 
   const fetchComments = useCallback(async () => {
     const myId = ++fetchIdRef.current;   // 이 fetch 세션 id — 늦게 온 응답이 최신 상태를 덮지 않게
     setLoading(true);
     try {
-      const [rows, total] = await Promise.all([fetchPage(0), fetchTotal()]);
+      const [page, total] = await Promise.all([fetchPage(0), fetchTotal()]);
       if (myId !== fetchIdRef.current) return;   // 그 사이 videoId/postId 전환 → 이 응답 폐기
-      setComments(rows);
+      setComments(page.rows);
       setServerTotal(total);
       // 영상 댓글 총계를 전역 스토어에 seed-once → 모든 피드의 "댓글 N" 통일(별도 쿼리 없이 재사용)
       if (videoId) seedComments(videoId, total);
-      setHasMore(rows.length === COMMENTS_PAGE);
+      setHasMore(page.more);
       setExpandedReplies(new Set());   // 대상 전환 시 펼침 초기화
       setLikedComments(new Set());
-      await mergeMyLikes(rows.map((c) => c.id));
+      await mergeMyLikes(page.rows.map((c) => c.id));
     } catch (err) {
       console.error("[CommentPanel] fetch error:", err);
       if (myId === fetchIdRef.current) { setComments([]); setHasMore(false); }
@@ -513,10 +523,10 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
       const next = await fetchPage(comments.length);
       setComments((prev) => {
         const seen = new Set(prev.map((c) => c.id));
-        return [...prev, ...next.filter((c) => !seen.has(c.id))];
+        return [...prev, ...next.rows.filter((c) => !seen.has(c.id))];
       });
-      setHasMore(next.length === COMMENTS_PAGE);
-      await mergeMyLikes(next.map((c) => c.id));
+      setHasMore(next.more);
+      await mergeMyLikes(next.rows.map((c) => c.id));
     } catch {
       setHasMore(false);   // 실패 시 반응 없는 버튼이 남지 않게
     } finally {
@@ -530,7 +540,7 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
     setRepliesLoading((prev) => new Set([...prev, parentId]));
     try {
       const offset = comments.find((c) => c.id === parentId)?.replies?.length || 0;
-      const { data, error } = await supabase
+      let rq = supabase
         .from("comments")
         .select("id, user_id, parent_id, content, likes_count, created_at, author_name, creator_hearted, is_hidden")
         .eq("parent_id", parentId)
@@ -538,6 +548,9 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
         .order("created_at", { ascending: true })
         .order("id")
         .range(offset, offset + REPLIES_PAGE - 1);
+      // 서버에서 걸러야 offset(로드된 수)과 화면 표시 수가 어긋나지 않는다
+      if (blockedList) rq = rq.not("user_id", "in", blockedList);
+      const { data, error } = await rq;
       if (error) throw error;
       const rows = (data || []).map((r: any) => ({ ...r, author_name: r.author_name || t("community.anonymous") })) as Comment[];
       setComments((prev) => prev.map((c) => {
@@ -551,7 +564,7 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
     } finally {
       setRepliesLoading((prev) => { const n = new Set(prev); n.delete(parentId); return n; });
     }
-  }, [comments, repliesLoading, mergeMyLikes, t]);
+  }, [comments, repliesLoading, mergeMyLikes, t, blockedList]);
 
   // 답글 펼치기/접기 — 처음 펼칠 때 서버에서 로드
   const toggleReplies = useCallback((parentId: string) => {
@@ -569,10 +582,36 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
     fetchComments();
   }, [fetchComments]);
 
-  // 관리자 딥링크(?video=id&comment={id}) — 로드 완료 후 해당 댓글로 스크롤 + 하이라이트.
-  //   타겟이 답글이면 부모를 먼저 펼쳐 DOM 에 렌더시킨 뒤 스크롤. 못 찾으면(페이지네이션·삭제) 무동작.
+  // 딥링크(?video=id&comment={id}) — 로드 완료 후 해당 댓글로 스크롤 + 하이라이트.
+  //   관리자용으로 만든 배선이나 2026-07-21 부터 **댓글 알림도 이 형식**을 쓴다(옛 링크는 comment=1).
+  //   타겟이 답글이면 부모를 먼저 펼쳐 DOM 에 렌더시킨 뒤 스크롤.
+  //   못 찾을 때: 페이지네이션으로 아직 안 받은 것이면 무동작, **삭제·숨김이면 아래 targetMissing 배너**.
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const scrolledToRef = useRef<string | null>(null);
+
+  // 타겟 댓글이 서버에 아예 없으면(삭제) 또는 숨김이면 → 화면엔 절대 안 뜬다. 예전엔 이때
+  //   조용히 무동작이라 "알림엔 있는데 아무리 찾아도 없다"가 됐다(2026-07-21 실제 발생).
+  //   ▸ comments 가 비어 있어도(그 영상 댓글 0개) 확인해야 하므로 스크롤 effect 와 분리.
+  //   ▸ 페이지네이션으로 아직 안 받은 경우와 구분하려면 "서버에 존재하는가"를 물어야 한다.
+  const [targetMissing, setTargetMissing] = useState(false);
+  const missingCheckedRef = useRef<string | null>(null);
+  useEffect(() => {
+    // 타겟 해제 시 ref 도 비운다 — 안 그러면 같은 댓글로 다시 들어왔을 때 재확인을 건너뛰어
+    //   배너가 안 뜬다(영상 전환 후 복귀 등).
+    if (!targetCommentId) { setTargetMissing(false); missingCheckedRef.current = null; return; }
+    if (missingCheckedRef.current === targetCommentId) return;
+    missingCheckedRef.current = targetCommentId;
+    let alive = true;
+    void (async () => {
+      const { data } = await supabase
+        .from("comments").select("id, is_hidden").eq("id", targetCommentId).maybeSingle();
+      if (!alive) return;
+      // 행 없음 = 삭제(또는 RLS 로 비노출) / is_hidden = 숨김 → 둘 다 화면에 못 뜬다.
+      setTargetMissing(!data || !!(data as any).is_hidden);
+    })();
+    return () => { alive = false; };
+  }, [targetCommentId]);
+
   useEffect(() => {
     if (loading || !targetCommentId || comments.length === 0) return;
     if (scrolledToRef.current === targetCommentId) return;   // 타겟당 1회만
@@ -688,8 +727,10 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
               subject,
               html,
               // 벨/푸시 클릭 시 해당 영상(+댓글창) 또는 커뮤니티 글로 직행 (R9, 2026-06-11)
+              //   comment= 에는 **방금 단 답글의 id** 를 넣는다(2026-07-21). 예전엔 `1` 이라
+              //   댓글창만 열리고 어느 답글인지 못 찾았다 — 삭제된 뒤엔 안내조차 불가했다.
               link: videoId
-                ? `/?video=${encodeURIComponent(videoId)}&comment=1`
+                ? `/?video=${encodeURIComponent(videoId)}&comment=${encodeURIComponent(inserted.id)}`
                 : postId
                 ? `/?tab=community&sub=posts&post=${encodeURIComponent(postId)}`
                 : undefined,
@@ -928,6 +969,14 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
 
       {/* Comment List */}
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-4 scrollbar-hide">
+        {/* 알림을 눌러 들어왔는데 그 댓글이 삭제·숨김이면 명시적으로 안내 — 조용히 비워두면
+            사용자가 다른 영상까지 뒤지게 된다(2026-07-21). */}
+        {targetMissing && !loading && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-[13px] leading-snug text-amber-200/90">{t("commentPanel.targetMissing")}</p>
+          </div>
+        )}
         {loading ? (
           <div className="flex items-center justify-center py-10">
             <Loader2 className="w-6 h-6 animate-spin text-[#8b5cf6]" />
