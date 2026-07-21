@@ -7,7 +7,7 @@
 //   답글은 comments 테이블에 직접 insert (parent_id=최상위, 작성자는 트리거가 프로필로 강제)
 // ════════════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback } from "react";
-import { MessageSquare, Loader2, EyeOff, Eye, CornerDownRight, Send, Lock } from "lucide-react";
+import { MessageSquare, Loader2, EyeOff, Eye, CornerDownRight, Send, Lock, Film, ExternalLink } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { UserAvatar } from "./UserAvatar";
@@ -163,7 +163,24 @@ export function ReceivedCommentsSection() {
                     <span className="text-[10px] text-gray-600">{new Date(c.created_at).toLocaleDateString()}</span>
                   </div>
                   <p className="text-sm text-gray-200 mt-1 break-words whitespace-pre-wrap">{c.content}</p>
-                  <p className="text-[11px] text-gray-500 mt-1.5 truncate">📹 {c.video_title || c.video_id}</p>
+                  {/* 어느 영상의 댓글인지 — 클릭 시 새 탭에서 그 영상을 열고 이 댓글로 스크롤·강조
+                      (?video=id&comment={commentId} 딥링크. 낙관적 답글은 아직 서버 id 가 목록 기준이
+                       아닐 수 있으나 동일 규칙으로 동작) */}
+                  {c.video_id ? (
+                    <a
+                      href={`?video=${encodeURIComponent(c.video_id)}&comment=${encodeURIComponent(c.id)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-[#818cf8] hover:underline mt-1.5 inline-flex items-center gap-1 max-w-full"
+                      title={t("mypage.receivedComments.openInVideo", "새 탭에서 영상 열기 (이 댓글로 이동)")}
+                    >
+                      <Film className="w-3 h-3 flex-shrink-0" />
+                      <span className="truncate">{c.video_title || c.video_id}</span>
+                      <ExternalLink className="w-2.5 h-2.5 opacity-70 flex-shrink-0" />
+                    </a>
+                  ) : (
+                    <p className="text-[11px] text-gray-500 mt-1.5 truncate">📹 {c.video_title || c.video_id}</p>
+                  )}
 
                   <div className="flex items-center gap-3 mt-2">
                     <button

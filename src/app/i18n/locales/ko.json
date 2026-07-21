@@ -1196,6 +1196,7 @@
       "subtitle": "내 영상에 달린 댓글에 답글을 달거나 숨길 수 있어요.",
       "empty": "아직 받은 댓글이 없어요.",
       "loadFailed": "받은 댓글을 불러오지 못했어요.",
+      "openInVideo": "새 탭에서 영상 열기 (이 댓글로 이동)",
       "reply": "답글",
       "adminHidden": "관리자·신고 숨김",
       "hiddenBadge": "숨김",
