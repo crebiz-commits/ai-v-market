@@ -51,7 +51,7 @@ export function AdminInquiries() {
   const {
     items, setItems, loading, filter, setFilter,
     page, pageSize, setPageSize, total, totalAll, counts, hasMore,
-    goToPage, reload, refreshCounts,
+    goToPage, reload, afterStatusChange,
   } = useAdminPagedList<Inquiry, Inquiry["status"]>({
     table: "business_inquiries",
     select: SELECT_COLS,
@@ -60,18 +60,19 @@ export function AdminInquiries() {
   });
 
   const setStatus = async (id: string, status: Inquiry["status"]) => {
-    const prev = items;
+    const prevItem = items.find((it) => it.id === id);
     setItems((cur) => cur.map((it) => (it.id === id ? { ...it, status, reviewed_at: new Date().toISOString() } : it)));
     // 직접 UPDATE 대신 RPC — admin_logs 감사기록 경유(상태변경 추적)
     const { error } = await supabase.rpc("admin_set_inquiry_status", { p_id: id, p_status: status });
     if (error) {
       console.warn("[AdminInquiries] 상태 변경 실패:", error.message);
       toast.error("상태 변경 실패: " + error.message);
-      setItems(prev);
+      // 실패한 항목만 원복 — 전체 스냅샷 복원은 동시에 성공한 다른 항목의 갱신을 덮어쓴다
+      if (prevItem) setItems((cur) => cur.map((it) => (it.id === id ? prevItem : it)));
       return;
     }
     // 배지는 전체 기준 서버 집계라 낙관적 갱신으로 못 맞춤 → 서버에서 다시 셈
-    void refreshCounts();
+    void afterStatusChange();
   };
 
   // Zoho 무료 플랜은 mailto 기본핸들러 설정이 막혀 있어, Zoho 작성창을 직접 열고

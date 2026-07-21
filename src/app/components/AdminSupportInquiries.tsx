@@ -52,7 +52,7 @@ export function AdminSupportInquiries() {
   const {
     items, setItems, loading, filter, setFilter,
     page, pageSize, setPageSize, total, totalAll, counts, hasMore,
-    goToPage, reload, refreshCounts,
+    goToPage, reload, afterStatusChange,
   } = useAdminPagedList<Inquiry, Inquiry["status"]>({
     table: "support_inquiries",
     select: SELECT_COLS,
@@ -78,13 +78,18 @@ export function AdminSupportInquiries() {
   };
 
   const setStatus = async (id: string, status: Inquiry["status"]) => {
-    const prev = items;
+    const prevItem = items.find((it) => it.id === id);
     setItems((cur) => cur.map((it) => (it.id === id ? { ...it, status } : it)));
     // 직접 UPDATE → RPC(admin_logs 기록). 미적용 환경(PGRST202) 폴백 없이 에러 표면화.
     const { error } = await supabase.rpc("admin_set_support_status", { p_id: id, p_status: status });
-    if (error) { toast.error("상태 변경 실패: " + error.message); setItems(prev); return; }
+    if (error) {
+      toast.error("상태 변경 실패: " + error.message);
+      // 실패한 항목만 원복 — 전체 스냅샷을 되돌리면 그 사이 성공한 다른 항목의 갱신·답변까지 지워진다
+      if (prevItem) setItems((cur) => cur.map((it) => (it.id === id ? prevItem : it)));
+      return;
+    }
     // 배지는 전체 기준 서버 집계라 낙관적 갱신으로 못 맞춤 → 서버에서 다시 셈
-    void refreshCounts();
+    void afterStatusChange();
   };
 
   return (

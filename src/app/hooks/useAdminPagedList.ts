@@ -61,7 +61,7 @@ export function useAdminPagedList<T, S extends string>({
       //   (실패로 처리하면 "조회 실패" 토스트 + 빈 목록에 갇혀 되돌아올 방법이 없음)
       if (error.code === "PGRST103" && targetPage > 0) {
         setLoading(false);
-        void loadPage(0);
+        void loadPage(targetPage - 1);   // 1페이지로 튕기지 않고 바로 앞 페이지로(감사 중이던 위치 보존)
         return;
       }
       console.warn(`[useAdminPagedList] ${table} 조회 실패:`, error.message);
@@ -76,7 +76,7 @@ export function useAdminPagedList<T, S extends string>({
     // 빈 응답(에러 없이)으로 범위를 벗어난 경우도 동일하게 첫 페이지로 복구
     if (rows.length === 0 && targetPage > 0 && exact > 0) {
       setLoading(false);
-      void loadPage(0);
+      void loadPage(targetPage - 1);   // 〃
       return;
     }
     setItems(rows);
@@ -113,6 +113,14 @@ export function useAdminPagedList<T, S extends string>({
     void refreshCounts();
   }, [loadPage, page, refreshCounts]);
 
+  // 항목의 status 를 바꾼 뒤 호출. 필터가 걸려 있으면 그 항목은 더 이상 이 목록에 속하지 않으므로
+  //   페이지를 다시 받아야 한다(낙관적 갱신만 하면 "신규" 필터에 "검토중" 배지가 남고 total 도 낡음).
+  //   전체 보기에서는 멤버십이 안 바뀌므로 배지만 다시 센다.
+  const afterStatusChange = useCallback(() => {
+    if (filter !== "all") void loadPage(page);
+    void refreshCounts();
+  }, [filter, loadPage, page, refreshCounts]);
+
   return {
     items, setItems, loading,
     filter, setFilter,
@@ -120,6 +128,6 @@ export function useAdminPagedList<T, S extends string>({
     total, totalAll, counts,
     hasMore: (page + 1) * pageSize < total,
     goToPage: loadPage,
-    reload, refreshCounts,
+    reload, refreshCounts, afterStatusChange,
   };
 }

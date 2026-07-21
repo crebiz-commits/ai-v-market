@@ -84,7 +84,7 @@ export function AdminBugReports() {
   const {
     items, setItems, loading, filter, setFilter,
     page, pageSize, setPageSize, total, totalAll, counts, hasMore,
-    goToPage, reload, refreshCounts,
+    goToPage, reload, afterStatusChange,
   } = useAdminPagedList<BugReport, BugReport["status"]>({
     table: "bug_reports",
     select: "*",
@@ -104,7 +104,7 @@ export function AdminBugReports() {
       return false;
     }
     // 배지는 전체 기준 서버 집계라 낙관적 갱신으로 못 맞춤 → 서버에서 다시 셈
-    void refreshCounts();
+    void afterStatusChange();
     return true;
   };
 

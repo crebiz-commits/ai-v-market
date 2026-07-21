@@ -874,6 +874,8 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
         if (snap.policyRates) setPolicyRates(snap.policyRates);
         if (snap.purchaseSummary) setPurchaseSummary(snap.purchaseSummary);
         if (snap.creatorSummary) setCreatorSummary(snap.creatorSummary);
+        setPurchasesHasMore(!!snap.purchasesHasMore);   // 캐시 복원 시 '더 보기' 노출도 함께 복원
+        setProductsHasMore(!!snap.productsHasMore);
         stateOwnerRef.current = user.id; // 캐시는 저장 가드에 의해 항상 본인 데이터
         setLoading(false);
       }
@@ -888,7 +890,15 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     // state 소유자와 현재 사용자가 일치할 때만 저장 — 계정 전환 커밋 직후
     // 이전 사용자 데이터가 새 사용자 키로 저장되는 캐시 오염 차단
     if (stateOwnerRef.current !== user.id) return;
-    myPageCache[user.id] = { purchaseHistory, myProducts, videoTiers, monthlySales, adStats, adStatsByVideo, policyRates, purchaseSummary, creatorSummary };
+    // 목록은 **첫 페이지까지만** 캐시한다. 더보기로 90건까지 펼친 걸 통째로 캐시하면,
+    //   재진입 시 90건이 보였다가 백그라운드 갱신(첫 페이지 교체)으로 30건으로 줄어드는 플래시가 난다.
+    myPageCache[user.id] = {
+      purchaseHistory: purchaseHistory.slice(0, PURCHASES_PAGE),
+      myProducts: myProducts.slice(0, PRODUCTS_PAGE),
+      purchasesHasMore: purchasesHasMore || purchaseHistory.length > PURCHASES_PAGE,
+      productsHasMore: productsHasMore || myProducts.length > PRODUCTS_PAGE,
+      videoTiers, monthlySales, adStats, adStatsByVideo, policyRates, purchaseSummary, creatorSummary,
+    };
   }, [loading, user?.id, purchaseHistory, myProducts, videoTiers, monthlySales, adStats, adStatsByVideo, policyRates, purchaseSummary, creatorSummary]);
 
   // Phase 17: 시청 기록 탭 활성 시 로드
@@ -1073,8 +1083,10 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   const avgAdShare = adGrossRevenue > 0 ? adWeightedPayout / adGrossRevenue : CREATOR_SHARE_CINEMA;
   const adCTR = adStats.impressions > 0 ? (adStats.clicks / adStats.impressions) * 100 : 0;
 
-  // 크리에이터 여부 — 영상 1개 이상 업로드한 사용자만 판매(크리에이터) 탭 노출
-  const isCreator = creatorSummary.videoCount > 0;
+  // 크리에이터 여부 — 영상 1개 이상 업로드한 사용자만 판매(크리에이터) 탭 노출.
+  //   ⚠️ 합계 RPC 한 건이 실패해도 목록이 있으면 크리에이터로 인정(fail-open). summary 만 보면
+  //      get_my_creator_summary 실패 시 영상이 있어도 판매 탭·정산 카드가 통째로 사라진다.
+  const isCreator = creatorSummary.videoCount > 0 || myProducts.length > 0;
 
   // 구독 등급 표시용 메타. 'basic'은 예약 티어(판매 경로 없음).
   // 알 수 없는 tier 값이 와도 free 로 폴백 → tierMeta.icon 크래시 방지.
@@ -1142,7 +1154,15 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     setDeletingVideoId(null);
     if (error) { toast.error(t("mypage.sales.deleteFailed", "삭제 실패: ") + error.message); return; }
     toast.success(t("mypage.sales.deleteSuccess", "영상을 삭제했어요."));
+    // 표시 숫자가 전부 서버 집계로 바뀌었으므로 목록만 지우면 "등록 N"·총매출이 낡은 채 남는다.
+    const removedProduct = myProducts.find((p) => p.id === productId) as any;
     setMyProducts((prev) => prev.filter((p) => p.id !== productId));
+    setCreatorSummary((s) => ({
+      videoCount:   Math.max(0, s.videoCount - 1),
+      totalSales:   Math.max(0, s.totalSales - (Number(removedProduct?.sales) || 0)),
+      totalRevenue: Math.max(0, s.totalRevenue - (Number(removedProduct?.revenue) || 0)),
+      totalLikes:   Math.max(0, s.totalLikes - (Number(removedProduct?.likes) || 0)),
+    }));
   };
 
   const handleSelectMode = (mode: 'user' | 'creator') => {

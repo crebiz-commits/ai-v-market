@@ -27,7 +27,8 @@ interface Comment {
   creator_hearted?: boolean;
   liked?: boolean;
   replies?: Comment[];
-  replyCount?: number;   // 서버 집계(대댓글 전량 선로드 폐지) — 펼치기 전엔 replies 가 비어 있음
+  replyCount?: number;        // 서버 집계 — 펼치기 전엔 replies 가 비어 있음
+  loadedReplyCount?: number;  // 차단 필터 이전에 실제 로드된 답글 수 — 더보기 offset 판정 기준
 }
 
 interface CommentPanelProps {
@@ -889,6 +890,9 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
     .filter((c) => !isBlocked(c.user_id))
     .map((c) => ({
       ...c,
+      // loadReplies 의 offset 은 차단 필터 이전 길이 기준 → 더보기 조건도 같은 기준이어야 한다.
+      //   필터된 길이로 비교하면 차단 답글이 있을 때 "(2/3)" 버튼이 눌러도 반응 없이 남는다.
+      loadedReplyCount: (c.replies || []).length,
       replies: (c.replies || []).filter((r) => !isBlocked(r.user_id)),
     }));
 
@@ -974,14 +978,14 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
                     </AnimatePresence>
                     {/* 답글이 페이지 크기를 넘으면 이어서 로드 */}
                     {expandedReplies.has(comment.id)
-                      && (comment.replies?.length || 0) > 0
-                      && (comment.replies?.length || 0) < (comment.replyCount || 0) && (
+                      && (comment.loadedReplyCount || 0) > 0
+                      && (comment.loadedReplyCount || 0) < (comment.replyCount || 0) && (
                       <button
                         onClick={() => void loadReplies(comment.id)}
                         disabled={repliesLoading.has(comment.id)}
                         className="mt-1 text-[11px] text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-50"
                       >
-                        {t("common.more")} ({comment.replies?.length}/{comment.replyCount})
+                        {t("common.more")} ({comment.loadedReplyCount}/{comment.replyCount})
                       </button>
                     )}
                   </div>
