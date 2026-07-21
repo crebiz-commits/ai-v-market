@@ -28,6 +28,10 @@ interface HiddenRow {
 
 // 사유 라벨 파생 — hidden_reason 이 NULL 인 AI/편집 숨김 영상을 식별 가능하게 (M-1/H-1)
 function hiddenReason(r: HiddenRow): { text: string; cls: string } {
+  // 크리에이터가 자기 영상에서 직접 숨긴 것(creator_hide_comment) — 플랫폼 모더레이션과 구분.
+  //   창작자 자율 영역이라 색·문구를 분리해, 관리자가 "위반이라 숨겨진 것"으로 오인하지 않게 한다.
+  //   (목록에서 빼지 않는 이유: 크리에이터가 정당한 비판을 전부 숨기는 남용도 감독해야 하므로)
+  if (r.reason === "크리에이터 숨김") return { text: "👤 크리에이터 숨김 (창작자 판단)", cls: "text-sky-400/90" };
   if (r.reason) return { text: r.reason, cls: "text-red-400/80" };
   if (r.target_type === "video" && r.moderation_status) {
     const sc = r.moderation_score != null ? ` (${r.moderation_score})` : "";
@@ -202,6 +206,12 @@ function HiddenContentTab() {
   const restore = async (r: HiddenRow) => {
     const key = `${r.target_type}:${r.target_id}`;
     const typeLabel = TARGETS.find(t => t.key === r.target_type)?.label || r.target_type;
+    // 크리에이터 자율 영역 보호: 창작자가 자기 영상에서 직접 숨긴 댓글을 관리자가 복원하면
+    //   그 판단을 뒤집는 것이라 명시 경고(실수 방지). 감독 자체는 막지 않는다 — 남용 확인 시 진행 가능.
+    //   ※ 자동필터(is_filtered)는 RPC 단계에서 이미 목록에서 제외됨. 여기는 "수동 숨김"만 해당.
+    const creatorHideWarn = r.reason === "크리에이터 숨김"
+      ? `⚠️ 크리에이터가 자기 영상에서 직접 숨긴 댓글입니다.\n복원하면 창작자의 모더레이션 결정을 관리자가 뒤집게 됩니다 (남용 정황이 확인된 경우에만 진행하세요).\n\n`
+      : "";
     // M-2: 미처리 신고가 남았으면 복원 전 경고(신고 큐에서 먼저 처리 권장)
     const reportWarn = (r.pending_reports && r.pending_reports > 0)
       ? `⚠️ 이 대상엔 미처리 신고 ${r.pending_reports}건이 남아 있습니다. 복원하면 신고가 미해결인 채 노출됩니다 (신고 큐에서 먼저 처리 권장).\n\n`
@@ -211,7 +221,7 @@ function HiddenContentTab() {
       : r.target_type === "video" && r.moderation_status === "pending"
         ? `⚠️ 이 영상은 AI 검수 미완(pending) 상태입니다.\n복원하면 검수를 우회해 공개됩니다. 대신 '재검수'를 권장합니다.\n\n그래도 복원하시겠습니까? — [${typeLabel}] ${r.title || "(제목 없음)"}`
         : `복원하시겠습니까?\n[${typeLabel}] ${r.title || "(제목 없음)"}`;
-    if (!confirm(reportWarn + baseMsg)) return;
+    if (!confirm(creatorHideWarn + reportWarn + baseMsg)) return;
     setProcessingKey(key);
     let error;
     if (r.target_type === "video") {
