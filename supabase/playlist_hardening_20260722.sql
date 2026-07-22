@@ -52,6 +52,18 @@
 --   ▣ 표시 이름: 뷰가 p.display_name 만 쓰던 것을 resolve_display_name(2026-07-22 SSOT)으로
 --     교체 — 소셜 로그인 크리에이터가 보관함에서 이름 없이 보이던 것도 함께 해소.
 --
+--   ⛔ 2026-07-22 갱신 — 이 파일도 이제 **재실행하면 중간에 깨진다.**
+--     커버 연령게이트(playlist_cover_age_rating_20260722.sql)가 get_my_playlists 를
+--     9컬럼으로 늘렸는데(preview_age_rating), 아래 §2 는 8컬럼 CREATE OR REPLACE 라
+--     `cannot change return type of existing function` 으로 **§2 에서 중단**된다.
+--     그러면 §5(search_path 3함수)·§6(전체 GRANT)·§7(고아정리·FK)가 미적용으로 남는다.
+--     → 재적용이 필요하면 cover_age_rating(9컬럼, DROP 선행)을 마지막에 한 번 더 돌릴 것.
+--     ▣ 이 파일 이후 이관된 함수:
+--        get_my_playlists → playlist_cover_age_rating_20260722.sql (필터·tiebreak 보존 확인됨)
+--        add_to_playlist  → playlist_limits_reorder → playlist_audit2_20260722.sql
+--        update/delete/get_playlist_memberships → playlist_audit2_20260722.sql (SET 절 인라인 승격)
+--        ※ 아래 "나머지 5함수는 phase18 이 그대로 정본"은 작성 시점 기준이며 지금은 위가 맞다.
+--
 --   ★ 이 파일이 위 4함수의 새 정본. phase18_playlists.sql 의 **해당 함수** 재실행 금지
 --     (시리즈 증발·개수 불일치·소유자 미검증 UPDATE 로 회귀). 나머지 5함수와 테이블·RLS
 --     정의는 phase18 이 그대로 정본이며 여기서는 search_path·GRANT 만 얹는다.

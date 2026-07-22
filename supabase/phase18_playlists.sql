@@ -6,8 +6,34 @@
 -- "나중에 보기"는 is_watch_later=true 플래그가 붙은 특수 플레이리스트
 -- (한 사용자당 1개만 존재 — UNIQUE INDEX 강제)
 --
--- 적용:
+-- ⛔ 재실행 금지 — 부분 정본이 됨 (2026-07-22 감사)
+--   테이블·인덱스·RLS 정의는 여전히 이 파일이 정본이지만, **9개 RPC 중 8개는 본문이
+--   후속 파일로 이관**됐다. 이 파일의 RPC 블록을 (전체든 일부든) 다시 실행하면 회귀한다:
+--     · get_playlist_videos      → 피드뷰 재조인 = **시리즈 2화+ 영구 증발** 재발
+--                                   (+ resolve_display_name 표시이름 소멸)
+--     · get_my_playlists         → 개수·커버가 목록과 다른 기준으로 회귀
+--                                   (+ preview_age_rating 소멸 = 19금 커버 무블러)
+--     · remove_from_playlist     → 소유자 미검증 UPDATE 재발(타인 행 갱신 가능)
+--     · toggle_watch_later       → lazy-create 경쟁 조건 재발
+--     · create_playlist / add_to_playlist → 100개·60자·500개 상한 + 노출가능 검증 소멸
+--     · update/delete/get_playlist_memberships → SET search_path 조용히 소멸(게이트 #9 WARN)
+--   ▣ 게다가 지금은 라이브 get_my_playlists 가 9컬럼이라, 이 파일(8컬럼)은
+--     `cannot change return type of existing function` 으로 **RPC 1 에서 중단**된다
+--     (뒤쪽 RPC 2~9 에 도달조차 못 함 = "절반만 적용" 상태가 됨).
+--
+--   현재 RPC 정본 (2026-07-22):
+--     get_my_playlists                              → playlist_cover_age_rating_20260722.sql
+--     get_playlist_videos / remove_from_playlist / toggle_watch_later
+--                                                   → playlist_hardening_20260722.sql
+--     create_playlist / set_playlist_order          → playlist_limits_reorder_20260722.sql
+--     add_to_playlist / update_playlist / delete_playlist / get_playlist_memberships
+--                                                   → playlist_audit2_20260722.sql
+--   적용 상태 점검: _verify_playlist_applied_20260722.sql
+--
+-- 적용(신규 환경 부트스트랩 시에만):
 --   Supabase Dashboard → SQL Editor → "+ New query" → 본 파일 전체 붙여넣기 → Run
+--   → 그 뒤 반드시 위 후속 파일들을 **hardening → limits_reorder → cover_age → audit2**
+--     순서로 이어서 적용할 것(순서 바뀌면 반환타입 충돌로 중간에 깨진다).
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ── 테이블 ───────────────────────────────────────────────────────────────────
