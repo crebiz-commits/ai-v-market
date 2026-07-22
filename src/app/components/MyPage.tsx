@@ -65,7 +65,7 @@ function DataDownloadSection() {
         <Download className="w-5 h-5 text-[#10b981]" />
         <h3 className="font-bold text-white">{t("mypage.data.downloadTitle")}</h3>
       </div>
-      <p className="text-xs text-gray-500 leading-relaxed mb-4">
+      <p className="text-xs text-gray-400 leading-relaxed mb-4">
         {t("mypage.data.downloadDescription")}
       </p>
       <Button
@@ -155,7 +155,7 @@ function DangerZoneSection({ onSignOut }: { onSignOut: () => void }) {
         <p className="text-sm text-gray-300 leading-relaxed mb-2">
           <span className="font-bold text-red-300">{t("mypage.danger.daysLeft", { days: status.days_left })}</span> {t("mypage.danger.scheduledIn")}.
         </p>
-        <p className="text-xs text-gray-500 mb-4">
+        <p className="text-xs text-gray-400 mb-4">
           {t("mypage.danger.scheduledDate", { date: new Date(status.scheduled_at).toLocaleDateString() })}
           {status.reason && t("mypage.danger.reasonLine", { reason: status.reason })}
         </p>
@@ -177,7 +177,7 @@ function DangerZoneSection({ onSignOut }: { onSignOut: () => void }) {
         <AlertTriangle className="w-5 h-5 text-red-400" />
         <h3 className="font-bold text-red-300">{t("mypage.danger.title")}</h3>
       </div>
-      <p className="text-xs text-gray-500 leading-relaxed mb-4">
+      <p className="text-xs text-gray-400 leading-relaxed mb-4">
         {t("mypage.danger.description")}
       </p>
 
@@ -258,9 +258,9 @@ function BlockedUsersSection() {
       <div className="flex items-center gap-2 mb-4">
         <UserX className="w-5 h-5 text-red-400" />
         <h3 className="font-bold text-white">{t("mypage.blocks.title")}</h3>
-        <span className="text-xs text-gray-500">{t("mypage.blocks.count", { count: list.length })}</span>
+        <span className="text-xs text-gray-400">{t("mypage.blocks.count", { count: list.length })}</span>
       </div>
-      <p className="text-xs text-gray-500 leading-relaxed mb-4">
+      <p className="text-xs text-gray-400 leading-relaxed mb-4">
         {t("mypage.blocks.description")}
       </p>
 
@@ -269,7 +269,7 @@ function BlockedUsersSection() {
           <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
         </div>
       ) : list.length === 0 ? (
-        <p className="text-center text-sm text-gray-500 py-6">{t("mypage.blocks.empty")}</p>
+        <p className="text-center text-sm text-gray-400 py-6">{t("mypage.blocks.empty")}</p>
       ) : (
         <div className="space-y-2">
           {list.map((u) => (
@@ -277,7 +277,7 @@ function BlockedUsersSection() {
               <UserAvatar src={u.avatar_url} name={u.display_name} className="w-10 h-10" fallbackClassName="text-sm" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-white truncate">{u.display_name || t("mypage.blocks.unknownUser")}</p>
-                <p className="text-[10px] text-gray-500 mt-0.5">{new Date(u.blocked_at).toLocaleDateString()}{t("mypage.blocks.blockedSuffix")}</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">{new Date(u.blocked_at).toLocaleDateString()}{t("mypage.blocks.blockedSuffix")}</p>
               </div>
               <button
                 onClick={() => handleUnblock(u.blocked_user_id, u.display_name)}
@@ -560,6 +560,14 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   // 재시도 트리거 — setActivePlaylistId(같은 값)은 React 가 무시해 재조회가 안 된다.
   const [playlistVideosReload, setPlaylistVideosReload] = useState(0);
   const [reorderBusy, setReorderBusy] = useState(false);   // 순서 변경 연타 가드
+  // 포커스 관리 — 그리드↔상세는 화면이 통째로 교체되는데, 예전엔 .focus() 가 하나도 없어
+  //   전환할 때마다 포커스가 body 로 떨어졌다. 키보드 사용자는 상세로 들어가면 뒤로가기까지
+  //   페이지 최상단부터 Tab 해야 했고, 돌아와도 원래 카드로 못 돌아왔다(2026-07-22 감사).
+  const detailBackRef = useRef<HTMLButtonElement>(null);
+  const playlistCardRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const lastOpenedPlaylistRef = useRef<string | null>(null);
+  // 스크린리더 고지 — 제거·순서변경·이름변경 결과가 토스트로만 나가 SR 에는 전달되지 않았다.
+  const [playlistLiveMsg, setPlaylistLiveMsg] = useState("");
   // 유저 코너 헤더 스탯(시청/보관함) — 지연탭 대신 프로필 탭 즉시 표시용 경량 선로드. 구매는 purchaseHistory 사용.
   const [userStats, setUserStats] = useState<{ watched: number; playlists: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1064,6 +1072,17 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     //   이전 사용자 플레이리스트가 화면에 남지 않는다.
   }, [activeTab, isAuthenticated, user?.id]);
 
+  // 그리드↔상세 전환 시 포커스를 옮긴다(진입=뒤로가기 버튼 / 복귀=열었던 카드).
+  useEffect(() => {
+    if (activeTab !== 'playlists') return;
+    if (activePlaylistId) {
+      detailBackRef.current?.focus();
+    } else if (lastOpenedPlaylistRef.current) {
+      playlistCardRefs.current[lastOpenedPlaylistRef.current]?.focus();
+      lastOpenedPlaylistRef.current = null;
+    }
+  }, [activePlaylistId, activeTab]);
+
   // 특정 플레이리스트 진입 시 영상 목록 로드
   useEffect(() => {
     if (!activePlaylistId) {
@@ -1097,6 +1116,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     const { error } = await supabase.rpc('delete_playlist', { p_playlist_id: playlistId });
     if (error) return toast.error(t("mypage.playlist.deleteFailed", { message: error.message }));
     toast.success(t("mypage.playlist.deleteSuccess"));
+    setPlaylistLiveMsg(t("mypage.playlist.deleteSuccess"));
     await loadPlaylists();
     // 프로필 탭 헤더의 '보관함 N' 도 같이 줄인다 — 안 하면 목록은 줄었는데 숫자만 옛값으로 남는다.
     setUserStats(prev => (prev ? { ...prev, playlists: Math.max(0, prev.playlists - 1) } : prev));
@@ -1118,6 +1138,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     // 상세 화면 제목도 같이 갱신(같은 플레이리스트를 열어둔 채 이름을 바꾼 경우)
     setActivePlaylistName(prev => (activePlaylistId === playlistId ? name : prev));
     toast.success(t("mypage.playlist.renameSuccess", "이름이 변경되었습니다"));
+    setPlaylistLiveMsg(t("mypage.playlist.renameSuccess", "이름이 변경되었습니다"));
     await loadPlaylists();
   };
 
@@ -1138,6 +1159,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
       p_video_ids: reordered.map((v: any) => v.id).filter(Boolean),
     });
     setReorderBusy(false);
+    if (!error) {
+      setPlaylistLiveMsg(t("mypage.playlist.movedTo", { position: next + 1 }));
+    }
     if (error) {
       toast.error(t("mypage.playlist.reorderFailed", { message: error.message }));
       // ★ 실패 시 "클릭 시점 스냅샷 복원"을 하면 안 된다(2026-07-22 감사).
@@ -1153,6 +1177,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     if (error) return toast.error(t("mypage.playlist.removeFailed", { message: error.message }));
     setPlaylistVideos(prev => prev.filter(v => v.id !== videoId));
     toast.success(t("mypage.playlist.removeSuccess"));
+    setPlaylistLiveMsg(t("mypage.playlist.removeSuccess"));
     // 그리드로 돌아갔을 때 카드 개수가 옛값으로 남던 것 — 목록을 다시 받아 맞춘다.
     await loadPlaylists();
   };
@@ -1616,7 +1641,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                 className="bg-[#1c1c1e] p-4 rounded-2xl border border-white/5 text-center flex flex-col justify-center shadow-sm hover:border-white/10 transition-colors cursor-default"
               >
                 <p className={`text-2xl md:text-3xl font-black mb-1 drop-shadow-sm ${stat.color}`}>{stat.value}</p>
-                <p className="text-[11px] md:text-xs font-bold text-gray-500 uppercase tracking-wider">{stat.label}</p>
+                <p className="text-[11px] md:text-xs font-bold text-gray-400 uppercase tracking-wider">{stat.label}</p>
               </motion.div>
             ))}
           </motion.div>
@@ -1645,7 +1670,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                   key={tab.id}
                   value={tab.id}
                   className={`relative py-3 rounded-xl transition-all duration-300 font-bold text-[13px] md:text-sm
-                    ${isActive ? 'text-white' : 'text-gray-500 hover:text-gray-300'}
+                    ${isActive ? 'text-white' : 'text-gray-400 hover:text-gray-300'}
                   data-[state=active]:bg-transparent data-[state=active]:shadow-none`}
                 >
                   <Icon className="w-4 h-4 mr-1.5 hidden md:block relative z-10" />
@@ -1727,19 +1752,19 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                   <div className="space-y-4">
                     <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5">
                       <div>
-                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t("mypage.account.email")}</p>
+                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">{t("mypage.account.email")}</p>
                         <p className="text-gray-200 font-medium">{user?.email}</p>
                       </div>
                     </div>
                     <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5">
                       <div>
-                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t("mypage.account.name")}</p>
+                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">{t("mypage.account.name")}</p>
                         <p className="text-gray-200 font-medium">{profile?.display_name || user?.name}</p>
                       </div>
                     </div>
                     <div className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5">
                       <div>
-                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t("mypage.account.accountType")}</p>
+                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">{t("mypage.account.accountType")}</p>
                         <p className="inline-flex items-center gap-2 text-gray-200 font-medium">
                           {isCreator ? t("mypage.account.creator") : t("mypage.account.regular")}
                           {isCreator && (
@@ -1766,7 +1791,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                         className="w-full flex items-center gap-3 bg-[#1c1c1e] hover:bg-[#242427] p-4 rounded-xl border border-white/5 hover:border-white/10 transition-colors text-left">
                         <span className="text-xl shrink-0">{it.icon}</span>
                         <span className="flex-1 text-gray-200 font-medium text-sm">{it.label}</span>
-                        <ChevronRight className="w-4 h-4 text-gray-600 shrink-0" />
+                        <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
                       </button>
                     ))}
                   </div>
@@ -1780,12 +1805,12 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       <div className="relative z-10">
                         {payoutInfo?.bank_name ? (
                           <>
-                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{payoutInfo.bank_name}</p>
+                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">{payoutInfo.bank_name}</p>
                             <p className="text-lg text-gray-200 font-medium tracking-wider">{String(payoutInfo.account_number || "").replace(/.(?=.{4})/g, "•")}</p>
                           </>
                         ) : (
                           <>
-                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t("mypage.payout.notRegistered")}</p>
+                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1">{t("mypage.payout.notRegistered")}</p>
                             <p className="text-sm text-gray-400 font-medium">{t("mypage.payout.registerHint")}</p>
                           </>
                         )}
@@ -1810,7 +1835,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                     <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t("mypage.purchases.totalSpent")}</p>
                     <p className="text-3xl font-black text-white drop-shadow-sm">₩{purchaseSummary.total.toLocaleString()}</p>
                     {purchaseSummary.refunded > 0 && (
-                      <p className="text-[11px] text-gray-500 mt-1">
+                      <p className="text-[11px] text-gray-400 mt-1">
                         {t("mypage.purchases.statusRefunded")} {purchaseSummary.refunded}건은 합계에서 제외
                       </p>
                     )}
@@ -1831,20 +1856,20 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                         />
                         {isPurchaseAgeLocked(purchase.videoId) && (
                           <div className="absolute inset-0 bg-black/65 flex items-center justify-center">
-                            <span className="w-6 h-6 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center">19</span>
+                            <span role="img" aria-label={t("ageBadge.age19")} className="w-6 h-6 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center">19</span>
                           </div>
                         )}
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#121212]" />
                       </div>
                       <div className="p-4 flex flex-col flex-1 pb-4">
                         <h3 className="font-bold text-gray-200 mb-1 line-clamp-1">{purchase.title}</h3>
-                        <p className="text-[10px] text-gray-500 font-medium mb-3">{purchase.date}</p>
+                        <p className="text-[10px] text-gray-400 font-medium mb-3">{purchase.date}</p>
                         
                         <div className="flex items-center justify-between mb-4">
                           <span className="px-2 py-0.5 bg-[#6366f1]/10 border border-[#6366f1]/20 text-[#6366f1] rounded text-[10px] font-bold">
                             {purchase.license}
                           </span>
-                          <span className={`font-bold ${purchase.status === "refunded" ? "text-gray-500 line-through" : "text-gray-300"}`}>
+                          <span className={`font-bold ${purchase.status === "refunded" ? "text-gray-400 line-through" : "text-gray-300"}`}>
                             ₩{purchase.price.toLocaleString()}
                           </span>
                         </div>
@@ -1853,7 +1878,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                           {/* 환불건은 다운로드 불가 — 서버(log_download)가 status='completed' 만 허용하므로
                               버튼을 두면 눌렀을 때 "권한 없음" 에러만 남는다. 기록은 남기되 상태를 명시. */}
                           {purchase.status === "refunded" ? (
-                            <div className="flex-1 py-2 rounded-lg border border-white/5 bg-white/[0.03] text-gray-500 text-xs font-bold text-center">
+                            <div className="flex-1 py-2 rounded-lg border border-white/5 bg-white/[0.03] text-gray-400 text-xs font-bold text-center">
                               {t("mypage.purchases.statusRefunded")}
                             </div>
                           ) : (
@@ -1891,7 +1916,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                     </div>
                   )}
                   {!purchasesError && purchaseHistory.length === 0 && (
-                    <div className="col-span-full py-10 text-center text-gray-500 font-medium bg-[#121212] rounded-2xl border border-white/5">
+                    <div className="col-span-full py-10 text-center text-gray-400 font-medium bg-[#121212] rounded-2xl border border-white/5">
                       {t("mypage.purchases.empty")}
                     </div>
                   )}
@@ -1939,7 +1964,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                     <div className="relative z-10">
                       <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t("mypage.sales.netPayout")}</p>
                       <p className="text-2xl font-black text-[#8b5cf6]">₩{expectedPayout.toLocaleString()}</p>
-                      <p className="text-[10px] text-gray-500 font-medium mt-1">{t("mypage.sales.feeNote", { rate: Math.round((1 - CREATOR_SHARE_SALE) * 100) })}</p>
+                      <p className="text-[10px] text-gray-400 font-medium mt-1">{t("mypage.sales.feeNote", { rate: Math.round((1 - CREATOR_SHARE_SALE) * 100) })}</p>
                     </div>
                     <TrendingUp className="absolute right-2 bottom-2 w-16 h-16 text-[#8b5cf6]/10 group-hover:scale-110 transition-transform duration-500" />
                   </motion.div>
@@ -1952,19 +1977,19 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       <Sparkles className="w-5 h-5 text-amber-400" />
                       {t("mypage.sales.adRevenue")}
                     </h3>
-                    <span className="text-[10px] text-gray-500 font-medium">{t("mypage.sales.adRevenueDetail", { cpm: AD_CPM_KRW.toLocaleString(), share: Math.round(avgAdShare * 100) })}</span>
+                    <span className="text-[10px] text-gray-400 font-medium">{t("mypage.sales.adRevenueDetail", { cpm: AD_CPM_KRW.toLocaleString(), share: Math.round(avgAdShare * 100) })}</span>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="bg-[#1c1c1e] p-3 rounded-xl border border-white/5 text-center">
-                      <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">{t("mypage.sales.impressions")}</p>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">{t("mypage.sales.impressions")}</p>
                       <p className="text-lg font-black text-white">{adStats.impressions.toLocaleString()}</p>
                     </div>
                     <div className="bg-[#1c1c1e] p-3 rounded-xl border border-white/5 text-center">
-                      <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">{t("mypage.sales.clicks")}</p>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">{t("mypage.sales.clicks")}</p>
                       <p className="text-lg font-black text-white">{adStats.clicks.toLocaleString()}</p>
                     </div>
                     <div className="bg-[#1c1c1e] p-3 rounded-xl border border-white/5 text-center">
-                      <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">CTR</p>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">CTR</p>
                       <p className="text-lg font-black text-white">{adCTR.toFixed(2)}%</p>
                     </div>
                     <div className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 p-3 rounded-xl border border-amber-500/30 text-center">
@@ -1989,7 +2014,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                           return t("mypage.sales.payoutDate", { year: nextPayout.getFullYear(), month: nextPayout.getMonth() + 1, day: nextPayout.getDate() });
                         })()} • <span className="font-bold text-[#8b5cf6]">₩{expectedPayout.toLocaleString()}</span>
                       </p>
-                      <p className="text-[11px] text-gray-500">{t("mypage.sales.payoutSchedule")}</p>
+                      <p className="text-[11px] text-gray-400">{t("mypage.sales.payoutSchedule")}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -2035,7 +2060,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                         </div>
                         <div className="flex-1 flex flex-col justify-center">
                           <h4 className="font-bold text-gray-200 mb-2 line-clamp-1">{product.title}</h4>
-                          <div className="grid grid-cols-3 gap-2 text-[11px] text-gray-500 mb-2 bg-[#1c1c1e] p-2 rounded-lg border border-white/5">
+                          <div className="grid grid-cols-3 gap-2 text-[11px] text-gray-400 mb-2 bg-[#1c1c1e] p-2 rounded-lg border border-white/5">
                             <div className="text-center">
                               <p className="mb-0.5">{t("mypage.sales.viewsLabel")}</p>
                               <p className="text-white font-bold">{product.views.toLocaleString()}</p>
@@ -2075,7 +2100,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       </div>
                     ))}
                     {myProducts.length === 0 && (
-                       <div className="py-8 text-center text-gray-500 font-medium">
+                       <div className="py-8 text-center text-gray-400 font-medium">
                          {t("mypage.sales.noProducts")}
                        </div>
                     )}
@@ -2182,7 +2207,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                     </div>
                     <div>
                       <h3 className="font-bold text-white">{t("mypage.commentsTab.title")}</h3>
-                      <p className="text-xs text-gray-500 mt-0.5">{t("mypage.commentsTab.subtitle")}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{t("mypage.commentsTab.subtitle")}</p>
                     </div>
                   </div>
 
@@ -2190,17 +2215,17 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                     <div className="bg-white/5 rounded-xl p-4 border border-white/5">
                       <Filter className="w-5 h-5 text-[#8b5cf6] mb-2" />
                       <p className="text-sm font-bold text-white mb-1">{t("mypage.commentsTab.filterWords")}</p>
-                      <p className="text-xs text-gray-500 leading-relaxed">{t("mypage.commentsTab.filterWordsDesc")}</p>
+                      <p className="text-xs text-gray-400 leading-relaxed">{t("mypage.commentsTab.filterWordsDesc")}</p>
                     </div>
                     <div className="bg-white/5 rounded-xl p-4 border border-white/5">
                       <Lock className="w-5 h-5 text-[#f43f5e] mb-2" />
                       <p className="text-sm font-bold text-white mb-1">{t("mypage.commentsTab.blockedUsers")}</p>
-                      <p className="text-xs text-gray-500 leading-relaxed">{t("mypage.commentsTab.blockedUsersDesc")}</p>
+                      <p className="text-xs text-gray-400 leading-relaxed">{t("mypage.commentsTab.blockedUsersDesc")}</p>
                     </div>
                     <div className="bg-white/5 rounded-xl p-4 border border-white/5">
                       <Eye className="w-5 h-5 text-amber-400 mb-2" />
                       <p className="text-sm font-bold text-white mb-1">{t("mypage.commentsTab.filterReview")}</p>
-                      <p className="text-xs text-gray-500 leading-relaxed">{t("mypage.commentsTab.filterReviewDesc")}</p>
+                      <p className="text-xs text-gray-400 leading-relaxed">{t("mypage.commentsTab.filterReviewDesc")}</p>
                     </div>
                   </div>
 
@@ -2212,7 +2237,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                     {t("mypage.commentsTab.openButton")}
                   </Button>
 
-                  <p className="text-[11px] text-gray-600 text-center mt-3">
+                  <p className="text-[11px] text-gray-400 text-center mt-3">
                     {t("mypage.commentsTab.directHint")}
                   </p>
                 </div>
@@ -2249,10 +2274,10 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       </Button>
                     </div>
                   ) : watchHistory.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">
+                    <div className="text-center py-12 text-gray-400">
                       <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
                       <p className="text-sm">{t("mypage.watchHistory.empty")}</p>
-                      <p className="text-xs mt-1 text-gray-600">{t("mypage.watchHistory.emptyHint")}</p>
+                      <p className="text-xs mt-1 text-gray-400">{t("mypage.watchHistory.emptyHint")}</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -2291,7 +2316,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                                   />
                                   {isAgeLocked && (
                                     <div className="absolute inset-0 bg-black/65 flex items-center justify-center">
-                                      <span className="w-6 h-6 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center">19</span>
+                                      <span role="img" aria-label={t("ageBadge.age19")} className="w-6 h-6 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center">19</span>
                                     </div>
                                   )}
                                 </div>
@@ -2302,7 +2327,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                               )}
                               <div className="min-w-0 flex-1">
                                 <p className="text-sm font-semibold text-white truncate">{h.title || t("mypage.watchHistory.noTitle")}</p>
-                                <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                                <p className="text-[11px] text-gray-400 mt-0.5 truncate">
                                   {h.creator_name || t("mypage.watchHistory.nameless")} · {dateStr}
                                 </p>
                                 {/* 색으로 is_valid(어뷰징 필터 플래그)를 노출하던 것을 제거 —
@@ -2315,7 +2340,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                                       style={{ width: `${Math.max(pct, 2)}%` }}
                                     />
                                   </div>
-                                  <span className="text-[10px] font-mono text-gray-500 flex-shrink-0">
+                                  <span className="text-[10px] font-mono text-gray-400 flex-shrink-0">
                                     {total > 0 ? `${fmtClock(watched)} / ${fmtClock(total)}` : fmtClock(watched)}
                                   </span>
                                 </div>
@@ -2347,19 +2372,23 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
 
               {/* Phase 18: 플레이리스트 탭 */}
               <TabsContent value="playlists" className="space-y-4 m-0">
+                {/* 스크린리더 전용 고지 — 토스트는 SR 에 안정적으로 전달되지 않는다 */}
+                <p className="sr-only" role="status" aria-live="polite">{playlistLiveMsg}</p>
                 {activePlaylistId ? (
                   /* ── 플레이리스트 상세 (영상 목록) ─────────────────── */
                   <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
                     <div className="flex items-center gap-3 mb-5">
                       <button
+                        ref={detailBackRef}
                         onClick={() => setActivePlaylistId(null)}
                         className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                        aria-label={t("mypage.playlist.backToList")}
                         title={t("mypage.playlist.backToList")}
                       >
                         <ArrowLeft className="w-5 h-5 text-white" />
                       </button>
                       <h3 className="font-bold text-white text-lg flex-1 truncate">{activePlaylistName}</h3>
-                      <span className="text-xs text-gray-500 font-bold">{t("mypage.playlist.videosCount", { count: playlistVideos.length })}</span>
+                      <span className="text-xs text-gray-400 font-bold">{t("mypage.playlist.videosCount", { count: playlistVideos.length })}</span>
                     </div>
 
                     {playlistVideosLoading ? (
@@ -2374,7 +2403,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                         </Button>
                       </div>
                     ) : playlistVideos.length === 0 ? (
-                      <div className="py-12 text-center text-sm text-gray-500">
+                      <div className="py-12 text-center text-sm text-gray-400">
                         {t("mypage.playlist.playlistEmpty")}
                       </div>
                     ) : (
@@ -2393,7 +2422,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                               )}
                               {isPlaylistVideoAgeLocked(v.id, v.creator_id) && (
                                 <div className="absolute inset-0 bg-black/65 flex items-center justify-center">
-                                  <span className="w-6 h-6 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center">19</span>
+                                  <span role="img" aria-label={t("ageBadge.age19")} className="w-6 h-6 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center">19</span>
                                 </div>
                               )}
                               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 bg-black/40 transition-opacity">
@@ -2410,7 +2439,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                               className="flex-1 min-w-0 text-left"
                             >
                               <p className="text-sm font-bold text-white line-clamp-2 leading-tight mb-0.5">{v.title}</p>
-                              <p className="text-xs text-gray-500 line-clamp-1">{v.creator_display_name || v.creator}</p>
+                              <p className="text-xs text-gray-400 line-clamp-1">{v.creator_display_name || v.creator}</p>
                             </button>
                             {/* 순서 변경 — 위/아래 한 칸. 드래그앤드롭 대신 버튼이라 모바일에서도 동작한다. */}
                             {/* HOVER_REVEAL 은 **버튼 자신**에 건다. 감싸는 div 에 걸면 div 가
@@ -2424,7 +2453,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                                 onClick={() => void handleMovePlaylistVideo(v.id, -1)}
                                 disabled={idx === 0}
                                 aria-label={t("mypage.playlist.moveUp")}
-                                className={`p-1.5 rounded hover:bg-white/10 text-gray-500 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent ${HOVER_REVEAL}`}
+                                className={`p-1.5 rounded hover:bg-white/10 text-gray-400 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent ${HOVER_REVEAL}`}
                                 title={t("mypage.playlist.moveUp")}
                               >
                                 <ChevronUp className="w-3.5 h-3.5" />
@@ -2433,7 +2462,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                                 onClick={() => void handleMovePlaylistVideo(v.id, 1)}
                                 disabled={idx === playlistVideos.length - 1}
                                 aria-label={t("mypage.playlist.moveDown")}
-                                className={`p-1.5 rounded hover:bg-white/10 text-gray-500 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent ${HOVER_REVEAL}`}
+                                className={`p-1.5 rounded hover:bg-white/10 text-gray-400 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent ${HOVER_REVEAL}`}
                                 title={t("mypage.playlist.moveDown")}
                               >
                                 <ChevronDown className="w-3.5 h-3.5" />
@@ -2441,7 +2470,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                             </div>
                             <button
                               onClick={() => handleRemoveFromPlaylist(v.id)}
-                              className={`p-2 rounded-lg hover:bg-red-500/10 text-gray-500 hover:text-red-400 ${HOVER_REVEAL}`}
+                              className={`p-2 rounded-lg hover:bg-red-500/10 text-gray-400 hover:text-red-400 ${HOVER_REVEAL}`}
                               title={t("mypage.playlist.removeFromPlaylist")}
                             >
                               <Trash2 className="w-4 h-4" />
@@ -2459,7 +2488,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                         <FolderPlus className="w-5 h-5 mr-2 text-[#8b5cf6]" />
                         {t("mypage.playlist.myPlaylists")}
                       </h3>
-                      <span className="text-xs text-gray-500 font-bold">{t("mypage.playlist.count", { count: playlists.length })}</span>
+                      <span className="text-xs text-gray-400 font-bold">{t("mypage.playlist.count", { count: playlists.length })}</span>
                     </div>
 
                     {playlistsLoading ? (
@@ -2476,16 +2505,18 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       </div>
                     ) : playlists.length === 0 ? (
                       <div className="py-12 text-center">
-                        <FolderPlus className="w-12 h-12 mx-auto text-gray-600 mb-3" />
+                        <FolderPlus className="w-12 h-12 mx-auto text-gray-400 mb-3" />
                         <p className="text-sm text-gray-400 mb-1">{t("mypage.playlist.empty")}</p>
-                        <p className="text-xs text-gray-500">{t("mypage.playlist.emptyHint")}</p>
+                        <p className="text-xs text-gray-400">{t("mypage.playlist.emptyHint")}</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         {playlists.map((pl: any) => (
                           <div key={pl.id} className="relative group">
                             <button
+                              ref={(el) => { playlistCardRefs.current[pl.id] = el; }}
                               onClick={() => {
+                                lastOpenedPlaylistRef.current = pl.id;   // 복귀 시 이 카드로 포커스
                                 setActivePlaylistId(pl.id);
                                 setActivePlaylistName(pl.name);
                               }}
@@ -2504,7 +2535,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                                 )}
                                 {shouldBlur(pl.preview_age_rating, profile?.age_verified) && (
                                   <div className="absolute inset-0 bg-black/65 flex items-center justify-center">
-                                    <span className="w-7 h-7 rounded-full bg-red-600 text-white text-[11px] font-black flex items-center justify-center">19</span>
+                                    <span role="img" aria-label={t("ageBadge.age19")} className="w-7 h-7 rounded-full bg-red-600 text-white text-[11px] font-black flex items-center justify-center">19</span>
                                   </div>
                                 )}
                                 {/* 영상 개수 뱃지 */}
@@ -2592,20 +2623,20 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
 
               <TabsContent value="settings" className="space-y-3 m-0">
                 {/* ── 초대(레퍼럴) ── */}
-                <p className="px-1 pt-1 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{t("mypage.settings.sectionInvite")}</p>
+                <p className="px-1 pt-1 pb-1 text-[11px] font-black text-gray-400 uppercase tracking-widest">{t("mypage.settings.sectionInvite")}</p>
                 <ReferralCard />
 
                 {/* ── 알림 ── */}
-                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{t("mypage.settings.sectionNotifications")}</p>
+                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-400 uppercase tracking-widest">{t("mypage.settings.sectionNotifications")}</p>
                 <NotificationSettings />
 
                 {/* ── 결제 · 세금 ── */}
-                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{t("mypage.settings.sectionBilling")}</p>
+                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-400 uppercase tracking-widest">{t("mypage.settings.sectionBilling")}</p>
                 <MyPaymentsSection />
                 <TaxInfoSection />
 
                 {/* ── 보안 ── */}
-                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{t("mypage.settings.sectionSecurity")}</p>
+                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-400 uppercase tracking-widest">{t("mypage.settings.sectionSecurity")}</p>
                 <div className="bg-[#121212] p-5 md:p-6 rounded-2xl border border-white/5 shadow-sm">
                   <div className="space-y-3">
                     <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
@@ -2623,12 +2654,12 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                 </div>
 
                 {/* ── 개인정보 · 안전 ── */}
-                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{t("mypage.settings.sectionPrivacy")}</p>
+                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-400 uppercase tracking-widest">{t("mypage.settings.sectionPrivacy")}</p>
                 <BlockedUsersSection />
                 <DataDownloadSection />
 
                 {/* ── 계정 ── */}
-                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-500 uppercase tracking-widest">{t("mypage.settings.sectionAccount")}</p>
+                <p className="px-1 pt-4 pb-1 text-[11px] font-black text-gray-400 uppercase tracking-widest">{t("mypage.settings.sectionAccount")}</p>
                 <div>
                   <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                     <Button
@@ -2710,11 +2741,11 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                         {isKo ? "취소" : "Cancel"}
                       </button>
                     </div>
-                    <p className="text-[11px] text-gray-500 leading-relaxed">{isKo ? "새 주소로 보낸 확인 링크를 클릭해야 변경이 완료됩니다." : "Click the confirmation link sent to the new address to finish."}</p>
+                    <p className="text-[11px] text-gray-400 leading-relaxed">{isKo ? "새 주소로 보낸 확인 링크를 클릭해야 변경이 완료됩니다." : "Click the confirmation link sent to the new address to finish."}</p>
                   </div>
                 )}
                 {!canChangeEmail && !emailEditMode && (
-                  <p className="text-[11px] text-gray-500 mt-1.5">{isKo ? "소셜 로그인 계정은 이메일을 변경할 수 없습니다." : "Social login accounts can't change email."}</p>
+                  <p className="text-[11px] text-gray-400 mt-1.5">{isKo ? "소셜 로그인 계정은 이메일을 변경할 수 없습니다." : "Social login accounts can't change email."}</p>
                 )}
               </div>
 
@@ -2737,7 +2768,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                     {editAvatarUrl ? (
                       <img src={editAvatarUrl} referrerPolicy="no-referrer" alt="" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                     ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-gray-500">
+                      <div className="absolute inset-0 flex items-center justify-center text-gray-400">
                         <ImagePlus className="w-6 h-6" />
                       </div>
                     )}
@@ -2748,7 +2779,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                     )}
                   </label>
                   <div className="flex-1">
-                    <p className="text-[11px] text-gray-500 mb-1">{t("mypage.profileEditModal.avatarHint")}</p>
+                    <p className="text-[11px] text-gray-400 mb-1">{t("mypage.profileEditModal.avatarHint")}</p>
                     {editAvatarUrl && !uploadingAvatar && (
                       <button
                         type="button"
@@ -2783,7 +2814,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                   placeholder={t("mypage.profileEditModal.bioPlaceholder")}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors resize-none"
                 />
-                <p className="text-[11px] text-gray-500 mt-1">{editBio.length}/200</p>
+                <p className="text-[11px] text-gray-400 mt-1">{editBio.length}/200</p>
               </div>
               <div className="mb-5">
                 <label className="block text-xs font-semibold text-gray-400 mb-1.5">{t("mypage.profileEditModal.bannerLabel")}</label>
@@ -2802,7 +2833,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                   {editBannerUrl ? (
                     <img src={editBannerUrl} referrerPolicy="no-referrer" alt="" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                   ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 text-xs gap-1.5">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 text-xs gap-1.5">
                       <ImagePlus className="w-6 h-6" />
                       <span>{t("mypage.profileEditModal.bannerUploadPrompt")}</span>
                     </div>
@@ -2814,7 +2845,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                   )}
                 </label>
                 <div className="flex items-center justify-between mt-1.5">
-                  <p className="text-[11px] text-gray-500">{t("mypage.profileEditModal.bannerHint")}</p>
+                  <p className="text-[11px] text-gray-400">{t("mypage.profileEditModal.bannerHint")}</p>
                   {editBannerUrl && !uploadingBanner && (
                     <button
                       type="button"
@@ -2864,7 +2895,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                     <input type={showPwNew ? "text" : "password"} value={pwNew} onChange={e => setPwNew(e.target.value)}
                       placeholder={t("mypage.passwordModal.newPasswordPlaceholder")}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors" />
-                    <button onClick={() => setShowPwNew(!showPwNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                    <button onClick={() => setShowPwNew(!showPwNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
                       {showPwNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
@@ -2876,7 +2907,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#6366f1] transition-colors" />
                 </div>
               </div>
-              <p className="text-xs text-gray-600 mb-4">{t("mypage.passwordModal.socialHint")}</p>
+              <p className="text-xs text-gray-400 mb-4">{t("mypage.passwordModal.socialHint")}</p>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => setShowPasswordChange(false)} className="flex-1 border-white/10">{t("mypage.passwordModal.cancel")}</Button>
                 <Button size="sm" onClick={handleChangePassword} disabled={savingPassword || !pwNew || !pwConfirm}

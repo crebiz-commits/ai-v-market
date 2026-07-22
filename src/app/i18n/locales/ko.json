@@ -1124,7 +1124,8 @@
       "count_one": "{{count}}개",
       "count_other": "{{count}}개",
       "videosCount_one": "{{count}}개",
-      "videosCount_other": "{{count}}개"
+      "videosCount_other": "{{count}}개",
+      "movedTo": "{{position}}번째로 이동했습니다"
     },
     "settings": {
       "accountSecurity": "계정 보안",
