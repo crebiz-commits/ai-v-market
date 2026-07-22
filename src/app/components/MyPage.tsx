@@ -509,6 +509,14 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     setPayoutInfo(data ?? null);
   };
   const [purchaseHistory, setPurchaseHistory] = useState<Purchase[]>([]);
+  // 조회 실패를 "없음"과 구분(2026-07-22) — 보관함에서 만든 패턴을 형제 탭에 전파.
+  //   ⚠️ Supabase 는 RPC 오류를 throw 하지 않고 { data, error } 의 error 로 돌려준다.
+  //   그래서 아래 fetchMyData 의 try/catch(=unexpectedError 토스트)는 **네트워크 예외만** 잡고,
+  //   권한·RLS·SQL 같은 실제로 더 흔한 실패는 console.warn 만 남긴 채 조용히 통과했다.
+  //   결과: 결제한 사용자에게 아무 경고 없이 "구매 내역이 없습니다"가 떴다.
+  const [purchasesError, setPurchasesError] = useState(false);
+  const [watchHistoryError, setWatchHistoryError] = useState(false);
+  const [watchHistoryReload, setWatchHistoryReload] = useState(0);   // 재시도 트리거
   // 목록은 페이지 단위 — 합계·건수는 목록에서 세면 '이 페이지 기준'이 되므로 서버 집계를 따로 보관(2026-07-19)
   const [purchaseSummary, setPurchaseSummary] = useState({ count: 0, total: 0, refunded: 0 });
   const [purchasesHasMore, setPurchasesHasMore] = useState(false);
@@ -719,10 +727,12 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
       ]);
       if (listRes.error) {
         console.warn('[MyPage] 구매내역 조회 실패:', listRes.error.message);
+        setPurchasesError(true);   // 빈 목록 = "구매 없음" 으로 오인되던 것
       } else {
         const fetched = (listRes.data || []) as any[];
         setPurchaseHistory(fetched.slice(0, PURCHASES_PAGE).map((r) => mapPurchaseRow(r, t)));
         setPurchasesHasMore(fetched.length > PURCHASES_PAGE);
+        setPurchasesError(false);
       }
       if (sumRes.error) {
         console.warn('[MyPage] 구매 합계 조회 실패:', sumRes.error.message);
@@ -934,6 +944,10 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   }, [loading, user?.id, purchaseHistory, myProducts, videoTiers, monthlySales, adStats, adStatsByVideo, policyRates, purchaseSummary, creatorSummary]);
 
   // Phase 17: 시청 기록 탭 활성 시 로드
+  //   ▣ 차단 필터를 일부러 걸지 않는다(2026-07-22 결정). SearchPage 의 "이어보기"(:270)는
+  //     같은 RPC 를 쓰면서 isBlocked 를 거는데, 그건 **추천 표면**이고 여기는 **내 기록 조회**라
+  //     목적이 다르다. 차단 = "추천·탐색에서 안 보이게" 이지 내 기록을 지우는 게 아니다.
+  //     감사 시 "같은 데이터인데 한쪽만 필터"를 버그로 오인하지 말 것 — PRD 07 §3.8 참조.
   useEffect(() => {
     if (activeTab !== 'history' || !isAuthenticated) return;
     (async () => {
@@ -944,14 +958,16 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
         toast.error(t("mypage.watchHistory.loadFailed", { message: error.message }));
         setWatchHistory([]);
         setWatchHistoryHasMore(false);
+        setWatchHistoryError(true);   // 토스트는 몇 초 뒤 사라져 "기록 없음"만 남던 것
       } else {
         const fetched = (data || []) as any[];
         setWatchHistory(fetched.slice(0, WATCH_HISTORY_PAGE));
         setWatchHistoryHasMore(fetched.length > WATCH_HISTORY_PAGE);
+        setWatchHistoryError(false);
       }
       setWatchHistoryLoading(false);
     })();
-  }, [activeTab, isAuthenticated]);
+  }, [activeTab, isAuthenticated, watchHistoryReload]);
 
   // 더 보기 — 다음 페이지를 이어붙임. 재시청으로 순서가 바뀌어도 중복되지 않게 video_id 로 dedup
   //   (RPC 가 DISTINCT ON(video_id) 라 한 영상당 1행).
@@ -1865,7 +1881,16 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                       </div>
                     </motion.div>
                   ))}
-                  {purchaseHistory.length === 0 && (
+                  {/* 조회 실패를 "구매 없음"으로 보여주면 결제한 사용자가 라이선스가 날아간 줄 안다 */}
+                  {purchasesError && purchaseHistory.length === 0 && (
+                    <div className="col-span-full py-10 text-center bg-[#121212] rounded-2xl border border-amber-500/30 space-y-3">
+                      <p className="text-sm text-amber-300">{t("mypage.purchases.loadFailed")}</p>
+                      <Button variant="outline" size="sm" onClick={() => void fetchMyData(true)}>
+                        {t("common.retry")}
+                      </Button>
+                    </div>
+                  )}
+                  {!purchasesError && purchaseHistory.length === 0 && (
                     <div className="col-span-full py-10 text-center text-gray-500 font-medium bg-[#121212] rounded-2xl border border-white/5">
                       {t("mypage.purchases.empty")}
                     </div>
@@ -2214,6 +2239,14 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                   {watchHistoryLoading ? (
                     <div className="flex justify-center py-12">
                       <Loader2 className="w-7 h-7 text-[#6366f1] animate-spin" />
+                    </div>
+                  ) : watchHistoryError ? (
+                    /* 토스트는 몇 초 뒤 사라져 "기록 없음"만 남는다 → 실패를 화면에 남기고 재시도 제공 */
+                    <div className="text-center py-12 space-y-3">
+                      <p className="text-sm text-amber-300">{t("mypage.watchHistory.loadFailedShort")}</p>
+                      <Button variant="outline" size="sm" onClick={() => setWatchHistoryReload(n => n + 1)}>
+                        {t("common.retry")}
+                      </Button>
                     </div>
                   ) : watchHistory.length === 0 ? (
                     <div className="text-center py-12 text-gray-500">

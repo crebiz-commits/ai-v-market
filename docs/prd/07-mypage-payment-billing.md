@@ -81,6 +81,11 @@
 - 시청기록(history 탭): `get_my_watch_history`/`delete_my_watch_history`(개별/전체) (`MyPage.tsx:807-838`).
 - 플레이리스트(playlists 탭): `get_my_playlists`/`get_playlist_videos`/`delete_playlist`/`remove_from_playlist` (`MyPage.tsx:840-899`). Watch Later는 삭제 불가 안내 (`MyPage.tsx:881-885`).
 - 차단관리(`BlockedUsersSection`, `MyPage.tsx:213-278`): `get_my_blocked_users` + `unblockUser`.
+- **★ 차단 필터 적용 범위 (2026-07-22 결정)** — "차단"은 **추천·탐색에서 안 보이게 하는 것**이지 *내가 저장·기록한 것을 지우는 것*이 아니다.
+  - **거는 곳(추천·탐색 표면)**: 홈 피드, 검색 결과·크리에이터·트렌딩·카테고리, 검색 페이지의 **"이어보기"**(`SearchPage.tsx:270`), 커뮤니티, 댓글.
+  - **걸지 않는 곳(내 데이터 조회)**: 마이페이지 **기록 탭**, **보관함**(플레이리스트), **구매내역**.
+  - 근거: ①보관함은 사용자가 **명시적으로 담은** 항목이라 예고 없이 사라지면 "플레이리스트가 유실됐다"로 읽힌다. ②구매내역은 라이선스 **접근권**이라 가려선 안 된다(재산권). ③기록 탭은 "내가 무엇을 봤나"의 사실 조회다.
+  - ⚠️ 검색의 "이어보기"와 마이페이지 기록 탭은 **같은 RPC(`get_my_watch_history`)** 를 쓰지만 목적이 달라 규칙이 다르다(전자=추천, 후자=기록 조회). 감사 시 "같은 데이터인데 한쪽만 필터"를 **버그로 오인하지 말 것** — 의도된 구분이다.
 - 데이터 다운로드(`DataDownloadSection`, `MyPage.tsx:27-76`): `export_my_data` → JSON 파일 저장.
 - 위험영역 계정삭제(`DangerZoneSection`, `MyPage.tsx:86-210`): `get_my_deletion_status`/`request_account_deletion`/`cancel_account_deletion` (30일 유예).
 
