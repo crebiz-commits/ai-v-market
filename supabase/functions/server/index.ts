@@ -278,6 +278,61 @@ async function sha256Hex(input: string): Promise<string> {
   return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// ── MD5 (RFC 1321) — Bunny CDN 토큰 서명용 ──────────────────────────────────
+//   Web Crypto 는 MD5 를 지원하지 않는다. node:crypto import 도 가능하지만,
+//   이 파일은 import 하나만 어긋나도 **서버 함수 전체가 부팅 실패(503)** 한 전력이 있어
+//   (0875cd2 sha256Hex 중복 선언 사고) 런타임 의존성을 만들지 않고 직접 구현한다.
+//   배포 전 node:crypto 와 16건(패딩·블록 경계·UTF-8 포함) 대조해 동일함을 확인했다.
+const MD5_S = [7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22, 5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,
+               4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23, 6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21];
+const MD5_K = (() => {
+  const k = new Uint32Array(64);
+  for (let i = 0; i < 64; i++) k[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296);
+  return k;
+})();
+
+function md5Bytes(input: string): Uint8Array {
+  const msg = new TextEncoder().encode(input);
+  const len = msg.length;
+  const bitLen = len * 8;
+  const padded = new Uint8Array((((len + 8) >> 6) + 1) * 64);
+  padded.set(msg);
+  padded[len] = 0x80;
+  const dv = new DataView(padded.buffer);
+  dv.setUint32(padded.length - 8, bitLen >>> 0, true);
+  dv.setUint32(padded.length - 4, Math.floor(bitLen / 4294967296), true);
+
+  let a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
+  const M = new Uint32Array(16);
+  for (let off = 0; off < padded.length; off += 64) {
+    for (let i = 0; i < 16; i++) M[i] = dv.getUint32(off + i * 4, true);
+    let A = a0, B = b0, C = c0, D = d0;
+    for (let i = 0; i < 64; i++) {
+      let F: number, g: number;
+      if (i < 16)      { F = (B & C) | (~B & D);   g = i; }
+      else if (i < 32) { F = (D & B) | (~D & C);   g = (5 * i + 1) % 16; }
+      else if (i < 48) { F = B ^ C ^ D;            g = (3 * i + 5) % 16; }
+      else             { F = C ^ (B | ~D);         g = (7 * i) % 16; }
+      F = (F + A + MD5_K[i] + M[g]) >>> 0;
+      A = D; D = C; C = B;
+      B = (B + ((F << MD5_S[i]) | (F >>> (32 - MD5_S[i])))) >>> 0;
+    }
+    a0 = (a0 + A) >>> 0; b0 = (b0 + B) >>> 0; c0 = (c0 + C) >>> 0; d0 = (d0 + D) >>> 0;
+  }
+  const out = new Uint8Array(16);
+  const odv = new DataView(out.buffer);
+  odv.setUint32(0, a0, true); odv.setUint32(4, b0, true);
+  odv.setUint32(8, c0, true); odv.setUint32(12, d0, true);
+  return out;
+}
+
+/** Bunny CDN 토큰 = base64url(md5(...)) — `+`→`-`, `/`→`_`, `=` 제거 */
+function md5Base64Url(input: string): string {
+  let bin = '';
+  for (const b of md5Bytes(input)) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
 // Bunny.net에 비디오 생성 및 업로드 URL 생성
 app.post("/videos/create-upload", async (c) => {
   try {
@@ -389,6 +444,80 @@ app.post("/videos/create-upload", async (c) => {
 
 // ── 영상 재생 토큰 발급 (Bunny Embed Token Auth — 서버 페이월) ─────────────────
 // 비구독자: 짧은 수명(150초, 1분 미리보기 커버) → URL 추출해도 장편 프리미엄 끝까지 못 봄.
+// ── 영상 접근 권한 판정 (임베드 토큰 · CDN 토큰 공용) ────────────────────────
+//   두 토큰이 서로 다른 기준을 쓰면 한쪽만 조여지는 회귀가 생기므로 한 함수로 묶는다.
+//   반환 blocked: 'age'(19금 미인증) | 'hidden'(검수대기·비공개) — 이때는 토큰 미발급.
+async function resolveVideoAccess(videoId: string, accessToken?: string): Promise<{
+  blocked: 'age' | 'hidden' | null; fullAccess: boolean; isOwner: boolean; isAdmin: boolean;
+}> {
+  const admin = getSupabaseClient(true);
+  const { data: vid } = await admin.from('videos')
+    .select('age_rating, creator_id, is_hidden, visibility').eq('id', videoId).maybeSingle();
+  const is19 = vid?.age_rating === '19';
+
+  let fullAccess = false, isOwner = false, isAdmin = false, ageVerified = false;
+  if (accessToken) {
+    const { data: { user } } = await getSupabaseClient().auth.getUser(accessToken);
+    if (user) {
+      isOwner = vid?.creator_id === user.id;
+      const { data: prof } = await admin.from('profiles')
+        .select('subscription_tier, subscription_expires_at, is_admin, age_verified')
+        .eq('id', user.id).maybeSingle();
+      isAdmin = !!prof?.is_admin;
+      ageVerified = !!prof?.age_verified;
+      const isPremium = prof?.subscription_tier === 'premium' &&
+        !!prof?.subscription_expires_at && new Date(prof.subscription_expires_at) > new Date();
+      if (isPremium || isAdmin || isOwner) {
+        fullAccess = true;
+      } else {
+        const { data: ord } = await admin.from('orders')
+          .select('id').eq('buyer_id', user.id).eq('video_id', videoId).eq('status', 'completed').limit(1);
+        fullAccess = !!ord && ord.length > 0;
+      }
+    }
+  }
+
+  // 청소년보호(서버 강제): 19금은 연령인증(또는 소유자·관리자) 없으면 토큰 자체를 발급 안 함
+  if (is19 && !ageVerified && !isOwner && !isAdmin) return { blocked: 'age', fullAccess: false, isOwner, isAdmin };
+  // 모더레이션(서버 강제): 숨김·비공개는 소유자·관리자 외 발급 안 함
+  if ((vid?.is_hidden === true || vid?.visibility === 'private') && !isOwner && !isAdmin) {
+    return { blocked: 'hidden', fullAccess: false, isOwner, isAdmin };
+  }
+  return { blocked: null, fullAccess, isOwner, isAdmin };
+}
+
+// ── CDN 직접 URL 토큰 (2026-07-22) ──────────────────────────────────────────
+//   Bunny 라이브러리에서 CDN token authentication 을 켜면 mp4·HLS·썸네일 등
+//   **직접 URL 전부**가 토큰을 요구한다(임베드 플레이어는 Bunny 가 자동 서명하므로 무관).
+//   형식은 문서마다 달라 라이브 실측으로 확정함 — Basic(MD5) + 디렉터리 토큰:
+//     token = base64url(md5(KEY + "/{videoId}/" + expires))
+//     ?token=..&expires=..&token_path=%2F{videoId}%2F
+//   디렉터리 토큰이라 **영상 1개당 토큰 1개**로 playlist.m3u8·중첩 렌디션(360p/video.m3u8)·
+//   play_*.mp4·thumbnail.jpg 가 모두 커버된다(실측). → HLS 세그먼트용 훅 불필요.
+//   ▣ 키 미설정 시 token=null → 클라가 원본 URL 그대로 사용(토글 OFF 상태와 동일, 무중단).
+app.post("/video-cdn-token", async (c) => {
+  try {
+    const { videoId } = await c.req.json().catch(() => ({}));
+    if (!videoId || !/^[a-zA-Z0-9-]{8,64}$/.test(videoId)) return c.json({ error: "videoId 필요" }, 400);
+
+    const securityKey = Deno.env.get('BUNNY_TOKEN_AUTH_KEY');
+    if (!securityKey) return c.json({ token: null, expires: null, tokenPath: null });
+
+    const access = await resolveVideoAccess(videoId, c.req.header('Authorization')?.split(' ')[1]);
+    if (access.blocked) {
+      return c.json({ token: null, expires: null, tokenPath: null, blocked: access.blocked });
+    }
+
+    const tokenPath = `/${videoId}/`;
+    const expires = Math.floor(Date.now() / 1000) + (access.fullAccess ? 4 * 3600 : 30 * 60);
+    const token = md5Base64Url(`${securityKey}${tokenPath}${expires}`);
+    return c.json({ token, expires, tokenPath, fullAccess: access.fullAccess });
+  } catch (error) {
+    console.error('[video-cdn-token] 오류:', error);
+    return c.json({ error: `토큰 발급 실패: ${error.message}` }, 500);
+  }
+});
+
 // 구독자/소유자/관리자/라이선스 구매자: 긴 수명(4시간) → 전체 시청.
 // BUNNY_TOKEN_AUTH_KEY 미설정 시 token=null → 클라가 토큰 없이 재생(현행 유지, 무중단 전환).
 app.post("/video-play-token", async (c) => {

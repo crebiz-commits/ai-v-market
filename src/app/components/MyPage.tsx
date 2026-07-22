@@ -26,6 +26,7 @@ import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { HOVER_REVEAL } from "../utils/hoverReveal";
 import { useAgeRatings } from "../hooks/useAgeRatings";
 import { licenseLabel } from "../utils/licensePricing";
+import { getCdnToken, applyCdnToken } from "../utils/cdnToken";
 import { shouldBlur } from "./AgeBadge";
 import { Footer } from "./Footer";
 import { formatCompactNumber } from "../i18n/numberFormat";
@@ -705,10 +706,14 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
       // Bunny Free 인코딩은 소스 해상도까지만 mp4 렌디션 생성 → 영상마다 가용 해상도가 다름.
       // play_720p.mp4 하드코딩 시 480p 이하 영상은 404. 높은→낮은 순으로 실제 존재하는 mp4 선택.
       // (Bunny CDN 이 ACAO:* 를 주므로 cross-origin HEAD 로 상태 확인 가능)
+      // CDN 토큰 인증이 켜져 있으면 서명 없이는 403 이다. 토큰은 이 영상 디렉터리
+      //   전체를 커버하므로 해상도 탐색·최종 이동에 같은 것을 재사용한다.
+      //   (토큰이 없으면 applyCdnToken 이 원본을 그대로 돌려줘 지금과 동일하게 동작)
+      const cdnTok = await getCdnToken(videoId);
       const resolutions = ["1080p", "720p", "480p", "360p", "240p"];
       let mp4Url = "";
       for (const res of resolutions) {
-        const candidate = `https://${bunnyHostname}/${videoId}/play_${res}.mp4`;
+        const candidate = applyCdnToken(`https://${bunnyHostname}/${videoId}/play_${res}.mp4`, cdnTok);
         try {
           const head = await fetch(candidate, { method: "HEAD" });
           if (head.ok) { mp4Url = candidate; break; }
