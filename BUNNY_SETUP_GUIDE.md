@@ -23,9 +23,17 @@
 - 브라우저에서 비디오 로딩을 허용합니다.
 - **필수 설정입니다.**
 
-#### ❌ Enable Token Authentication → OFF
-- 토큰 인증을 비활성화합니다.
-- **개발/테스트 환경에서는 OFF로 설정하세요.**
+#### ⚠️ Enable Token Authentication → **지금은 끄면 안 됩니다** (2026-07-22 정정)
+
+> 🔴 **이 가이드는 초기 개발기(페이월 도입 전)에 작성됐습니다.**
+> 현재 **Embed view token auth 는 ON 이고, 그게 유료 페이월·19금 연령게이트의 본체**입니다
+> (`video-play-token` 엔드포인트가 권한을 검증해 토큰을 발급 → 임베드 플레이어가 그 토큰으로 재생).
+> **여기서 OFF 로 바꾸면 비구독자·미성년자에게 본편이 그대로 열립니다.**
+>
+> 라이브 상태(2026-06-16 확인, 라이브러리 `creaite_market` / 615810):
+> - **Embed view token auth: ON** ← 건드리지 말 것
+> - **CDN token auth: OFF** ← 별개 스위치. 유료 다운로드 판매 개통 전 ON 필요
+>   (직접 URL `{id}/play_720p.mp4` 이 무토큰이라 구매 안 해도 원본 취득 가능)
 
 #### ✅ Allowed Referrers → "*" 추가
 - 모든 도메인에서 접근을 허용합니다.
@@ -78,9 +86,10 @@
 - Allowed Referrers: `*` (모든 도메인 허용)
 - Token Authentication: OFF
 
-### 프로덕션 환경
-- Allowed Referrers: 실제 도메인 지정 (예: `yourdomain.com`)
-- Token Authentication: ON (선택사항)
+### 프로덕션 환경 (현재 상태)
+- Allowed Referrers: 실제 도메인 지정 (예: `creaite.net`) — 현재 `*` 라 정리 필요
+- **Embed view token auth: ON (필수 — 페이월·연령게이트 본체. 선택사항 아님)**
+- CDN token auth: OFF — 유료 다운로드 판매 개통 전 ON 필요
 - IP Whitelist 고려
 
 ---
@@ -90,7 +99,7 @@
 - [ ] Bunny.net에 로그인했나요?
 - [ ] Stream → Library로 이동했나요?
 - [ ] Security 탭에서 CORS를 ON으로 설정했나요?
-- [ ] Token Authentication을 OFF로 설정했나요?
+- [ ] ~~Token Authentication을 OFF로 설정했나요?~~ → **초기 개발기 항목. 현재는 Embed token auth 를 ON 으로 유지해야 합니다**
 - [ ] Allowed Referrers에 `*`를 추가했나요?
 - [ ] 설정을 저장했나요?
 - [ ] 5-10분 기다렸나요?
