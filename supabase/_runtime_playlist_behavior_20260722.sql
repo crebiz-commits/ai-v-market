@@ -105,52 +105,60 @@ BEGIN
   WHERE COALESCE(is_hidden, false) = true OR COALESCE(visibility, 'public') <> 'public'
   LIMIT 1;
 
-  IF v_hidden IS NULL OR v_pl IS NULL THEN
-    INSERT INTO _rt VALUES (4, '숨김 영상 담기 거부', '⚪ SKIP', '숨김 영상 또는 플레이리스트 없음');
+  -- 숨김 영상이 하나도 없으면 **존재하지 않는 id** 로 대체한다. add_to_playlist 의 노출가능
+  --   검사는 videos 에서 못 찾는 경우도 동일하게 거부하므로 같은 가드 경로를 지나간다.
+  --   (SKIP 으로 넘기면 가장 중요한 가드가 "검증 안 된 채 PASS 처럼" 보인다)
+  IF v_hidden IS NULL THEN
+    v_hidden := '__rt_nonexistent_' || gen_random_uuid()::text;
+  END IF;
+
+  IF v_pl IS NULL THEN
+    INSERT INTO _rt VALUES (4, '담기 가드(노출불가·미존재 영상 거부)', '⚪ SKIP', '플레이리스트 없음');
   ELSE
     BEGIN
       PERFORM public.add_to_playlist(v_pl, v_hidden);
       -- 여기 도달 = 거부되지 않음 = 결함. 흔적을 남기지 않도록 즉시 원복.
       DELETE FROM public.playlist_videos WHERE playlist_id = v_pl AND video_id = v_hidden;
-      INSERT INTO _rt VALUES (4, '숨김 영상 담기 거부', '🔴 FAIL',
-        '거부되지 않고 담겼다(테스트 흔적은 원복함) — 목록엔 안 보이는 유령 행이 생긴다');
+      INSERT INTO _rt VALUES (4, '담기 가드(노출불가·미존재 영상 거부)', '🔴 FAIL',
+        '거부되지 않고 담겼다(흔적 원복함) — 목록엔 안 보이는 유령 행이 생긴다');
     EXCEPTION WHEN others THEN
       GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
-      INSERT INTO _rt VALUES (4, '숨김 영상 담기 거부', '✅ PASS', '거부됨: ' || left(v_msg, 60));
+      INSERT INTO _rt VALUES (4, '담기 가드(노출불가·미존재 영상 거부)', '✅ PASS', '거부됨: ' || left(v_msg, 60));
     END;
   END IF;
 
   -- ── 5) 타인 플레이리스트 접근이 **실제로** 막히는가 (IDOR, 읽기라 부작용 없음) ──
   SELECT id INTO v_other_pl FROM public.playlists WHERE user_id <> v_uid LIMIT 1;
+  -- 타인 플레이리스트가 없으면 **내 소유가 아닌 uuid**(존재하지 않는 것)로 대체한다.
+  --   소유권 가드는 "내 것이 아니면 거부"라 미존재 id 도 같은 분기를 탄다.
+  --   남의 데이터를 전혀 건드리지 않고 IDOR 가드를 실제로 검증할 수 있다.
   IF v_other_pl IS NULL THEN
-    INSERT INTO _rt VALUES (5, '타인 플레이리스트 접근 차단', '⚪ SKIP', '다른 사용자의 플레이리스트 없음');
-  ELSE
-    BEGIN
-      PERFORM public.get_playlist_videos(v_other_pl);
-      INSERT INTO _rt VALUES (5, '타인 플레이리스트 접근 차단', '🔴 FAIL', '타인 목록이 조회됐다(IDOR)');
-    EXCEPTION WHEN others THEN
-      INSERT INTO _rt VALUES (5, '타인 플레이리스트 접근 차단', '✅ PASS', '거부됨');
-    END;
+    v_other_pl := gen_random_uuid();
   END IF;
+  BEGIN
+    PERFORM public.get_playlist_videos(v_other_pl);
+    INSERT INTO _rt VALUES (5, '비소유 플레이리스트 조회 차단(IDOR)', '🔴 FAIL', '남의/없는 목록이 조회됐다');
+  EXCEPTION WHEN others THEN
+    INSERT INTO _rt VALUES (5, '비소유 플레이리스트 조회 차단(IDOR)', '✅ PASS', '거부됨');
+  END;
 
   -- ── 6) 타인 플레이리스트 이름 변경이 막히는가 ──
   --    ※ 만약 뚫리면 남의 데이터가 바뀐 것이므로 원래 이름으로 즉시 복구한다.
-  IF v_other_pl IS NULL THEN
-    INSERT INTO _rt VALUES (6, '타인 플레이리스트 이름변경 차단', '⚪ SKIP', '대상 없음');
-  ELSE
-    DECLARE v_orig TEXT;
+  DECLARE v_orig TEXT;
+  BEGIN
+    SELECT name INTO v_orig FROM public.playlists WHERE id = v_other_pl;   -- 없으면 NULL
     BEGIN
-      SELECT name INTO v_orig FROM public.playlists WHERE id = v_other_pl;
-      BEGIN
-        PERFORM public.update_playlist(v_other_pl, '__rt_probe__', NULL);
-        UPDATE public.playlists SET name = v_orig WHERE id = v_other_pl;   -- 원복
-        INSERT INTO _rt VALUES (6, '타인 플레이리스트 이름변경 차단', '🔴 FAIL',
-          '타인 이름이 변경됐다(원복함)');
-      EXCEPTION WHEN others THEN
-        INSERT INTO _rt VALUES (6, '타인 플레이리스트 이름변경 차단', '✅ PASS', '거부됨');
-      END;
+      PERFORM public.update_playlist(v_other_pl, '__rt_probe__', NULL);
+      -- 여기 도달 = 비소유 행이 수정됨(결함). 실재하는 행이었다면 원래 이름으로 복구.
+      IF v_orig IS NOT NULL THEN
+        UPDATE public.playlists SET name = v_orig WHERE id = v_other_pl;
+      END IF;
+      INSERT INTO _rt VALUES (6, '비소유 플레이리스트 이름변경 차단', '🔴 FAIL',
+        '비소유 행이 변경됐다(원복함)');
+    EXCEPTION WHEN others THEN
+      INSERT INTO _rt VALUES (6, '비소유 플레이리스트 이름변경 차단', '✅ PASS', '거부됨');
     END;
-  END IF;
+  END;
 
   -- ── 7) "나중에 보기" 이름 변경 차단 (시스템 플레이리스트 보호) ──
   SELECT id INTO v_wl FROM public.playlists
