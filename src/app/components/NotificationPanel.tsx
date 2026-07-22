@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef, useId } from "react";
-import { X, Bell, Heart, MessageCircle, ShoppingBag, TrendingUp, Zap, CheckCheck, Loader2 } from "lucide-react";
+import { X, Bell, Heart, MessageCircle, ShoppingBag, TrendingUp, Zap, CheckCheck, Loader2, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -231,6 +232,59 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
     } catch {}
   };
 
+  // ── 알림 삭제(2026-07-22) ────────────────────────────────────────────────
+  //   DB 엔 notifications_delete RLS 정책(FOR DELETE USING auth.uid()=user_id)이
+  //   처음부터 있었는데 UI 가 연결을 안 해 지울 방법이 없었다 — 쌓이기만 했다.
+  //   샘플(미인증 티저)은 DB 행이 아니라 삭제 대상이 아니므로 버튼 자체를 안 그린다.
+  const deleteOne = async (id: string) => {
+    const target = notifications.find((n) => n.id === id);
+    if (!target || !isAuthenticated) return;
+    const wasUnread = !target.read;
+    const prevUnread = unreadTotal;
+
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    if (wasUnread) {
+      const next = Math.max(0, unreadTotal - 1);
+      setUnreadTotal(next);
+      onUnreadCountChange?.(next);
+    }
+
+    const { error } = await supabase.from("notifications").delete().eq("id", id);
+    if (error) {
+      // 실패했는데 화면에서만 사라지면 "지워진 줄 알았는데 새로고침하면 부활"이 된다 → 되돌린다.
+      setNotifications((prev) =>
+        [...prev, target].sort((a, b) => b.created_at.localeCompare(a.created_at)));
+      if (wasUnread) {
+        setUnreadTotal(prevUnread);
+        onUnreadCountChange?.(prevUnread);
+      }
+      toast.error(t("notificationPanel.deleteFailed"));
+    }
+  };
+
+  const deleteAll = async () => {
+    if (!isAuthenticated || !user?.id) return;
+    if (!confirm(t("notificationPanel.confirmDeleteAll"))) return;
+    const snapshot = notifications;
+    const prevUnread = unreadTotal;
+
+    setNotifications([]);
+    setUnreadTotal(0);
+    setHasMore(false);   // 남겨두면 '더 보기'가 이미 없는 페이지를 요청한다
+    onUnreadCountChange?.(0);
+
+    // RLS 가 본인 행으로 제한하지만, PostgREST 는 무조건 필터를 요구하므로 user_id 를 명시한다.
+    const { error } = await supabase.from("notifications").delete().eq("user_id", user.id);
+    if (error) {
+      setNotifications(snapshot);
+      setUnreadTotal(prevUnread);
+      onUnreadCountChange?.(prevUnread);
+      toast.error(t("notificationPanel.deleteFailed"));
+      return;
+    }
+    toast.success(t("notificationPanel.deleteAllSuccess"));
+  };
+
   const handleClick = (notif: Notification) => {
     void markRead(notif.id);
     // link 있으면 해당 화면으로 이동 + 패널 닫기(샘플·"/"는 이동 안 함).
@@ -269,6 +323,16 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
               <CheckCheck className="w-4 h-4" />
             </button>
           )}
+          {isAuthenticated && notifications.length > 0 && (
+            <button
+              onClick={() => void deleteAll()}
+              className="p-1.5 rounded-full hover:bg-red-500/15 transition-colors text-gray-400 hover:text-red-400"
+              title={t("notificationPanel.deleteAll")}
+              aria-label={t("notificationPanel.deleteAll")}
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={onClose}
             className="p-1.5 rounded-full hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
@@ -292,31 +356,49 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
         ) : (
           <AnimatePresence initial={false}>
             {notifications.map((notif) => (
-              <motion.button
+              // 삭제 버튼을 넣어야 해서 항목 루트를 button → div 로 바꿨다(버튼 중첩 불가).
+              //   본문 클릭 영역만 button 으로 남겨 기존 동작(이동·펼침)은 그대로다.
+              <motion.div
                 key={notif.id}
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                onClick={() => handleClick(notif)}
-                className={`w-full flex gap-3 px-4 py-3 hover:bg-white/5 transition-colors text-left border-b border-white/5 ${
+                exit={{ opacity: 0, x: -20, height: 0 }}
+                className={`group relative flex items-start border-b border-white/5 hover:bg-white/5 transition-colors ${
                   !notif.read ? "bg-white/[0.03]" : ""
                 }`}
               >
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${TYPE_BG[notif.type] || DEFAULT_BG}`}>
-                  {TYPE_ICON[notif.type] || DEFAULT_ICON}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm leading-snug ${expandedId === notif.id ? "" : "line-clamp-2"} ${notif.read ? "text-gray-400" : "text-white font-medium"}`}>
-                    {notif.title}
-                  </p>
-                  {notif.body && (
-                    <p className={`text-xs text-gray-500 mt-0.5 whitespace-pre-wrap ${expandedId === notif.id ? "" : "line-clamp-1"}`}>{notif.body}</p>
+                <button
+                  onClick={() => handleClick(notif)}
+                  className="flex-1 min-w-0 flex gap-3 px-4 py-3 text-left"
+                >
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${TYPE_BG[notif.type] || DEFAULT_BG}`}>
+                    {TYPE_ICON[notif.type] || DEFAULT_ICON}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm leading-snug ${expandedId === notif.id ? "" : "line-clamp-2"} ${notif.read ? "text-gray-400" : "text-white font-medium"}`}>
+                      {notif.title}
+                    </p>
+                    {notif.body && (
+                      <p className={`text-xs text-gray-500 mt-0.5 whitespace-pre-wrap ${expandedId === notif.id ? "" : "line-clamp-1"}`}>{notif.body}</p>
+                    )}
+                    <p className="text-[11px] text-gray-600 mt-1">{timeAgo(notif.created_at, isKo)}</p>
+                  </div>
+                  {!notif.read && (
+                    <div className="w-2 h-2 rounded-full bg-[#6366f1] mt-1.5 flex-shrink-0" />
                   )}
-                  <p className="text-[11px] text-gray-600 mt-1">{timeAgo(notif.created_at, isKo)}</p>
-                </div>
-                {!notif.read && (
-                  <div className="w-2 h-2 rounded-full bg-[#6366f1] mt-1.5 flex-shrink-0" />
+                </button>
+                {/* 샘플(미인증 티저)은 DB 행이 아니라 삭제 대상이 아니다 */}
+                {isAuthenticated && (
+                  <button
+                    onClick={() => void deleteOne(notif.id)}
+                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity self-start mt-3 mr-2 p-1.5 rounded hover:bg-red-500/15 text-gray-500 hover:text-red-400 flex-shrink-0"
+                    title={t("notificationPanel.delete")}
+                    aria-label={t("notificationPanel.delete")}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 )}
-              </motion.button>
+              </motion.div>
             ))}
           </AnimatePresence>
         )}
