@@ -27,6 +27,7 @@ import { HOVER_REVEAL } from "../utils/hoverReveal";
 import { useAgeRatings } from "../hooks/useAgeRatings";
 import { licenseLabel } from "../utils/licensePricing";
 import { getCdnToken, applyCdnToken } from "../utils/cdnToken";
+import { deleteVideoEverywhere } from "../utils/videoDelete";
 import { shouldBlur } from "./AgeBadge";
 import { Footer } from "./Footer";
 import { formatCompactNumber } from "../i18n/numberFormat";
@@ -1334,9 +1335,11 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   const handleDeleteVideo = async (productId: string, title: string) => {
     if (!confirm(t("mypage.sales.deleteConfirm", { title }))) return;
     setDeletingVideoId(productId);
-    const { error } = await supabase.rpc("delete_my_video", { p_video_id: productId });
+    // DB 행만 지우면 Bunny 원본이 남아 직링크로 계속 접근된다(2026-07-22 실측 확인).
+    //   → Edge 가 RPC(기존 가드 유지) 실행 후 Bunny 원본까지 정리한다.
+    const { error } = await deleteVideoEverywhere(productId, "creator");
     setDeletingVideoId(null);
-    if (error) { toast.error(t("mypage.sales.deleteFailed", "삭제 실패: ") + error.message); return; }
+    if (error) { toast.error(t("mypage.sales.deleteFailed", "삭제 실패: ") + error); return; }
     toast.success(t("mypage.sales.deleteSuccess", "영상을 삭제했어요."));
     // 표시 숫자가 전부 서버 집계로 바뀌었으므로 목록만 지우면 "등록 N"·총매출이 낡은 채 남는다.
     const removedProduct = myProducts.find((p) => p.id === productId) as any;

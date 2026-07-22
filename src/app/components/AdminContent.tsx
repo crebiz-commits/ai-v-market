@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Search, Eye, EyeOff, Trash2, Film, Flag, Star, ShoppingBag, Play, X } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
+import { deleteVideoEverywhere } from "../utils/videoDelete";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 
@@ -156,10 +157,12 @@ export function AdminContent() {
     }
     if (!confirm(`'${v.title}' 영상을 영구 삭제하시겠습니까?\n(이 작업은 되돌릴 수 없습니다)`)) return;
     setProcessingId(v.id);
-    const { error } = await supabase.rpc("admin_delete_video", { p_video_id: v.id });
+    // DB 행만 지우면 Bunny 원본이 남아 직링크로 계속 접근된다 — 가이드라인 위반으로
+    //   내린 영상이 실제로는 안 지워지는 상태였다(2026-07-22 실측: 고아 3편 1.25GB).
+    const { error, bunnyRemoved } = await deleteVideoEverywhere(v.id, "admin");
     setProcessingId(null);
-    if (error) return toast.error("삭제 실패: " + error.message);
-    toast.success("삭제됨");
+    if (error) return toast.error("삭제 실패: " + error);
+    toast.success(bunnyRemoved ? "삭제됨 (원본 파일까지 정리)" : "삭제됨 (원본 파일 정리는 실패 — 정리 스크립트 대상)");
     load("refresh");
     setHeroMap((prev) => { const n = { ...prev }; delete n[v.id]; return n; });   // 삭제 영상 히어로 배지 정리
   };

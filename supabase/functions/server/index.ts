@@ -518,6 +518,70 @@ app.post("/video-cdn-token", async (c) => {
   }
 });
 
+// ── 영상 삭제 (DB + Bunny 동시) (2026-07-22) ────────────────────────────────
+//   [결함] delete_my_video / admin_delete_video 는 SQL RPC 라 Bunny API 를 부를 수 없고
+//     Edge 어디에도 Bunny 삭제 호출이 없었다 → **삭제해도 원본이 Bunny 에 영구 잔존**.
+//     실측: 고아 3편 1.25GB(본편 골드베인 1153MB 포함)가 직링크로 여전히 접근 가능했다.
+//     저작권 내림·가이드라인 위반 삭제·개인정보 파기 요구가 실제로 이행되지 않는 상태.
+//
+//   ▣ 순서가 핵심: RPC 로 행이 사라지면 소유자도 hero_clip_id 도 알 수 없다.
+//     → ①삭제 전에 정리 대상 확보 → ②사용자 JWT 로 RPC 실행(기존 가드 그대로 적용:
+//       판매된 영상 영구삭제 차단 등) → ③성공했을 때만 Bunny 삭제.
+//   ▣ Bunny 삭제가 실패해도 DB 삭제는 성공으로 본다(사용자에겐 지워진 게 맞음).
+//     남은 파일은 scripts/bunny-orphan-cleanup.mjs 가 회수한다.
+app.post("/video-delete", async (c) => {
+  try {
+    const { videoId, mode } = await c.req.json().catch(() => ({}));
+    if (!videoId) return c.json({ error: "videoId 필요" }, 400);
+    const token = c.req.header('Authorization')?.split(' ')[1];
+    if (!token) return c.json({ error: "로그인이 필요합니다" }, 401);
+
+    const admin = getSupabaseClient(true);
+    // ① 삭제 전에 Bunny 정리 대상 확보
+    const { data: vid } = await admin.from('videos')
+      .select('id, hero_clip_id').eq('id', videoId).maybeSingle();
+    if (!vid) return c.json({ error: "영상을 찾을 수 없습니다" }, 404);
+
+    // ② 사용자 권한으로 RPC — auth.uid() 가 살아 있어야 기존 가드가 작동한다
+    const asUser = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } },
+    );
+    const rpcName = mode === 'admin' ? 'admin_delete_video' : 'delete_my_video';
+    const { error: rpcErr } = await asUser.rpc(rpcName, { p_video_id: videoId });
+    if (rpcErr) return c.json({ error: rpcErr.message }, 400);
+
+    // ③ DB 삭제 성공 → Bunny 정리
+    const apiKey = Deno.env.get('BUNNY_API_KEY');
+    const lib = Deno.env.get('BUNNY_LIBRARY_ID');
+    const deleted: string[] = [];
+    const failed: string[] = [];
+    if (apiKey && lib) {
+      const delOne = async (guid: string) => {
+        try {
+          const r = await fetch(`https://video.bunnycdn.com/library/${lib}/videos/${guid}`, {
+            method: 'DELETE', headers: { AccessKey: apiKey, accept: 'application/json' },
+          });
+          if (r.ok || r.status === 404) deleted.push(guid); else failed.push(guid);
+        } catch { failed.push(guid); }
+      };
+      await delOne(videoId);
+      // 히어로 클립도 함께 — 단 다른 영상이 같은 클립을 쓰고 있으면 남긴다
+      if (vid.hero_clip_id) {
+        const { count } = await admin.from('videos')
+          .select('id', { count: 'exact', head: true }).eq('hero_clip_id', vid.hero_clip_id);
+        if (!count) await delOne(vid.hero_clip_id);
+      }
+    }
+    if (failed.length) console.warn('[video-delete] Bunny 삭제 실패(고아 잔존):', failed.join(','));
+    return c.json({ ok: true, deleted, failed });
+  } catch (error) {
+    console.error('[video-delete] 오류:', error);
+    return c.json({ error: `삭제 실패: ${error.message}` }, 500);
+  }
+});
+
 // 구독자/소유자/관리자/라이선스 구매자: 긴 수명(4시간) → 전체 시청.
 // BUNNY_TOKEN_AUTH_KEY 미설정 시 token=null → 클라가 토큰 없이 재생(현행 유지, 무중단 전환).
 app.post("/video-play-token", async (c) => {
