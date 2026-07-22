@@ -189,13 +189,32 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
+  -- ★ 2026-07-22 추가 ①: 이름 검증. 이 함수는 phase18 원본 그대로였는데, 이름 변경 UI 가
+  --   생기면서 **최초 호출부**가 만들어졌다. create_playlist 에만 상한이 있어서
+  --   update 경로로는 콘솔에서 임의 길이 이름을 넣어 서버 상한을 우회할 수 있었다.
+  IF p_name IS NULL OR length(trim(p_name)) = 0 THEN
+    RAISE EXCEPTION '플레이리스트 이름을 입력해주세요';
+  END IF;
+  IF length(trim(p_name)) > 60 THEN
+    RAISE EXCEPTION '플레이리스트 이름은 60자 이하여야 합니다';
+  END IF;
+
+  -- ★ 추가 ②: "나중에 보기"는 시스템이 만든 특수 플레이리스트라 이름을 바꾸지 못하게 한다.
+  --   삭제는 delete_playlist 가 막는데(is_watch_later=false) 이름은 안 막고 있었다.
+  --   UI 는 연필 버튼을 숨기지만 RPC 직접 호출로 우회 가능했다(가드는 서버에 있어야 한다).
   UPDATE public.playlists
   SET name = trim(p_name),
-      description = p_description,
+      -- ★ 추가 ③: p_description 이 NULL 이면 기존 설명을 보존한다. 예전엔 무조건 대입이라
+      --   이름만 바꿔도 설명이 지워졌다(호출부가 항상 null 을 넘긴다). 지금은 설명 입력 UI 가
+      --   없어 실피해 0 이지만, get_my_playlists 가 description 을 반환하므로 UI 가 붙는
+      --   순간 조용한 데이터 손실이 된다.
+      description = COALESCE(p_description, description),
       updated_at = now()
-  WHERE id = p_playlist_id AND user_id = auth.uid();
+  WHERE id = p_playlist_id
+    AND user_id = auth.uid()
+    AND is_watch_later = false;
   IF NOT FOUND THEN
-    RAISE EXCEPTION '플레이리스트를 찾을 수 없거나 권한이 없습니다';
+    RAISE EXCEPTION '플레이리스트를 찾을 수 없거나 권한이 없습니다 (또는 "나중에 보기"는 이름을 바꿀 수 없습니다)';
   END IF;
 END;
 $$;
@@ -299,6 +318,16 @@ SELECT '⑦ anon EXECUTE 차단(4함수)',
 UNION ALL
 -- 교차 파일 의존 — hardening §1 의 get_playlist_videos 가 이 함수를 호출한다.
 -- plpgsql 은 생성 시 검증하지 않으므로, 미적용이면 보관함 상세가 런타임에 통째로 실패한다.
+SELECT '⑨ 이름변경 — 60자 상한 + 나중에보기 차단',
+  CASE WHEN (SELECT prosrc LIKE '%> 60%' AND prosrc LIKE '%is_watch_later = false%'
+             FROM pg_proc WHERE proname = 'update_playlist')
+    THEN '✅ PASS' ELSE '🔴 FAIL' END
+UNION ALL
+SELECT '⑩ 이름변경 — 설명 보존(COALESCE)',
+  CASE WHEN (SELECT prosrc LIKE '%COALESCE(p_description, description)%'
+             FROM pg_proc WHERE proname = 'update_playlist')
+    THEN '✅ PASS' ELSE '🔴 FAIL' END
+UNION ALL
 SELECT '⑧ (의존) resolve_display_name 존재',
   CASE WHEN to_regprocedure('public.resolve_display_name(uuid)') IS NOT NULL
     THEN '✅ PASS' ELSE '🔴 FAIL → admin_name_fallback_20260722.sql 먼저 적용' END;

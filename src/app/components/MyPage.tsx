@@ -23,6 +23,7 @@ import { ReferralCard } from "./ReferralCard";
 import { SubscriptionModal } from "./SubscriptionModal";
 import { PayoutInfoModal } from "./PayoutInfoModal";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
+import { HOVER_REVEAL } from "../utils/hoverReveal";
 import { useAgeRatings } from "../hooks/useAgeRatings";
 import { shouldBlur } from "./AgeBadge";
 import { Footer } from "./Footer";
@@ -1111,19 +1112,22 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     const idx = playlistVideos.findIndex((v: any) => v.id === videoId);
     const next = idx + delta;
     if (idx < 0 || next < 0 || next >= playlistVideos.length) return;
-    const before = playlistVideos;
+    const targetPlaylistId = activePlaylistId;   // 응답 도착 시점에 바뀌었을 수 있어 캡처
     const reordered = [...playlistVideos];
     [reordered[idx], reordered[next]] = [reordered[next], reordered[idx]];
     setPlaylistVideos(reordered);   // 낙관적 반영
     setReorderBusy(true);
     const { error } = await supabase.rpc('set_playlist_order', {
-      p_playlist_id: activePlaylistId,
-      p_video_ids: reordered.map((v: any) => v.id),
+      p_playlist_id: targetPlaylistId,
+      p_video_ids: reordered.map((v: any) => v.id).filter(Boolean),
     });
     setReorderBusy(false);
     if (error) {
-      setPlaylistVideos(before);    // 실패 시 롤백
       toast.error(t("mypage.playlist.reorderFailed", { message: error.message }));
+      // ★ 실패 시 "클릭 시점 스냅샷 복원"을 하면 안 된다(2026-07-22 감사).
+      //   대기 중에 다른 항목을 삭제했으면 그 항목이 되살아나고(유령 행), 다른
+      //   플레이리스트로 이동했으면 B 화면에 A 의 목록을 그려버린다. 서버에서 다시 받는다.
+      setPlaylistVideosReload(n => n + 1);
     }
   };
 
@@ -2286,7 +2290,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                             </button>
                             <button
                               onClick={() => handleDeleteHistoryItem(h.video_id)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-red-500/15 text-red-400 self-start"
+                              className={`${HOVER_REVEAL} p-1.5 rounded hover:bg-red-500/15 text-red-400 self-start`}
                               title={t("mypage.watchHistory.deleteEntry")}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -2376,7 +2380,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                               <p className="text-xs text-gray-500 line-clamp-1">{v.creator_display_name || v.creator}</p>
                             </button>
                             {/* 순서 변경 — 위/아래 한 칸. 드래그앤드롭 대신 버튼이라 모바일에서도 동작한다. */}
-                            <div className="flex flex-col opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+                            <div className={`flex flex-col ${HOVER_REVEAL} flex-shrink-0`}>
                               <button
                                 onClick={() => void handleMovePlaylistVideo(v.id, -1)}
                                 disabled={reorderBusy || idx === 0}
@@ -2396,7 +2400,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                             </div>
                             <button
                               onClick={() => handleRemoveFromPlaylist(v.id)}
-                              className="p-2 rounded-lg hover:bg-red-500/10 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                              className={`p-2 rounded-lg hover:bg-red-500/10 text-gray-500 hover:text-red-400 ${HOVER_REVEAL}`}
                               title={t("mypage.playlist.removeFromPlaylist")}
                             >
                               <Trash2 className="w-4 h-4" />
@@ -2517,7 +2521,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                                   setRenamingId(pl.id);
                                   setRenameDraft(pl.name);
                                 }}
-                                className="absolute top-2 right-11 p-1.5 rounded-lg bg-black/70 hover:bg-[#6366f1]/80 text-white opacity-0 group-hover:opacity-100 transition-all"
+                                className={`absolute top-2 right-11 p-1.5 rounded-lg bg-black/70 hover:bg-[#6366f1]/80 text-white ${HOVER_REVEAL}`}
                                 title={t("mypage.playlist.renamePlaylist", "이름 변경")}
                               >
                                 <Pencil className="w-3.5 h-3.5" />
@@ -2530,7 +2534,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                                   e.stopPropagation();
                                   handleDeletePlaylist(pl.id, pl.name, pl.is_watch_later);
                                 }}
-                                className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/70 hover:bg-red-500/80 text-white opacity-0 group-hover:opacity-100 transition-all"
+                                className={`absolute top-2 right-2 p-1.5 rounded-lg bg-black/70 hover:bg-red-500/80 text-white ${HOVER_REVEAL}`}
                                 title={t("mypage.playlist.deletePlaylist")}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />

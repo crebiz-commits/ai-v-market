@@ -278,6 +278,13 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   const [shareOpen, setShareOpen] = useState(false);
   // Phase 18: 플레이리스트 모달 + 저장됨 상태
   const [playlistOpen, setPlaylistOpen] = useState(false);
+  // 영상이 바뀌면(연속재생 자동전환 포함) 담기 모달을 닫는다.
+  //   NextVideoOverlay 는 카운트다운 0 에서 클릭 없이 자동 전환하고, 모달 backdrop 은
+  //   재생을 멈추지 않는다 → 열어둔 채 전환되면 모달의 videoId 만 조용히 다음 영상으로
+  //   바뀌어, 사용자가 A 를 담으려고 누른 체크가 B 에 기록된다(2026-07-22 감사).
+  //   형제 오버레이(preroll/overlay/midroll/bumper/nextVideo)는 이미 전부 리셋 대상인데
+  //   보관함 모달만 빠져 있었다.
+  useEffect(() => { setPlaylistOpen(false); }, [product.id]);
   const [isSaved, setIsSaved] = useState(false);
   useEffect(() => {
     if (!isAuthenticated || !product.id) {

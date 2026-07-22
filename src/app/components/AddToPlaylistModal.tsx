@@ -38,6 +38,10 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
   const [loadError, setLoadError] = useState(false);   // 조회 실패 — "없음"과 구분
   const [wlBusy, setWlBusy] = useState(false);         // 나중에 보기 토글 진행중
 
+  // 조회 순서 역전 방지 — 재시도 연타·영상 전환이 겹치면 늦게 도착한 옛 응답이
+  //   성공 목록을 덮어 에러 화면으로 되돌리거나, 이전 영상의 체크 상태를 그린다.
+  const reqSeq = useRef(0);
+
   // 플레이리스트 멤버십 조회
   const load = async () => {
     if (!videoId) {
@@ -45,15 +49,18 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
       setLoading(false);
       return;
     }
+    const seq = ++reqSeq.current;
     setLoading(true);
     try {
       const { data, error } = await supabase.rpc("get_playlist_memberships", {
         p_video_id: videoId,
       });
+      if (seq !== reqSeq.current) return;   // 낡은 응답 폐기(성공 경로)
       if (error) throw error;
       setPlaylists((data as PlaylistRow[]) || []);
       setLoadError(false);
     } catch (err: any) {
+      if (seq !== reqSeq.current) return;   // 낡은 응답 폐기(실패 경로 — 성공 목록 보호)
       // ★ 실패 시 반드시 비운다. 안 비우면 **이전 영상의 체크 상태**가 다음 영상 화면에 남아,
       //   사용자가 체크를 풀면 담긴 적 없는 영상에 remove 를 날리게 된다(2026-07-22 감사).
       setPlaylists([]);
@@ -61,20 +68,23 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
       // 서버가 '로그인이 필요합니다' 같은 구체 사유를 RAISE 하는데 고정문구로 덮으면 원인이 가려진다.
       toast.error(err?.message || t("addToPlaylist.fetchFailed"));
     } finally {
-      setLoading(false);
+      // 낡은 응답이 최신 요청의 스피너를 꺼버리지 않도록 여기서도 확인
+      if (seq === reqSeq.current) setLoading(false);
     }
   };
 
   // "나중에 보기" 토글 — 이 RPC 가 watch-later 플레이리스트를 lazy create 하는 유일한 경로다.
   //   (2026-07-22 이전엔 호출부가 0건이라 기능 전체가 도달 불가였다)
   const toggleWatchLater = async () => {
-    if (wlBusy) return;
+    if (wlBusy || !videoId) return;
     setWlBusy(true);
     try {
       const { data, error } = await supabase.rpc("toggle_watch_later", { p_video_id: videoId });
       if (error) throw error;
-      toast.success(data ? t("addToPlaylist.addedToast") : t("addToPlaylist.removedToast"));
       await load();   // 최초 호출이면 플레이리스트가 새로 생기므로 목록 재조회 필요
+      // 토스트는 재조회까지 끝난 뒤에 — 먼저 띄우면 load 실패 시 "추가됨" 직후 화면이
+      //   에러 상태로 바뀌어(고정 행 자체가 사라짐) 앞뒤가 안 맞는다.
+      toast.success(data ? t("addToPlaylist.addedToast") : t("addToPlaylist.removedToast"));
       onChange?.();
     } catch (err: any) {
       toast.error(err?.message || t("addToPlaylist.fetchFailed"));
@@ -99,7 +109,12 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (!showCreate) onClose();   // 생성 모드면 입력창 핸들러가 그 모드만 취소
+        // ★ 생성 모드 취소를 여기서 직접 처리한다. 입력창 onKeyDown 에 위임하면
+        //   포커스가 입력창을 벗어난 순간(예: 이름 입력 중 다른 행 클릭) ESC 가
+        //   통째로 죽는다 — document 핸들러는 위임한다며 아무것도 안 하고,
+        //   입력창 핸들러는 포커스가 없어 실행되지 않는 사각지대(2026-07-22 감사).
+        if (showCreate) { setShowCreate(false); setNewName(""); }
+        else onClose();
         return;
       }
       if (e.key !== "Tab") return;
@@ -117,6 +132,25 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open, showCreate, onClose]);
+
+  // 포커스 진입·복원 — 열 때 다이얼로그로 포커스를 넣지 않으면 트랩이 동작하지 않는다.
+  //   트랩 로직은 activeElement 가 다이얼로그 안의 first/last 일 때만 개입하는데,
+  //   마우스로 열면 포커스가 배경에 남아 조건에 아예 걸리지 않아 Tab 이 뒤 페이지를
+  //   순회한다(2026-07-22 감사). 닫을 때는 열기 전 요소로 되돌린다.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.activeElement as HTMLElement | null;
+    const id = window.setTimeout(() => {
+      const root = dialogRef.current;
+      if (!root) return;
+      const first = root.querySelector<HTMLElement>('button:not([disabled]), input:not([disabled])');
+      (first ?? root).focus();
+    }, 0);   // 진입 애니메이션 마운트 뒤에 잡는다
+    return () => {
+      window.clearTimeout(id);
+      prev?.focus?.();
+    };
+  }, [open]);
 
   const toggleMembership = async (pl: PlaylistRow) => {
     if (busyIds.has(pl.playlist_id)) return;
@@ -224,6 +258,7 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
             role="dialog"
             aria-modal="true"
             aria-labelledby="add-to-playlist-title"
+            tabIndex={-1}   /* 포커스 가능한 자식이 없을 때(로딩 중 등) 컨테이너로 포커스 진입 */
           >
             {/* Header */}
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
