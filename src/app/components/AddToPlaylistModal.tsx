@@ -266,7 +266,7 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
                 <FolderPlus className="w-5 h-5 text-[#8b5cf6]" />
                 <h3 id="add-to-playlist-title" className="font-bold text-base">{t("addToPlaylist.title")}</h3>
               </div>
-              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted">
+              <button onClick={onClose} aria-label={t("addToPlaylist.close")} className="p-1.5 rounded-lg hover:bg-muted">
                 <X className="w-5 h-5" />
               </button>
             </div>

@@ -79,7 +79,10 @@
 ### 3.8 레퍼럴 / 시청기록 / 플레이리스트 / 차단 / 데이터권리 (설정 및 전용 탭)
 - 레퍼럴: `ReferralCard` (`MyPage.tsx:2045`).
 - 시청기록(history 탭): `get_my_watch_history`/`delete_my_watch_history`(개별/전체) (`MyPage.tsx:807-838`).
-- 플레이리스트(playlists 탭): `get_my_playlists`/`get_playlist_videos`/`delete_playlist`/`remove_from_playlist` (`MyPage.tsx:840-899`). Watch Later는 삭제 불가 안내 (`MyPage.tsx:881-885`).
+- 보관함(playlists 탭, 화면 라벨은 "보관함"): 그리드(카드=커버 썸네일 + 개수 뱃지 + Watch Later 배지) → 카드 클릭 시 **드릴다운 상세**(별도 화면, `activePlaylistId` 기반). Watch Later는 핀고정·삭제 불가 안내.
+  - 2026-07-22 추가분: **순서 변경**(상세 행의 위/아래 버튼 → `set_playlist_order`, 낙관적 반영 + 실패 시 서버 재조회), **이름 변경**(카드 연필 → 인라인 입력 → `update_playlist`), **커버 19금 블러**(`preview_age_rating` → `shouldBlur`), **조회 실패/재시도 상태**(빈 상태와 구분), **수량·길이 상한**(100개/500개/60자), 프로필 헤더 "보관함 N" 스탯, 계정 전환 시 state 초기화.
+  - 담기(생성 포함) 진입점은 **영상 상세의 북마크 버튼 한 곳**뿐이다(의도된 설계 — 보관함 빈 상태 안내문이 그렇게 유도). 모달 최상단에 **"나중에 보기" 고정 행**(`toggle_watch_later`)이 있어 플레이리스트가 0개여도 저장 가능.
+  - ⚠️ 호버 전용 버튼 금지 — 순서/제거/이름변경/삭제 버튼은 `HOVER_REVEAL`(입력장치 기준) 사용. `opacity-0 group-hover:` 로 쓰면 터치 기기에서 영영 못 누른다.
 - 차단관리(`BlockedUsersSection`, `MyPage.tsx:213-278`): `get_my_blocked_users` + `unblockUser`.
 - **★ 차단 필터 적용 범위 (2026-07-22 결정)** — "차단"은 **추천·탐색에서 안 보이게 하는 것**이지 *내가 저장·기록한 것을 지우는 것*이 아니다.
   - **거는 곳(추천·탐색 표면)**: 홈 피드, 검색 결과·크리에이터·트렌딩·카테고리, 검색 페이지의 **"이어보기"**(`SearchPage.tsx:270`), 커뮤니티, 댓글.
@@ -175,7 +178,13 @@
 
 ### 5.4 시청기록 / 플레이리스트 / 차단 / 데이터권리 RPC
 - 시청기록: `get_my_watch_history(p_limit=50, p_offset=0)`(`phase17_watch_history.sql:7-70`, DISTINCT ON video_id 최신, 삭제·숨김 영상 제외), `delete_my_watch_history(p_video_id TEXT=NULL) RETURNS INTEGER`(`:78-102`, NULL=전체삭제).
-- 플레이리스트: `get_my_playlists()`(`phase18_playlists.sql:63-99`, Watch Later 핀고정), `get_playlist_videos(p_playlist_id uuid)`(`:104-142`, 소유검증), `delete_playlist`(`:194-210`, **Watch Later 삭제 불가**), `remove_from_playlist`(`:244-263`), `create/update/add/toggle_watch_later/get_playlist_memberships`. RLS: 본인 소유만(`:44-60`).
+- 보관함(플레이리스트) — ⚠️ **RPC 본문 정본이 `phase18_playlists.sql` 이 아니다**(2026-07-22 감사로 4개 파일에 분산 이관). phase18 헤더에 `⛔ 재실행 금지 — 부분 정본` 경고가 붙어 있으니 **이 문서만 보고 phase18 을 재실행하지 말 것**(시리즈 2화+ 증발·19금 커버 무블러·소유자 미검증 UPDATE 회귀).
+  - `get_my_playlists()` → **`playlist_cover_age_rating_20260722.sql`** (Watch Later 핀고정, 커버 19금 판정용 `preview_age_rating` 반환, 개수·커버가 목록과 **같은 노출가능 필터**)
+  - `get_playlist_videos(uuid)` · `remove_from_playlist` · `toggle_watch_later` → **`playlist_hardening_20260722.sql`** (소유검증, 피드뷰 대신 videos 직접 조인 = 시리즈 대표작 접힘 미적용, `resolve_display_name` 표시이름)
+  - `create_playlist` · `set_playlist_order(uuid, TEXT[])` → **`playlist_limits_reorder_20260722.sql`** (사용자당 100개·리스트당 500개·이름 60자 상한 / 순서 재배열)
+  - `add_to_playlist` · `update_playlist` · `delete_playlist`(**Watch Later 삭제 불가**) · `get_playlist_memberships` → **`playlist_audit2_20260722.sql`** (담기 시 노출가능 검증, 이름 60자 상한 + Watch Later 이름변경 차단 + 설명 보존)
+  - 테이블 · 인덱스 · RLS(본인 소유만)만 `phase18_playlists.sql` 이 정본.
+  - 적용 상태 점검 `_verify_playlist_applied_20260722.sql` / 런타임 동작 검증 `_runtime_playlist_behavior_20260722.sql`.
 - 차단: `get_my_blocked_users()`(`phase24_user_blocks.sql:87-104`), `block_user`/`unblock_user`(`:44-82`), `get_my_blocked_user_ids() RETURNS UUID[]`(클라 필터용 `:109-119`). 뷰어측 차단(필터 client-side).
 - 데이터권리: `export_my_data() RETURNS JSONB`(16개 데이터 섹션, `phase27_user_data_rights.sql:134-189`), `request_account_deletion(p_reason=NULL)`/`cancel_account_deletion()`/`get_my_deletion_status()`(30일, `:35-220`), `purge_pending_deletions(p_days=30)`(어드민/cron, profiles만 삭제 — auth.users는 Edge가 처리).
 
