@@ -2447,11 +2447,19 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                               className="block w-full text-left rounded-xl overflow-hidden border border-white/5 hover:border-[#8b5cf6]/60 bg-[#1c1c1e] hover:bg-[#222226] transition-all"
                             >
                               <div className="relative aspect-video bg-black">
+                                {/* 커버 등급은 RPC 가 커버 썸네일을 고르는 그 LATERAL 에서 함께 반환한다
+                                    (playlist_cover_age_rating_20260722.sql) — 별도 조회가 아니라
+                                    썸네일과 등급이 항상 같은 영상을 가리킨다. */}
                                 {pl.preview_thumbnail ? (
-                                  <img src={pl.preview_thumbnail} alt={pl.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                                  <img src={pl.preview_thumbnail} alt={pl.name} referrerPolicy="no-referrer" className={`w-full h-full object-cover ${shouldBlur(pl.preview_age_rating, profile?.age_verified) ? "blur-lg scale-110" : ""}`} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                                 ) : (
                                   <div className="w-full h-full bg-gradient-to-br from-[#1c1c1e] to-[#2d2d30] flex items-center justify-center">
                                     <FolderPlus className="w-10 h-10 text-gray-700" />
+                                  </div>
+                                )}
+                                {shouldBlur(pl.preview_age_rating, profile?.age_verified) && (
+                                  <div className="absolute inset-0 bg-black/65 flex items-center justify-center">
+                                    <span className="w-7 h-7 rounded-full bg-red-600 text-white text-[11px] font-black flex items-center justify-center">19</span>
                                   </div>
                                 )}
                                 {/* 영상 개수 뱃지 */}

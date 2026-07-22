@@ -1834,6 +1834,7 @@
     "loadMore": "더 보기"
   },
   "productDetail": {
+    "resumedAt": "{{time}}부터 이어봅니다",
     "pauseAria": "일시정지",
     "playAria": "재생",
     "paywall": {

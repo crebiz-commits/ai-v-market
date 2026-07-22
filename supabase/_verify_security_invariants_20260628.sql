@@ -447,5 +447,47 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 watch_history_anonymize_20260722.sql 재적용(my_watch_count_20260721.sql 재실행 금지 = 헤더 숫자 불일치)'
 
+  UNION ALL
+  -- 33) track_video_view 가 시청초를 영상 길이로 상한하는가 (2026-07-22) 🔴 최고 위험
+  --     원본(phase8_video_views)은 watch_ratio 만 LEAST(...,1.0) 로 막고
+  --     watch_seconds 는 **클라이언트 인자를 그대로 INSERT** 했다. 정산은
+  --     SUM(vv.watch_seconds) pro-rata 이고, 이 함수엔 GRANT 구문이 없어 PUBLIC 기본
+  --     EXECUTE(anon 호출 가능)이며 anon 은 auth.uid()=NULL 이라 셀프시청 차단도 건너뛴다.
+  --     ⇒ 공개 anon 키로 track_video_view(내영상, 999999999) 한 번이면 그 달 구독
+  --        수익풀의 거의 전부를 가져간다. 비율은 1.0000·is_valid=true 로 저장돼
+  --        관리자 화면에서도 정상 시청으로 보인다(탐지 불가).
+  --     옛 파일 재실행 시 즉시 재개통되므로 상한식의 존재를 감시한다.
+  SELECT 33,
+    'track_video_view 시청초 상한(구독 수익풀 위조 차단)',
+    CASE WHEN (SELECT prosrc ~ 'LEAST\(v_seconds, v_duration\)'
+               FROM pg_proc WHERE proname = 'track_video_view')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 watch_tracking_accuracy_resume_20260722.sql 재적용(phase8_video_views.sql 재실행 금지 = 정산 탈취 재개통)'
+
+  UNION ALL
+  -- 34) track_video_view 오버로드가 1개인가 (2026-07-22)
+  --     상한 도입 시 인자가 3→4개(p_position_seconds 추가)로 늘었다. 옛 3-arg 판이
+  --     남아 있으면 클라이언트가 그쪽으로 해소돼 #33 이 PASS 인데도 무상한 경로가 살아 있다
+  --     (#11 record_ad_impression·#17 preroll 과 같은 오버로드 잔존 클래스).
+  SELECT 34,
+    'track_video_view 오버로드 1개(무상한 3-arg 판 부재)',
+    CASE WHEN (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+               WHERE n.nspname = 'public' AND p.proname = 'track_video_view') = 1
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 watch_tracking_accuracy_resume_20260722.sql 재적용(DROP FUNCTION track_video_view(TEXT,INTEGER,TEXT) 포함)'
+
+  UNION ALL
+  -- 35) get_my_playlists 가 커버 영상 등급을 반환하는가 (2026-07-22)
+  --     보관함 그리드의 커버 썸네일은 영상 id 를 안 받아 클라이언트가 등급을 조회할 수
+  --     없었다 → 19금 커버가 무블러(shouldBlur 는 등급 undefined 면 false = fail-open).
+  --     playlist_hardening_20260722.sql 의 ②를 재실행하면 컬럼이 사라져 **조용히**
+  --     무블러로 복귀한다(화면상 오류가 없어 발견이 늦음) → 컬럼 존재를 감시.
+  SELECT 35,
+    '보관함 커버 등급 반환(19금 커버 블러 fail-open 차단)',
+    CASE WHEN (SELECT bool_or(pg_get_function_result(oid) LIKE '%preview_age_rating%')
+               FROM pg_proc WHERE proname = 'get_my_playlists')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 playlist_cover_age_rating_20260722.sql 재적용(playlist_hardening_20260722.sql ②(get_my_playlists) 재실행 금지)'
+
 ) AS gate
 ORDER BY sort;

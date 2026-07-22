@@ -16,7 +16,7 @@ import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { SubscriptionModal, type PaywallReason } from "./SubscriptionModal";
 import { CreatorAvatar } from "./CreatorAvatar";
 import { CollapsiblePrompt } from "./CollapsiblePrompt";
-import { trackVideoView } from "../utils/viewTracking";
+import { trackVideoView, getMyWatchPosition } from "../utils/viewTracking";
 import { usePayment } from "../hooks/usePayment";
 import { Loader2 } from "lucide-react";
 import { ReportModal } from "./ReportModal";
@@ -45,6 +45,20 @@ function postBunnyCommand(iframe: HTMLIFrameElement | null, method: "play" | "pa
   if (!iframe) return;
   iframe.contentWindow?.postMessage(
     JSON.stringify({ context: "player.js", version: "0.0.1", method }),
+    BUNNY_PLAYER_ORIGIN,
+  );
+}
+
+// 이어보기 — player.js 의 setCurrentTime 으로 재생 지점 이동.
+//   Bunny iframe 은 URL 파라미터로 시작 지점을 못 주므로(embed URL 에 t= 없음)
+//   ready/첫 timeupdate 시점에 postMessage 로 옮긴다.
+function seekBunnyTo(iframe: HTMLIFrameElement | null, seconds: number) {
+  if (!iframe || !(seconds > 0)) return;
+  iframe.contentWindow?.postMessage(
+    JSON.stringify({
+      context: "player.js", version: "0.0.1",
+      method: "setCurrentTime", value: Math.floor(seconds),
+    }),
     BUNNY_PLAYER_ORIGIN,
   );
 }
@@ -618,8 +632,25 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     };
   }, [cinemaCutoffTriggered]);
 
+  // ── 이어보기(2026-07-22) — 마지막 재생 지점을 미리 받아두고 플레이어 준비 시 이동 ──
+  //   너무 앞(15초 미만)이면 이어볼 의미가 없고, 거의 끝(95%+)이면 재시청이므로 처음부터.
+  const resumeAtRef = useRef<number | null>(null);
+  useEffect(() => {
+    resumeAtRef.current = null;
+    if (!product.id || !isAuthenticated) return;
+    let cancelled = false;
+    void getMyWatchPosition(product.id).then((pos) => {
+      if (cancelled || pos == null) return;
+      if (pos < 15) return;
+      if (durationSeconds && pos >= durationSeconds * 0.95) return;
+      resumeAtRef.current = pos;
+    });
+    return () => { cancelled = true; };
+  }, [product.id, durationSeconds, isAuthenticated]);
+
   // ── Phase 8: 시청 기록 (video_views 적재용) ──
-  // 페이월 통과한 사용자가 영상을 실제로 시청하면 30% 도달 시 1회 RPC 호출.
+  // 재생 중 주기적으로 RPC 호출 — 서버가 같은 세션이면 기존 행을 갱신(GREATEST)해 실제
+  // 시청시간을 누적한다. 2026-07-22 이전엔 30% 도달 시 1회뿐이라 완주해도 30%에서 멈췄다.
   // 30%에 도달하지 못해도 5초 이상 시청했으면 unmount 시점에 기록 (서버에서 low_ratio로 invalid 처리).
   // 페이월 cutoff와 별도 LISTENER_ID로 구독해서 서로 간섭 없음.
   useEffect(() => {
@@ -631,9 +662,32 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     const LISTENER_ID = "creaite-view-tracker";
     const BUNNY_ORIGIN = "https://iframe.mediadelivery.net";
     const threshold = Math.max(5, Math.floor(durationSeconds * 0.30));
-    let maxWatched = 0;
+    // watched = **실제 재생된 초**(정산 기준). position = 마지막 재생 지점(이어보기).
+    //   둘은 다른 값이다 — 앞으로 건너뛰면 position 만 뛰고 watched 는 안 늘어야
+    //   정산(SUM(watch_seconds) pro-rata)이 정직해진다. timeupdate 간 정상 진행분만 누적한다.
+    let watched = 0;
+    let position = 0;
+    let lastSeconds: number | null = null;
+    let reportedAt = 0;          // 마지막 서버 보고 시점의 watched
+    const REPORT_STEP = 20;      // 20초 재생마다 보고(서버가 GREATEST 로 누적)
     let tracked = false;
     let gotTimeupdate = false;
+
+    // 이어보기 이동 — 플레이어가 준비된 뒤 1회만. 시킹 직후 delta 가 커서
+    //   아래 진행분 누적(delta < 2)에는 잡히지 않으므로 시청시간이 부풀지 않는다.
+    let resumeDone = false;
+    const tryResume = () => {
+      if (resumeDone) return;
+      const at = resumeAtRef.current;
+      if (at == null) { resumeDone = true; return; }
+      resumeDone = true;
+      seekBunnyTo(iframeRef.current, at);
+      position = at;
+      lastSeconds = at;
+      const mm = Math.floor(at / 60);
+      const ss = String(Math.floor(at % 60)).padStart(2, "0");
+      toast.info(t("productDetail.resumedAt", { time: `${mm}:${ss}` }));
+    };
 
     const subscribeTimeupdate = () => {
       iframeRef.current?.contentWindow?.postMessage(
@@ -660,18 +714,35 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
 
       if (data?.event === "ready") {
         subscribeTimeupdate();
+        tryResume();
         return;
       }
       // 다른 LISTENER (cinema cutoff 등) 이벤트는 무시
       if (data?.event !== "timeupdate" || data?.listener !== LISTENER_ID) return;
 
+      // "ready" 를 놓쳤을 수 있으므로 첫 timeupdate 에서도 한 번 시도(내부에서 1회 보장).
+      tryResume();
+
       gotTimeupdate = true;
       const seconds = data?.value?.seconds ?? 0;
-      if (seconds > maxWatched) maxWatched = seconds;
+      position = seconds;
 
-      if (!tracked && maxWatched >= threshold) {
+      // 정상 재생 진행분만 누적 — 큰 점프(시킹)나 되감기는 제외.
+      //   timeupdate 는 초당 여러 번 오므로 정상 델타는 1초 미만이다.
+      if (lastSeconds !== null) {
+        const delta = seconds - lastSeconds;
+        if (delta > 0 && delta < 2) watched += delta;
+      }
+      lastSeconds = seconds;
+
+      // 30% 임계 도달 시 첫 기록(유효 조회 판정), 이후 20초 재생마다 갱신 보고.
+      if (!tracked && watched >= threshold) {
         tracked = true;
-        trackVideoView(product.id, Math.floor(maxWatched));
+        reportedAt = watched;
+        trackVideoView(product.id, Math.floor(watched), Math.floor(position));
+      } else if (tracked && watched - reportedAt >= REPORT_STEP) {
+        reportedAt = watched;
+        trackVideoView(product.id, Math.floor(watched), Math.floor(position));
       }
     };
 
@@ -690,9 +761,10 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     return () => {
       window.removeEventListener("message", handleMessage);
       clearInterval(poll);
-      // 30%에 못 도달했어도 5초+ 시청은 기록 (서버에서 유효성 판정)
-      if (!tracked && maxWatched >= 5) {
-        trackVideoView(product.id, Math.floor(maxWatched));
+      // 나갈 때 최종 보고 — 30% 미달(5초+)이면 첫 기록, 이미 기록됐으면 잔여분 반영.
+      //   이게 없으면 마지막 20초 구간과 이어보기 지점이 유실된다.
+      if (watched >= 5 && (!tracked || watched > reportedAt)) {
+        trackVideoView(product.id, Math.floor(watched), Math.floor(position));
       }
     };
   }, [product.id, durationSeconds]);

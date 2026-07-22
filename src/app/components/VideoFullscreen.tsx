@@ -68,6 +68,10 @@ export function VideoFullscreen({
   // Phase 8: 시청 기록 추적 (re-render 없이 ref로 관리)
   const maxWatchedRef = useRef(0);
   const trackedRef = useRef(false);
+  // 실제 재생된 초(정산 기준) — 앞으로 건너뛴 구간은 빼야 SUM(watch_seconds) pro-rata 가 정직하다.
+  const watchedRef = useRef(0);
+  const lastSecRef = useRef<number | null>(null);
+  const reportedRef = useRef(0);   // 마지막 서버 보고 시점의 watched
 
   // Video.js 초기화
   useEffect(() => {
@@ -76,6 +80,9 @@ export function VideoFullscreen({
     // 새 영상이 들어오면 추적 상태 리셋
     maxWatchedRef.current = 0;
     trackedRef.current = false;
+    watchedRef.current = 0;
+    lastSecRef.current = null;
+    reportedRef.current = 0;
 
     let cancelled = false;
     let createdPlayer: any = null;
@@ -113,21 +120,35 @@ export function VideoFullscreen({
       const t = player.currentTime() || 0;
       if (!isSeekingRef.current) setCurrentTime(t);
 
-      // 시청 추적: 최대 시청 위치 갱신 + 30% 도달 시 1회 RPC 호출
+      // 시청 추적 — 정상 재생 진행분만 누적(시킹·되감기 제외). timeupdate 는 초당 여러 번
+      //   오므로 정상 델타는 1초 미만이다. 위치(t)는 이어보기용으로 따로 보낸다.
+      const last = lastSecRef.current;
+      if (last !== null) {
+        const delta = t - last;
+        if (delta > 0 && delta < 2) watchedRef.current += delta;
+      }
+      lastSecRef.current = t;
       if (t > maxWatchedRef.current) maxWatchedRef.current = t;
+
+      const d = player.duration() || 0;
+      const threshold = d > 0 ? Math.max(5, d * 0.30) : Infinity;
       if (!trackedRef.current) {
-        const d = player.duration() || 0;
-        const threshold = d > 0 ? Math.max(5, d * 0.30) : Infinity;
-        if (maxWatchedRef.current >= threshold) {
+        if (watchedRef.current >= threshold) {
           trackedRef.current = true;
-          trackVideoView(video.id, Math.floor(maxWatchedRef.current));
+          reportedRef.current = watchedRef.current;
+          trackVideoView(video.id, Math.floor(watchedRef.current), Math.floor(t));
         }
+      } else if (watchedRef.current - reportedRef.current >= 20) {
+        // 20초 재생마다 갱신 보고 — 서버가 GREATEST 로 누적(행은 늘지 않음)
+        reportedRef.current = watchedRef.current;
+        trackVideoView(video.id, Math.floor(watchedRef.current), Math.floor(t));
       }
     });
     player.on("ended", () => {
-      if (!trackedRef.current && maxWatchedRef.current >= 5) {
+      if (watchedRef.current >= 5 && (!trackedRef.current || watchedRef.current > reportedRef.current)) {
         trackedRef.current = true;
-        trackVideoView(video.id, Math.floor(maxWatchedRef.current));
+        reportedRef.current = watchedRef.current;
+        trackVideoView(video.id, Math.floor(watchedRef.current), Math.floor(maxWatchedRef.current));
       }
     });
     player.on("play", () => setIsPlaying(true));
@@ -140,9 +161,11 @@ export function VideoFullscreen({
     }).catch(() => { toast.error(t("discoveryFeed.videoProcessing")); /* 청크 로드 실패 안내 */ });
     return () => {
       cancelled = true;
-      // unmount/영상교체 시점에 30%에 못 도달했어도 5초+ 시청은 기록
-      if (!trackedRef.current && maxWatchedRef.current >= 5 && video.id) {
-        trackVideoView(video.id, Math.floor(maxWatchedRef.current));
+      // 나갈 때 최종 보고 — 30% 미달(5초+)이면 첫 기록, 이미 기록됐으면 잔여 재생분 반영.
+      //   없으면 마지막 20초 구간이 유실된다.
+      if (video.id && watchedRef.current >= 5 &&
+          (!trackedRef.current || watchedRef.current > reportedRef.current)) {
+        trackVideoView(video.id, Math.floor(watchedRef.current), Math.floor(maxWatchedRef.current));
       }
       if (createdPlayer && !createdPlayer.isDisposed()) createdPlayer.dispose();
     };

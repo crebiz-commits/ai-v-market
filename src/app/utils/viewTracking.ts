@@ -2,8 +2,13 @@
 // 영상 시청 기록 클라이언트 헬퍼 (Phase 8)
 //
 // 목적:
-//   영상 플레이어에서 30% 도달 또는 종료 시 1회 Supabase RPC `track_video_view` 호출.
-//   서버에서 어뷰징 필터(셀프시청·IP중복·30%미만)를 자동 적용해 video_views에 기록.
+//   영상 플레이어가 재생 중 주기적으로 Supabase RPC `track_video_view` 를 호출한다.
+//   서버가 어뷰징 필터(셀프시청·IP중복·30%미만)를 적용하고, 중복창 내 같은 세션이면
+//   기존 행을 갱신해 실제 시청시간을 누적한다(행이 늘지 않음).
+//
+//   ⚠️ 2026-07-22 이전엔 "30% 도달 시 1회"만 보고했다. 그래서 완주해도 시청시간이
+//   30%에서 멈췄고, 정산(SUM(watch_seconds) pro-rata)이 실제 시청을 반영하지 못했다.
+//   지금은 주기 보고 + 서버 GREATEST 누적이라 실제 재생시간이 반영된다.
 //
 // 사용 예:
 //   import { trackVideoView } from "../utils/viewTracking";
@@ -63,11 +68,16 @@ const lastWatchedByVideo = new Map<string, number>();
  * - 실패 시 lastWatchedByVideo에서 제거해 재시도 허용.
  *
  * @param videoId - public.videos.id
- * @param watchSeconds - 실제 시청한 초 (시킹 무시, 누적 최대값 권장)
+ * @param watchSeconds - **실제 재생된 초**. 앞으로 건너뛴 구간은 포함하면 안 된다
+ *   (정산이 SUM(watch_seconds) pro-rata 라, 시킹으로 부풀면 남의 배분액을 가져간다).
+ *   호출부는 timeupdate 간 정상 진행분만 누적해서 넘긴다.
+ * @param positionSeconds - 마지막 재생 지점(이어보기용). 시청시간과 달리 시킹을 반영한다.
+ *   생략하면 서버가 watchSeconds 를 위치로 간주한다.
  */
 export async function trackVideoView(
   videoId: string,
   watchSeconds: number,
+  positionSeconds?: number,
 ): Promise<void> {
   if (!videoId || watchSeconds <= 0) return;
   const previous = lastWatchedByVideo.get(videoId) ?? 0;
@@ -80,6 +90,8 @@ export async function trackVideoView(
       p_video_id: videoId,
       p_watch_seconds: Math.floor(watchSeconds),
       p_ip: ip,
+      p_position_seconds:
+        positionSeconds != null ? Math.floor(positionSeconds) : null,
     });
     if (error) {
       console.warn("[viewTracking] track_video_view RPC 실패:", error.message);
@@ -94,4 +106,22 @@ export async function trackVideoView(
 /** 테스트/디버그용 — 세션 캐시 초기화 */
 export function resetViewTrackingSession() {
   lastWatchedByVideo.clear();
+}
+
+/**
+ * 이어보기 지점(초) 조회. 로그인 사용자 본인 기록만 — 없으면 null.
+ * 실패해도 재생을 막지 않는다(처음부터 재생).
+ */
+export async function getMyWatchPosition(videoId: string): Promise<number | null> {
+  if (!videoId) return null;
+  try {
+    const { data, error } = await supabase.rpc("get_my_watch_position", {
+      p_video_id: videoId,
+    });
+    if (error) return null;
+    const n = Number(data);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
 }
