@@ -6,6 +6,7 @@ import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 import { timeAgo } from "../utils/timeAgo";
+import { HOVER_REVEAL } from "../utils/hoverReveal";
 
 interface Notification {
   id: string;
@@ -391,7 +392,7 @@ export function NotificationPanel({ onClose, onUnreadCountChange, onNavigate }: 
                 {isAuthenticated && (
                   <button
                     onClick={() => void deleteOne(notif.id)}
-                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity self-start mt-3 mr-2 p-1.5 rounded hover:bg-red-500/15 text-gray-500 hover:text-red-400 flex-shrink-0"
+                    className={`${HOVER_REVEAL} self-start mt-3 mr-2 p-1.5 rounded hover:bg-red-500/15 text-gray-500 hover:text-red-400 flex-shrink-0`}
                     title={t("notificationPanel.delete")}
                     aria-label={t("notificationPanel.delete")}
                   >

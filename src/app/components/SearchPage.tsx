@@ -12,6 +12,7 @@ import { Footer } from "./Footer";
 import { ExternalAdSlot, EXTERNAL_ADS_ACTIVE } from "./ExternalAdSlot";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { useAgeRatings } from "../hooks/useAgeRatings";
+import { HOVER_REVEAL } from "../utils/hoverReveal";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { mergeShowcase, shouldShowShowcase } from "../utils/showcase";
 import type { ShowcaseVideo } from "../data/showcaseVideos";
@@ -648,7 +649,7 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
                               <button
                                 type="button"
                                 onMouseDown={(e) => { e.preventDefault(); handleRemoveHistory(h); }}
-                                className="px-3 text-gray-600 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                className={`px-3 text-gray-600 hover:text-white ${HOVER_REVEAL}`}
                               >
                                 <X className="w-3.5 h-3.5" />
                               </button>
