@@ -1003,6 +1003,7 @@
       "loadFailed": "정산 계좌 정보를 불러오지 못했습니다."
     },
     "purchases": {
+      "refundedExcluded": "환불 {{count}}건은 합계에서 제외",
       "totalSpent": "총 구매 금액",
       "download": "다운로드",
       "downloading": "다운로드 준비 중…",

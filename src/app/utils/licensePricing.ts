@@ -23,3 +23,23 @@ export function licenseInquiryMailto(title: string, price?: number | null): stri
     `희망 용도·범위·예산을 적어주시면 운영팀이 안내드리겠습니다.`;
   return `mailto:support@creaite.net?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
+
+// ── 라이선스 종류 표시명 ──────────────────────────────────────────────────────
+//   orders.license_type CHECK 허용값 5종(orders_table.sql:49). 기본값은 'all-in-one'.
+//   상품 등급명이라 번역하지 않고 양쪽 로케일에서 같은 표기를 쓴다(카트와 동일 방침).
+//
+//   ⚠️ 미등록 값은 **원문을 그대로** 돌려준다. 맵을 직접 인덱싱하면 새 등급이 생겼을 때
+//     화면에 빈칸이 뜬다 — 실제로 CartPanel 의 지역 맵이 'exclusive'·'all-in-one' 을
+//     빠뜨려 기본 등급 주문의 라벨이 공백이었다(2026-07-22 구매 탭 감사).
+const LICENSE_LABELS: Record<string, string> = {
+  standard: "Standard",
+  commercial: "Commercial",
+  extended: "Extended",
+  exclusive: "Exclusive",
+  "all-in-one": "All-in-One",
+};
+
+export function licenseLabel(type?: string | null): string {
+  if (!type) return "—";
+  return LICENSE_LABELS[type] ?? type;
+}

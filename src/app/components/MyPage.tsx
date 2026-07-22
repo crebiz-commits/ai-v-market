@@ -25,6 +25,7 @@ import { PayoutInfoModal } from "./PayoutInfoModal";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { HOVER_REVEAL } from "../utils/hoverReveal";
 import { useAgeRatings } from "../hooks/useAgeRatings";
+import { licenseLabel } from "../utils/licensePricing";
 import { shouldBlur } from "./AgeBadge";
 import { Footer } from "./Footer";
 import { formatCompactNumber } from "../i18n/numberFormat";
@@ -685,6 +686,13 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   const handleDownloadPurchase = async (purchase: Purchase) => {
     if (downloadingId) return;
     setDownloadingId(purchase.id);
+    // 팝업 차단 회피(2026-07-22 구매 탭 감사) — 창을 **지금** 연다.
+    //   아래는 권한검증 RPC 1회 + 해상도 탐색 HEAD 최대 5회라 수 초가 걸리는데,
+    //   그 뒤에 window.open 을 부르면 사용자 제스처와의 연결이 끊겨 모바일 브라우저
+    //   (특히 iOS Safari)가 팝업으로 간주해 차단한다 → 버튼을 눌러도 아무 일도 안 일어남.
+    //   결제 게이트가 꺼져 있어 orders 0건이라 실환경에서 한 번도 실행된 적 없는 경로다.
+    const win = window.open("", "_blank");
+    if (win) win.opener = null;   // noopener 대신(핸들이 필요해 옵션으로 못 줌)
     try {
       const { data, error } = await supabase.rpc('log_download', {
         p_order_id: purchase.id,
@@ -707,9 +715,11 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
         } catch { /* 네트워크 오류 시 다음 해상도 시도 */ }
       }
       if (!mp4Url) throw new Error(t("mypage.purchases.noDownloadableFile"));
-      window.open(mp4Url, '_blank', 'noopener,noreferrer');
+      if (win) win.location.replace(mp4Url);
+      else window.location.href = mp4Url;   // 그래도 막혔으면 현재 탭으로(빈손 방지)
       toast.success(t('mypage.purchases.downloadStarted'));
     } catch (err: any) {
+      win?.close();   // 실패했는데 빈 탭만 남으면 안 됨
       console.error('[MyPage] 다운로드 실패:', err);
       toast.error(`${t('mypage.purchases.downloadFailed')}: ${err?.message || ''}`);
     } finally {
@@ -1836,7 +1846,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                     <p className="text-3xl font-black text-white drop-shadow-sm">₩{purchaseSummary.total.toLocaleString()}</p>
                     {purchaseSummary.refunded > 0 && (
                       <p className="text-[11px] text-gray-400 mt-1">
-                        {t("mypage.purchases.statusRefunded")} {purchaseSummary.refunded}건은 합계에서 제외
+                        {t("mypage.purchases.refundedExcluded", { count: purchaseSummary.refunded })}
                       </p>
                     )}
                   </div>
@@ -1867,7 +1877,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                         
                         <div className="flex items-center justify-between mb-4">
                           <span className="px-2 py-0.5 bg-[#6366f1]/10 border border-[#6366f1]/20 text-[#6366f1] rounded text-[10px] font-bold">
-                            {purchase.license}
+                            {licenseLabel(purchase.license)}
                           </span>
                           <span className={`font-bold ${purchase.status === "refunded" ? "text-gray-400 line-through" : "text-gray-300"}`}>
                             ₩{purchase.price.toLocaleString()}

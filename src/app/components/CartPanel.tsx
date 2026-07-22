@@ -4,6 +4,7 @@ import { X, ShoppingCart, Trash2, Play, Package, CreditCard } from "lucide-react
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "./ui/button";
 import { useTranslation } from "react-i18next";
+import { licenseLabel } from "../utils/licensePricing";
 
 export interface CartItem {
   id: string;
@@ -26,12 +27,6 @@ interface CartPanelProps {
 export function CartPanel({ items, onRemove, onViewVideo, onPurchase, onClose }: CartPanelProps) {
   const { t } = useTranslation();
   const total = items.reduce((s, it) => s + (it.price || 0), 0);
-
-  const LICENSE_LABELS: Record<string, string> = {
-    standard: "Standard",
-    commercial: "Commercial",
-    extended: "Extended",
-  };
 
   const handleViewVideo = (videoId: string) => {
     onViewVideo(videoId);
@@ -95,7 +90,7 @@ export function CartPanel({ items, onRemove, onViewVideo, onPurchase, onClose }:
                     <p className="text-sm font-semibold text-white truncate">{item.title}</p>
                     <p className="text-xs text-gray-500 mb-1">{item.creator}</p>
                     <span className="inline-block px-2 py-0.5 bg-[#6366f1]/20 text-[#a78bfa] text-xs rounded-full">
-                      {LICENSE_LABELS[item.licenseType]}
+                      {licenseLabel(item.licenseType)}
                     </span>
                     <p className="text-sm font-bold text-white mt-1">
                       ₩{item.price.toLocaleString()}

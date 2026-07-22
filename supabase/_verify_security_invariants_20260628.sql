@@ -489,5 +489,25 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 playlist_cover_age_rating_20260722.sql 재적용(playlist_hardening_20260722.sql ②(get_my_playlists) 재실행 금지)'
 
+  UNION ALL
+  -- 36) 마이페이지 주문 집계가 status 필터를 갖는가 (2026-07-22 구매 탭 감사)
+  --     정산(calculate_monthly_revenue)은 status='completed' 만 집계하는데, 마이페이지가
+  --     필터 없이 orders 를 합치면 실패·취소·환불 주문까지 "총매출"·"총 구매 금액"에
+  --     잡혀 **화면 표시액 > 실제 정산액**이 된다(#28·#29 와 같은 '표시>지급' 클래스).
+  --     ★ 이 항목이 특히 위험한 이유: 같은 4함수가 **같은 날짜의 두 파일**에 정의돼 있다.
+  --       mypage_pagination_20260719(21:14) → mypage_order_status_filter_20260719(21:35).
+  --       파일명 날짜가 같아 정렬로는 선후를 알 수 없다(커밋 시각으로만 구분됨).
+  --       게다가 앞 파일도 **다른 6함수의 정본이라 재실행할 정당한 이유가 있는데**,
+  --       그때 이 4함수까지 함께 덮어써서 status 필터만 조용히 사라진다.
+  --       (메모리 pagination-ssot 는 뒤 파일이 4종 정본이라고 정확히 기록해 두었으나,
+  --        문서가 맞아도 실행 순서 사고는 막지 못하므로 여기서 상태로 확인한다.)
+  --     구매자 목록은 completed+refunded(거래기록 보존), 합계·보유수는 completed 만.
+  SELECT 36,
+    '마이페이지 주문 집계 status 필터(표시액=정산액)',
+    CASE WHEN (SELECT bool_and(prosrc ~ 'completed') FROM pg_proc
+               WHERE proname IN ('get_my_purchases','get_my_purchase_summary'))
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 mypage_order_status_filter_20260719.sql 재적용(mypage_pagination_20260719.sql 재실행 금지 = 필터 소실)'
+
 ) AS gate
 ORDER BY sort;
