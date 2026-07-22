@@ -302,6 +302,8 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
                   <button
                     onClick={toggleWatchLater}
                     disabled={wlBusy}
+                    role="checkbox"
+                    aria-checked={!!watchLaterRow?.contains}
                     className="w-full flex items-center gap-3 px-5 py-3 hover:bg-muted transition-colors text-left disabled:opacity-60 border-b border-border/60"
                   >
                     <div
@@ -335,6 +337,8 @@ export function AddToPlaylistModal({ open, videoId, videoTitle, onClose, onChang
                         key={pl.playlist_id}
                         onClick={() => toggleMembership(pl)}
                         disabled={busy}
+                        role="checkbox"
+                        aria-checked={pl.contains}
                         className="w-full flex items-center gap-3 px-5 py-3 hover:bg-muted transition-colors text-left disabled:opacity-60"
                       >
                         <div

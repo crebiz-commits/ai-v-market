@@ -1120,7 +1120,11 @@
       "nameRequired": "이름을 입력하세요",
       "reorderFailed": "순서 변경 실패: {{message}}",
       "moveUp": "위로",
-      "moveDown": "아래로"
+      "moveDown": "아래로",
+      "count_one": "{{count}}개",
+      "count_other": "{{count}}개",
+      "videosCount_one": "{{count}}개",
+      "videosCount_other": "{{count}}개"
     },
     "settings": {
       "accountSecurity": "계정 보안",

@@ -2413,19 +2413,27 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                               <p className="text-xs text-gray-500 line-clamp-1">{v.creator_display_name || v.creator}</p>
                             </button>
                             {/* 순서 변경 — 위/아래 한 칸. 드래그앤드롭 대신 버튼이라 모바일에서도 동작한다. */}
-                            <div className={`flex flex-col ${HOVER_REVEAL} flex-shrink-0`}>
+                            {/* HOVER_REVEAL 은 **버튼 자신**에 건다. 감싸는 div 에 걸면 div 가
+                                포커스를 못 받아 focus-visible 이 영원히 매치되지 않고, 마우스 기기에서
+                                Tab 으로 도달해도 투명한 채로 남는다(2026-07-22 감사).
+                                disabled 에 reorderBusy 를 넣지 않는다 — 누른 버튼이 그 순간 disabled 가
+                                되면 브라우저가 포커스를 body 로 떨어뜨려 키보드로 연속 조작이 불가능해진다.
+                                동시 실행 방어는 핸들러의 reorderBusy 가드가 이미 한다. */}
+                            <div className="flex flex-col gap-0.5 flex-shrink-0">
                               <button
                                 onClick={() => void handleMovePlaylistVideo(v.id, -1)}
-                                disabled={reorderBusy || idx === 0}
-                                className="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent"
+                                disabled={idx === 0}
+                                aria-label={t("mypage.playlist.moveUp")}
+                                className={`p-1.5 rounded hover:bg-white/10 text-gray-500 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent ${HOVER_REVEAL}`}
                                 title={t("mypage.playlist.moveUp")}
                               >
                                 <ChevronUp className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => void handleMovePlaylistVideo(v.id, 1)}
-                                disabled={reorderBusy || idx === playlistVideos.length - 1}
-                                className="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent"
+                                disabled={idx === playlistVideos.length - 1}
+                                aria-label={t("mypage.playlist.moveDown")}
+                                className={`p-1.5 rounded hover:bg-white/10 text-gray-500 hover:text-white disabled:opacity-25 disabled:hover:bg-transparent ${HOVER_REVEAL}`}
                                 title={t("mypage.playlist.moveDown")}
                               >
                                 <ChevronDown className="w-3.5 h-3.5" />
@@ -2488,7 +2496,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                                     (playlist_cover_age_rating_20260722.sql) — 별도 조회가 아니라
                                     썸네일과 등급이 항상 같은 영상을 가리킨다. */}
                                 {pl.preview_thumbnail ? (
-                                  <img src={pl.preview_thumbnail} alt={pl.name} referrerPolicy="no-referrer" className={`w-full h-full object-cover ${shouldBlur(pl.preview_age_rating, profile?.age_verified) ? "blur-lg scale-110" : ""}`} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                                  <img src={pl.preview_thumbnail} alt="" referrerPolicy="no-referrer" className={`w-full h-full object-cover ${shouldBlur(pl.preview_age_rating, profile?.age_verified) ? "blur-lg scale-110" : ""}`} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                                 ) : (
                                   <div className="w-full h-full bg-gradient-to-br from-[#1c1c1e] to-[#2d2d30] flex items-center justify-center">
                                     <FolderPlus className="w-10 h-10 text-gray-700" />
@@ -2501,7 +2509,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                                 )}
                                 {/* 영상 개수 뱃지 */}
                                 <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/80 backdrop-blur-sm rounded text-white text-[11px] font-bold">
-                                  {t("mypage.playlist.count", { count: pl.video_count })}
+                                  {t("mypage.playlist.videosCount", { count: pl.video_count })}
                                 </div>
                                 {/* Watch Later 표시 */}
                                 {pl.is_watch_later && (
@@ -2528,6 +2536,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                                   }}
                                   maxLength={60}
                                   disabled={renameBusy}
+                                  aria-label={t("mypage.playlist.renamePlaylist")}
                                   className="input-base flex-1 text-xs min-w-0"
                                 />
                                 <button
