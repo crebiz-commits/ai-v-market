@@ -8,216 +8,200 @@
 --     · update_playlist     : 호출부 0건이라 검증 없는 채 잠들어 있었음
 --   정의만 보는 검증은 이런 걸 절대 못 잡는다. 그래서 **직접 호출**한다.
 --
--- ── ⚠️ 안전 설계 (2026-07-22 1차 시도 실패 후 재작성) ───────────────────────
---   1차 판은 `CREATE TEMP TABLE ... ON COMMIT DROP` + 맨 아래 ROLLBACK 이었는데
---   `relation "_rt" does not exist` 로 실패했다. SQL Editor 가 **문장 단위로 커밋**하면
---   temp 테이블이 만들어지자마자 ON COMMIT DROP 으로 사라진다.
---   → 그건 동시에 **맨 아래 ROLLBACK 도 안 먹는다**는 뜻이라, "아무것도 안 남는다"는
---     보장이 깨진다. 트랜잭션 처리 방식에 기대지 않는 구조로 다시 만들었다:
+-- ── ⚠️ 설계 이력 (두 번 실패하고 세 번째에 고침) ────────────────────────────
+--   1차: `CREATE TEMP TABLE ... ON COMMIT DROP` → `relation "_rt" does not exist`.
+--        문장 단위 커밋이면 만들어지자마자 사라진다.
+--   2차: ON COMMIT DROP 만 제거 → **한 번은 성공, 다음엔 같은 오류.**
+--        원인은 커밋 시점이 아니라 **세션**이었다. Supabase SQL Editor 는 문장을
+--        커넥션 풀에서 각각 실행할 수 있어, CREATE TEMP TABLE 과 DO 블록이 서로
+--        다른 커넥션에 걸리면 임시 테이블이 보이지 않는다(그래서 간헐적으로 성공).
+--   3차(현재): **임시 테이블을 아예 쓰지 않는다.** 검사 함수 하나가 결과 집합을
+--        직접 RETURN QUERY 로 돌려주고, 그 함수를 부른 뒤 지운다.
+--        함수는 카탈로그에 있으므로 커넥션이 바뀌어도 보인다.
 --
---     · temp 테이블은 ON COMMIT DROP 없이 만든다(재실행 대비 DROP IF EXISTS 선행).
---     · **쓰기를 시도하는 검사는 성공했을 경우 그 자리에서 직접 되돌린다.**
---       (거부되는 게 정상이라 보통은 아무것도 안 써지지만, 결함이 있어 "성공해버린"
---        경우가 바로 우리가 찾는 상황이고 그때 흔적이 남으면 안 된다)
---     · 전체는 여전히 BEGIN…ROLLBACK 으로 감싼다 — 편집기가 존중하면 이중 안전망이 된다.
---
+--   ▣ 안전: 쓰기를 시도하는 검사는 **성공했을 경우 그 자리에서 직접 되돌린다.**
+--     거부되는 게 정상이라 보통은 아무것도 안 써지고, 결함이 있어 "성공해버린"
+--     경우(=우리가 찾는 상황)에도 흔적이 남지 않는다. 트랜잭션 처리 방식에 기대지 않는다.
 --   ▣ auth.uid() 는 SQL Editor 에서 NULL 이라 RPC 가 전부 빈 결과를 준다 →
---     DO 블록 안에서 request.jwt.claims 를 세팅해 실제 사용자로 가장한다.
---     (set_config 를 블록 안에서 부르므로 문장 단위 커밋이어도 블록 내내 유효)
+--     함수 안에서 request.jwt.claims 를 세팅해 실제 사용자로 가장한다.
+--   ▣ 남의 데이터는 만들지도 건드리지도 않는다. 소유권·노출가능 가드는
+--     **존재하지 않는 ID** 로 같은 분기를 태워 검증한다.
 --
 --   사용: Supabase Dashboard → SQL Editor → 전체 붙여넣기 → Run.
 --   ▶ ✅ PASS / ⚪ SKIP 이면 정상. 🔴 FAIL 만 실제 동작 결함이다.
+--   ▶ 맨 끝 DROP FUNCTION 까지 함께 실행되어 검사 함수는 남지 않는다.
 -- ════════════════════════════════════════════════════════════════════════════
 
-BEGIN;
-
-DROP TABLE IF EXISTS _rt;
-CREATE TEMP TABLE _rt(sort INT, check_name TEXT, status TEXT, detail TEXT);
-
-DO $$
+CREATE OR REPLACE FUNCTION public._rt_playlist_probe()
+RETURNS TABLE (n INT, check_name TEXT, status TEXT, detail TEXT)
+LANGUAGE plpgsql
+AS $fn$
 DECLARE
-  v_uid       uuid;
-  v_pl        uuid;
-  v_badge     BIGINT;
-  v_actual    BIGINT;
-  v_hidden    TEXT;
-  v_other_pl  uuid;
-  v_wl        uuid;
-  v_new_pl    uuid;
-  v_msg       TEXT;
-  v_cnt       INT;
+  v_uid      uuid;
+  v_pl       uuid;
+  v_badge    BIGINT;
+  v_actual   BIGINT;
+  v_hidden   TEXT;
+  v_other    uuid;
+  v_wl       uuid;
+  v_new      uuid;
+  v_orig     TEXT;
+  v_msg      TEXT;
+  v_cnt      INT;
 BEGIN
-  -- 플레이리스트가 가장 많은 사용자를 고른다(테스트 대상)
-  SELECT user_id INTO v_uid FROM public.playlists
-  GROUP BY user_id ORDER BY count(*) DESC LIMIT 1;
+  -- 플레이리스트가 가장 많은 사용자를 대상으로 삼는다
+  SELECT p.user_id INTO v_uid FROM public.playlists p
+  GROUP BY p.user_id ORDER BY count(*) DESC LIMIT 1;
 
   IF v_uid IS NULL THEN
-    INSERT INTO _rt VALUES (0, '대상 사용자', '⚪ SKIP', '플레이리스트를 가진 계정이 없어 전 항목 건너뜀');
+    RETURN QUERY SELECT 0, '대상 사용자'::TEXT, '⚪ SKIP'::TEXT,
+                        '플레이리스트를 가진 계정이 없어 전 항목 건너뜀'::TEXT;
     RETURN;
   END IF;
 
-  -- 이 블록 안에서만 그 사용자로 가장(auth.uid() 가 이 값을 반환하게 됨)
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_uid::text)::text, true);
-  INSERT INTO _rt VALUES (0, '대상 사용자 가장', '✅ PASS', 'user_id=' || v_uid::text);
+  RETURN QUERY SELECT 0, '대상 사용자 가장'::TEXT, '✅ PASS'::TEXT, ('user_id=' || v_uid::text)::TEXT;
 
-  -- ── 1) get_my_playlists 가 실제로 행을 주는가 (호출 자체가 되는가) ──
+  -- ── 1) 호출 자체가 되는가 ──
   BEGIN
     SELECT count(*) INTO v_cnt FROM public.get_my_playlists();
-    INSERT INTO _rt VALUES (1, 'get_my_playlists 호출 성공', '✅ PASS', v_cnt || '개 반환');
+    RETURN QUERY SELECT 1, 'get_my_playlists 호출 성공'::TEXT, '✅ PASS'::TEXT, (v_cnt || '개 반환')::TEXT;
   EXCEPTION WHEN others THEN
-    INSERT INTO _rt VALUES (1, 'get_my_playlists 호출 성공', '🔴 FAIL', SQLERRM);
+    RETURN QUERY SELECT 1, 'get_my_playlists 호출 성공'::TEXT, '🔴 FAIL'::TEXT, SQLERRM::TEXT;
     RETURN;
   END;
 
   -- ── 2) ★ 카드 개수 = 상세 목록 실제 행수 (정적 검사로는 절대 못 잡는 항목) ──
-  --    두 RPC 가 같은 필터를 쓴다고 "코드상" 확인했어도 실제 데이터에서 어긋날 수 있다.
-  SELECT id, video_count INTO v_pl, v_badge
-  FROM public.get_my_playlists() ORDER BY video_count DESC LIMIT 1;
+  SELECT g.id, g.video_count INTO v_pl, v_badge
+  FROM public.get_my_playlists() g ORDER BY g.video_count DESC LIMIT 1;
 
   IF v_pl IS NULL THEN
-    INSERT INTO _rt VALUES (2, '개수 = 실제 목록 일치', '⚪ SKIP', '플레이리스트 0개');
+    RETURN QUERY SELECT 2, '개수 = 실제 목록 일치'::TEXT, '⚪ SKIP'::TEXT, '플레이리스트 0개'::TEXT;
   ELSE
     BEGIN
       SELECT count(*) INTO v_actual FROM public.get_playlist_videos(v_pl);
       IF v_badge = v_actual THEN
-        INSERT INTO _rt VALUES (2, '개수 = 실제 목록 일치', '✅ PASS',
-          '뱃지 ' || v_badge || ' = 목록 ' || v_actual);
+        RETURN QUERY SELECT 2, '개수 = 실제 목록 일치'::TEXT, '✅ PASS'::TEXT,
+                            ('뱃지 ' || v_badge || ' = 목록 ' || v_actual)::TEXT;
       ELSE
-        INSERT INTO _rt VALUES (2, '개수 = 실제 목록 일치', '🔴 FAIL',
-          '뱃지 ' || v_badge || ' ≠ 목록 ' || v_actual || ' — 카드 숫자와 실제가 다름');
+        RETURN QUERY SELECT 2, '개수 = 실제 목록 일치'::TEXT, '🔴 FAIL'::TEXT,
+                            ('뱃지 ' || v_badge || ' ≠ 목록 ' || v_actual || ' — 카드 숫자와 실제가 다름')::TEXT;
       END IF;
     EXCEPTION WHEN others THEN
-      INSERT INTO _rt VALUES (2, '개수 = 실제 목록 일치', '🔴 FAIL', 'get_playlist_videos 실패: ' || SQLERRM);
+      RETURN QUERY SELECT 2, '개수 = 실제 목록 일치'::TEXT, '🔴 FAIL'::TEXT,
+                          ('get_playlist_videos 실패: ' || SQLERRM)::TEXT;
     END;
   END IF;
 
   -- ── 3) 커버 등급 컬럼이 실제로 오는가(19금 블러 판정 재료) ──
   BEGIN
-    PERFORM preview_age_rating FROM public.get_my_playlists() LIMIT 1;
-    INSERT INTO _rt VALUES (3, '커버 등급(preview_age_rating) 반환', '✅ PASS', '컬럼 접근 가능');
+    PERFORM g.preview_age_rating FROM public.get_my_playlists() g LIMIT 1;
+    RETURN QUERY SELECT 3, '커버 등급(preview_age_rating) 반환'::TEXT, '✅ PASS'::TEXT, '컬럼 접근 가능'::TEXT;
   EXCEPTION WHEN others THEN
-    INSERT INTO _rt VALUES (3, '커버 등급(preview_age_rating) 반환', '🔴 FAIL', SQLERRM);
+    RETURN QUERY SELECT 3, '커버 등급(preview_age_rating) 반환'::TEXT, '🔴 FAIL'::TEXT, SQLERRM::TEXT;
   END;
 
-  -- ── 4) 노출 불가 영상 담기가 **실제로 거부되는가** (2차 감사 수정분) ──
-  --    ※ 거부가 정상 → 아무것도 안 써진다. 만약 담겨버리면(=결함) 아래서 직접 지운다.
-  SELECT id INTO v_hidden FROM public.videos
-  WHERE COALESCE(is_hidden, false) = true OR COALESCE(visibility, 'public') <> 'public'
+  -- ── 4) 노출 불가/미존재 영상 담기가 실제로 거부되는가 ──
+  SELECT v.id INTO v_hidden FROM public.videos v
+  WHERE COALESCE(v.is_hidden, false) = true OR COALESCE(v.visibility, 'public') <> 'public'
   LIMIT 1;
-
-  -- 숨김 영상이 하나도 없으면 **존재하지 않는 id** 로 대체한다. add_to_playlist 의 노출가능
-  --   검사는 videos 에서 못 찾는 경우도 동일하게 거부하므로 같은 가드 경로를 지나간다.
-  --   (SKIP 으로 넘기면 가장 중요한 가드가 "검증 안 된 채 PASS 처럼" 보인다)
   IF v_hidden IS NULL THEN
-    v_hidden := '__rt_nonexistent_' || gen_random_uuid()::text;
+    v_hidden := '__rt_nonexistent_' || gen_random_uuid()::text;   -- 같은 가드 경로를 탄다
   END IF;
 
   IF v_pl IS NULL THEN
-    INSERT INTO _rt VALUES (4, '담기 가드(노출불가·미존재 영상 거부)', '⚪ SKIP', '플레이리스트 없음');
+    RETURN QUERY SELECT 4, '담기 가드(노출불가·미존재 영상 거부)'::TEXT, '⚪ SKIP'::TEXT, '플레이리스트 없음'::TEXT;
   ELSE
     BEGIN
       PERFORM public.add_to_playlist(v_pl, v_hidden);
-      -- 여기 도달 = 거부되지 않음 = 결함. 흔적을 남기지 않도록 즉시 원복.
-      DELETE FROM public.playlist_videos WHERE playlist_id = v_pl AND video_id = v_hidden;
-      INSERT INTO _rt VALUES (4, '담기 가드(노출불가·미존재 영상 거부)', '🔴 FAIL',
-        '거부되지 않고 담겼다(흔적 원복함) — 목록엔 안 보이는 유령 행이 생긴다');
+      DELETE FROM public.playlist_videos pv WHERE pv.playlist_id = v_pl AND pv.video_id = v_hidden;  -- 원복
+      RETURN QUERY SELECT 4, '담기 가드(노출불가·미존재 영상 거부)'::TEXT, '🔴 FAIL'::TEXT,
+                          '거부되지 않고 담겼다(흔적 원복함)'::TEXT;
     EXCEPTION WHEN others THEN
       GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
-      INSERT INTO _rt VALUES (4, '담기 가드(노출불가·미존재 영상 거부)', '✅ PASS', '거부됨: ' || left(v_msg, 60));
+      RETURN QUERY SELECT 4, '담기 가드(노출불가·미존재 영상 거부)'::TEXT, '✅ PASS'::TEXT,
+                          ('거부됨: ' || left(v_msg, 50))::TEXT;
     END;
   END IF;
 
-  -- ── 5) 타인 플레이리스트 접근이 **실제로** 막히는가 (IDOR, 읽기라 부작용 없음) ──
-  SELECT id INTO v_other_pl FROM public.playlists WHERE user_id <> v_uid LIMIT 1;
-  -- 타인 플레이리스트가 없으면 **내 소유가 아닌 uuid**(존재하지 않는 것)로 대체한다.
-  --   소유권 가드는 "내 것이 아니면 거부"라 미존재 id 도 같은 분기를 탄다.
-  --   남의 데이터를 전혀 건드리지 않고 IDOR 가드를 실제로 검증할 수 있다.
-  IF v_other_pl IS NULL THEN
-    v_other_pl := gen_random_uuid();
+  -- ── 5) 비소유 플레이리스트 조회 차단 (IDOR) ──
+  SELECT p.id INTO v_other FROM public.playlists p WHERE p.user_id <> v_uid LIMIT 1;
+  IF v_other IS NULL THEN
+    v_other := gen_random_uuid();   -- 내 것이 아닌 id → 소유권 가드가 같은 분기를 탄다
   END IF;
   BEGIN
-    PERFORM public.get_playlist_videos(v_other_pl);
-    INSERT INTO _rt VALUES (5, '비소유 플레이리스트 조회 차단(IDOR)', '🔴 FAIL', '남의/없는 목록이 조회됐다');
+    PERFORM public.get_playlist_videos(v_other);
+    RETURN QUERY SELECT 5, '비소유 플레이리스트 조회 차단(IDOR)'::TEXT, '🔴 FAIL'::TEXT,
+                        '남의/없는 목록이 조회됐다'::TEXT;
   EXCEPTION WHEN others THEN
-    INSERT INTO _rt VALUES (5, '비소유 플레이리스트 조회 차단(IDOR)', '✅ PASS', '거부됨');
+    RETURN QUERY SELECT 5, '비소유 플레이리스트 조회 차단(IDOR)'::TEXT, '✅ PASS'::TEXT, '거부됨'::TEXT;
   END;
 
-  -- ── 6) 타인 플레이리스트 이름 변경이 막히는가 ──
-  --    ※ 만약 뚫리면 남의 데이터가 바뀐 것이므로 원래 이름으로 즉시 복구한다.
-  DECLARE v_orig TEXT;
+  -- ── 6) 비소유 플레이리스트 이름 변경 차단 ──
+  SELECT p.name INTO v_orig FROM public.playlists p WHERE p.id = v_other;   -- 없으면 NULL
   BEGIN
-    SELECT name INTO v_orig FROM public.playlists WHERE id = v_other_pl;   -- 없으면 NULL
-    BEGIN
-      PERFORM public.update_playlist(v_other_pl, '__rt_probe__', NULL);
-      -- 여기 도달 = 비소유 행이 수정됨(결함). 실재하는 행이었다면 원래 이름으로 복구.
-      IF v_orig IS NOT NULL THEN
-        UPDATE public.playlists SET name = v_orig WHERE id = v_other_pl;
-      END IF;
-      INSERT INTO _rt VALUES (6, '비소유 플레이리스트 이름변경 차단', '🔴 FAIL',
-        '비소유 행이 변경됐다(원복함)');
-    EXCEPTION WHEN others THEN
-      INSERT INTO _rt VALUES (6, '비소유 플레이리스트 이름변경 차단', '✅ PASS', '거부됨');
-    END;
+    PERFORM public.update_playlist(v_other, '__rt_probe__', NULL);
+    IF v_orig IS NOT NULL THEN
+      UPDATE public.playlists SET name = v_orig WHERE id = v_other;   -- 실재했다면 원복
+    END IF;
+    RETURN QUERY SELECT 6, '비소유 플레이리스트 이름변경 차단'::TEXT, '🔴 FAIL'::TEXT,
+                        '비소유 행이 변경됐다(원복함)'::TEXT;
+  EXCEPTION WHEN others THEN
+    RETURN QUERY SELECT 6, '비소유 플레이리스트 이름변경 차단'::TEXT, '✅ PASS'::TEXT, '거부됨'::TEXT;
   END;
 
   -- ── 7) "나중에 보기" 이름 변경 차단 (시스템 플레이리스트 보호) ──
-  SELECT id INTO v_wl FROM public.playlists
-  WHERE user_id = v_uid AND is_watch_later = true LIMIT 1;
+  SELECT p.id, p.name INTO v_wl, v_orig FROM public.playlists p
+  WHERE p.user_id = v_uid AND p.is_watch_later = true LIMIT 1;
   IF v_wl IS NULL THEN
-    INSERT INTO _rt VALUES (7, '나중에보기 이름변경 차단', '⚪ SKIP', '이 계정에 나중에보기 없음');
+    RETURN QUERY SELECT 7, '나중에보기 이름변경 차단'::TEXT, '⚪ SKIP'::TEXT, '이 계정에 나중에보기 없음'::TEXT;
   ELSE
-    DECLARE v_orig2 TEXT;
     BEGIN
-      SELECT name INTO v_orig2 FROM public.playlists WHERE id = v_wl;
-      BEGIN
-        PERFORM public.update_playlist(v_wl, '__rt_probe__', NULL);
-        UPDATE public.playlists SET name = v_orig2 WHERE id = v_wl;        -- 원복
-        INSERT INTO _rt VALUES (7, '나중에보기 이름변경 차단', '🔴 FAIL',
-          '시스템 플레이리스트 이름이 바뀌었다(원복함)');
-      EXCEPTION WHEN others THEN
-        INSERT INTO _rt VALUES (7, '나중에보기 이름변경 차단', '✅ PASS', '거부됨');
-      END;
+      PERFORM public.update_playlist(v_wl, '__rt_probe__', NULL);
+      UPDATE public.playlists SET name = v_orig WHERE id = v_wl;   -- 원복
+      RETURN QUERY SELECT 7, '나중에보기 이름변경 차단'::TEXT, '🔴 FAIL'::TEXT,
+                          '시스템 플레이리스트 이름이 바뀌었다(원복함)'::TEXT;
+    EXCEPTION WHEN others THEN
+      RETURN QUERY SELECT 7, '나중에보기 이름변경 차단'::TEXT, '✅ PASS'::TEXT, '거부됨'::TEXT;
     END;
   END IF;
 
-  -- ── 8) 이름 길이 상한이 **실제로** 걸리는가 ──
-  --    ※ 통과해버리면(=결함) 플레이리스트가 실제로 생기므로 즉시 삭제한다.
+  -- ── 8) 이름 60자 상한이 실제로 걸리는가 ──
   BEGIN
-    SELECT public.create_playlist(repeat('가', 61), NULL) INTO v_new_pl;
-    DELETE FROM public.playlists WHERE id = v_new_pl;   -- 원복
-    INSERT INTO _rt VALUES (8, '이름 60자 상한', '🔴 FAIL', '61자가 통과했다(생성분 삭제함)');
+    SELECT public.create_playlist(repeat('가', 61), NULL) INTO v_new;
+    DELETE FROM public.playlists WHERE id = v_new;   -- 원복
+    RETURN QUERY SELECT 8, '이름 60자 상한'::TEXT, '🔴 FAIL'::TEXT, '61자가 통과했다(생성분 삭제함)'::TEXT;
   EXCEPTION WHEN others THEN
-    INSERT INTO _rt VALUES (8, '이름 60자 상한', '✅ PASS', '거부됨');
+    RETURN QUERY SELECT 8, '이름 60자 상한'::TEXT, '✅ PASS'::TEXT, '거부됨'::TEXT;
   END;
 
-  -- ── 9) 내보내기에 플레이리스트 내용물이 **실제 값으로** 담기는가 (읽기) ──
+  -- ── 9) 내보내기에 플레이리스트 내용물이 실제 값으로 담기는가 ──
   BEGIN
     SELECT jsonb_array_length(public.export_my_data() -> 'playlist_videos') INTO v_cnt;
     IF v_cnt IS NULL THEN
-      INSERT INTO _rt VALUES (9, '내보내기 playlist_videos 실값', '🔴 FAIL', '키가 없거나 배열이 아님');
+      RETURN QUERY SELECT 9, '내보내기 playlist_videos 실값'::TEXT, '🔴 FAIL'::TEXT, '키가 없거나 배열이 아님'::TEXT;
     ELSE
-      INSERT INTO _rt VALUES (9, '내보내기 playlist_videos 실값', '✅ PASS', v_cnt || '건 포함');
+      RETURN QUERY SELECT 9, '내보내기 playlist_videos 실값'::TEXT, '✅ PASS'::TEXT, (v_cnt || '건 포함')::TEXT;
     END IF;
   EXCEPTION WHEN others THEN
-    INSERT INTO _rt VALUES (9, '내보내기 playlist_videos 실값', '🔴 FAIL', SQLERRM);
+    RETURN QUERY SELECT 9, '내보내기 playlist_videos 실값'::TEXT, '🔴 FAIL'::TEXT, SQLERRM::TEXT;
   END;
 
-  -- ── 10) 표시 이름 해석이 런타임에 실제로 동작하는가(교차 파일 의존) ──
-  --     get_playlist_videos 가 resolve_display_name 을 호출한다. plpgsql 은 생성 시
-  --     검증하지 않으므로, 그 함수가 없으면 여기서 처음 터진다.
+  -- ── 10) 표시이름 해석이 런타임에 실제로 동작하는가(교차 파일 의존) ──
   IF v_pl IS NULL THEN
-    INSERT INTO _rt VALUES (10, '표시이름 해석 런타임 동작', '⚪ SKIP', '대상 없음');
+    RETURN QUERY SELECT 10, '표시이름 해석 런타임 동작'::TEXT, '⚪ SKIP'::TEXT, '대상 없음'::TEXT;
   ELSE
     BEGIN
-      PERFORM creator_display_name FROM public.get_playlist_videos(v_pl) LIMIT 1;
-      INSERT INTO _rt VALUES (10, '표시이름 해석 런타임 동작', '✅ PASS', 'resolve_display_name 호출 성공');
+      PERFORM g.creator_display_name FROM public.get_playlist_videos(v_pl) g LIMIT 1;
+      RETURN QUERY SELECT 10, '표시이름 해석 런타임 동작'::TEXT, '✅ PASS'::TEXT,
+                          'resolve_display_name 호출 성공'::TEXT;
     EXCEPTION WHEN others THEN
-      INSERT INTO _rt VALUES (10, '표시이름 해석 런타임 동작', '🔴 FAIL', SQLERRM);
+      RETURN QUERY SELECT 10, '표시이름 해석 런타임 동작'::TEXT, '🔴 FAIL'::TEXT, SQLERRM::TEXT;
     END;
   END IF;
-END $$;
+END;
+$fn$;
 
-SELECT sort, check_name, status, detail FROM _rt ORDER BY sort;
+SELECT * FROM public._rt_playlist_probe() ORDER BY n;
 
-DROP TABLE IF EXISTS _rt;
-ROLLBACK;   -- 편집기가 트랜잭션을 존중하면 이중 안전망(위 개별 원복이 1차 방어)
+DROP FUNCTION IF EXISTS public._rt_playlist_probe();
