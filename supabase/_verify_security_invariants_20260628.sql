@@ -557,5 +557,23 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 home_feed_count_suspended_sync_20260722.sql 재적용(home_feed_chip_filter_20260611.sql 의 count 재실행 금지)'
 
+  UNION ALL
+  -- 40) collab_posts 집계 컬럼이 사용자 직접쓰기로부터 잠겨 있는가 (2026-07-22 커뮤니티 감사)
+  --     community_posts 는 컬럼 GRANT 로 likes_count 등을 잠갔는데, 형제 테이블
+  --     collab_posts(협업 공간)엔 그 잠금이 없어 **작성자가 자기 글의 applicants_count 를
+  --     임의 UPDATE**할 수 있었다("지원자 9999명" 위조 = likes_count 조작과 같은 클래스).
+  --     applicants_count 는 apply_to_collab(DEFINER)이 +1 자동 갱신하는 집계 컬럼.
+  --     REVOKE UPDATE 후 안전 컬럼만 재부여 → authenticated 가 applicants_count·user_id·
+  --     id·created_at 에 UPDATE 권한이 없어야 한다.
+  SELECT 40,
+    'collab_posts 집계 컬럼 쓰기잠금(applicants_count 조작 차단)',
+    CASE WHEN NOT EXISTS (
+      SELECT 1 FROM information_schema.role_column_grants
+      WHERE table_schema='public' AND table_name='collab_posts'
+        AND grantee='authenticated' AND privilege_type='UPDATE'
+        AND column_name IN ('applicants_count','user_id','id','created_at')
+    ) THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 collab_posts_column_lockdown_20260722.sql 재적용'
+
 ) AS gate
 ORDER BY sort;
