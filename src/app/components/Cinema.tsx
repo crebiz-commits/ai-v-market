@@ -410,10 +410,11 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
   // CoverFlow 히어로 영상(추천+트렌딩+신규+Top10 중복제거 상위 11) — useMemo 로 매 렌더 재계산·새 배열 prop 방지
   const heroVideos = useMemo(() => {
     const seen = new Set<string>();
-    return [...recommended, ...trending, ...newReleases, ...top10]
+    // 차단 필터본(f*)을 소스로 — 원본을 쓰면 커버플로우 히어로에만 차단 크리에이터가 샌다(2026-07-22)
+    return [...fRecommended, ...fTrending, ...fNewReleases, ...fTop10]
       .filter((v) => { if (seen.has(v.id)) return false; seen.add(v.id); return true; })
       .slice(0, 11);
-  }, [recommended, trending, newReleases, top10]);
+  }, [fRecommended, fTrending, fNewReleases, fTop10]);
   const coverFlowVideos = useMemo(() => heroVideos.map(toCoverFlowVideo), [heroVideos]);
 
   if (loading) {
@@ -605,7 +606,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           {/* 빈 상태 — 모든 행(추천·트렌딩·신규·이달의BEST·형식·장르)이 비었을 때만 노출.
               (top10/formatRows/categoryRows 를 빼면 그 행들엔 영상이 있는데도 "콘텐츠 없음"이 아래 떠버림) */}
           {fRecommended.length === 0 && fTrending.length === 0 && fNewReleases.length === 0 &&
-           top10.length === 0 && formatRows.length === 0 && categoryRows.length === 0 && (
+           fTop10.length === 0 && fFormatRows.length === 0 && fCategoryRows.length === 0 && (
             <div className="text-center py-16 text-muted-foreground">
               <Film className="w-16 h-16 mx-auto mb-4 opacity-30" />
               <p className="font-semibold">{t("cinema.emptyCinemaTitle", { tier: heroTitle })}</p>

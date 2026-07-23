@@ -543,5 +543,19 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 video_edit_suspended_guard_20260722.sql 재적용(video_edit_remoderation_20260711.sql 재실행 금지)'
 
+  UNION ALL
+  -- 39) 홈피드 배지 count 가 order 와 정지필터를 공유하는가 (2026-07-22 홈/시네마/OTT 감사)
+  --     #37 로 get_home_feed_order 는 정지 크리에이터를 제외했으나, 짝인 배지 count
+  --     함수 get_home_feed_count(p_filter)에 그 필터가 없으면 정지 발생 시 배지('N VIDEOS')가
+  --     실제 스크롤 개수보다 크게 표시된다(칩·시리즈 로직은 이미 동기화, is_suspended 만 어긋남).
+  --     프론트가 부르는 건 1-인자판(home_feed_chip_filter → home_feed_count_suspended_sync 정본).
+  --     0-인자 레거시판은 프론트 미사용이라 검사 대상 아님.
+  SELECT 39,
+    '홈피드 배지 count 정지필터(order 동기화)',
+    CASE WHEN (SELECT bool_or(prosrc ~ 'is_suspended') FROM pg_proc
+               WHERE proname='get_home_feed_count' AND pronargs=1)
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 home_feed_count_suspended_sync_20260722.sql 재적용(home_feed_chip_filter_20260611.sql 의 count 재실행 금지)'
+
 ) AS gate
 ORDER BY sort;
