@@ -755,6 +755,22 @@ app.post("/videos/:videoId/thumbnail", async (c) => {
       return c.json({ error: `썸네일 업로드 실패 (${bunnyRes.status})` }, 502);
     }
 
+    // 2026-07-24(HIGH): 검수 통과(passed·공개)된 영상의 썸네일을 갈아끼우면 재검수 태움.
+    //   Bunny 썸네일 URL 은 GUID 고정이라 videos.thumbnail 문자열이 안 바뀌어 편집 재검수
+    //   게이트(video_edit_remoderation)가 안 걸리는 우회 경로였다(무해 프레임 통과→노골 이미지
+    //   덮어쓰기). 재검수 완료까지 fail-closed 숨김 후 moderateVideoById 가 실제 Bunny 썸네일을
+    //   Vision 재점수. 최초 업로드(아직 pending/미검수)는 이 분기를 안 탐.
+    const { data: modRow } = await supabaseAdmin
+      .from('videos').select('moderation_status').eq('id', videoId).maybeSingle();
+    if (modRow?.moderation_status === 'passed') {
+      await supabaseAdmin.from('videos')
+        .update({ moderation_status: 'pending', is_hidden: true,
+                  hidden_reason: '썸네일 교체 — 재검수 대기', hidden_at: new Date().toISOString() })
+        .eq('id', videoId);
+      try { await moderateVideoById(supabaseAdmin, videoId); } catch (_e) { /* 실패 시 폴러/웹훅이 이어받음 */ }
+      return c.json({ success: true, remoderation: true });
+    }
+
     return c.json({ success: true });
   } catch (error) {
     console.error('썸네일 업로드 중 에러:', error);
@@ -936,11 +952,14 @@ app.post("/videos/:videoId/transcribe", async (c) => {
       return c.json({ error: "Bunny.net 설정이 완료되지 않았습니다." }, 500);
     }
 
-    // 입력: 원본 언어 + 번역 대상 언어들 (ISO 639-1)
+    // 입력: 원본 언어 + 번역 대상 언어들 (ISO 639-1). 2026-07-24: 언어코드 화이트리스트 —
+    //   sourceLanguage 가 subtitle_url 경로에 삽입되므로 임의 문자열 차단(경로 오염/깨진 URL 방지).
+    const isLangCode = (l: string) => /^[a-z]{2,3}(-[a-z]{2,4})?$/i.test(l);
     const reqBody = await c.req.json().catch(() => ({}));
-    const sourceLanguage: string = (reqBody.sourceLanguage || 'ko').toString().slice(0, 5);
+    const rawSource = (reqBody.sourceLanguage || 'ko').toString();
+    const sourceLanguage: string = isLangCode(rawSource) ? rawSource.slice(0, 5) : 'ko';
     const targetLanguages: string[] = Array.isArray(reqBody.targetLanguages)
-      ? reqBody.targetLanguages.filter((l: any) => typeof l === 'string').slice(0, 10)
+      ? reqBody.targetLanguages.filter((l: any) => typeof l === 'string' && isLangCode(l)).slice(0, 10)
       : [];
 
     const bunnyRes = await fetch(
@@ -2902,7 +2921,12 @@ app.post('/bunny/webhook', async (c) => {
             const meta = await metaRes.json();
             const lenSec = Math.round(Number(meta?.length) || 0);
             if (lenSec > 0) {
-              await supabase.from('videos').update({ duration_seconds: lenSec }).eq('id', guid);
+              // 2026-07-24: 180초 미만은 판매 불가 서버 백스톱 — save-metadata 에서 duration:"0:00"/""
+              //   위조로 가격 클램프를 빠져나간 짧은 영상을, Bunny 실측 길이로 확정되는 이 시점에
+              //   price_standard=0 으로 정정(짧은영상 무료 정책 강제, 위조 문자열 무력화).
+              const upd: Record<string, unknown> = { duration_seconds: lenSec };
+              if (lenSec < 180) upd.price_standard = 0;
+              await supabase.from('videos').update(upd).eq('id', guid);
             }
           }
         }

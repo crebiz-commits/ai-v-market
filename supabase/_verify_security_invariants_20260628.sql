@@ -734,5 +734,31 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 get_popular_creators_thumb_hidden_20260723.sql 재적용(channel_hidden_suspended_filter_20260722 의 get_popular_creators 재실행 금지)'
 
+  UNION ALL
+  -- 52) 댓글·커뮤니티글 INSERT 위조 가드 트리거 (2026-07-23 전체감사 커뮤니티)
+  --     C2/M1 컬럼잠금이 UPDATE만 닫아, 최초 INSERT 로 is_pinned·creator_hearted(크리에이터
+  --     하트 사칭)·likes_count·comments_count 위조 가능했음. BEFORE INSERT 트리거로 안전값 강제.
+  SELECT 52,
+    '댓글·커뮤니티글 INSERT 위조가드 트리거(핀·하트·집계 조작 차단)',
+    CASE WHEN EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+                      WHERE c.relname='comments' AND t.tgname='comments_insert_guard' AND NOT t.tgisinternal)
+          AND EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+                      WHERE c.relname='community_posts' AND t.tgname='community_posts_insert_guard' AND NOT t.tgisinternal)
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 comment_post_insert_guard_20260723.sql 재적용'
+
+  UNION ALL
+  -- 53) 신고 큐가 b2b_post 를 수동 모더레이션하는가 (2026-07-23 전체감사 커뮤니티)
+  --     b2b_partnership_board 는 create_report(자동숨김)에만 b2b_post 를 넣어, moderate_report
+  --     (관리자 remove)·get_pending_reports(preview)에 b2b 분기가 없어 관리자가 b2b 악성글을
+  --     큐로 못 내렸음(자동숨김↔수동모더 비대칭). 두 함수에 b2b_post 분기 존재 확인.
+  SELECT 53,
+    '신고 큐 b2b_post 수동 모더레이션(remove·preview)',
+    CASE WHEN (SELECT prosrc ~ 'b2b_post' FROM pg_proc WHERE proname='get_pending_reports')
+          AND (SELECT count(*) FROM regexp_matches(
+                 (SELECT prosrc FROM pg_proc WHERE proname='moderate_report'), 'b2b_post', 'g')) >= 3
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 reports_queue_b2b_20260723.sql 재적용(reports_queue_enhance_20260718 의 두 함수 재실행 금지=b2b 분기 소실)'
+
 ) AS gate
 ORDER BY sort;

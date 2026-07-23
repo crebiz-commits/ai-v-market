@@ -115,6 +115,9 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
         className="bg-white w-full max-w-[420px] rounded-t-2xl md:rounded-2xl overflow-hidden shadow-2xl flex flex-col min-h-[500px] md:min-h-0"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("auth.signIn", "로그인")}
       >
         {/* Header */}
         <div className="relative p-6 flex items-center justify-between border-b border-gray-100">
@@ -206,7 +209,8 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                 {/* Kakao */}
                 <button
                   onClick={handleKakaoSignIn}
-                  className="w-full h-12 border border-gray-200 rounded-sm flex items-center px-4 hover:bg-gray-50 transition-colors relative"
+                  disabled={loading}
+                  className="w-full h-12 border border-gray-200 rounded-sm flex items-center px-4 hover:bg-gray-50 transition-colors relative disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <div className="w-5 h-5 bg-[#FEE500] rounded-full flex items-center justify-center overflow-hidden">
                     <svg className="w-3 h-3 text-black" viewBox="0 0 24 24">
@@ -219,7 +223,8 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
                 {/* Google */}
                 <button
                   onClick={handleGoogleSignIn}
-                  className="w-full h-12 border border-gray-200 rounded-sm flex items-center px-4 hover:bg-gray-50 transition-colors relative"
+                  disabled={loading}
+                  className="w-full h-12 border border-gray-200 rounded-sm flex items-center px-4 hover:bg-gray-50 transition-colors relative disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <div className="w-5 h-5">
                     <svg viewBox="0 0 24 24">

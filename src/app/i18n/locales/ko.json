@@ -156,7 +156,9 @@
     "loading": "로딩 중...",
     "adManage": "광고관리",
     "uploadAria": "업로드",
-    "cart": "장바구니"
+    "cart": "장바구니",
+    "notifications": "알림",
+    "notificationsUnread": "알림 {{count}}개 안읽음"
   },
   "channel": {
     "title": "채널",

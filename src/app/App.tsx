@@ -1243,11 +1243,13 @@ function AppContent() {
         className={`md:hidden z-50 transition-colors duration-300 ${headerBgClass}`}
       >
         <div className="flex items-center justify-between h-14 px-4">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab("discovery")}>
-            <CreaiteLogo className="w-9 h-9" />
-            <CreaiteText className="text-[17px] font-extrabold" />
+          {/* min-w-0 + truncate: 좁은 폭(≤390px)에서 아이콘 클러스터(shrink-0)를 밀어내 햄버거가
+              화면 밖으로 잘리던 문제 → 로고 텍스트가 대신 축약되게(기능 접근성 우선). */}
+          <div className="flex items-center gap-2 cursor-pointer min-w-0" onClick={() => setActiveTab("discovery")}>
+            <CreaiteLogo className="w-9 h-9 shrink-0" />
+            <CreaiteText className="text-[17px] font-extrabold truncate" />
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={() => { setActivePanel(null); setActiveTab("search"); }}
@@ -1259,6 +1261,7 @@ function AppContent() {
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={() => togglePanel("notifications")}
+              aria-label={unreadNotifications > 0 ? t("app.notificationsUnread", { count: unreadNotifications, defaultValue: "알림 {{count}}개 안읽음" }) : t("app.notifications", "알림")}
               className="p-2 relative text-muted-foreground hover:text-foreground transition-colors"
             >
               <Bell className={`w-[22px] h-[22px] ${activePanel === "notifications" ? "text-[#8b5cf6]" : ""}`} />
@@ -1381,6 +1384,7 @@ function AppContent() {
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={() => togglePanel("notifications")}
+              aria-label={unreadNotifications > 0 ? t("app.notificationsUnread", { count: unreadNotifications, defaultValue: "알림 {{count}}개 안읽음" }) : t("app.notifications", "알림")}
               className={`relative p-2 rounded-lg hover:bg-white/5 transition-colors ${
                 activePanel === "notifications" ? "text-[#8b5cf6]" : "text-muted-foreground hover:text-white"
               }`}

@@ -7,6 +7,7 @@
 //   Community.tsx 비대화 방지를 위해 별도 컴포넌트로 분리(협업 탭과 동형 UI).
 // ════════════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { useTranslation } from "react-i18next";
@@ -74,9 +75,10 @@ export function B2BBoard({ onSignInClick }: B2BBoardProps) {
   }, []);
   useEffect(() => { void load(); }, [load]);
 
+  const { isBlocked } = useBlockedUsers();   // 차단 사용자 제휴글 숨김(글·영상·협업과 동일)
   const filtered = useMemo(
-    () => posts.filter((p) => filter === "all" || p.category === filter),
-    [posts, filter],
+    () => posts.filter((p) => (filter === "all" || p.category === filter) && (p.is_mine || !isBlocked(p.user_id))),
+    [posts, filter, isBlocked],
   );
 
   const handleDelete = async (post: B2BPost) => {

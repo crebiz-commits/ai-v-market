@@ -1370,7 +1370,9 @@ export function Community({ onNavigate, onSignInClick, initialTab, onInitialTabC
               {loadingCollab ? (
                 <div className="flex justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-[#6366f1]" /></div>
               ) : (() => {
-                const filtered = collabs.filter((c) => collabFilter === "all" || c.type === collabFilter);
+                const filtered = collabs.filter((c) =>
+                  (collabFilter === "all" || c.type === collabFilter)
+                  && (!c.ownerId || !isBlocked(c.ownerId)));   // 차단 사용자 협업글 숨김(글·영상과 동일)
                 if (filtered.length === 0) {
                   return (
                     <div className="bg-card border border-dashed border-border rounded-2xl p-10 text-center">
