@@ -654,5 +654,54 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 admin_hero_revoke_20260723.sql 재적용'
 
+  UNION ALL
+  -- 46) 정산 지급이 정지자 보류(U1) + 클로백 자동차감(F2) 인가 (2026-07-23 정산 지급 감사)
+  --     mark_revenue_paid 가 is_suspended 를 안 봐 정지 크리에이터에게도 지급됐고(정책:
+  --     정지=지급 제외+보류), settlement_clawbacks 를 안 읽어 pending 클로백(환불 회수분)이
+  --     있어도 전액 지급 → 환불된 돈 재송금 위험. 정지자 지급 차단 + pending 클로백 net 자동차감
+  --     + 지급행 FOR UPDATE 락을 갖는지 확인.
+  SELECT 46,
+    '정산 지급 정지자보류(U1)+클로백 자동차감(F2)',
+    CASE WHEN (SELECT prosrc ~ 'is_suspended' AND prosrc ~ 'clawback_applied' AND prosrc ~ 'FOR UPDATE'
+               FROM pg_proc WHERE proname='mark_revenue_paid')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 settlement_payout_hardening_20260723.sql 재적용(phase32_tax_withholding 의 mark_revenue_paid 재실행 금지)'
+
+  UNION ALL
+  -- 47) 연말 세금리포트가 회수분(clawed_back)을 표기 + KST 귀속인가 (2026-07-23 F3)
+  --     지급완료 후 환불(클로백)이 연말정산 자료에 안 잡혀 소득 과대신고 소지. 회수분을 별도
+  --     컬럼으로 노출(세무 판단 영역이라 gross 를 임의 조작 안 함) + paid_at 연도귀속 KST 유지.
+  SELECT 47,
+    '연말 세금리포트 clawed_back 표기 + KST 귀속',
+    CASE WHEN (SELECT pg_get_function_result(oid) LIKE '%total_clawed_back%'
+               FROM pg_proc WHERE proname='admin_get_tax_annual_report')
+          AND (SELECT prosrc ~ 'Asia/Seoul' FROM pg_proc WHERE proname='admin_get_tax_annual_report')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 settlement_payout_hardening_20260723.sql 재적용(phase32·admin_audit_hardening_20260714③ 재실행 금지)'
+
+  UNION ALL
+  -- 48) 환불이 구독 풀 역산(R#1) + 광고 소진경고(R#2) + 행잠금(R#3) 인가 (2026-07-23 환불 감사)
+  --     구독 환불이 정산 역산·경고 없이 tier강등만(라이선스와 비대칭), 광고 환불이 소진분
+  --     초과 시 무경고, 환불 RPC 동시호출 이중부작용. 세 보강 마커 확인. (#24 의 assert_admin·
+  --     budget_krw 도 유지되는지 함께 점검.)
+  SELECT 48,
+    '환불 구독풀역산(R#1)+광고소진경고(R#2)+행잠금(R#3)',
+    CASE WHEN (SELECT prosrc ~ 'FOR UPDATE' AND prosrc ~ 'ad_remaining' AND prosrc ~ 'assert_admin'
+                    AND prosrc ~ 'budget_krw' AND prosrc ~ 'calculate_monthly_revenue'
+               FROM pg_proc WHERE proname='admin_refund_payment')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 refund_reversal_hardening_20260723.sql 재적용(admin_audit_hardening_20260714⑦·settlement_clawbacks_20260711·refund_settlement_reversal 재실행 금지)'
+
+  UNION ALL
+  -- 49) 광고 노출집계가 식별키 없으면 미집계(fail-safe)인가 (2026-07-23 U2)
+  --     record_ad_impression 이 v_key(uid|viewer_key) NULL 이면 dedup 을 건너뛰되 집계·과금은
+  --     수행(fail-open)했다. 식별 불가 노출은 미집계(RETURN)로 전환 + service_role 전용 유지.
+  SELECT 49,
+    '광고 노출 식별키 없으면 미집계(fail-safe) + anon 비노출',
+    CASE WHEN (SELECT prosrc ~ 'IF v_key IS NULL THEN RETURN' FROM pg_proc WHERE proname='record_ad_impression')
+          AND NOT has_function_privilege('anon', 'public.record_ad_impression(uuid, text, text, integer, boolean, boolean, text)', 'EXECUTE')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 ad_impression_dedup_failsafe_20260723.sql 재적용(ad_dedup_house_20260703 재실행 금지)'
+
 ) AS gate
 ORDER BY sort;

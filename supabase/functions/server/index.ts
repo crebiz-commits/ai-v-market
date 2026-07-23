@@ -1751,7 +1751,12 @@ app.post('/billing-auth-confirm', async (c) => {
       if (payGate !== null && payGate !== undefined && Number(payGate) < 1) {
         return c.json({ error: '결제 기능 준비 중입니다. 정식 오픈 후 이용해 주세요.' }, 503);
       }
-    } catch { /* 설정 조회 실패는 fail-open (기존 동작 유지) */ }
+    } catch {
+      // P#5(2026-07-23): 결제 게이트 조회 예외는 fail-closed — 게이트를 못 읽으면 결제 차단.
+      //   게이트가 막으려는 게 무상 프리미엄·정산 오염이므로 불확실할 땐 막는 쪽이 안전.
+      //   (설정 행 부재는 위 null→통과로 이미 처리 = 의도된 fail-open. 여기선 조회 '예외'만.)
+      return c.json({ error: '결제 상태 확인 실패 — 잠시 후 다시 시도해 주세요.' }, 503);
+    }
 
     // P5(2026-07-05): 이미 활성 프리미엄이면 첫 결제 재실행 금지(정기 갱신은 billing-run 담당).
     //   기존 3분 시간창 대신 "현재 프리미엄?" 판정 → 느린복귀/재등록으로 인한 이중 빌링키·이중 +30일 차단.
@@ -1789,7 +1794,7 @@ app.post('/billing-auth-confirm', async (c) => {
     } catch { /* 기본값 */ }
 
     // 3) 첫 결제 (빌링키로 즉시 청구) — P3: 결정적 orderId(유저+일자) + Idempotency-Key 로 동시/재제출 이중청구 차단
-    const orderId = `sub_${user.id.slice(0, 8)}_first_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`;
+    const orderId = `sub_${user.id}_first_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`;  // P#2(2026-07-23): 전체 uuid — 8헥사 프리픽스 충돌 방지
     const chargeRes = await fetch(`https://api.tosspayments.com/v1/billing/${billingKey}`, {
       method: 'POST',
       headers: { 'Authorization': authBasic, 'Content-Type': 'application/json', 'Idempotency-Key': orderId },
@@ -1857,7 +1862,7 @@ app.post('/billing-run', async (c) => {
       //   payments.order_id 로 재청구 차단(토스성공+apply실패/크래시 시 같은달 이중청구 방지).
       const period = String(sub.next_charge_at || '').slice(0, 10).replace(/-/g, '')
         || new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      const orderId = `sub_${sub.user_id.slice(0, 8)}_${period}`;
+      const orderId = `sub_${sub.user_id}_${period}`;  // P#2(2026-07-23): 전체 uuid — 코호트 orderId 충돌 방지
       try {
         const res = await fetch(`https://api.tosspayments.com/v1/billing/${sub.billing_key}`, {
           method: 'POST',
