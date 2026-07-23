@@ -2721,13 +2721,18 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ type: "spring" as const, stiffness: 300, damping: 30 }}
-              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-[#1a1a1c] rounded-2xl border border-white/10 p-5 max-w-sm mx-auto shadow-2xl"
+              /* 세로 중앙 고정 + 화면 높이 상한(max-h) + 내용만 스크롤.
+                 예전엔 top-1/2 중앙정렬에 높이 제한이 없어, 모바일에서 내용이 화면보다
+                 길면 위아래가 잘려 **맨 아래 저장 버튼에 도달할 수 없었다**(2026-07-23).
+                 헤더와 버튼은 고정(shrink-0), 가운데만 overflow-y-auto. */
+              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-[#1a1a1c] rounded-2xl border border-white/10 max-w-sm mx-auto shadow-2xl flex flex-col max-h-[calc(100dvh-6rem)]"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center justify-between p-5 pb-3 shrink-0">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2"><Pencil className="w-5 h-5 text-[#8b5cf6]" />{t("mypage.profileEditModal.title")}</h3>
                 <button onClick={() => setShowProfileEdit(false)} className="p-1.5 hover:bg-white/10 rounded-full text-gray-400"><X className="w-5 h-5" /></button>
               </div>
+              <div className="overflow-y-auto px-5 flex-1 min-h-0">
               <div className="mb-4">
                 <label className="block text-xs font-semibold text-gray-400 mb-1.5">{t("mypage.profileEditModal.emailLabel")}</label>
                 {!emailEditMode ? (
@@ -2875,7 +2880,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                   )}
                 </div>
               </div>
-              <div className="flex gap-2">
+              </div>{/* /overflow-y-auto 스크롤 영역 */}
+              {/* 버튼은 스크롤 밖 하단 고정 — 내용이 길어도 항상 눌 수 있어야 한다 */}
+              <div className="flex gap-2 p-5 pt-3 shrink-0 border-t border-white/5">
                 <Button variant="outline" size="sm" onClick={() => setShowProfileEdit(false)} className="flex-1 border-white/10">{t("mypage.profileEditModal.cancel")}</Button>
                 <Button size="sm" onClick={handleSaveProfile} disabled={savingProfile || !editName.trim()}
                   className="flex-1 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]">
@@ -2899,7 +2906,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ type: "spring" as const, stiffness: 300, damping: 30 }}
-              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-[#1a1a1c] rounded-2xl border border-white/10 p-5 max-w-sm mx-auto shadow-2xl"
+              /* 짧은 모달이지만 소프트 키보드가 뜨면 화면이 반으로 줄어 하단이 잘릴 수 있어
+                 max-h + 스크롤을 둔다(2026-07-23, 프로필 모달과 동일 대응). */
+              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-[#1a1a1c] rounded-2xl border border-white/10 p-5 max-w-sm mx-auto shadow-2xl max-h-[calc(100dvh-6rem)] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-5">
