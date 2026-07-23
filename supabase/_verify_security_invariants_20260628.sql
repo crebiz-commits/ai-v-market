@@ -612,5 +612,47 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 b2b_partnership_board_20260723.sql 재적용(community_reports_hardening·reports_rpc_lockdown 재실행 금지=b2b 분기 소실)'
 
+  UNION ALL
+  -- 43) start_payment 구독가 검증이 '활성 설정행'만 조회하는가 (2026-07-23 결제 감사)
+  --     platform_settings 는 이력보존형(SCD2) — 같은 key 가 시간에 따라 여러 행(과거행은
+  --     effective_to 세팅, 활성행만 부분 UNIQUE 로 1개). start_payment 의 subscription 금액
+  --     검증이 `SELECT value INTO v_price ... WHERE key='subscription_price_krw'` 로 effective_to
+  --     필터 없이 조회하면, 가격을 ₩4,900↔₩2,900 바꾼 순간 key 당 다중행이 생겨 plpgsql
+  --     SELECT INTO 가 임의 과거행을 잡을 수 있다 → 표시가(get_platform_setting=활성)와
+  --     검증가가 어긋나 정상 금액도 비결정적 거부(무결제형 결함). 정본 조회함수를 쓰는지 확인.
+  SELECT 43,
+    'start_payment 구독가 활성설정 조회(effective_to)',
+    CASE WHEN (SELECT prosrc ~ 'get_platform_setting\(''subscription_price_krw''\)'
+               FROM pg_proc WHERE proname='start_payment')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 start_payment_effective_setting_20260723.sql 재적용(payment_amount_standard_only·payments_gate·purchase_integrity 재실행 금지=effective_to 미필터 회귀)'
+
+  UNION ALL
+  -- 44) 월 정산 재실행이 멱등인가 — carry 허들에 미지급 pending 백로그 포함 (2026-07-23 정산 감사)
+  --     calculate_monthly_revenue 의 이월-허들(carry)이 과거 'deferred' 행만 세면, R7 이
+  --     과거 deferred→pending 으로 올린 뒤 같은 달을 재실행할 때 carry=0 이 되어 당월이
+  --     최소액 미달이면 pending→'deferred' 로 역강등(크리에이터 과소지급, 표시=지급·멱등 위반).
+  --     AdminRevenueSettlement 가 재실행을 "안전"이라 안내해 재현성 높음. carry 를 과거
+  --     '미지급 백로그(deferred+pending)' 로 확장해 멱등화했는지 마커(unpaid_carry)로 확인.
+  SELECT 44,
+    '월 정산 재실행 멱등(carry=미지급 백로그, 역강등 차단)',
+    CASE WHEN (SELECT prosrc ~ 'unpaid_carry'
+                    AND prosrc ~ 'payout_status IN \(''deferred'', ''pending''\)'
+               FROM pg_proc WHERE proname='calculate_monthly_revenue')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 settlement_carry_idempotent_20260723.sql 재적용(calculate_monthly_revenue_audit_log_20260719·0718·admin_audit_hardening_20260714① 재실행 금지=carry 회귀)'
+
+  UNION ALL
+  -- 45) 히어로 지정 RPC 가 anon EXECUTE 를 회수했는가 (2026-07-23 관리자 잔여 감사)
+  --     admin_set_video_hero / admin_list_hero_video_ids 는 본문 assert_admin 이 있어 권한상승은
+  --     없으나, 형제 하드닝 파일과 달리 명시 REVOKE FROM PUBLIC,anon 이 없어 기본 PUBLIC
+  --     EXECUTE 에 의존(심층방어 비일관). anon 미노출로 회수됐는지 확인.
+  SELECT 45,
+    '히어로 지정 RPC anon EXECUTE 회수(심층방어)',
+    CASE WHEN NOT has_function_privilege('anon', 'public.admin_set_video_hero(TEXT, INTEGER)', 'EXECUTE')
+          AND NOT has_function_privilege('anon', 'public.admin_list_hero_video_ids()', 'EXECUTE')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 admin_hero_revoke_20260723.sql 재적용'
+
 ) AS gate
 ORDER BY sort;

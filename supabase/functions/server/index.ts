@@ -2024,8 +2024,10 @@ app.post('/send-email', async (c) => {
     if (SELF_TYPES.includes(type)) {
       if (user_id !== callerId) return c.json({ error: '본인에게만 발송 가능한 알림입니다' }, 403);
     } else if (ADMIN_TYPES.includes(type)) {
-      const { data: prof } = await supabase.from('profiles').select('is_admin').eq('id', callerId).single();
+      const { data: prof } = await supabase.from('profiles').select('is_admin, is_suspended').eq('id', callerId).single();
       if (!prof?.is_admin) return c.json({ error: '어드민만 발송 가능한 알림입니다' }, 403);
+      // 정지관리자 차단(2026-07-23): 정산·환불·신고결과 등 대외 이메일을 정지관리자가 못 보내게.
+      if (prof.is_suspended) return c.json({ error: '정지된 관리자 계정입니다' }, 403);
     }
     // actor types(comment_reply/new_follower/new_video_from_followed): 인증된 사용자면 허용
 
@@ -2399,8 +2401,11 @@ app.post('/broadcast-email', async (c) => {
     if (!token) return c.json({ error: '인증이 필요합니다' }, 401);
     const { data: caller, error: callerErr } = await admin.auth.getUser(token);
     if (callerErr || !caller?.user) return c.json({ error: '인증 실패' }, 401);
-    const { data: prof } = await admin.from('profiles').select('is_admin').eq('id', caller.user.id).single();
+    const { data: prof } = await admin.from('profiles').select('is_admin, is_suspended').eq('id', caller.user.id).single();
     if (!prof?.is_admin) return c.json({ error: '어드민만 발송 가능합니다' }, 403);
+    // 정지관리자 차단(2026-07-23): 정지돼도 만료 전 JWT 는 유효 → UI 우회 대량발송 방지.
+    //   대외 영향 큰 이메일·푸시 채널의 사각. /refund-payment 정본 패턴과 동일.
+    if (prof.is_suspended) return c.json({ error: '정지된 관리자 계정입니다.' }, 403);
 
     const { segment = 'all', title, body, link } = await c.req.json();
     if (!title || !String(title).trim()) return c.json({ error: '제목이 필요합니다' }, 400);
@@ -2503,8 +2508,10 @@ app.post('/broadcast-push', async (c) => {
     if (!token) return c.json({ error: '인증이 필요합니다' }, 401);
     const { data: caller, error: callerErr } = await supabase.auth.getUser(token);
     if (callerErr || !caller?.user) return c.json({ error: '인증 실패' }, 401);
-    const { data: prof } = await supabase.from('profiles').select('is_admin').eq('id', caller.user.id).single();
+    const { data: prof } = await supabase.from('profiles').select('is_admin, is_suspended').eq('id', caller.user.id).single();
     if (!prof?.is_admin) return c.json({ error: '어드민만 발송 가능합니다' }, 403);
+    // 정지관리자 차단(2026-07-23): 정지돼도 만료 전 JWT 는 유효 → UI 우회 대량 푸시 방지.
+    if (prof.is_suspended) return c.json({ error: '정지된 관리자 계정입니다.' }, 403);
 
     const { segment = 'all', title, body, link } = await c.req.json();
     if (!title) return c.json({ error: '제목이 필요합니다' }, 400);

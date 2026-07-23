@@ -203,7 +203,7 @@ export function SubscriptionModal({
                       className="mt-0.5 w-4 h-4 accent-amber-500 shrink-0"
                     />
                     <span className="text-[11px] text-gray-400 leading-snug">
-                      {t("subscriptionPage.agreeRecurring")}
+                      {t("subscriptionPage.agreeRecurring", { price: priceLabel })}
                     </span>
                   </label>
                 )}
@@ -222,7 +222,7 @@ export function SubscriptionModal({
                   ) : isAuthenticated ? (
                     <>
                       <Crown className="w-5 h-5" />
-                      {isAppWrapper() ? t("subscription.subscribeOnWebCTA", "웹에서 구독하기") : t("subscriptionModal.subscribeCTA")}
+                      {isAppWrapper() ? t("subscription.subscribeOnWebCTA", "웹에서 구독하기") : t("subscriptionModal.subscribeCTA", { price: priceLabel })}
                     </>
                   ) : (
                     <>

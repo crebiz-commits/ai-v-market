@@ -245,7 +245,7 @@ export function SubscriptionPage({ onBack, onNavigate, onSignInClick }: Props) {
               <label className="flex items-start gap-2 mb-3 cursor-pointer text-left">
                 <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 w-4 h-4 accent-amber-500 shrink-0" />
                 <span className="text-[11px] text-gray-400 leading-snug">
-                  {t("subscriptionPage.agreeRecurring")}
+                  {t("subscriptionPage.agreeRecurring", { price: priceLabel })}
                 </span>
               </label>
             )}
