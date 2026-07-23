@@ -21,6 +21,7 @@ import { TrendingHeroSection } from "./TrendingHeroSection";
 import { Footer } from "./Footer";
 import { useAgeRatings } from "../hooks/useAgeRatings";
 import { useSeriesCounts } from "../hooks/useSeriesCounts";
+import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { CoverFlow } from "./CoverFlow";
 import { EventBannerBoard, type BoardBanner } from "./EventBannerBoard";
 import { fetchEventBanners } from "../data/eventBanners";
@@ -230,6 +231,21 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
   }, [recommended, trending, newReleases, top10, formatRows, categoryRows]);
   const ageRatings = useAgeRatings(allVideoIds);
   const seriesCounts = useSeriesCounts(allVideoIds);
+
+  // 차단한 크리에이터 영상 제외(2026-07-22 감사) — 홈(DiscoveryFeed)·검색은 거르는데
+  //   시네마·OTT 만 안 걸러, 차단해도 여기선 그 영상이 계속 보이던 불일치. 렌더 직전에
+  //   원본 배열을 파생 필터한다(피드 RPC 는 서버에서 차단을 모르므로 클라에서 거른다).
+  const { isBlocked } = useBlockedUsers();
+  const rmBlocked = useCallback(
+    (list: CarouselVideo[]) => list.filter((v) => !v.creator_id || !isBlocked(v.creator_id)),
+    [isBlocked],
+  );
+  const fRecommended = useMemo(() => rmBlocked(recommended), [recommended, rmBlocked]);
+  const fTrending    = useMemo(() => rmBlocked(trending), [trending, rmBlocked]);
+  const fNewReleases = useMemo(() => rmBlocked(newReleases), [newReleases, rmBlocked]);
+  const fTop10       = useMemo(() => rmBlocked(top10), [top10, rmBlocked]);
+  const fFormatRows  = useMemo(() => formatRows.map((r) => ({ ...r, videos: rmBlocked(r.videos) })).filter((r) => r.videos.length > 0), [formatRows, rmBlocked]);
+  const fCategoryRows = useMemo(() => categoryRows.map((r) => ({ ...r, videos: rmBlocked(r.videos) })).filter((r) => r.videos.length > 0), [categoryRows, rmBlocked]);
 
   const isOtt = tier === "ott";
   const heroTitle = isOtt ? t("cinema.heroOttTitle") : t("cinema.heroCinemaTitle");
@@ -458,7 +474,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
             <VideoRowCarousel
               title={t("cinema.forYouTitle")}
               subtitle={t("cinema.forYouSubtitle")}
-              videos={recommended}
+              videos={fRecommended}
               onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
               emptyMessage={t("cinema.forYouEmpty")}
@@ -499,7 +515,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           <TrendingHeroSection
             title={t("cinema.trendingTitle")}
             subtitle={t("cinema.trendingSubtitle")}
-            videos={trending}
+            videos={fTrending}
             onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
             emptyMessage={t("cinema.trendingEmpty")}
@@ -510,7 +526,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           <VideoRowCarousel
             title={t("cinema.newReleasesTitle")}
             subtitle={t("cinema.newReleasesSubtitle")}
-            videos={newReleases}
+            videos={fNewReleases}
             onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
             ageRatings={ageRatings} seriesCounts={seriesCounts}
@@ -520,7 +536,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           <VideoRowCarousel
             title={t("cinema.monthBestTitle")}
             subtitle={t("cinema.monthBestSubtitle")}
-            videos={top10}
+            videos={fTop10}
             onVideoClick={handleClick}
               onAddToCart={handleAddToCart}
             emptyMessage={t("cinema.monthBestEmpty")}
@@ -528,7 +544,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           />
 
           {/* 형식 카테고리 (top) — 애니메이션: 장르 행보다 먼저 */}
-          {formatRows.filter((r) => r.position === "top").map((row) => (
+          {fFormatRows.filter((r) => r.position === "top").map((row) => (
             <VideoRowCarousel
               key={row.category}
               title={`${row.emoji} ${getCategoryLabel(row.category, t)}`}
@@ -541,7 +557,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           ))}
 
           {/* 장르별 (기타 제외) */}
-          {categoryRows.filter((row) => row.category !== "기타").map((row) => (
+          {fCategoryRows.filter((row) => row.category !== "기타").map((row) => (
             <VideoRowCarousel
               key={row.category}
               title={`${genreEmoji(row.category)} ${getGenreLabel(row.category, t)}`}
@@ -554,7 +570,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           ))}
 
           {/* 형식 카테고리 (bottom) — 다큐·뮤직비디오: 기타 바로 위 */}
-          {formatRows.filter((r) => r.position === "bottom").map((row) => (
+          {fFormatRows.filter((r) => r.position === "bottom").map((row) => (
             <VideoRowCarousel
               key={row.category}
               title={`${row.emoji} ${getCategoryLabel(row.category, t)}`}
@@ -567,7 +583,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
           ))}
 
           {/* 기타 장르 (맨 마지막) */}
-          {categoryRows.filter((row) => row.category === "기타").map((row) => (
+          {fCategoryRows.filter((row) => row.category === "기타").map((row) => (
             <VideoRowCarousel
               key={row.category}
               title={`${genreEmoji(row.category)} ${getGenreLabel(row.category, t)}`}
@@ -588,7 +604,7 @@ export function Cinema({ onProductClick, onAddToCart, tier = "cinema", onNavigat
 
           {/* 빈 상태 — 모든 행(추천·트렌딩·신규·이달의BEST·형식·장르)이 비었을 때만 노출.
               (top10/formatRows/categoryRows 를 빼면 그 행들엔 영상이 있는데도 "콘텐츠 없음"이 아래 떠버림) */}
-          {recommended.length === 0 && trending.length === 0 && newReleases.length === 0 &&
+          {fRecommended.length === 0 && fTrending.length === 0 && fNewReleases.length === 0 &&
            top10.length === 0 && formatRows.length === 0 && categoryRows.length === 0 && (
             <div className="text-center py-16 text-muted-foreground">
               <Film className="w-16 h-16 mx-auto mb-4 opacity-30" />

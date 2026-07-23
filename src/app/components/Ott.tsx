@@ -25,6 +25,7 @@ import { isNegotiationOnly } from "../utils/licensePricing";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { useAgeRatings } from "../hooks/useAgeRatings";
 import { useSeriesCounts } from "../hooks/useSeriesCounts";
+import { useBlockedUsers } from "../hooks/useBlockedUsers";
 import { BETA_MODE, BETA_ROW_TARGET } from "../config/beta";
 import { BetaCard } from "./BetaCard";
 
@@ -244,21 +245,21 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
   // 모듈 캐시(세션 내) → localStorage(새로고침 후) 순으로 초기 hydrate — 첫 렌더부터 표시(스피너 스킵)
   const _ottInit = ottCache[String(showcase)] ?? readOttLS(String(showcase));
   const [loading, setLoading] = useState(!_ottInit);
-  const [trending, setTrending] = useState<CarouselVideo[]>(_ottInit?.trending ?? []);
-  const [genreRows, setGenreRows] = useState<GenreRow[]>(_ottInit?.genreRows ?? []);
+  const [trendingRaw, setTrending] = useState<CarouselVideo[]>(_ottInit?.trending ?? []);
+  const [genreRowsRaw, setGenreRows] = useState<GenreRow[]>(_ottInit?.genreRows ?? []);
   // 형식 카테고리 행 (애니메이션·다큐멘터리·뮤직비디오 — category 기준, 2026-06-11)
-  const [formatRows, setFormatRows] = useState<{ category: string; position: "top" | "bottom"; videos: CarouselVideo[] }[]>(_ottInit?.formatRows ?? []);
+  const [formatRowsRaw, setFormatRows] = useState<{ category: string; position: "top" | "bottom"; videos: CarouselVideo[] }[]>(_ottInit?.formatRows ?? []);
   // 풀블리드 히어로: 자동재생 영상 소스 + 음소거 토글.
   // clipUrl(미리 잘린 30초 하이라이트 클립)이 있으면 seek 없이 처음부터 재생(안정적).
   const [heroSrc, setHeroSrc] = useState<HeroSrc | null>(null);   // previewUrl·clipUrl 등 포함(모듈 HeroSrc 타입)
   const [heroMuted, setHeroMuted] = useState(true);
   const [heroIdx, setHeroIdx] = useState(0);   // 히어로 순환 인덱스 (30초 상한 / 클립종료 시 조기전환)
-  const [featured, setFeatured] = useState<CarouselVideo[]>([]);  // 피처링(챌린지 우승작) — 히어로 최우선
+  const [featuredRaw, setFeatured] = useState<CarouselVideo[]>([]);  // 피처링(챌린지 우승작) — 히어로 최우선
   const [heroAds, setHeroAds] = useState<HeroAd[]>([]);           // 히어로 영상광고(수주/자체)
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // CREAITE 셀렉트(공식 선정작) — 히어로 바로 아래 노출. creaite-select videoIds 로 로드.
-  const [selectVideos, setSelectVideos] = useState<CarouselVideo[]>([]);
+  const [selectVideosRaw, setSelectVideos] = useState<CarouselVideo[]>([]);
   // 셀렉트 videoIds 를 문자열 키로 — DB 로드/변경 시(폴백→DB) 이 키가 바뀌어 재조회.
   const selectIdsKey = (getCollection(CREAITE_SELECT_SLUG)?.videoIds ?? []).join(",");
   useEffect(() => {
@@ -275,6 +276,20 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
     })();
     return () => { cancelled = true; };
   }, [selectIdsKey]);
+
+  // 차단한 크리에이터 영상 제외(2026-07-22 감사) — 홈·검색·시네마와 일관. OTT 만 안 걸러
+  //   차단해도 히어로·행에 그 영상이 계속 보이던 불일치. 소스 배열을 파생 필터해 히어로 풀·
+  //   행·연령조회 전부에 전파한다(피드 RPC 는 서버에서 차단을 모르므로 클라에서 거른다).
+  const { isBlocked } = useBlockedUsers();
+  const rmBlk = useCallback(
+    (list: CarouselVideo[]) => list.filter((v) => !v.creator_id || !isBlocked(v.creator_id)),
+    [isBlocked],
+  );
+  const trending    = useMemo(() => rmBlk(trendingRaw), [trendingRaw, rmBlk]);
+  const featured    = useMemo(() => rmBlk(featuredRaw), [featuredRaw, rmBlk]);
+  const selectVideos = useMemo(() => rmBlk(selectVideosRaw), [selectVideosRaw, rmBlk]);
+  const genreRows   = useMemo(() => genreRowsRaw.map((r) => ({ ...r, videos: rmBlk(r.videos) })).filter((r) => r.videos.length > 0), [genreRowsRaw, rmBlk]);
+  const formatRows  = useMemo(() => formatRowsRaw.map((r) => ({ ...r, videos: rmBlk(r.videos) })).filter((r) => r.videos.length > 0), [formatRowsRaw, rmBlk]);
 
   const allVideoIds = useMemo(() => {
     const ids = new Set<string>();
