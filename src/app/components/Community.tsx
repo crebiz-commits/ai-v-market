@@ -13,6 +13,7 @@ import { CollabInquiryModal } from "./CollabInquiryModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useBackButton } from "../hooks/useBackButton";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
+import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { supabase, supabaseUrl, supabaseAnonKey } from "../utils/supabaseClient";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -392,8 +393,6 @@ async function fetchPostPage(offset: number, localeTag: string): Promise<{ posts
 export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChallengeParticipate, onPlayVideo, initialCollabPostId, onInitialCollabPostConsumed, initialPostId, onInitialPostConsumed, initialChallengeId, onInitialChallengeConsumed }: CommunityProps = {}) {
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
-  // 공식 운영팀 명의는 표시만 언어화(로직 비교는 원래 값 유지). "CREAITE 운영팀" → "CREAITE Team"
-  const displayAuthor = (name?: string | null) => (name === OFFICIAL_AUTHOR_NAME ? t("community.officialTeam") : (name || ""));
   const { user, isAuthenticated, profile } = useAuth();
   const { blockedIds, isBlocked } = useBlockedUsers();   // 차단한 사용자 글 숨김(영상·댓글과 동일)
   const localeTag = isKo ? "ko-KR" : "en-US";
@@ -418,6 +417,26 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   const [loadingChallenges, setLoadingChallenges] = useState(!challengesCache[String(isKo)]);
   const [collabs, setCollabs] = useState<CollabPost[]>([]);
   const [loadingCollab, setLoadingCollab] = useState(true);
+
+  // 작성자 이름 실시간 해석 — 게시글·협업글의 author_name 은 작성 시점 스냅샷이라,
+  //   프로필에서 이름을 바꿔도 옛 이름이 박제됐다(댓글·영상·채널은 이미 실시간인데 게시글만 어긋남,
+  //   업계 표준도 유튜브·인스타·페북 전부 실시간 → 통일, 2026-07-23).
+  //   ownerId(작성자 user_id)로 현재 display_name 을 조회해 표시만 갈아끼운다. 저장된 author_name
+  //   스냅샷(사칭 차단·조회 실패 폴백)은 그대로 둔다 → 보안 손실 없음.
+  const communityAuthorIds = useMemo(
+    () => [...posts.map(p => p.ownerId), ...collabs.map(c => c.ownerId)].filter(Boolean) as string[],
+    [posts, collabs],
+  );
+  const communityCreatorInfo = useCreatorInfo(communityAuthorIds);
+  // 표시용 이름 해석: ① 운영팀 명의는 언어화(실시간 조회보다 우선 — 트리거가 고정한 공식 아이덴티티)
+  //   ② 그 외는 실시간 display_name 우선, 없으면 저장된 스냅샷 폴백.
+  const displayAuthor = (name?: string | null, ownerId?: string | null) => {
+    if (name === OFFICIAL_AUTHOR_NAME) return t("community.officialTeam");
+    const live = ownerId ? communityCreatorInfo[ownerId]?.name : undefined;
+    return live || name || "";
+  };
+  const authorAvatarOf = (avatar?: string | null, ownerId?: string | null) =>
+    (ownerId ? communityCreatorInfo[ownerId]?.avatar : undefined) || avatar || "";
   const [collabFilter, setCollabFilter] = useState<"all" | CollabType>("all");
   // 협업 글 작성 모달
   const [showCollabModal, setShowCollabModal] = useState(false);
@@ -1075,9 +1094,9 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                   >
                     <div className="p-4">
                       <div className="flex items-center gap-3 mb-3">
-                        <UserAvatar src={post.avatar} name={displayAuthor(post.author)} className="w-10 h-10" fallbackClassName="text-sm" />
+                        <UserAvatar src={authorAvatarOf(post.avatar, post.ownerId)} name={displayAuthor(post.author, post.ownerId)} className="w-10 h-10" fallbackClassName="text-sm" />
                         <div className="flex-1">
-                          <p className="font-medium">{displayAuthor(post.author)}</p>
+                          <p className="font-medium">{displayAuthor(post.author, post.ownerId)}</p>
                           <p className="text-xs text-muted-foreground">{post.timestamp}</p>
                         </div>
                         {post.isNotice && (
@@ -1363,7 +1382,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                       className={`bg-card rounded-xl border border-border p-4 transition-colors hover:border-[#6366f1]/50 cursor-pointer ${closed ? "opacity-60" : ""}`}
                     >
                       <div className="flex items-start gap-3">
-                        <UserAvatar src={c.avatar} name={c.author} className="w-10 h-10" />
+                        <UserAvatar src={authorAvatarOf(c.avatar, c.ownerId)} name={displayAuthor(c.author, c.ownerId)} className="w-10 h-10" />
                         <div className="flex-1 min-w-0">
                           {/* 타입 배지 + 상태 */}
                           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -1385,7 +1404,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                           </div>
                           {/* 제목 */}
                           <h3 className="font-bold text-foreground leading-snug">{c.title}</h3>
-                          <p className="text-xs text-muted-foreground mt-0.5">{c.author}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{displayAuthor(c.author, c.ownerId)}</p>
                           {/* 설명 (미리보기 — 자세한 내용은 카드 클릭 시 상세에서) */}
                           <p className="text-sm text-foreground/80 mt-2 whitespace-pre-line line-clamp-2">{c.description}</p>
                           {/* 필요 역할 */}
@@ -1463,7 +1482,14 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
       <AnimatePresence>
         {selectedPost && (() => {
           // 목록 state 의 최신 글(좋아요·수정 반영)로 렌더 — 스냅샷 고정 방지
-          const livePost = posts.find(p => p.id === selectedPost.id) ?? selectedPost;
+          const base = posts.find(p => p.id === selectedPost.id) ?? selectedPost;
+          // 작성자 이름·아바타도 목록과 동일하게 실시간으로 — 화면마다 이름이 다르지 않게(2026-07-23).
+          //   운영팀 명의는 상세 컴포넌트가 자체 처리하므로 원본 유지, 일반 사용자만 실시간으로 덮는다.
+          const livePost = base.author === OFFICIAL_AUTHOR_NAME
+            ? base
+            : { ...base,
+                author: displayAuthor(base.author, base.ownerId),
+                avatar: authorAvatarOf(base.avatar, base.ownerId) };
           return (
             <CommunityPostDetail
               post={livePost}
@@ -1763,8 +1789,8 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
               ownerId: inquiryPost.ownerId,
               type: inquiryPost.type,
               title: inquiryPost.title,
-              author: inquiryPost.author,
-              avatar: inquiryPost.avatar,
+              author: displayAuthor(inquiryPost.author, inquiryPost.ownerId),   // 실시간 이름(목록과 일치)
+              avatar: authorAvatarOf(inquiryPost.avatar, inquiryPost.ownerId),
               description: inquiryPost.description,
               roles: inquiryPost.roles,
               reward: inquiryPost.reward,
