@@ -575,5 +575,21 @@ SELECT * FROM (
     ) THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 collab_posts_column_lockdown_20260722.sql 재적용'
 
+  UNION ALL
+  -- 41) 채널·팔로잉·인기 크리에이터가 숨김/정지를 거르는가 (2026-07-22 잔여영역 감사)
+  --     creator_followers.sql 헤더는 "is_hidden·is_suspended 누락이 결함"이라 적었으나
+  --     본문엔 반영 안 됨 → ①get_creator_videos: visibility 만 필터해 모더레이션 숨김
+  --     (검수미통과·신고누적) 영상이 채널에 노출 ②get_my_following_videos: 숨김+정지
+  --     크리에이터 영상이 팔로잉 피드 노출 ③get_popular_creators: 정지 크리에이터가
+  --     인기순위·탐색에 노출(홍보 지속). 정책(suspension-enforcement): 채널(특정인 명시
+  --     조회)은 is_hidden 만(본인 접근 유지), 피드·탐색(홍보 서피스)은 정지도 제외.
+  SELECT 41,
+    '채널·팔로잉·인기 숨김/정지 필터',
+    CASE WHEN (SELECT prosrc ~ 'is_hidden' FROM pg_proc WHERE proname='get_creator_videos')
+          AND (SELECT prosrc ~ 'is_hidden' AND prosrc ~ 'is_suspended' FROM pg_proc WHERE proname='get_my_following_videos')
+          AND (SELECT prosrc ~ 'is_suspended' FROM pg_proc WHERE proname='get_popular_creators')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 channel_hidden_suspended_filter_20260722.sql 재적용(creator_followers.sql 의 3함수 재실행 금지)'
+
 ) AS gate
 ORDER BY sort;
