@@ -509,5 +509,37 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 mypage_order_status_filter_20260719.sql 재적용(mypage_pagination_20260719.sql 재실행 금지 = 필터 소실)'
 
+  UNION ALL
+  -- 37) 정지 크리에이터 영상이 노출 경로에서 제외되는가 (2026-07-22 업로드 감사)
+  --     admin_suspend_user 는 profiles.is_suspended 만 세팅하고 영상은 안 건드린다.
+  --     그런데 피드 뷰·홈피드 함수·시리즈 에피소드 목록에 is_suspended 필터가 없어
+  --     **계정을 정지시켜도 그 크리에이터 영상이 홈·OTT·추천·시리즈에 계속 노출**됐다
+  --     (검색·채널 RPC 엔 필터가 있어 노출 정책 불일치이기도 했음).
+  --     세 노출 경로가 각각 다른 뷰/함수를 타므로 한 곳만 고치면 나머지로 샌다:
+  --       · v_available_videos          → 시네마·추천·유사영상
+  --       · v_home_feed_public/get_home_feed_order → 홈
+  --       · get_series_episodes         → 시리즈 상세
+  --     셋 다 필터를 갖는지 확인. (구매자 재생은 play-token 별도 판정이라 무관.)
+  SELECT 37,
+    '정지 크리에이터 영상 노출 차단(피드·홈·시리즈)',
+    CASE WHEN pg_get_viewdef('public.v_available_videos'::regclass) ~ 'is_suspended'
+          AND pg_get_viewdef('public.v_home_feed_public'::regclass) ~ 'creator_suspended'
+          AND (SELECT prosrc ~ 'creator_suspended' FROM pg_proc WHERE proname='get_home_feed_order')
+          AND (SELECT prosrc ~ 'is_suspended' FROM pg_proc WHERE proname='get_series_episodes')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 feed_exclude_suspended·feed_home_exclude_suspended·series_episodes_exclude_suspended_20260722.sql 재적용'
+
+  UNION ALL
+  -- 38) 정지 계정이 영상 편집(update_my_video_metadata)을 할 수 없는가 (2026-07-22)
+  --     정지는 쓰기 금지여야 하는데 이 RPC 에 is_suspended 검사가 없어 정지 크리에이터가
+  --     라이브 영상의 제목·설명·가격·연령등급을 계속 수정 가능했다. SECURITY DEFINER 라
+  --     RLS 로 못 막아 본문 가드 필수. Edge 3곳(save-metadata·thumbnail·status)은 코드라
+  --     게이트 대상 아님(배포로 반영).
+  SELECT 38,
+    '정지 계정 영상편집 차단(update_my_video_metadata)',
+    CASE WHEN (SELECT prosrc ~ 'is_suspended' FROM pg_proc WHERE proname='update_my_video_metadata')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 video_edit_suspended_guard_20260722.sql 재적용(video_edit_remoderation_20260711.sql 재실행 금지)'
+
 ) AS gate
 ORDER BY sort;
