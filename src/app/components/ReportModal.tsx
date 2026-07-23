@@ -25,7 +25,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
-export type ReportTargetType = "video" | "comment" | "user" | "community_post";
+export type ReportTargetType = "video" | "comment" | "user" | "community_post" | "b2b_post";
 
 interface ReportModalProps {
   open: boolean;

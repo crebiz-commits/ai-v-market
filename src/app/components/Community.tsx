@@ -10,6 +10,7 @@ import { CommentPanel } from "./CommentPanel";
 import { CommunityPostDetail, Post } from "./CommunityPostDetail";
 import { CommunityChallengeDetail, Challenge } from "./CommunityChallengeDetail";
 import { CollabInquiryModal } from "./CollabInquiryModal";
+import { B2BBoard } from "./B2BBoard";
 import { useAuth } from "../contexts/AuthContext";
 import { useBackButton } from "../hooks/useBackButton";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
@@ -343,6 +344,7 @@ const CATEGORY_COLOR: Record<string, string> = {
 
 interface CommunityProps {
   onNavigate?: (tab: string) => void;
+  onSignInClick?: () => void;   // B2B/글쓰기 로그인 유도
   initialTab?: string | null;               // 외부에서 특정 탭으로 진입 (예: 시네마 콘테스트 배너 → challenges)
   onInitialTabConsumed?: () => void;         // 초기 탭 적용 후 신호 소거
   onChallengeParticipate?: (challenge: Challenge) => void;  // 챌린지 참가 → 업로드 진입
@@ -390,7 +392,7 @@ async function fetchPostPage(offset: number, localeTag: string): Promise<{ posts
   return { posts: mapped, hasMore };
 }
 
-export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChallengeParticipate, onPlayVideo, initialCollabPostId, onInitialCollabPostConsumed, initialPostId, onInitialPostConsumed, initialChallengeId, onInitialChallengeConsumed }: CommunityProps = {}) {
+export function Community({ onNavigate, onSignInClick, initialTab, onInitialTabConsumed, onChallengeParticipate, onPlayVideo, initialCollabPostId, onInitialCollabPostConsumed, initialPostId, onInitialPostConsumed, initialChallengeId, onInitialChallengeConsumed }: CommunityProps = {}) {
   const { t, i18n } = useTranslation();
   const isKo = (i18n.language || "en").startsWith("ko");
   const { user, isAuthenticated, profile } = useAuth();
@@ -399,7 +401,7 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
   const [activeTab, setActiveTab] = useState("posts");
   // 외부에서 특정 탭으로 진입 (예: 시네마 콘테스트 공모전 배너 → 챌린지 탭)
   useEffect(() => {
-    const VALID = ['posts', 'challenges', 'collab'];
+    const VALID = ['posts', 'challenges', 'collab', 'b2b'];
     if (initialTab && VALID.includes(initialTab)) {
       setActiveTab(initialTab);
       onInitialTabConsumed?.();
@@ -985,11 +987,12 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-[#1c1c1e] p-1.5 rounded-2xl mb-6 border border-white/5 shadow-inner">
+          <TabsList className="grid w-full grid-cols-4 bg-[#1c1c1e] p-1.5 rounded-2xl mb-6 border border-white/5 shadow-inner">
             {([
               { id: 'posts', label: t("community.tabPosts") },
               { id: 'challenges', label: t("community.tabChallenges") },
               { id: 'collab', label: t("community.tabCollab") },
+              { id: 'b2b', label: t("community.tabB2B") },
             ] as { id: string; label: string }[]).map(tab => {
               const isActive = activeTab === tab.id;
               return (
@@ -1440,6 +1443,10 @@ export function Community({ onNavigate, initialTab, onInitialTabConsumed, onChal
                 );
               })()}
             </div>
+          </TabsContent>
+
+          <TabsContent value="b2b" className="mt-0">
+            <B2BBoard onSignInClick={onSignInClick} />
           </TabsContent>
         </Tabs>
       </div>

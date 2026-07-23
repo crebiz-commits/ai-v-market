@@ -1121,6 +1121,7 @@ function AppContent() {
         return (
           <Community
             onNavigate={(tab) => setActiveTab(tab as Tab)}
+            onSignInClick={() => setShowAuthModal(true)}
             initialTab={pendingCommunityTab}
             onInitialTabConsumed={() => setPendingCommunityTab(null)}
             onChallengeParticipate={(challenge) => {

@@ -591,5 +591,26 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 channel_hidden_suspended_filter_20260722.sql 재적용(creator_followers.sql 의 3함수 재실행 금지)'
 
+  UNION ALL
+  -- 42) B2B 제휴 게시판(b2b_posts)이 collab_posts 와 동일 보안 모델인가 (2026-07-23 신규기능)
+  --     로그인 자유게시 공개 게시판이라 community_posts/collab_posts 와 같은 방어가 필요:
+  --     ①RLS(숨김글은 작성자·관리자만) ②집계·소유 컬럼 쓰기잠금(is_hidden·user_id 직접
+  --     조작 차단, #40 클래스) ③정지 계정 쓰기차단 트리거 ④신고 create_report 에
+  --     b2b_post 분기(기계추출로 comment/video 분기 보존). 하나라도 빠지면 스팸·위조·
+  --     모더레이션 우회. link_url 은 http/https CHECK 로 스킴 XSS 차단.
+  SELECT 42,
+    'B2B 게시판 보안(RLS·컬럼잠금·정지차단·신고 b2b_post)',
+    CASE WHEN (SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('public.b2b_posts'))
+          AND NOT EXISTS (
+            SELECT 1 FROM information_schema.role_column_grants
+            WHERE table_schema='public' AND table_name='b2b_posts'
+              AND grantee='authenticated' AND privilege_type='UPDATE'
+              AND column_name IN ('is_hidden','user_id','id','created_at'))
+          AND EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+                      WHERE c.relname='b2b_posts' AND t.tgname='block_suspended' AND NOT t.tgisinternal)
+          AND (SELECT prosrc ~ 'b2b_post' FROM pg_proc WHERE proname='create_report')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 b2b_partnership_board_20260723.sql 재적용(community_reports_hardening·reports_rpc_lockdown 재실행 금지=b2b 분기 소실)'
+
 ) AS gate
 ORDER BY sort;
