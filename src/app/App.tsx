@@ -1291,13 +1291,11 @@ function AppContent() {
                 <ShieldCheck className={`w-[22px] h-[22px] ${activeTab === "admin" ? "text-[#8b5cf6]" : "text-muted-foreground"}`} />
               </motion.button>
             )}
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => isAuthenticated ? setActiveTab("mypage") : setShowAuthModal(true)}
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <User className="w-[22px] h-[22px]" />
-            </motion.button>
+            {/* 모바일 상단의 마이페이지(User) 아이콘 제거(2026-07-23) — 하단 탭바에 '마이'가
+                이미 있어 정확히 중복이었다(둘 다 setActiveTab("mypage")). 상단은 데스크탑
+                아바타 드롭다운 패턴의 잔재. 비로그인 진입도 MyPage 가 자체 로그인 유도
+                화면(!isAuthenticated 분기)을 띄우므로 하단 탭만으로 회귀 없음.
+                알림(Bell)·카트는 하단 탭에 없어 상단 유지. */}
             {/* Language Switcher (Phase 35) */}
             <LanguageSwitcher />
             <HamburgerMenu onNavigate={(tab) => setActiveTab(tab as Tab)} />
