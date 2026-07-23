@@ -703,5 +703,36 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 ad_impression_dedup_failsafe_20260723.sql 재적용(ad_dedup_house_20260703 재실행 금지)'
 
+  UNION ALL
+  -- 50) ad_impressions / ad_clicks 직접쓰기 차단 (2026-07-23 전체감사 RLS/Edge)
+  --     phase28 의 INSERT RLS 가 WITH CHECK(true) + 기본 GRANT 미회수 → anon 이 임의 행
+  --     무한삽입(블로트) / authenticated 자기 지표 위조 가능. 삽입은 record_ad_* DEFINER 만.
+  --     ★phase28_ad_diversification.sql 재실행 시 WITH CHECK(true) 정책이 부활 → 드리프트 감시.
+  SELECT 50,
+    'ad_impressions/clicks 직접쓰기 차단(anon 삽입·지표위조)',
+    CASE WHEN NOT EXISTS (
+      SELECT 1 FROM information_schema.role_table_grants
+      WHERE table_schema='public' AND table_name IN ('ad_impressions','ad_clicks')
+        AND grantee IN ('anon','authenticated','PUBLIC')
+        AND privilege_type IN ('INSERT','UPDATE','DELETE'))
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname='public' AND tablename IN ('ad_impressions','ad_clicks') AND cmd='INSERT')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 ad_impressions_lockdown_20260723.sql 재적용(phase28_ad_diversification.sql 재실행 시 WITH CHECK(true) 부활)'
+
+  UNION ALL
+  -- 51) 인기 크리에이터 최근 썸네일이 숨김을 거르는가 (2026-07-23 전체감사 데이터무결성)
+  --     get_popular_creators 의 recent_thumbnails(ranked_videos)가 is_hidden 미필터라
+  --     모더레이션 숨김 영상 썸네일이 인기 카드에 노출 + video_count 와 필터 불일치.
+  --     prosrc 에 is_hidden 이 2회 이상(creator_stats + ranked_videos) 존재하는지로 판별.
+  SELECT 51,
+    '인기 크리에이터 썸네일 숨김 필터(모더레이션 누수 차단)',
+    CASE WHEN (SELECT count(*) FROM regexp_matches(
+                 (SELECT prosrc FROM pg_proc WHERE proname='get_popular_creators'),
+                 'is_hidden', 'g')) >= 2
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 get_popular_creators_thumb_hidden_20260723.sql 재적용(channel_hidden_suspended_filter_20260722 의 get_popular_creators 재실행 금지)'
+
 ) AS gate
 ORDER BY sort;

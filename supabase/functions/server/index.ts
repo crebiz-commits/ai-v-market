@@ -197,6 +197,18 @@ app.post("/auth/signin", async (c) => {
 
     const supabase = getSupabaseClient();
 
+    // 2026-07-23: 로그인이 이 Edge 프록시 경유라 GoTrue 는 Edge egress IP 만 봄 → per-IP
+    //   브루트포스 방어면이 약화(회원가입은 클라 직접이라 비대칭). 앱 레벨 레이트리밋으로 보강 —
+    //   (이메일 + 원본 클라 IP) 15분 15회. 이메일 단독 키는 피해자 계정 락아웃(DoS) 소지라 IP 병행.
+    const _rlAdmin = getSupabaseClient(true);
+    const _clientIp = (c.req.header('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
+    const { data: _signinOk } = await _rlAdmin.rpc('rl_hit', {
+      p_key: `signin:${String(email).toLowerCase()}:${_clientIp}`, p_limit: 15, p_window_sec: 900,
+    });
+    if (_signinOk === false) {
+      return c.json({ error: "로그인 시도가 너무 많습니다. 15분 후 다시 시도해 주세요." }, 429);
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -2033,8 +2045,19 @@ app.post('/send-email', async (c) => {
       if (!prof?.is_admin) return c.json({ error: '어드민만 발송 가능한 알림입니다' }, 403);
       // 정지관리자 차단(2026-07-23): 정산·환불·신고결과 등 대외 이메일을 정지관리자가 못 보내게.
       if (prof.is_suspended) return c.json({ error: '정지된 관리자 계정입니다' }, 403);
+    } else {
+      // actor types(comment_reply/new_follower/new_video_from_followed): 인증된 사용자.
+      //   2026-07-23: 정지계정 차단 + 사용자당 레이트리밋 — 임의 user_id 에 벨+이메일 도배
+      //   (이메일 폭탄/괴롭힘) 방지. dedup 은 link 만 바꾸면 우회되던 갭을 보강.
+      const _suspended = await blockIfSuspended(callerId);
+      if (_suspended) return _suspended;
+      const { data: _rlOk } = await supabase.rpc('rl_hit', {
+        p_key: `send-email-actor:${callerId}`, p_limit: 30, p_window_sec: 3600,
+      });
+      if (_rlOk === false) {
+        return c.json({ error: '알림 발송 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' }, 429);
+      }
     }
-    // actor types(comment_reply/new_follower/new_video_from_followed): 인증된 사용자면 허용
 
     // 수신자 email 은 항상 user_id 로 조회 (클라이언트가 to 를 임의 지정 못 함)
     const { data: userData, error: userErr } = await supabase.auth.admin.getUserById(user_id);

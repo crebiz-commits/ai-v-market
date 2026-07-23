@@ -9,7 +9,14 @@
 --          "숨김/비공개 → 공개"로 새로 전환되는 시점에만 1회 발송(제목수정 등 이미
 --          공개였던 UPDATE 는 재발송 금지). 검수 통과 = is_hidden true→false 전환에 발동.
 --
---   ★ 이 파일이 tg_notify_followers_new_video 의 최신 SSOT.
+--   ⚠️ SUPERSEDED (2026-07-23): 이 파일은 더 이상 tg_notify_followers_new_video 의 최신 SSOT
+--     가 아니다. 최신 정본 = admin_audit_hardening_20260714.sql(⑩ 재공개 시 팔로워 전원 중복
+--     벨 방지 디듀프 idx_notifications_link + EXISTS 추가). 이 파일을 재실행하면 그 디듀프가
+--     사라져 숨김→공개 재전환(신고 자동숨김→관리자 복원 등) 때 팔로워 전원에 새영상 벨이
+--     재발송된다. update_my_notification_preferences 도 이 파일 판은 inapp_*/refund 매핑이 없어
+--     재실행 시 벨 opt-out 이 회귀. **재실행 금지 — tg_notify_followers_new_video·
+--     update_my_notification_preferences 는 admin_audit_hardening_20260714.sql 를 정본으로.**
+--
 --     옛 정의 재실행 금지: new_video_follower_notify_20260612.sql(AFTER INSERT + email 게이트),
 --     medium_fixes_db_20260614.sql(email opt-in 게이트, 전 행 OFF),
 --     notification_audit_20260710.sql(AFTER INSERT + inapp 게이트). 전부 SUPERSEDED.
