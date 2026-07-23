@@ -333,6 +333,26 @@ function md5Base64Url(input: string): string {
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
+// ── 정지 계정 쓰기 차단 (2026-07-22 업로드 감사) ────────────────────────────
+//   create-upload·transcribe 에만 있고 save-metadata·thumbnail·status 에는 빠져 있었다.
+//   → 정지된 계정이 ①진행 중이던 업로드를 완료하고 ②썸네일을 갈아끼우고
+//     ③영상 상태를 바꿀 수 있었다. Edge 는 service_role 로 도는 경로라
+//     DB 트리거/RLS 가 못 막으므로 엔드포인트마다 명시적으로 확인해야 한다.
+//   ▣ is_suspended 는 anon 이 못 읽는 컬럼이라 **반드시 service 클라**로 조회한다
+//     (anon 으로 조회하면 항상 null → 차단이 조용히 죽는다. 실제로 겪은 버그).
+//   @returns 차단해야 하면 Response, 통과면 null
+async function blockIfSuspended(userId: string): Promise<Response | null> {
+  const { data } = await getSupabaseClient(true)
+    .from('profiles').select('is_suspended').eq('id', userId).maybeSingle();
+  if (data?.is_suspended) {
+    return new Response(
+      JSON.stringify({ error: "정지된 계정은 이 작업을 할 수 없습니다. 고객센터로 문의해 주세요." }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+  return null;
+}
+
 // Bunny.net에 비디오 생성 및 업로드 URL 생성
 app.post("/videos/create-upload", async (c) => {
   try {
@@ -668,6 +688,10 @@ app.post("/videos/:videoId/thumbnail", async (c) => {
       return c.json({ error: "올바른 videoId가 필요합니다." }, 400);
     }
 
+    // 정지 계정 차단(2026-07-22) — 정지 후에도 썸네일을 갈아끼울 수 있었다
+    const _suspendedThumb = await blockIfSuspended(user.id);
+    if (_suspendedThumb) return _suspendedThumb;
+
     // 소유권 검증: KV(업로드 중) → videos 테이블(업로드 완료 후) → 어드민
     const supabaseAdmin = getSupabaseClient(true);
     let isOwner = false;
@@ -965,6 +989,11 @@ app.post("/videos/save-metadata", async (c) => {
 
     const supabaseAdmin = getSupabaseClient(true); // Service role for DB operations
 
+    // 정지 계정 차단(2026-07-22) — create-upload 에만 있어, 정지 직전 시작한 업로드를
+    //   정지 후에도 save-metadata 로 완주시킬 수 있었다.
+    const _suspended = await blockIfSuspended(user.id);
+    if (_suspended) return _suspended;
+
     // 소유권/권한 검증 (#3·#4-b): 이 videoId 가 호출자 소유(create-upload 로 생성했거나 기존 본인 영상)이거나
     // 관리자여야 메타 저장 허용. 없으면 타인 videoId 로 메타 덮어쓰기·소유권 탈취 가능.
     const { data: _prof } = await supabaseAdmin.from('profiles').select('is_admin, display_name').eq('id', user.id).maybeSingle();
@@ -1187,6 +1216,10 @@ app.put("/videos/:videoId/status", async (c) => {
     if (authError || !user) {
       return c.json({ error: "유효하지 않은 토큰입니다." }, 401);
     }
+
+    // 정지 계정 차단(2026-07-22)
+    const _suspendedStatus = await blockIfSuspended(user.id);
+    if (_suspendedStatus) return _suspendedStatus;
 
     const videoId = c.req.param('videoId');
     const { status } = await c.req.json();
