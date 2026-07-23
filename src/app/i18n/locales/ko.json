@@ -56,7 +56,8 @@
     "search": "검색",
     "business": "비즈니스",
     "admin": "관리자",
-    "membership": "멤버십"
+    "membership": "멤버십",
+    "b2b": "배급사 제휴"
   },
   "auth": {
     "signIn": "로그인",

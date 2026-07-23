@@ -17,7 +17,7 @@ import { lazyRetry as lazy } from "./utils/lazyRetry";
 import { isNegotiationOnly } from "./utils/licensePricing";
 import { usePayment } from "./hooks/usePayment";
 import { loadCollections } from "./data/collections";
-import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, Loader2, Crown, Users } from "lucide-react";
+import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, Loader2, Crown, Users, Handshake } from "lucide-react";
 import { HamburgerMenu } from "./components/HamburgerMenu";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "./components/ui/dropdown-menu";
@@ -1296,7 +1296,17 @@ function AppContent() {
                 이미 있어 정확히 중복이었다(둘 다 setActiveTab("mypage")). 상단은 데스크탑
                 아바타 드롭다운 패턴의 잔재. 비로그인 진입도 MyPage 가 자체 로그인 유도
                 화면(!isAuthenticated 분기)을 띄우므로 하단 탭만으로 회귀 없음.
-                알림(Bell)·카트는 하단 탭에 없어 상단 유지. */}
+                → 빈 자리에 B2B 배급사 제휴 게시판 진입(2026-07-23). 커뮤니티 4번째 탭이라
+                  하단 탭바엔 없어(커뮤니티 안 깊숙이) 상단 바로가기로 발견성 확보. */}
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => { setActivePanel(null); setPendingCommunityTab("b2b"); setActiveTab("community"); }}
+              title={t("nav.b2b", "배급사 제휴")}
+              aria-label={t("nav.b2b", "배급사 제휴")}
+              className={`p-2 transition-colors ${activeTab === "community" ? "text-[#8b5cf6]" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Handshake className="w-[22px] h-[22px]" />
+            </motion.button>
             {/* Language Switcher (Phase 35) */}
             <LanguageSwitcher />
             <HamburgerMenu onNavigate={(tab) => setActiveTab(tab as Tab)} />
