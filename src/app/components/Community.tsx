@@ -398,6 +398,9 @@ export function Community({ onNavigate, onSignInClick, initialTab, onInitialTabC
   const { user, isAuthenticated, profile } = useAuth();
   const { blockedIds, isBlocked } = useBlockedUsers();   // 차단한 사용자 글 숨김(영상·댓글과 동일)
   const localeTag = isKo ? "ko-KR" : "en-US";
+  // 비동기 페이지네이션이 도착할 때의 "현재 로케일" 판정용 최신값 ref (혼합 로케일 append 방지)
+  const localeTagRef = useRef(localeTag);
+  localeTagRef.current = localeTag;
   const [activeTab, setActiveTab] = useState("posts");
   // 외부에서 특정 탭으로 진입 (예: 시네마 콘테스트 공모전 배너 → 챌린지 탭)
   useEffect(() => {
@@ -526,35 +529,42 @@ export function Community({ onNavigate, onSignInClick, initialTab, onInitialTabC
     const cachedPosts = postsCache[ckey];
     if (cachedPosts) { setPosts(cachedPosts); setLoadingPosts(false); }  // 캐시 즉시 표시 후 아래서 갱신
     else setLoadingPosts(true);
-    (async () => {
-      const res = await fetchPostPage(0, localeTag);
-      if (cancelled) return;
-      if (res) {
-        postsCache[ckey] = res.posts;
-        postsHasMoreCache[ckey] = res.hasMore;
-        setPosts(res.posts);
-        setHasMorePosts(res.hasMore);
-      }
-      setLoadingPosts(false);
-    })();
+    // 캐시가 이미 여러 페이지(1페이지 초과) 쌓여 있으면 page0(50편)로 덮어써 '더 보기' 진행분을
+    //   날리지 않는다 — 언어 전환 시 목록이 50편으로 축소되던 버그. (갱신은 재마운트/새로고침 시)
+    if ((cachedPosts?.length ?? 0) <= POSTS_PAGE) {
+      (async () => {
+        const res = await fetchPostPage(0, localeTag);
+        if (cancelled) return;
+        if (res) {
+          postsCache[ckey] = res.posts;
+          postsHasMoreCache[ckey] = res.hasMore;
+          setPosts(res.posts);
+          setHasMorePosts(res.hasMore);
+        }
+        setLoadingPosts(false);
+      })();
+    }
     return () => { cancelled = true; };
   }, [localeTag]);
 
   // '더 보기' — 다음 페이지를 이어붙임. 새 글이 위에 끼면 offset 이 밀려 중복이 올 수 있어 id 로 dedup.
   const loadMorePosts = async () => {
     if (loadingMorePosts || !hasMorePosts) return;
+    const reqLocale = localeTag;   // 이 호출이 대상으로 삼은 로케일
     setLoadingMorePosts(true);
-    const next = await fetchPostPage(posts.length, localeTag);
+    const next = await fetchPostPage(posts.length, reqLocale);
     setLoadingMorePosts(false);
+    // 응답 도착 전 언어가 바뀌었으면 폐기 — 옛 로케일 결과를 새 언어 목록에 섞지 않음
+    if (reqLocale !== localeTagRef.current) return;
     // 조회 실패(글이 지워져 범위를 벗어난 416 포함) → 눌러도 반응 없는 버튼이 남지 않게 감춤
-    if (!next) { setHasMorePosts(false); postsHasMoreCache[localeTag] = false; return; }
+    if (!next) { setHasMorePosts(false); postsHasMoreCache[reqLocale] = false; return; }
     setPosts((prev) => {
       const seen = new Set(prev.map((p) => p.id));
       const merged = [...prev, ...next.posts.filter((p) => !seen.has(p.id))];
-      postsCache[localeTag] = merged;
+      postsCache[reqLocale] = merged;
       return merged;
     });
-    postsHasMoreCache[localeTag] = next.hasMore;
+    postsHasMoreCache[reqLocale] = next.hasMore;
     setHasMorePosts(next.hasMore);
   };
 
@@ -620,19 +630,24 @@ export function Community({ onNavigate, onSignInClick, initialTab, onInitialTabC
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  // 협업 글 로드
-  const loadCollabs = useCallback(async () => {
+  // 협업 글 로드 — isActive 로 언마운트/로케일 전환 후 도착한 옛 응답 폐기(setState-after-unmount·혼합로케일 방지)
+  const loadCollabs = useCallback(async (isActive: () => boolean = () => true) => {
     setLoadingCollab(true);
     const { data, error } = await supabase
       .from("collab_posts")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(100);
+    if (!isActive()) return;
     if (error) console.warn("[Collab] 협업 글 조회 실패:", error.message);
     else setCollabs((data || []).map((r) => collabRowToPost(r, isKo, t("community.creatorFallback"))));
     setLoadingCollab(false);
   }, [isKo, t]);
-  useEffect(() => { void loadCollabs(); }, [loadCollabs]);
+  useEffect(() => {
+    let cancelled = false;
+    void loadCollabs(() => !cancelled);
+    return () => { cancelled = true; };
+  }, [loadCollabs]);
 
   // 협업 문의 알림 딥링크 — 협업 글 로드 완료 후 해당 글 상세 모달 자동 열기
   useEffect(() => {

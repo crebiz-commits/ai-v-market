@@ -493,7 +493,9 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
   // ⚠️ 소유자(isMyVideo)·관리자는 클라이언트가 즉시 아는 면제 대상 → 서버 재생토큰
   //    (BUNNY_TOKEN_AUTH_KEY, 현재 무중단전환 대기라 fullAccess=false) 없이도 컷오프 제외.
   //    (라이선스 구매자는 결제 게이트로 아직 없음 → 토큰 활성화 시 서버 fullAccess 로 커버)
-  const needsPreviewCutoff = durationSeconds > previewSeconds && !isSubscriber && !playFullAccess
+  //   ★ 컷오프 면제는 isPremium 기준(서버 fullAccess=premium 전용과 일치). isSubscriber 는
+  //     basic+premium 이라, basic 티어가 생기면 클라만 전체재생·서버는 150초로 어긋난다(F1).
+  const needsPreviewCutoff = durationSeconds > previewSeconds && !isPremium && !playFullAccess
     && !isMyVideo && !profile?.is_admin;
   // OTT 영상도 1분 미리보기 통일 (즉시 차단 X) — 단 카드에는 "🔒 프리미엄" 배지 표시
   const isOttVideo = durationSeconds >= (settings.ottMinSeconds || FALLBACK_OTT_THRESHOLD);

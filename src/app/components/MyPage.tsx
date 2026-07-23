@@ -1019,7 +1019,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     // 유저 코너 헤더의 '시청 N' 은 마운트 시 1회만 조회한다 — 여기서 같이 줄여주지 않으면
     //   같은 화면에서 목록은 줄었는데 숫자는 그대로인 불일치가 남는다(RPC 가 DISTINCT video_id
     //   라 목록 1행 = 카운트 1편이므로 정확히 1 감소).
-    setUserStats(prev => ({ ...prev, watched: Math.max(0, prev.watched - 1) }));
+    setUserStats(prev => (prev ? { ...prev, watched: Math.max(0, prev.watched - 1) } : prev));
     toast.success(t("mypage.watchHistory.deleteSuccess"));
   };
 
@@ -1029,7 +1029,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     if (error) return toast.error(t("mypage.watchHistory.deleteFailed", { message: error.message }));
     setWatchHistory([]);
     setWatchHistoryHasMore(false);   // 남겨두면 재조회 없이 '더 보기'가 되살아나 이미 없는 페이지를 요청
-    setUserStats(prev => ({ ...prev, watched: 0 }));
+    setUserStats(prev => (prev ? { ...prev, watched: 0 } : prev));
     toast.success(t("mypage.watchHistory.clearAllSuccess"));
   };
 

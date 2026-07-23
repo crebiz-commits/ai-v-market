@@ -113,12 +113,15 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
   const isAgeLocked = (id: string) =>
     !isMyChannel && shouldBlur(ageRatings[id], myProfile?.age_verified);
 
-  const fetchAll = useCallback(async () => {
+  //   isActive: 채널을 언마운트 없이 A→B 로 제자리 교체(ProductDetail "채널 보기")할 때
+  //   A 의 느린 응답이 B 이후 도착해 setProfile/setVideos(A)가 B 를 덮는 경합 차단.
+  const fetchAll = useCallback(async (isActive: () => boolean = () => true) => {
     setLoading(true);
     const [profileRes, videosRes] = await Promise.all([
       supabase.rpc("get_creator_profile", { p_creator_id: creatorId }),
       supabase.rpc("get_creator_videos", { p_creator_id: creatorId, p_limit: 30 }),
     ]);
+    if (!isActive()) return;
     if (profileRes.error) {
       console.warn("[CreatorChannel] get_creator_profile 실패:", profileRes.error.message);
     } else {
@@ -135,7 +138,9 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
   }, [creatorId]);
 
   useEffect(() => {
-    fetchAll();
+    let cancelled = false;
+    fetchAll(() => !cancelled);
+    return () => { cancelled = true; };
   }, [fetchAll]);
 
   // 서버 am_i_following 을 전역 팔로우 캐시에 seed → 콜드 딥링크로 채널 직행 시에도 FollowButton 즉시 정확

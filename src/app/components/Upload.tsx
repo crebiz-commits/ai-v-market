@@ -337,6 +337,9 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
     // 히어로 클립도 무효화 — 파일 바뀌면 이전 영상용 클립이 새 영상(비-OTT 포함)에 잘못 붙는 것 방지
     setHeroClipUrl("");
     setHeroClipId("");
+    // 가격도 리셋 — 긴 영상에 매긴 가격이 짧은 영상(무료 전용)으로 교체 후에도 payload 에 잔존해
+    //   "무료 짧은영상"에 값이 실리던 불일치 차단(가격 UI 는 짧은영상이면 숨겨져 재입력도 불가).
+    setFormData(prev => ({ ...prev, standardPrice: "" }));
 
     // 이전 ObjectURL 정리 (미리보기 비디오용으로 유지하던 URL)
     if (fileObjectUrlRef.current) {
