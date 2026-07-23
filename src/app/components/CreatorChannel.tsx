@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { UserAvatar } from "./UserAvatar";
 import { ArrowLeft, Loader2, Play, Sparkles, Eye, Users, Film, Filter, Flag, UserX, MoreVertical } from "lucide-react";
 import { motion } from "motion/react";
@@ -9,6 +9,8 @@ import { seedFollowing } from "../hooks/useFollows";
 import { CommentSettings } from "./CommentSettings";
 import { ReportModal } from "./ReportModal";
 import { useBlockedUsers } from "../hooks/useBlockedUsers";
+import { useAgeRatings } from "../hooks/useAgeRatings";
+import { shouldBlur } from "./AgeBadge";
 import { useTranslation } from "react-i18next";
 import { getCategoryLabel, getAiToolLabel } from "../i18n/categoryLabels";
 
@@ -73,7 +75,7 @@ function mapVideoForDetail(v: CreatorVideo) {
 
 export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClick }: CreatorChannelProps) {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, profile: myProfile } = useAuth();   // 채널 프로필(profile 상태)과 이름 충돌 회피
   const [profile, setProfile] = useState<CreatorProfile | null>(null);
   const [videos, setVideos] = useState<CreatorVideo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,6 +104,14 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
   });
 
   const isMyChannel = user?.id === creatorId;
+
+  // 🔞 청소년보호(2026-07-22 감사) — get_creator_videos 는 age_rating 을 반환하지 않아
+  //   채널 목록에만 블러가 없었다(기록·구매·검색·시네마/OTT 엔 다 있음). 검색과 동일하게
+  //   useAgeRatings 훅으로 별도 조회(RPC 실패 시 fail-closed). 본인 채널 영상은 예외.
+  const videoIds = useMemo(() => videos.map((v) => v.id).filter(Boolean), [videos]);
+  const ageRatings = useAgeRatings(videoIds);
+  const isAgeLocked = (id: string) =>
+    !isMyChannel && shouldBlur(ageRatings[id], myProfile?.age_verified);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -364,8 +374,13 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
                     src={v.thumbnail}
                     alt={v.title}
                     loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${isAgeLocked(v.id) ? "blur-lg scale-110" : ""}`}
                   />
+                  {isAgeLocked(v.id) && (
+                    <div className="absolute inset-0 bg-black/65 flex items-center justify-center">
+                      <span role="img" aria-label={t("ageBadge.age19")} className="w-8 h-8 rounded-full bg-red-600 text-white text-xs font-black flex items-center justify-center">19</span>
+                    </div>
+                  )}
                   {v.duration && (
                     <div className="absolute top-3 right-3 px-2 py-1 bg-black/70 backdrop-blur-sm rounded text-[10px] font-bold text-white">
                       {v.duration}
