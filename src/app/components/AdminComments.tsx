@@ -3,11 +3,12 @@
 // 패턴: AdminContent.tsx 를 따라 작성 (검색 + 필터 + 리스트 + 액션)
 // 크리에이터별 댓글 관리는 CommentSettings.tsx,
 // 신고 처리는 AdminReports 가 담당. 본 화면은 어드민이 능동적으로 부적절 댓글을 발견·처리할 때 사용.
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Loader2, Search, Eye, EyeOff, Trash2, MessageSquare, Flag, Filter, Pin, Heart, Film, ExternalLink,
 } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
+import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 
@@ -52,6 +53,14 @@ function fmtDate(iso: string) {
 
 export function AdminComments() {
   const [rows, setRows] = useState<CommentRow[]>([]);
+  // 작성자 이름 실시간 해석 — author_name 스냅샷 대신 현재 display_name 을 조회한다.
+  //   (작성자가 이름을 바꿔도/소셜 로그인으로 스냅샷이 비어도 최신 이름 표시, 2026-07-23)
+  const authorInfo = useCreatorInfo(useMemo(
+    () => rows.map((c) => c.user_id).filter(Boolean) as string[],
+    [rows],
+  ));
+  const liveName = (c: CommentRow) =>
+    (c.user_id ? authorInfo[c.user_id]?.name : undefined) || c.author_name || "이름 없음";
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
@@ -161,7 +170,7 @@ export function AdminComments() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
                     <p className="font-semibold text-sm truncate">
-                      {c.author_name || "이름 없음"}
+                      {liveName(c)}
                     </p>
                     {c.parent_id && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 font-bold">

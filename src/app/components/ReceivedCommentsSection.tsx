@@ -6,10 +6,11 @@
 //   creator_hide_comment(id) / creator_restore_comment(id) — 숨김/복원
 //   답글은 comments 테이블에 직접 insert (parent_id=최상위, 작성자는 트리거가 프로필로 강제)
 // ════════════════════════════════════════════════════════════════════════════
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { MessageSquare, Loader2, EyeOff, Eye, CornerDownRight, Send, Lock, Film, ExternalLink } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
+import { useCreatorInfo } from "../hooks/useCreatorInfo";
 import { UserAvatar } from "./UserAvatar";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -49,6 +50,18 @@ export function ReceivedCommentsSection() {
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  // 작성자 이름 실시간 해석 — author_name 은 작성 시점 스냅샷이라 작성자가 프로필에서 이름을
+  //   바꿔도 옛 이름이 박제됐다(영상 상세 댓글 CommentPanel 은 이미 실시간인데 여기만 어긋남,
+  //   2026-07-23). author_user_id 로 현재 display_name 을 조회해 표시만 갈아끼운다.
+  const authorInfo = useCreatorInfo(useMemo(
+    () => items.map((c) => c.author_user_id).filter(Boolean),
+    [items],
+  ));
+  const liveName = (c: ReceivedComment) =>
+    (c.author_user_id ? authorInfo[c.author_user_id]?.name : undefined) || c.author_name || t("community.anonymous");
+  const liveAvatar = (c: ReceivedComment) =>
+    (c.author_user_id ? authorInfo[c.author_user_id]?.avatar : undefined) || c.author_avatar || undefined;
 
   const load = useCallback(async (offset: number) => {
     const setL = offset === 0 ? setLoading : setLoadingMore;
@@ -154,10 +167,10 @@ export function ReceivedCommentsSection() {
           {items.map((c) => (
             <div key={c.id} className={`rounded-xl border p-3 ${c.is_hidden ? "bg-white/[0.02] border-white/5 opacity-70" : "bg-white/5 border-white/5"}`}>
               <div className="flex items-start gap-3">
-                <UserAvatar src={c.author_avatar} name={c.author_name} className="w-9 h-9" fallbackClassName="text-sm" />
+                <UserAvatar src={liveAvatar(c)} name={liveName(c)} className="w-9 h-9" fallbackClassName="text-sm" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold text-white truncate">{c.author_name || t("community.anonymous")}</span>
+                    <span className="text-sm font-semibold text-white truncate">{liveName(c)}</span>
                     {c.parent_id && <span className="text-[10px] text-gray-500 inline-flex items-center gap-0.5"><CornerDownRight className="w-3 h-3" />{t("mypage.receivedComments.reply", "답글")}</span>}
                     {c.is_hidden && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 font-bold">{t("mypage.receivedComments.hiddenBadge", "숨김")}</span>}
                     <span className="text-[10px] text-gray-600">{new Date(c.created_at).toLocaleDateString()}</span>
