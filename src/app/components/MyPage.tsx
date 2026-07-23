@@ -2715,17 +2715,17 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowProfileEdit(false)}
-              className="fixed inset-0 bg-black/70 z-50 backdrop-blur-sm" />
+              className="fixed inset-0 bg-black/70 z-[59] backdrop-blur-sm" />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ type: "spring" as const, stiffness: 300, damping: 30 }}
-              /* 세로 중앙 고정 + 화면 높이 상한(max-h) + 내용만 스크롤.
-                 예전엔 top-1/2 중앙정렬에 높이 제한이 없어, 모바일에서 내용이 화면보다
-                 길면 위아래가 잘려 **맨 아래 저장 버튼에 도달할 수 없었다**(2026-07-23).
-                 헤더와 버튼은 고정(shrink-0), 가운데만 overflow-y-auto. */
-              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-[#1a1a1c] rounded-2xl border border-white/10 max-w-sm mx-auto shadow-2xl flex flex-col max-h-[calc(100dvh-6rem)]"
+              /* 위아래 여백을 둔 배치(중앙고정 X) — 하단 탭바(z-50)가 저장 버튼을 덮던 문제 해결.
+                 top-1/2 중앙정렬은 모달 하단이 화면 맨 아래 탭바와 겹쳤다(2026-07-23 2차).
+                 이제 top/bottom 을 safe-area 포함 여백으로 잡고, z-index 를 탭바 위(z-[60])로.
+                 헤더·버튼 고정(shrink-0), 가운데만 overflow-y-auto. */
+              className="fixed inset-x-4 z-[60] bg-[#1a1a1c] rounded-2xl border border-white/10 max-w-sm mx-auto shadow-2xl flex flex-col overflow-hidden top-[max(1.5rem,env(safe-area-inset-top))] bottom-[calc(5rem+env(safe-area-inset-bottom))]"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-5 pb-3 shrink-0">
@@ -2900,15 +2900,16 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowPasswordChange(false)}
-              className="fixed inset-0 bg-black/70 z-50 backdrop-blur-sm" />
+              className="fixed inset-0 bg-black/70 z-[59] backdrop-blur-sm" />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ type: "spring" as const, stiffness: 300, damping: 30 }}
-              /* 짧은 모달이지만 소프트 키보드가 뜨면 화면이 반으로 줄어 하단이 잘릴 수 있어
-                 max-h + 스크롤을 둔다(2026-07-23, 프로필 모달과 동일 대응). */
-              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-[#1a1a1c] rounded-2xl border border-white/10 p-5 max-w-sm mx-auto shadow-2xl max-h-[calc(100dvh-6rem)] overflow-y-auto"
+              /* 내용이 짧은 모달이라 세로로 늘이지 않고 중앙 배치 유지. 다만 하단 탭바(z-50)
+                 위로 올리고(z-[60]) max-h 를 "탭바 높이까지 뺀" 값으로 잡아 겹침·잘림 방지.
+                 (2026-07-23 2차) */
+              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[60] bg-[#1a1a1c] rounded-2xl border border-white/10 p-5 max-w-sm mx-auto shadow-2xl overflow-y-auto max-h-[calc(100dvh-8rem)]"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-5">
