@@ -34,7 +34,7 @@ RETURNS TABLE(
     AND COALESCE(v.is_hidden,false) = false
     AND COALESCE(p.is_suspended, false) = false          -- 정지 크리에이터 에피소드 숨김
   ORDER BY COALESCE(v.season_number,1), v.episode_number NULLS LAST, v.created_at;
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;   -- 게이트 #9(hijack 방어) — CREATE OR REPLACE 로 스윕(0707) 고정이 풀리지 않게 명시
 REVOKE ALL ON FUNCTION public.get_series_episodes(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_series_episodes(UUID) TO anon, authenticated;
 
