@@ -36,16 +36,16 @@ BEGIN
     (user_id, company_name, category, title, description, link_url, region, status)
   SELECT
     v_admin,
-    'CREAITE (크리에이트)',
+    'CREAITE (크리에잇)',
     'content_partnership',
     'AI 시네마 콘텐츠, 함께 배급할 파트너를 찾습니다',
-    E'CREAITE는 세계 최초 AI 시네마 OTT 플랫폼입니다. 자체 제작 및 크리에이터 참여로 확보한 AI 영상 콘텐츠를 보유하고 있으며, 이를 함께 유통·배급할 파트너를 찾습니다.\n\n· 원하는 제휴: 국내외 OTT/채널 동시 배급, 브랜드 컬래버, IP 라이선싱\n· 제공 가능: All-in-One 상업 라이선스, 큐레이션 컬렉션, 공동 프로모션\n· 이런 분을 찾습니다: 배급사, 콘텐츠 유통사, 브랜드 마케팅팀\n\n관심 있으신 배급사·제작사는 이 게시판에 회사 소개를 올려주시거나, 웹사이트 문의로 연락 주세요.',
+    E'CREAITE(크리에잇)는 세계 최초의 AI 시네마 OTT 플랫폼입니다. 자체 스튜디오 제작과 검증된 크리에이터 네트워크를 통해 확보한 AI 영상 콘텐츠를 보유하고 있으며, 이 라이브러리를 함께 넓혀갈 유통·배급 파트너를 찾습니다.\n\n■ 우리가 가진 것\n· 자체 제작 AI 시네마 라인업(단편·시리즈)과 지속 확장되는 크리에이터 원본 콘텐츠\n· All-in-One 상업 라이선스 체계 — 구매 즉시 상업적 활용이 가능한 권리 패키지\n· 홈·시네마·프리미엄 OTT로 이어지는 자체 노출 채널과 큐레이션 컬렉션\n\n■ 원하는 제휴\n· 국내외 OTT·채널 동시 배급 및 신디케이션\n· 브랜드·IP 컬래버레이션, 라이선싱 딜\n· 지역별 로컬라이징(자막·더빙) 파트너십\n\n■ 이런 분을 찾습니다\n· 콘텐츠 배급사 / 유통사\n· OTT·채널 편성 담당\n· 브랜드·IP 라이선싱 팀\n\n관심 있으신 배급사·제작사는 이 게시판에 회사 소개 글을 올려주시거나, 아래 회사 사이트의 제휴 문의로 연락 주세요. 함께 AI 시네마 시장을 열어갈 파트너를 기다립니다.',
     'https://www.creaite.net',
     '대한민국 · 글로벌',
     'open'
   WHERE NOT EXISTS (
     SELECT 1 FROM public.b2b_posts
-    WHERE company_name = 'CREAITE (크리에이트)'
+    WHERE company_name = 'CREAITE (크리에잇)'
       AND title = 'AI 시네마 콘텐츠, 함께 배급할 파트너를 찾습니다'
   );
 
@@ -54,16 +54,16 @@ BEGIN
     (user_id, company_name, category, title, description, link_url, region, status)
   SELECT
     v_admin,
-    'CREAITE (크리에이트)',
+    'CREAITE (크리에잇)',
     'advertising',
     '광고주·브랜드와 AI 브랜디드 콘텐츠 협업을 원합니다',
-    E'브랜드 스토리를 AI 영상으로 빠르고 감각적으로 제작해 CREAITE 플랫폼과 크리에이터 네트워크를 통해 노출합니다.\n\n· 원하는 제휴: 브랜디드 필름, 제품 프로모션 영상, 프리롤 광고 캠페인\n· 제공 가능: AI 제작 파이프라인, 타깃 노출(홈/시네마/OTT), 성과 리포트\n· 이런 분을 찾습니다: 광고주, 브랜드 마케팅팀, 광고대행사\n\n협업을 원하는 브랜드·대행사는 회사와 캠페인 목표를 이 게시판에 남겨주세요.',
+    E'CREAITE(크리에잇)는 브랜드의 이야기를 AI 영상으로 빠르고 감각적으로 제작해, 플랫폼과 크리에이터 네트워크를 통해 노출까지 한 번에 연결합니다. 기획–제작–배포가 하나의 파이프라인으로 이어져, 기존 광고 제작 대비 짧은 리드타임과 유연한 예산이 강점입니다.\n\n■ 제안하는 협업\n· 브랜디드 필름 / 브랜드 스토리 영상\n· 제품·서비스 프로모션 영상\n· 프리롤·인스트림 광고 캠페인(홈·시네마·OTT 타깃 노출)\n\n■ 제공 가능\n· AI 제작 파이프라인(콘셉트→스크립트→영상)\n· 플랫폼 내 타깃 노출 지면과 크리에이터 협업\n· 캠페인 성과 리포트(노출·시청·전환 지표)\n\n■ 이런 분을 찾습니다\n· 광고주 / 브랜드 마케팅팀\n· 광고대행사 / 미디어 에이전시\n· AI 브랜디드 콘텐츠를 테스트해보려는 스타트업\n\n협업을 원하는 브랜드·대행사는 회사 소개와 캠페인 목표(예산·일정·타깃)를 이 게시판에 남겨주시거나 회사 사이트로 문의 주세요. 샘플 레퍼런스가 필요하시면 함께 안내드립니다.',
     'https://www.creaite.net',
     '대한민국 · 글로벌',
     'open'
   WHERE NOT EXISTS (
     SELECT 1 FROM public.b2b_posts
-    WHERE company_name = 'CREAITE (크리에이트)'
+    WHERE company_name = 'CREAITE (크리에잇)'
       AND title = '광고주·브랜드와 AI 브랜디드 콘텐츠 협업을 원합니다'
   );
 
@@ -73,10 +73,10 @@ END $$;
 -- ── 검증 ──────────────────────────────────────────────────────────────────────
 SELECT
   '① CREAITE 시드 2편 존재' AS check_name,
-  CASE WHEN (SELECT count(*) FROM public.b2b_posts WHERE company_name='CREAITE (크리에이트)') >= 2
+  CASE WHEN (SELECT count(*) FROM public.b2b_posts WHERE company_name='CREAITE (크리에잇)') >= 2
     THEN '✅ PASS' ELSE '🔴 FAIL' END AS status
 UNION ALL
 SELECT '② 공개 노출(get_b2b_posts 로 조회됨)',
   CASE WHEN (SELECT count(*) FROM public.get_b2b_posts(NULL, 30, 0)
-             WHERE company_name='CREAITE (크리에이트)') >= 2
+             WHERE company_name='CREAITE (크리에잇)') >= 2
     THEN '✅ PASS' ELSE '🔴 FAIL' END;

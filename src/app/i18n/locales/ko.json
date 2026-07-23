@@ -38,7 +38,8 @@
       "errCompany": "회사명을 2자 이상 입력해주세요",
       "errTitle": "제목을 2자 이상 입력해주세요",
       "errDesc": "상세 내용을 10자 이상 입력해주세요",
-      "errLink": "사이트 주소는 http:// 또는 https:// 로 시작해야 합니다"
+      "errLink": "사이트 주소는 http:// 또는 https:// 로 시작해야 합니다",
+      "readMore": "자세히 보기"
   },
   "meta": {
     "title": "CREAITE | 세계 최초 AI 시네마 OTT",

@@ -59,6 +59,7 @@ export function B2BBoard({ onSignInClick }: B2BBoardProps) {
   const [filter, setFilter] = useState<"all" | Category>("all");
   const [showModal, setShowModal] = useState(false);
   const [reportTarget, setReportTarget] = useState<B2BPost | null>(null);
+  const [detailPost, setDetailPost] = useState<B2BPost | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -154,7 +155,12 @@ export function B2BBoard({ onSignInClick }: B2BBoardProps) {
                 key={p.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="group relative bg-[#121212] rounded-2xl border border-white/5 p-5 hover:border-[#6366f1]/30 transition-colors"
+                role="button"
+                tabIndex={0}
+                aria-label={`${p.title} — ${t("b2b.readMore")}`}
+                onClick={() => setDetailPost(p)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDetailPost(p); } }}
+                className="group relative bg-[#121212] rounded-2xl border border-white/5 p-5 hover:border-[#6366f1]/30 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6366f1]/60"
               >
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="flex items-center gap-2 min-w-0">
@@ -168,14 +174,14 @@ export function B2BBoard({ onSignInClick }: B2BBoardProps) {
                       </span>
                     )}
                   </div>
-                  {/* 내 글: 삭제 / 남의 글: 신고 */}
+                  {/* 내 글: 삭제 / 남의 글: 신고 (카드 클릭 상세와 겹치지 않게 stopPropagation) */}
                   {p.is_mine ? (
-                    <button onClick={() => void handleDelete(p)} title={t("b2b.delete")}
+                    <button onClick={(e) => { e.stopPropagation(); void handleDelete(p); }} title={t("b2b.delete")}
                       className="p-1.5 rounded hover:bg-red-500/15 text-gray-500 hover:text-red-400 flex-shrink-0">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   ) : (
-                    <button onClick={() => { if (!isAuthenticated) { onSignInClick?.(); return; } setReportTarget(p); }}
+                    <button onClick={(e) => { e.stopPropagation(); if (!isAuthenticated) { onSignInClick?.(); return; } setReportTarget(p); }}
                       title={t("b2b.report")}
                       className="p-1.5 rounded hover:bg-white/10 text-gray-600 hover:text-gray-300 flex-shrink-0 opacity-0 group-hover:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 transition-opacity">
                       <Flag className="w-4 h-4" />
@@ -195,14 +201,21 @@ export function B2BBoard({ onSignInClick }: B2BBoardProps) {
                 </div>
                 <p className="text-sm text-gray-300/90 whitespace-pre-wrap line-clamp-4">{p.description}</p>
 
-                {p.link_url && (
-                  // 서버 CHECK 로 http/https 만 저장되므로 javascript: 스킴 불가.
-                  <a href={p.link_url} target="_blank" rel="noopener noreferrer nofollow"
-                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-[#818cf8] hover:text-white transition-colors">
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    {t("b2b.visitSite")}
-                  </a>
-                )}
+                <div className="mt-3 flex items-center gap-3">
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#818cf8] group-hover:text-white transition-colors">
+                    {t("b2b.readMore")}
+                    <ExternalLink className="w-3.5 h-3.5 rotate-45" />
+                  </span>
+                  {p.link_url && (
+                    // 서버 CHECK 로 http/https 만 저장되므로 javascript: 스킴 불가. 카드 클릭과 분리.
+                    <a href={p.link_url} target="_blank" rel="noopener noreferrer nofollow"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-white transition-colors">
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      {t("b2b.visitSite")}
+                    </a>
+                  )}
+                </div>
               </motion.div>
             );
           })}
@@ -215,6 +228,14 @@ export function B2BBoard({ onSignInClick }: B2BBoardProps) {
           onCreated={(row) => { setPosts((prev) => [row, ...prev]); setShowModal(false); }}
         />
       )}
+      {detailPost && (
+        <B2BDetailModal
+          post={detailPost}
+          onClose={() => setDetailPost(null)}
+          onDelete={async (p) => { await handleDelete(p); setDetailPost(null); }}
+          onReport={(p) => { if (!isAuthenticated) { onSignInClick?.(); return; } setDetailPost(null); setReportTarget(p); }}
+        />
+      )}
       {reportTarget && (
         <ReportModal
           open={!!reportTarget}
@@ -225,6 +246,104 @@ export function B2BBoard({ onSignInClick }: B2BBoardProps) {
           onSignInClick={onSignInClick}
         />
       )}
+    </div>
+  );
+}
+
+// ── 상세 모달 ────────────────────────────────────────────────────────────────
+//   목록 카드는 요약(line-clamp)만 보이므로 클릭 시 본문 전체를 여기서 펼친다.
+//   본문은 whitespace-pre-wrap 이라 시드/작성글의 줄바꿈·리스트가 그대로 산다.
+function B2BDetailModal({
+  post, onClose, onDelete, onReport,
+}: {
+  post: B2BPost;
+  onClose: () => void;
+  onDelete: (p: B2BPost) => void | Promise<void>;
+  onReport: (p: B2BPost) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const isKo = (i18n.language || "ko").startsWith("ko");
+  const meta = CATEGORY_META[post.category] || CATEGORY_META.other;
+  const Icon = meta.Icon;
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString(isKo ? "ko-KR" : "en-US", { year: "numeric", month: "long", day: "numeric" });
+
+  // ESC 로 닫기
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center bg-black/70 backdrop-blur-sm p-0 md:p-4"
+      onClick={onClose} role="dialog" aria-modal="true" aria-label={post.title}>
+      <div
+        className="bg-[#141414] w-full max-w-2xl rounded-t-2xl md:rounded-2xl border border-white/10 max-h-[92vh] md:max-h-[88vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 헤더 */}
+        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-white/10">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${meta.cls}`}>
+                <Icon className="w-3 h-3" />{t(meta.key)}
+              </span>
+              {post.status === "closed" && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/5 text-gray-400 border border-white/10">
+                  {t("b2b.statusClosed")}
+                </span>
+              )}
+            </div>
+            <h3 className="text-lg md:text-xl font-black text-white leading-snug">{post.title}</h3>
+            <div className="mt-2 flex items-center gap-2 text-xs text-gray-400 flex-wrap">
+              <span className="inline-flex items-center gap-1 font-semibold text-[#a78bfa]">
+                <Building2 className="w-3.5 h-3.5" />{post.company_name}
+              </span>
+              {post.region && (
+                <span className="inline-flex items-center gap-0.5"><MapPin className="w-3 h-3" />{post.region}</span>
+              )}
+              <span>· {fmtDate(post.created_at)}</span>
+            </div>
+          </div>
+          <button onClick={onClose} aria-label={t("common.close")}
+            className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white flex-shrink-0">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* 본문 (스크롤) */}
+        <div className="px-5 py-5 overflow-y-auto flex-1">
+          <p className="text-[15px] leading-relaxed text-gray-200/90 whitespace-pre-wrap break-words">
+            {post.description}
+          </p>
+          {post.link_url && (
+            <a href={post.link_url} target="_blank" rel="noopener noreferrer nofollow"
+              className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-semibold text-[#818cf8] hover:text-white transition-colors">
+              <ExternalLink className="w-4 h-4" />
+              {t("b2b.visitSite")}
+            </a>
+          )}
+        </div>
+
+        {/* 푸터: 내 글=삭제 / 남의 글=신고 + 닫기 */}
+        <div className="px-5 py-4 border-t border-white/10 flex items-center gap-2">
+          {post.is_mine ? (
+            <Button variant="outline" onClick={() => void onDelete(post)}
+              className="gap-1.5 text-red-400 border-red-500/30 hover:bg-red-500/10">
+              <Trash2 className="w-4 h-4" />{t("b2b.delete")}
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={() => onReport(post)}
+              className="gap-1.5 text-gray-300 border-white/15 hover:bg-white/10">
+              <Flag className="w-4 h-4" />{t("b2b.report")}
+            </Button>
+          )}
+          <Button onClick={onClose} className="ml-auto bg-white/10 hover:bg-white/15 text-white">
+            {t("common.close")}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

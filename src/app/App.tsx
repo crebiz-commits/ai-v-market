@@ -17,7 +17,7 @@ import { lazyRetry as lazy } from "./utils/lazyRetry";
 import { isNegotiationOnly } from "./utils/licensePricing";
 import { usePayment } from "./hooks/usePayment";
 import { loadCollections } from "./data/collections";
-import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, Loader2, Crown, Users, Handshake } from "lucide-react";
+import { Home, Film, Upload as UploadIcon, MessageSquare, User, LogIn, LogOut, Search, Bell, ShieldCheck, ShoppingCart, Loader2, Crown, Users, Building2 } from "lucide-react";
 import { HamburgerMenu } from "./components/HamburgerMenu";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "./components/ui/dropdown-menu";
@@ -1305,7 +1305,7 @@ function AppContent() {
               aria-label={t("nav.b2b", "배급사 제휴")}
               className={`p-2 transition-colors ${activeTab === "community" ? "text-[#8b5cf6]" : "text-muted-foreground hover:text-foreground"}`}
             >
-              <Handshake className="w-[22px] h-[22px]" />
+              <Building2 className="w-[22px] h-[22px]" />
             </motion.button>
             {/* Language Switcher (Phase 35) */}
             <LanguageSwitcher />
