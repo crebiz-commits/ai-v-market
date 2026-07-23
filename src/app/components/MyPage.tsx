@@ -1403,17 +1403,23 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
       const { error: authErr } = await supabase.auth.updateUser({ data: { name: editName.trim() } });
       if (authErr) throw authErr;
 
-      // 2) public.profiles (display_name / bio / avatar_url / banner_url) — upsert
+      // 2) public.profiles (display_name / bio / avatar_url / banner_url) — 순수 UPDATE.
+      //   ★ upsert(INSERT ... ON CONFLICT DO UPDATE)를 쓰면 안 된다(2026-07-23 실제 오류):
+      //     ON CONFLICT DO UPDATE 는 UPDATE 권한을 **테이블 단위**로 요구하는데,
+      //     profiles 는 보안상 컬럼 단위 GRANT UPDATE(5컬럼)만 부여돼 있어(write-lockdown)
+      //     → "permission denied for table profiles" 로 항상 실패했다.
+      //   순수 UPDATE 는 컬럼 단위 GRANT 로 충분하고, id 를 SET 에 넣지 않는다.
+      //   profiles 행은 가입 트리거(handle_new_user)가 항상 선생성하므로 INSERT 경로 불필요.
       const { error: profileErr } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
+        .update({
           display_name: editName.trim(),
           bio: editBio.trim() || null,
           avatar_url: editAvatarUrl.trim() || null,
           banner_url: editBannerUrl.trim() || null,
           updated_at: new Date().toISOString(),
-        });
+        })
+        .eq('id', user.id);
       if (profileErr) throw profileErr;
 
       // 저장 후 본인 프로필 재조회 — upsert 커밋 전에 USER_UPDATED 리스너가 먼저 도는 레이스로
@@ -2723,9 +2729,10 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
               transition={{ type: "spring" as const, stiffness: 300, damping: 30 }}
               /* 위아래 여백을 둔 배치(중앙고정 X) — 하단 탭바(z-50)가 저장 버튼을 덮던 문제 해결.
                  top-1/2 중앙정렬은 모달 하단이 화면 맨 아래 탭바와 겹쳤다(2026-07-23 2차).
-                 이제 top/bottom 을 safe-area 포함 여백으로 잡고, z-index 를 탭바 위(z-[60])로.
+                 모바일(기본): bottom 을 탭바(5rem)+safe-area 만큼 띄운다.
+                 데스크톱(md:): 탭바가 없으므로(md:hidden) 여백을 1.5rem 으로 줄여 세로 공간 확보.
                  헤더·버튼 고정(shrink-0), 가운데만 overflow-y-auto. */
-              className="fixed inset-x-4 z-[60] bg-[#1a1a1c] rounded-2xl border border-white/10 max-w-sm mx-auto shadow-2xl flex flex-col overflow-hidden top-[max(1.5rem,env(safe-area-inset-top))] bottom-[calc(5rem+env(safe-area-inset-bottom))]"
+              className="fixed inset-x-4 z-[60] bg-[#1a1a1c] rounded-2xl border border-white/10 max-w-sm mx-auto shadow-2xl flex flex-col overflow-hidden top-[max(1.5rem,env(safe-area-inset-top))] bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 md:top-6"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-5 pb-3 shrink-0">
