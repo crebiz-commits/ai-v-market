@@ -1,35 +1,23 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- 🚫 홈피드에서 정지 크리에이터 제외 (2026-07-22) — 업로드 감사 (feed_exclude 짝)
+-- 🚫 홈피드에서 정지 크리에이터 제외 (2026-07-22, v2) — 업로드 감사
 --
---   feed_exclude_suspended_20260722.sql 이 v_available_videos(시네마·추천 등)를 막았지만,
---   홈피드(get_home_feed_order)는 v_home_feed_public(필터 없는 단순 투영)을 쓰므로
---   그 뷰를 안 탄다. 이 파일이 홈 경로를 마저 막는다.
+--   feed_exclude_suspended 가 v_available_videos(시네마·추천)를 막았으나, 홈피드는
+--   v_home_feed_public 을 쓰므로 별도로 막아야 한다.
 --
---   [조치] ① v_home_feed_public 에 profiles 조인 + creator_suspended 플래그 컬럼 추가
---          ② get_home_feed_order 의 3개 SELECT WHERE 에 creator_suspended=false 추가
---   두 원문(get_home_feed_safe_columns_20260620 / home_feed_frozen_order_20260704)에서
---   기계 추출해 최소 편집만 했다(안전 컬럼 세트·동결 정렬 로직 100% 보존).
+--   ▣ v1 은 뷰에 creator_suspended 컬럼을 추가하려다 실패했다:
+--       ERROR 42P16 cannot change name of view column "views" to "creator_suspended"
+--     라이브 v_home_feed_public 은 소스 파일(get_home_feed_safe_columns_20260620)에
+--     없는 'views' 컬럼이 맨 끝에 추가돼 있어(뷰 드리프트) CREATE OR REPLACE 가
+--     컬럼 순서 불일치로 거부한다. → **뷰를 아예 건드리지 않는다.**
+--     뷰가 이미 vp.creator_id 를 노출하므로, 함수에서 profiles 를 직접 확인하면 된다.
 --
---   ★ 두 객체의 새 정본. 원본 두 파일 재실행 금지(필터·컬럼 소실).
---   ▣ 게이트 #6 은 get_home_feed 반환이 v_home_feed_public 인지 확인 — 컬럼 추가는
---     반환 타입에 영향 없으므로 #6 계속 PASS.
+--   [조치] get_home_feed_order 의 4개 SELECT(new/popular/all 개인화) WHERE 에
+--     NOT EXISTS(profiles WHERE id=creator_id AND is_suspended) 추가. 뷰 무수정.
+--
+--   ★ get_home_feed_order 의 새 정본. home_feed_frozen_order_20260704.sql 재실행 금지.
+--     동결 정렬·시리즈 대표작 로직 100% 보존, WHERE 절 4곳에 서브쿼리 1개씩만 추가.
 --   적용: Supabase SQL Editor → Run. 멱등.
 -- ════════════════════════════════════════════════════════════════════════════
-
-CREATE OR REPLACE VIEW public.v_home_feed_public AS
-SELECT
-  v.id, v.thumbnail, v.title, v.creator, v.creator_id, v.likes, v.price_standard,
-  v.duration, v.duration_seconds, v.resolution, v.ai_tool, v.category, v.genre,
-  v.video_url, v.age_rating, v.description, v.tags, v.ai_model_version, v.prompt,
-  v.seed, v.director, v.writer, v.composer, v.cast_credits, v.production_year,
-  v.language, v.subtitle_language, v.visibility, v.highlight_start, v.highlight_end,
-  v.series_id,
-  -- 함수 내부 WHERE/정렬에 필요한 플래그(민감하지 않음)
-  v.show_on_home, v.show_on_ott, v.is_hidden, v.episode_number, v.created_at,
-  -- 정지 크리에이터 제외용 플래그(2026-07-22)
-  COALESCE(p.is_suspended, false) AS creator_suspended
-FROM public.videos v
-LEFT JOIN public.profiles p ON p.id = v.creator_id;
 
 CREATE OR REPLACE FUNCTION public.get_home_feed_order(p_filter text DEFAULT 'all')
 RETURNS SETOF text
@@ -44,7 +32,8 @@ BEGIN
     RETURN QUERY
     SELECT vp.id FROM public.v_home_feed_public vp
     WHERE vp.show_on_home = true AND (vp.visibility = 'public' OR vp.visibility IS NULL) AND COALESCE(vp.is_hidden, false) = false
-      AND COALESCE(vp.creator_suspended, false) = false  -- 정지 크리에이터 제외(2026-07-22)
+      AND NOT EXISTS (SELECT 1 FROM public.profiles psusp
+                     WHERE psusp.id = vp.creator_id AND psusp.is_suspended = true)  -- 정지 크리에이터 제외(2026-07-22)
       AND (
         vp.series_id IS NULL
         OR NOT EXISTS (   -- 시리즈 대표작 = 노출가능 에피소드 중 가장 앞 화(1화 숨김 시 다음 화)
@@ -64,7 +53,8 @@ BEGIN
     RETURN QUERY
     SELECT vp.id FROM public.v_home_feed_public vp
     WHERE vp.show_on_home = true AND (vp.visibility = 'public' OR vp.visibility IS NULL) AND COALESCE(vp.is_hidden, false) = false
-      AND COALESCE(vp.creator_suspended, false) = false  -- 정지 크리에이터 제외(2026-07-22)
+      AND NOT EXISTS (SELECT 1 FROM public.profiles psusp
+                     WHERE psusp.id = vp.creator_id AND psusp.is_suspended = true)  -- 정지 크리에이터 제외(2026-07-22)
       AND (
         vp.series_id IS NULL
         OR NOT EXISTS (   -- 시리즈 대표작 = 노출가능 에피소드 중 가장 앞 화(1화 숨김 시 다음 화)
@@ -98,7 +88,8 @@ BEGIN
     RETURN QUERY
     SELECT vp.id FROM public.v_home_feed_public vp
     WHERE vp.show_on_home = true AND (vp.visibility = 'public' OR vp.visibility IS NULL) AND COALESCE(vp.is_hidden, false) = false
-      AND COALESCE(vp.creator_suspended, false) = false  -- 정지 크리에이터 제외(2026-07-22)
+      AND NOT EXISTS (SELECT 1 FROM public.profiles psusp
+                     WHERE psusp.id = vp.creator_id AND psusp.is_suspended = true)  -- 정지 크리에이터 제외(2026-07-22)
       AND (
         vp.series_id IS NULL
         OR NOT EXISTS (   -- 시리즈 대표작 = 노출가능 에피소드 중 가장 앞 화(1화 숨김 시 다음 화)
@@ -159,7 +150,8 @@ BEGIN
   WHERE vp.show_on_home = true
     AND (vp.visibility = 'public' OR vp.visibility IS NULL)
     AND COALESCE(vp.is_hidden, false) = false
-      AND COALESCE(vp.creator_suspended, false) = false  -- 정지 크리에이터 제외(2026-07-22)
+      AND NOT EXISTS (SELECT 1 FROM public.profiles psusp
+                     WHERE psusp.id = vp.creator_id AND psusp.is_suspended = true)  -- 정지 크리에이터 제외(2026-07-22)
     AND (
       vp.series_id IS NULL
       OR NOT EXISTS (   -- 시리즈 대표작 = 노출가능 에피소드 중 가장 앞 화(1화 숨김 시 다음 화)
@@ -181,15 +173,16 @@ END;
 $function$;
 
 -- ── 검증 ──────────────────────────────────────────────────────────────────────
-SELECT '홈피드 뷰에 정지 플래그' AS check_name,
-  CASE WHEN pg_get_viewdef('public.v_home_feed_public'::regclass) ~ 'creator_suspended'
+SELECT '홈피드 정지 크리에이터 제외' AS check_name,
+  CASE WHEN (SELECT prosrc ~ 'is_suspended' FROM pg_proc WHERE proname='get_home_feed_order')
     THEN '✅ PASS' ELSE '🔴 FAIL' END AS status
 UNION ALL
-SELECT '홈피드 함수가 정지 크리에이터 제외',
-  CASE WHEN (SELECT prosrc ~ 'creator_suspended' FROM pg_proc WHERE proname='get_home_feed_order')
+SELECT '동결 정렬 로직 보존',
+  CASE WHEN (SELECT prosrc ~ '7 days' FROM pg_proc WHERE proname='get_home_feed_order')
     THEN '✅ PASS' ELSE '🔴 FAIL' END
 UNION ALL
-SELECT '동결 정렬 로직 보존',
-  CASE WHEN (SELECT prosrc ~ 'INTERVAL ..7 days' FROM pg_proc WHERE proname='get_home_feed_order')
+SELECT '4개 WHERE 모두 필터(psusp 4회)',
+  CASE WHEN (SELECT (length(prosrc) - length(replace(prosrc,'psusp.is_suspended',''))) / length('psusp.is_suspended') = 4
+             FROM pg_proc WHERE proname='get_home_feed_order')
     THEN '✅ PASS' ELSE '🔴 FAIL' END;
 -- ════════════════════════════════════════════════════════════════════════════

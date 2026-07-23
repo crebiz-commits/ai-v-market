@@ -522,9 +522,11 @@ SELECT * FROM (
   --     셋 다 필터를 갖는지 확인. (구매자 재생은 play-token 별도 판정이라 무관.)
   SELECT 37,
     '정지 크리에이터 영상 노출 차단(피드·홈·시리즈)',
+    --   홈피드는 뷰 드리프트(라이브 v_home_feed_public 에 소스에 없는 'views' 컬럼
+    --   추가됨)로 CREATE OR REPLACE VIEW 가 막혀, 뷰 대신 get_home_feed_order 가
+    --   vp.creator_id 로 profiles 를 직접 확인한다(뷰 무수정).
     CASE WHEN pg_get_viewdef('public.v_available_videos'::regclass) ~ 'is_suspended'
-          AND pg_get_viewdef('public.v_home_feed_public'::regclass) ~ 'creator_suspended'
-          AND (SELECT prosrc ~ 'creator_suspended' FROM pg_proc WHERE proname='get_home_feed_order')
+          AND (SELECT prosrc ~ 'is_suspended' FROM pg_proc WHERE proname='get_home_feed_order')
           AND (SELECT prosrc ~ 'is_suspended' FROM pg_proc WHERE proname='get_series_episodes')
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 feed_exclude_suspended·feed_home_exclude_suspended·series_episodes_exclude_suspended_20260722.sql 재적용'
