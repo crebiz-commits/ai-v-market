@@ -641,6 +641,12 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     };
   }, [cinemaCutoffTriggered]);
 
+  // 미리보기(비구독자) 컷오프 활성 여부의 최신값 — 이어보기 seek 순간에 읽는다.
+  //   needsPreviewCutoff 는 서버 재생토큰(playFullAccess)이 늦게 확정되면 값이 바뀌므로
+  //   effect 클로저에 캡처된 옛값이 아니라 ref 로 현재값을 참조한다.
+  const needsPreviewCutoffRef = useRef(needsPreviewCutoff);
+  useEffect(() => { needsPreviewCutoffRef.current = needsPreviewCutoff; }, [needsPreviewCutoff]);
+
   // ── 이어보기(2026-07-22) — 마지막 재생 지점을 미리 받아두고 플레이어 준비 시 이동 ──
   //   너무 앞(15초 미만)이면 이어볼 의미가 없고, 거의 끝(95%+)이면 재시청이므로 처음부터.
   const resumeAtRef = useRef<number | null>(null);
@@ -687,6 +693,10 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     let resumeDone = false;
     const tryResume = () => {
       if (resumeDone) return;
+      // 비구독자 미리보기 모드에선 이어보기 seek 금지 — 재개 지점이 미리보기 한도(previewSeconds)를
+      //   넘으면 광고 직후 timeupdate 가 즉시 컷오프를 만족해 "미리보기 종료"만 뜬다(1분 미리보기 실종).
+      //   이어보기는 풀액세스(구독·소유·구매·관리자) 전용 → 미리보기는 항상 0초부터 재생.
+      if (needsPreviewCutoffRef.current) { resumeDone = true; return; }
       const at = resumeAtRef.current;
       if (at == null) { resumeDone = true; return; }
       resumeDone = true;
