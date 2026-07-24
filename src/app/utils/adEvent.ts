@@ -6,7 +6,7 @@ import { getViewerSessionKey } from "./sessionKey";
 
 const AD_EVENT_ENDPOINT = `${supabaseUrl}/functions/v1/server/ad-event`;
 
-export type AdEventType = "feed_impression" | "feed_click" | "video_impression" | "video_click";
+export type AdEventType = "feed_impression" | "feed_click" | "video_impression" | "video_click" | "hero_impression" | "hero_click";
 
 export async function sendAdEvent(
   type: AdEventType,

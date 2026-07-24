@@ -774,5 +774,20 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 collab_block_guard_20260724.sql 재적용(collab_notify_privacy_20260614·fix_moderation_rpc_collab_count_20260713 의 해당 함수 재실행 금지)'
 
+  UNION ALL
+  -- 55) 히어로 광고가 집계·과금되는가 (2026-07-24 히어로 무집계 판매 결함 해소)
+  --     hero_display 광고가 노출집계를 안 해 spent_krw=0 영구 → 예산필터 항상 통과 →
+  --     무제한·무과금 노출(광고주 이득/플랫폼 과소수익)이었음. record_hero_impression 이
+  --     독립 dedup('hero:')+예산 과금(spent_krw)+service_role 전용 + ad_video_events 미생성
+  --     (크리에이터 무전이)인지 확인. Edge /ad-event 의 hero_impression 라우팅은 배포로 반영.
+  SELECT 55,
+    '히어로 광고 집계·과금(spent 차감·독립 dedup·크리에이터 무전이)',
+    CASE WHEN (SELECT prosrc ~ 'spent_krw' AND prosrc ~ '''hero:''' AND prosrc !~ 'ad_video_events'
+               FROM pg_proc WHERE proname='record_hero_impression')
+          AND NOT has_function_privilege('anon', 'public.record_hero_impression(uuid, text)', 'EXECUTE')
+          AND NOT has_function_privilege('authenticated', 'public.record_hero_impression(uuid, text)', 'EXECUTE')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 hero_ad_metering_20260724.sql 재적용'
+
 ) AS gate
 ORDER BY sort;

@@ -22,6 +22,7 @@ import { getGenreStyle } from "../utils/brandColors";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { isNegotiationOnly } from "../utils/licensePricing";
+import { sendAdEvent } from "../utils/adEvent";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
 import { useAgeRatings } from "../hooks/useAgeRatings";
 import { useSeriesCounts } from "../hooks/useSeriesCounts";
@@ -717,10 +718,14 @@ const HeroAdBillboard = memo(function HeroAdBillboard({
   const [renIdx, setRenIdx] = useState(0);
   useEffect(() => { setRenIdx(0); setVideoReady(false); }, [ad.id]);
   const playUrl = renditions[renIdx] || "";
-  // ⚠️ 히어로 광고는 노출/클릭 집계(feed_impression/feed_click)를 호출하지 않는다.
-  //   그 경로는 프리롤과 공유하는 ad_charge_dedup 슬롯을 선점해 (a)실제 프리롤의
-  //   크리에이터 수익 이벤트(ad_video_events)를 억제하고 (b)예산광고를 히어로에서 오과금한다.
-  //   히어로 전용 집계가 필요하면 별도 이벤트 타입/RPC(독립 dedup·무억제·hero CPM)를 신설할 것.
+  // 히어로 노출 집계(2026-07-24) — 이 광고가 활성 히어로로 표시될 때 1회 전송. 서버(record_hero_
+  //   impression)가 히어로 전용 dedup(독립 슬롯 'hero:' — 프리롤/피드 슬롯 무선점) + 예산광고면
+  //   spent_krw 차감(hero CPM)으로 처리한다. ad_video_events 는 안 만들어(독립 슬롯) 크리에이터
+  //   수익 억제/오과금 없음. suspended(상세 모달 뒤)면 실제 노출 아니라 미집계.
+  useEffect(() => {
+    if (suspended) return;
+    void sendAdEvent("hero_impression", ad.id, { format: "hero" });
+  }, [ad.id, suspended]);
   useEffect(() => { if (videoRef.current) videoRef.current.muted = muted; }, [muted, videoReady]);
   // 화면 밖이면 정지(배터리/데이터), 재진입 시 재생.
   //   suspended(상세 모달 등 오버레이) 면 IO 를 걸지 않고 즉시 정지 — 오버레이는 가려도
@@ -731,7 +736,7 @@ const HeroAdBillboard = memo(function HeroAdBillboard({
     const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) v.play?.().catch(() => {}); else v.pause?.(); }, { threshold: 0.1 });
     io.observe(v); return () => io.disconnect();
   }, [playUrl, suspended]);
-  const handleCta = () => { openAdLinkSafe(ad.link_url); };
+  const handleCta = () => { void sendAdEvent("hero_click", ad.id, { format: "hero" }); openAdLinkSafe(ad.link_url); };
   return (
     <section className="relative w-full h-[90vh] md:h-[84vh]">
       {/* 블러 배경 — 세로 소재가 가로(데스크탑) 히어로에서 뜰 때 좌우 여백을 채움(크롭 대신) */}

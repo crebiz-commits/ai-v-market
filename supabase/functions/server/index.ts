@@ -1327,7 +1327,7 @@ app.post("/ad-event", async (c: any) => {
     const body = await c.req.json().catch(() => ({}));
     const { ad_id, type, video_id, format, position_seconds, completed, skipped, viewer_key } = body || {};
     if (!ad_id || !type) return c.json({ error: "ad_id, type required" }, 400);
-    const VALID = ["feed_impression", "feed_click", "video_impression", "video_click"];
+    const VALID = ["feed_impression", "feed_click", "video_impression", "video_click", "hero_impression", "hero_click"];
     if (!VALID.includes(type)) return c.json({ error: "invalid type" }, 400);
 
     const supabaseAdmin = getSupabaseClient(true);
@@ -1369,6 +1369,11 @@ app.post("/ad-event", async (c: any) => {
     } else if (type === "video_click") {
       // #4(2026-07-08): viewer_key 전달 → (광고,뷰어,1시간) dedup (클릭 인플레이션 차단)
       await supabaseAdmin.rpc("record_ad_click", { p_ad_id: ad_id, p_video_id: video_id, p_format: format || "preroll", p_viewer_key: key });
+    } else if (type === "hero_impression") {
+      // 2026-07-24: 히어로 전용 집계 — 독립 dedup·hero CPM·ad_video_events 미생성(무집계 판매 결함 해소)
+      await supabaseAdmin.rpc("record_hero_impression", { p_ad_id: ad_id, p_viewer_key: key });
+    } else if (type === "hero_click") {
+      await supabaseAdmin.rpc("record_hero_click", { p_ad_id: ad_id, p_viewer_key: key });
     }
     return c.json({ status: "ok" });
   } catch (e: any) {
