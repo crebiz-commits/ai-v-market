@@ -760,5 +760,19 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 reports_queue_b2b_20260723.sql 재적용(reports_queue_enhance_20260718 의 두 함수 재실행 금지=b2b 분기 소실)'
 
+  UNION ALL
+  -- 54) 협업 DM 이 차단 관계를 막는가 (2026-07-24 차단모델 확장 — 업계 표준 정합)
+  --     user_blocks 차단이 피드 숨김 전용이라 차단 상대가 collab_inquire(문의)·
+  --     collab_thread_send(메시지)로 차단한 사람에게 계속 DM+알림 가능했음(직접링크·기존
+  --     스레드 우회). IG/YT/X/Discord 표준(차단=새 DM 도착 차단, 양방향)에 맞춰 양방향
+  --     is_block_between 가드 추가. 두 함수 정본(collab_notify_privacy_20260614·
+  --     fix_moderation_rpc_collab_count_20260713) 재실행 시 가드 소실 → 드리프트 감시.
+  SELECT 54,
+    '협업 DM 차단 가드(collab_inquire·collab_thread_send 양방향)',
+    CASE WHEN (SELECT prosrc ~ 'is_block_between' FROM pg_proc WHERE proname='collab_inquire')
+          AND (SELECT prosrc ~ 'is_block_between' FROM pg_proc WHERE proname='collab_thread_send')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 collab_block_guard_20260724.sql 재적용(collab_notify_privacy_20260614·fix_moderation_rpc_collab_count_20260713 의 해당 함수 재실행 금지)'
+
 ) AS gate
 ORDER BY sort;
