@@ -1,22 +1,29 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- 🛡️ 신고 큐에 b2b_post 분기 보강 (2026-07-23 전체감사, 커뮤니티 모더레이션)
+-- 🛡️ 신고 큐에 b2b_post 분기 보강 (2026-07-23 전체감사, 커뮤니티 모더레이션)  [정정판 v2]
 --
 --   [중] b2b_partnership_board_20260723 은 create_report 에만 b2b_post 분기(임계 자동숨김)를
 --        넣었고, moderate_report(관리자 수동 keep/remove)·get_pending_reports(큐 preview/삭제
 --        여부)에는 b2b_post 분기가 없었다. b2b_posts.is_hidden 은 컬럼잠금이라 관리자가 신고를
 --        'remove' 처리해도 report status 만 바뀌고 **글은 안 숨겨졌고**, 큐엔 내용(title)도
 --        안 떠 판단 불가였다(자동숨김↔수동모더레이션 비대칭).
---   해결: 두 함수를 SSOT(reports_queue_enhance_20260718.sql) 그대로 복제 + b2b_post 분기만
---        추가(preview·deleted·keep 복원·remove 숨김·dismiss 복원). moderate_report 는 DEFINER
---        라 컬럼잠금 무관하게 b2b is_hidden 갱신 가능. 반환 시그니처 불변(하위호환).
---     ★ get_pending_reports·moderate_report 새 정본. reports_queue_enhance_20260718 의 두 함수
---       재실행 금지(b2b 분기 소실). M4(reports SELECT 회수)는 그 파일에서 이미 적용됨(유지).
+--
+--   ★ v2 정정: get_pending_reports 정본은 **3-arg 페이지네이션판**(reports_queue_pagination_
+--     20260719.sql, 프론트 AdminReports 가 호출). v1 이 실수로 옛 0-arg 판을 되살려 b2b 를
+--     거기 넣었으나 그건 미사용 → 이 v2 는 **3-arg 정본에 b2b_post 를 추가**한다(0-arg 은 안 만듦).
+--     moderate_report(BIGINT,TEXT,TEXT)는 단일 시그니처라 그대로 + b2b 분기.
+--     반환 시그니처·페이지네이션·그룹정렬 전부 정본과 동일 유지. DEFINER 라 b2b is_hidden
+--     컬럼잠금 무관 갱신. ★두 함수 새 정본. reports_queue_pagination_20260719·
+--     reports_queue_enhance_20260718 의 두 함수 재실행 금지(b2b 분기 소실).
 --
 -- 적용: Supabase SQL Editor → Run (멱등).
 -- ════════════════════════════════════════════════════════════════════════════
 
--- ── get_pending_reports (preview + deleted CASE 에 b2b_post 추가) ─────────────
-CREATE OR REPLACE FUNCTION public.get_pending_reports()
+-- ── get_pending_reports (3-arg 페이지네이션 정본 + preview/deleted 에 b2b_post) ──
+CREATE OR REPLACE FUNCTION public.get_pending_reports(
+  p_target_type TEXT    DEFAULT NULL,
+  p_limit       INTEGER DEFAULT 30,
+  p_offset      INTEGER DEFAULT 0
+)
 RETURNS TABLE (
   id               BIGINT,
   target_type      TEXT,
@@ -37,9 +44,20 @@ SECURITY DEFINER
 STABLE
 SET search_path = public, pg_temp
 AS $$
+DECLARE
+  v_type TEXT := NULLIF(NULLIF(p_target_type, 'all'), '');
 BEGIN
   PERFORM public.assert_admin();
   RETURN QUERY
+  WITH page_groups AS (
+    SELECT r.target_type AS g_type, r.target_id AS g_id, MAX(r.created_at) AS g_latest
+    FROM public.reports r
+    WHERE r.status = 'pending'
+      AND (v_type IS NULL OR r.target_type = v_type)
+    GROUP BY r.target_type, r.target_id
+    ORDER BY MAX(r.created_at) DESC, r.target_type, r.target_id
+    LIMIT p_limit OFFSET p_offset
+  )
   SELECT
     r.id, r.target_type, r.target_id, r.reason, r.description,
     r.reporter_id,
@@ -51,31 +69,32 @@ BEGIN
        AND r2.target_id = r.target_id
        AND r2.status = 'pending') AS report_count,
     LEFT(CASE r.target_type
-      WHEN 'video'          THEN (SELECT v.title        FROM public.videos v          WHERE v.id::TEXT  = r.target_id)
-      WHEN 'comment'        THEN (SELECT c.content      FROM public.comments c        WHERE c.id::TEXT  = r.target_id)
-      WHEN 'community_post' THEN (SELECT cp.title       FROM public.community_posts cp WHERE cp.id::TEXT = r.target_id)
-      WHEN 'b2b_post'       THEN (SELECT b.title        FROM public.b2b_posts b        WHERE b.id::TEXT  = r.target_id)
-      WHEN 'user'           THEN (SELECT pr.display_name FROM public.profiles pr       WHERE pr.id::TEXT = r.target_id)
+      WHEN 'video'          THEN (SELECT v.title         FROM public.videos v           WHERE v.id::TEXT  = r.target_id)
+      WHEN 'comment'        THEN (SELECT c.content       FROM public.comments c         WHERE c.id::TEXT  = r.target_id)
+      WHEN 'community_post' THEN (SELECT cp.title        FROM public.community_posts cp WHERE cp.id::TEXT = r.target_id)
+      WHEN 'b2b_post'       THEN (SELECT b.title         FROM public.b2b_posts b        WHERE b.id::TEXT  = r.target_id)
+      WHEN 'user'           THEN (SELECT pr.display_name FROM public.profiles pr        WHERE pr.id::TEXT = r.target_id)
     END, 200) AS target_preview,
     CASE r.target_type
-      WHEN 'video'          THEN NOT EXISTS (SELECT 1 FROM public.videos v          WHERE v.id::TEXT  = r.target_id)
-      WHEN 'comment'        THEN NOT EXISTS (SELECT 1 FROM public.comments c        WHERE c.id::TEXT  = r.target_id)
+      WHEN 'video'          THEN NOT EXISTS (SELECT 1 FROM public.videos v           WHERE v.id::TEXT  = r.target_id)
+      WHEN 'comment'        THEN NOT EXISTS (SELECT 1 FROM public.comments c         WHERE c.id::TEXT  = r.target_id)
       WHEN 'community_post' THEN NOT EXISTS (SELECT 1 FROM public.community_posts cp WHERE cp.id::TEXT = r.target_id)
       WHEN 'b2b_post'       THEN NOT EXISTS (SELECT 1 FROM public.b2b_posts b        WHERE b.id::TEXT  = r.target_id)
-      WHEN 'user'           THEN NOT EXISTS (SELECT 1 FROM public.profiles pr       WHERE pr.id::TEXT = r.target_id)
+      WHEN 'user'           THEN NOT EXISTS (SELECT 1 FROM public.profiles pr        WHERE pr.id::TEXT = r.target_id)
       ELSE false
     END AS target_deleted,
     (SELECT c.video_id FROM public.comments c WHERE c.id::TEXT = r.target_id) AS comment_video_id,
     (SELECT c.post_id  FROM public.comments c WHERE c.id::TEXT = r.target_id) AS comment_post_id
   FROM public.reports r
+  JOIN page_groups g ON g.g_type = r.target_type AND g.g_id = r.target_id
   LEFT JOIN public.profiles p ON p.id = r.reporter_id
   WHERE r.status = 'pending'
-  ORDER BY r.created_at DESC;
+  ORDER BY g.g_latest DESC, r.target_type, r.target_id, r.created_at DESC;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.get_pending_reports() FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.get_pending_reports() FROM anon;
-GRANT EXECUTE ON FUNCTION public.get_pending_reports() TO authenticated;
+REVOKE ALL ON FUNCTION public.get_pending_reports(TEXT, INTEGER, INTEGER) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_pending_reports(TEXT, INTEGER, INTEGER) FROM anon;
+GRANT EXECUTE ON FUNCTION public.get_pending_reports(TEXT, INTEGER, INTEGER) TO authenticated;
 
 -- ── moderate_report (keep/remove/dismiss 에 b2b_post 분기 추가) ────────────────
 CREATE OR REPLACE FUNCTION public.moderate_report(
@@ -200,12 +219,16 @@ REVOKE ALL ON FUNCTION public.moderate_report(BIGINT, TEXT, TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.moderate_report(BIGINT, TEXT, TEXT) FROM anon;
 GRANT EXECUTE ON FUNCTION public.moderate_report(BIGINT, TEXT, TEXT) TO authenticated;
 
--- ── 검증 ──
-SELECT 'get_pending_reports b2b_post preview 분기' AS check_name,
-  CASE WHEN (SELECT prosrc ~ 'b2b_post' FROM pg_proc WHERE proname='get_pending_reports')
+-- ── 검증 (오버로드 안전 — 시그니처 특정) ──
+SELECT 'get_pending_reports(3-arg) b2b_post 분기' AS check_name,
+  CASE WHEN pg_get_functiondef(to_regprocedure('public.get_pending_reports(text,integer,integer)')) ~ 'b2b_post'
     THEN '✅ PASS' ELSE '🔴 FAIL' END AS status
 UNION ALL
-SELECT 'moderate_report b2b_post keep/remove 분기',
+SELECT '구 0-arg get_pending_reports 미부활(오버로드 모호성 방지)',
+  CASE WHEN to_regprocedure('public.get_pending_reports()') IS NULL
+    THEN '✅ PASS' ELSE '🔴 FAIL' END
+UNION ALL
+SELECT 'moderate_report b2b_post keep/remove/dismiss 분기',
   CASE WHEN (SELECT count(*) FROM regexp_matches(
-               (SELECT prosrc FROM pg_proc WHERE proname='moderate_report'), 'b2b_post', 'g')) >= 3
+               pg_get_functiondef(to_regprocedure('public.moderate_report(bigint,text,text)')), 'b2b_post', 'g')) >= 3
     THEN '✅ PASS' ELSE '🔴 FAIL' END;

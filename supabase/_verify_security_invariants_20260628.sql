@@ -754,9 +754,9 @@ SELECT * FROM (
   --     큐로 못 내렸음(자동숨김↔수동모더 비대칭). 두 함수에 b2b_post 분기 존재 확인.
   SELECT 53,
     '신고 큐 b2b_post 수동 모더레이션(remove·preview)',
-    CASE WHEN (SELECT prosrc ~ 'b2b_post' FROM pg_proc WHERE proname='get_pending_reports')
+    CASE WHEN pg_get_functiondef(to_regprocedure('public.get_pending_reports(text,integer,integer)')) ~ 'b2b_post'
           AND (SELECT count(*) FROM regexp_matches(
-                 (SELECT prosrc FROM pg_proc WHERE proname='moderate_report'), 'b2b_post', 'g')) >= 3
+                 pg_get_functiondef(to_regprocedure('public.moderate_report(bigint,text,text)')), 'b2b_post', 'g')) >= 3
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 reports_queue_b2b_20260723.sql 재적용(reports_queue_enhance_20260718 의 두 함수 재실행 금지=b2b 분기 소실)'
 
