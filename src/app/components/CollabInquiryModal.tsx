@@ -183,11 +183,14 @@ export function CollabInquiryModal({ post, typeLabel, typeCls, meId, isKo, isAut
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         onClick={(e) => e.stopPropagation()}
         className="fixed inset-x-3 bottom-3 top-auto md:inset-x-0 md:top-1/2 md:bottom-auto md:-translate-y-1/2 md:mx-auto md:max-w-lg z-[56] h-[82vh] md:h-[78vh] bg-[#141416] rounded-2xl border border-white/10 shadow-2xl flex flex-col overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-label={headerTitle}
       >
         {/* 헤더 */}
         <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10 flex-shrink-0">
           {view !== "detail" && (
-            <button onClick={back} className="p-1 -ml-1 rounded-full hover:bg-white/10 text-gray-300"><ArrowLeft className="w-5 h-5" /></button>
+            <button onClick={back} aria-label={t("common.back", "뒤로")} className="p-1 -ml-1 rounded-full hover:bg-white/10 text-gray-300"><ArrowLeft className="w-5 h-5" /></button>
           )}
           {view === "thread" && <Avatar name={otherName} src={otherAvatar} />}
           <div className="min-w-0">
@@ -197,7 +200,7 @@ export function CollabInquiryModal({ post, typeLabel, typeCls, meId, isKo, isAut
             )}
           </div>
           <div className="flex-1" />
-          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white flex-shrink-0"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} aria-label={t("common.close", "닫기")} className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white flex-shrink-0"><X className="w-5 h-5" /></button>
         </div>
 
         {/* 1) 상세 보기 */}
@@ -345,6 +348,7 @@ export function CollabInquiryModal({ post, typeLabel, typeCls, meId, isKo, isAut
                 placeholder={isKo ? "메시지 입력…" : "Message…"} rows={1}
                 className="flex-1 resize-none max-h-28 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#6366f1]" />
               <button onClick={() => void send()} disabled={!input.trim() || sending}
+                aria-label={t("common.send", "보내기")}
                 className="p-2.5 rounded-xl bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white disabled:opacity-40 flex-shrink-0">
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </button>

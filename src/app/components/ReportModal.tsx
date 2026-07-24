@@ -120,6 +120,9 @@ export function ReportModal({
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[151] mx-auto max-w-md max-h-[85vh] overflow-y-auto bg-card border border-border rounded-2xl shadow-2xl"
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("reportModal.title")}
           >
             {/* Header */}
             <div className="sticky top-0 bg-card border-b border-border px-5 py-4 flex items-center justify-between z-10">
@@ -132,7 +135,7 @@ export function ReportModal({
                   )}
                 </div>
               </div>
-              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted">
+              <button onClick={onClose} aria-label={t("reportModal.cancel")} className="p-1.5 rounded-lg hover:bg-muted">
                 <X className="w-5 h-5" />
               </button>
             </div>

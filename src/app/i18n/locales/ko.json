@@ -108,6 +108,7 @@
   },
   "common": {
     "cancel": "취소",
+    "send": "보내기",
     "confirm": "확인",
     "save": "저장",
     "delete": "삭제",

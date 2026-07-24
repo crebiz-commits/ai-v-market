@@ -79,6 +79,9 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
           animate={{ scale: 1, y: 0 }}
           exit={{ scale: 0.92, y: 20 }}
           onClick={e => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("ageGate.title")}
           className="bg-[#111] rounded-2xl border-2 border-red-500/30 shadow-2xl w-full max-w-md overflow-hidden"
         >
           {/* Header */}
@@ -92,7 +95,7 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
                 <p className="text-[11px] text-red-300/80">{t("ageGate.description")}</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
+            <button onClick={onClose} aria-label={t("common.close", "닫기")} className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
               <X className="w-5 h-5" />
             </button>
           </div>

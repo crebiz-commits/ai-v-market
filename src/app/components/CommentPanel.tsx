@@ -1121,7 +1121,7 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
         {replyTo && (
           <div className="flex items-center justify-between text-xs text-[#8b5cf6] mb-2 bg-[#6366f1]/10 px-3 py-1.5 rounded-lg">
             <span>{t("commentPanel.replyTo", { name: `@${replyTo.name}` })}</span>
-            <button onClick={() => setReplyTo(null)} className="hover:text-white">
+            <button onClick={() => setReplyTo(null)} aria-label={t("common.cancel", "취소")} className="hover:text-white">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -1149,6 +1149,7 @@ export function CommentPanel({ videoId, postId, title, videoCreatorId, onClose, 
           <button
             onClick={handleSubmit}
             disabled={!text.trim() || submitting || !isAuthenticated}
+            aria-label={t("common.send", "보내기")}
             className="w-9 h-9 flex items-center justify-center rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] text-white disabled:opacity-40 transition-opacity flex-shrink-0"
           >
             {submitting ? (
