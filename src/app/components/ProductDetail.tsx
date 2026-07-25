@@ -877,7 +877,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       });
       if (cancelled || error || !data || data.length === 0) return;
       const ad = data[0];
-      const skipOverride = subscriptionTier === "basic" ? 5 : null;
+      const skipOverride: number | null = null;  // 2단(free/premium): free=SKIP 불가, premium은 광고 자체 제거(여기 미도달)
       const rawUrl = ad.video_url || "";
       const videoUrl = rawUrl.includes("/playlist.m3u8")
         ? rawUrl.replace("/playlist.m3u8", "/play_720p.mp4")
@@ -1179,8 +1179,8 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       const ad = await fetchAdForVideo(product.id, "bumper");
       // fetch 중 프리롤이 잡혔으면(레이스) 범퍼 세팅 안 함 — 종료 후 2연속 방지
       if (cancelled || !ad || prerollShownRef.current) return;
-      // Tier별 SKIP 정책 override
-      const skipOverride = subscriptionTier === "basic" ? 5 : null;  // free=null(SKIP 불가)
+      // SKIP 정책 — 2단(free/premium): free=SKIP 불가, premium은 광고 자체 제거(basic 제거됨)
+      const skipOverride: number | null = null;
       postBunnyCommand(iframeRef.current, "pause");
       setBumperAd({ ...ad, skip_after_seconds: skipOverride });
     })();

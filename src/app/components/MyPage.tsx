@@ -1275,11 +1275,10 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
   //      get_my_creator_summary 실패 시 영상이 있어도 판매 탭·정산 카드가 통째로 사라진다.
   const isCreator = creatorSummary.videoCount > 0 || myProducts.length > 0;
 
-  // 구독 등급 표시용 메타. 'basic'은 예약 티어(판매 경로 없음).
+  // 구독 등급 표시용 메타(free/premium 2단 — 'basic' 예약 티어 2026-07-25 제거).
   // 알 수 없는 tier 값이 와도 free 로 폴백 → tierMeta.icon 크래시 방지.
   const tierMetaMap = {
     free: { label: 'FREE', color: 'from-gray-500 to-gray-600', icon: User, desc: t("mypage.subscription.freeDesc") },
-    basic: { label: 'BASIC', color: 'from-[#6366f1] to-[#8b5cf6]', icon: Sparkles, desc: t("mypage.subscription.basicDesc") },
     premium: { label: 'PREMIUM', color: 'from-amber-500 to-orange-500', icon: Crown, desc: t("mypage.subscription.premiumDesc") },
   };
   const tierMeta = tierMetaMap[subscriptionTier] ?? tierMetaMap.free;
