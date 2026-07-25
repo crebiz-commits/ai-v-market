@@ -858,5 +858,17 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 audit_c_hardening_20260725.sql 재적용(ALTER FUNCTION SET search_path)'
 
+  UNION ALL
+  -- 61) should_send_notification service_role 전용 (2026-07-25 알림감사 F3)
+  --     reaudit(0625) REVOKE 를 notification_audit3(0710)이 authenticated 재부여로 무효화 →
+  --     로그인 사용자가 타 user_id 알림설정 프로빙/기본행 생성 가능하던 표면 재봉쇄.
+  --     notification_audit3_20260710.sql 재실행 시 회귀 → 감시(Edge 는 service_role 라 무영향).
+  SELECT 61,
+    'should_send_notification authenticated 비노출(교차설정 프로빙 차단)',
+    CASE WHEN NOT has_function_privilege('authenticated', 'public.should_send_notification(uuid,text,text)', 'EXECUTE')
+          AND NOT has_function_privilege('anon', 'public.should_send_notification(uuid,text,text)', 'EXECUTE')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 should_send_service_role_only_20260725.sql 재적용(audit3 GRANT 재실행 금지)'
+
 ) AS gate
 ORDER BY sort;

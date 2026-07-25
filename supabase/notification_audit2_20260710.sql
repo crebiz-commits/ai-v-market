@@ -14,8 +14,11 @@
 --     벨 방지 디듀프 idx_notifications_link + EXISTS 추가). 이 파일을 재실행하면 그 디듀프가
 --     사라져 숨김→공개 재전환(신고 자동숨김→관리자 복원 등) 때 팔로워 전원에 새영상 벨이
 --     재발송된다. update_my_notification_preferences 도 이 파일 판은 inapp_*/refund 매핑이 없어
---     재실행 시 벨 opt-out 이 회귀. **재실행 금지 — tg_notify_followers_new_video·
---     update_my_notification_preferences 는 admin_audit_hardening_20260714.sql 를 정본으로.**
+--     재실행 시 벨 opt-out 이 회귀. **재실행 금지 — tg_notify_followers_new_video 는
+--     admin_audit_hardening_20260714.sql, update_my_notification_preferences 는
+--     notification_audit3_20260710.sql(inapp_* 전체 매핑 보유) 를 각각 정본으로.**
+--     (F9 2026-07-25 정정: admin_audit_hardening 은 update_my_notification_preferences 를
+--      정의하지 않음 — 그 파일로 "정본 복원" 시 이 함수는 갱신 안 돼 혼선.)
 --
 --     옛 정의 재실행 금지: new_video_follower_notify_20260612.sql(AFTER INSERT + email 게이트),
 --     medium_fixes_db_20260614.sql(email opt-in 게이트, 전 행 OFF),

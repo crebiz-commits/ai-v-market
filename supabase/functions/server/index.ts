@@ -2081,6 +2081,15 @@ app.post('/send-email', async (c) => {
       if (_rlOk === false) {
         return c.json({ error: '알림 발송 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' }, 429);
       }
+      // F2(2026-07-25): 관계 미검증이라 단일 대상 도배(괴롭힘)가 per-caller 30/h 안에서 가능했음.
+      //   같은 caller→target 은 시간당 10건 상한을 추가로 걸어 한 명에게 몰아치는 걸 차단.
+      //   (콘텐츠·링크는 이미 서버고정/same-origin 이라 피싱은 무관, 스팸 상한만 강화.)
+      const { data: _rlTargetOk } = await supabase.rpc('rl_hit', {
+        p_key: `send-email-actor:${callerId}:${user_id}`, p_limit: 10, p_window_sec: 3600,
+      });
+      if (_rlTargetOk === false) {
+        return c.json({ error: '알림 발송 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' }, 429);
+      }
     }
 
     // 수신자 email 은 항상 user_id 로 조회 (클라이언트가 to 를 임의 지정 못 함)
@@ -2167,17 +2176,20 @@ app.post('/send-email', async (c) => {
     };
     // actor=서버 고정값, self·admin=클라값
     const emailSubject = isActor ? (ACTOR_SUBJECT[type] || 'CREAITE 알림') : subject;
-    const emailHtml    = isActor ? buildSafeEmail(emailSubject, inapp.body, inapp.link) : html;
     const inappTitle = isActor
       ? (ACTOR_SUBJECT[type] || 'CREAITE 알림')
       : String(subject || '').replace(/^\[CREAITE\]\s*/, '').slice(0, 200);
-    // 인앱/푸시 link: actor 타입도 same-origin 상대경로(/로 시작, //·/\ 아님) 클라 링크는 허용.
-    //   (App.handleNotificationNavigate 가 화이트리스트 파라미터만 추출 → 외부이동 불가라 피싱 무관.
-    //    이메일 html 만 서버고정 유지.) new_follower 는 위에서 서버구성한 inapp.link 우선.
+    // 인앱/푸시/이메일 CTA link: actor 타입도 same-origin 상대경로(/로 시작, //·/\ 아님) 클라 링크는 허용.
+    //   (App.handleNotificationNavigate 가 화이트리스트 파라미터만 추출 → 외부이동 불가라 피싱 무관.)
+    //   new_follower 는 위에서 서버구성한 inapp.link 우선.
     const isSafeRelLink = (l: unknown): l is string => typeof l === 'string' && /^\/(?![/\\])/.test(l);
     const inappLink = isActor
       ? (type === 'new_follower' ? inapp.link : (isSafeRelLink(clientLink) ? clientLink.slice(0, 500) : inapp.link))
       : ((typeof clientLink === 'string' && clientLink) ? clientLink.slice(0, 500) : inapp.link);
+    // 이메일 HTML — actor 는 서버 고정(제목·본문). CTA link 는 딥링크(inappLink) 사용 → 벨/푸시와 동일 목적지.
+    //   (F1 2026-07-25: 기존엔 inapp.link 를 써서 comment_reply(inapp.link='/')의 답글 이메일 CTA 가
+    //    홈으로 갔음. inappLink 는 same-origin 상대경로 검증을 거쳐 피싱 안전.)
+    const emailHtml    = isActor ? buildSafeEmail(emailSubject, inapp.body, inappLink) : html;
 
     // MED-1: comment_reply/new_video_from_followed 표적 스팸 방지 — 동일 수신자·동일 link 10초 내
     //   중복이면 벨/이메일 모두 생략. 정당한 연속 알림은 link(video/creator id)가 달라 대부분 보존.
@@ -2233,13 +2245,13 @@ app.post('/send-email', async (c) => {
         if (!resendRes.ok) {
           await supabase.rpc('log_notification', {
             p_user_id: user_id, p_type: type, p_channel: 'email', p_recipient: to,
-            p_subject: subject, p_status: 'failed', p_error_message: JSON.stringify(resendData),
+            p_subject: emailSubject, p_status: 'failed', p_error_message: JSON.stringify(resendData),
           });
         } else {
           emailMessageId = resendData.id;
           await supabase.rpc('log_notification', {
             p_user_id: user_id, p_type: type, p_channel: 'email', p_recipient: to,
-            p_subject: subject, p_status: 'sent', p_resend_message_id: resendData.id,
+            p_subject: emailSubject, p_status: 'sent', p_resend_message_id: resendData.id,
           });
         }
       } catch (e) {
