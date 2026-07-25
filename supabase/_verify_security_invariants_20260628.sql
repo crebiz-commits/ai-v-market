@@ -789,5 +789,20 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 hero_ad_metering_20260724.sql 재적용'
 
+  UNION ALL
+  -- 56) 콘텐츠 작성 레이트리밋 트리거 (2026-07-25 정책③ — 도배 방지)
+  --     댓글·커뮤니티글·협업글·B2B글은 클라 직접 insert(RPC 아님)라 서버 레이트리밋이 없어
+  --     도배 가능했음. BEFORE INSERT 트리거로 시간당 상한(댓글30·글10·협업10·b2b5, 관리자 예외).
+  --     4테이블에 rate_limit 트리거가 모두 연결됐는지 확인.
+  SELECT 56,
+    '콘텐츠 작성 레이트리밋(댓글·글·협업·b2b 도배 방지)',
+    CASE WHEN (
+      SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+      WHERE t.tgname IN ('comments_rate_limit','community_posts_rate_limit',
+                         'collab_posts_rate_limit','b2b_posts_rate_limit')
+        AND NOT t.tgisinternal
+    ) = 4 THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 content_rate_limit_20260725.sql 재적용'
+
 ) AS gate
 ORDER BY sort;
