@@ -845,5 +845,18 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 video_views_actual_count_sync_20260710.sql 재적용(백필+트리거)'
 
+  UNION ALL
+  -- 60) confirm_payment search_path 고정 (2026-07-25 C감사)
+  --     결제 확정 DEFINER 함수(service_role 전용)의 search_path 미고정 하드닝 갭. 코드베이스는
+  --     모든 SECURITY DEFINER 에 search_path=public 고정을 표준으로 삼음(게이트 #9 계열).
+  SELECT 60,
+    'confirm_payment search_path 고정(DEFINER 하드닝)',
+    CASE WHEN EXISTS (
+           SELECT 1 FROM pg_proc p
+           WHERE p.oid = to_regprocedure('public.confirm_payment(text,text,text,timestamptz,jsonb)')
+             AND EXISTS (SELECT 1 FROM unnest(COALESCE(p.proconfig, '{}')) c WHERE c LIKE 'search_path=%'))
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 audit_c_hardening_20260725.sql 재적용(ALTER FUNCTION SET search_path)'
+
 ) AS gate
 ORDER BY sort;
