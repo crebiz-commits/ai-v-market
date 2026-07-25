@@ -1,5 +1,5 @@
 // 결제/환불 관리 페이지 (Phase 10.6 + C3: 토스 API 환불 통합)
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Loader2, DollarSign, RotateCcw, RefreshCw } from "lucide-react";
 import { supabase, supabaseUrl, supabaseAnonKey } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
@@ -73,9 +73,12 @@ export function AdminPayments() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const PAGE = 50;
+  // 요청 시퀀스 — "더 보기" 인플라이트 중 필터 전환 시 옛 필터 행이 새 목록에 뒤섞이던 레이스 차단.
+  const seqRef = useRef(0);
 
   const load = async (append = false) => {
     if (append && loadingMore) return;                 // 동기 중복 클릭 가드
+    const seq = ++seqRef.current;
     const off = append ? payments.length : 0;
     if (append) setLoadingMore(true); else setLoading(true);
     const { data, error } = await supabase.rpc("admin_get_all_payments", {
@@ -84,6 +87,10 @@ export function AdminPayments() {
       p_limit: PAGE,
       p_offset: off,
     });
+    if (seq !== seqRef.current) {                       // 더 최신 요청이 이미 떴음 → 결과 폐기
+      if (append) setLoadingMore(false); else setLoading(false);
+      return;
+    }
     if (error) {
       toast.error("결제 목록 조회 실패: " + error.message);
       if (!append) setPayments([]);

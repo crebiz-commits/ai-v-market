@@ -3,7 +3,7 @@
 // 패턴: AdminContent.tsx 를 따라 작성 (검색 + 필터 + 리스트 + 액션)
 // 크리에이터별 댓글 관리는 CommentSettings.tsx,
 // 신고 처리는 AdminReports 가 담당. 본 화면은 어드민이 능동적으로 부적절 댓글을 발견·처리할 때 사용.
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import {
   Loader2, Search, Eye, EyeOff, Trash2, MessageSquare, Flag, Filter, Pin, Heart, Film, ExternalLink,
 } from "lucide-react";
@@ -68,9 +68,12 @@ export function AdminComments() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const PAGE = 50;
+  // 요청 시퀀스 — "더 보기" 인플라이트 중 필터 전환 시 옛 필터 행이 새 목록에 뒤섞이던 레이스 차단.
+  const seqRef = useRef(0);
 
   const load = async (append = false) => {
     if (append && loadingMore) return;                 // 동기 중복 클릭 가드
+    const seq = ++seqRef.current;
     const off = append ? rows.length : 0;
     if (append) setLoadingMore(true); else setLoading(true);
     const { data, error } = await supabase.rpc("admin_search_comments", {
@@ -79,6 +82,10 @@ export function AdminComments() {
       p_limit: PAGE,
       p_offset: off,
     });
+    if (seq !== seqRef.current) {                       // 더 최신 요청이 이미 떴음 → 결과 폐기
+      if (append) setLoadingMore(false); else setLoading(false);
+      return;
+    }
     if (error) {
       toast.error("댓글 목록 조회 실패: " + error.message);
       if (!append) setRows([]);

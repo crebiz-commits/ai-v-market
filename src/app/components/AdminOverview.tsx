@@ -48,8 +48,11 @@ interface AdPerf {
   total_spent: number; total_budget: number; avg_ctr: number;
 }
 
-function won(n: number) { return "₩" + (n || 0).toLocaleString(); }
-function num(n: number) { return (n || 0).toLocaleString(); }
+// ⚠️ get_admin_dashboard_summary·get_daily_* 는 지표를 BIGINT 로 반환 → PostgREST 가 JSON
+//   문자열로 직렬화한다. 문자열에 .toLocaleString() 하면 천단위 구분이 안 붙으므로(무포맷)
+//   반드시 Number() 로 캐스팅한 뒤 포맷한다(코드베이스 공통 관례 — AdminRevenueSettlement 등).
+function won(n: number) { return "₩" + Number(n || 0).toLocaleString(); }
+function num(n: number) { return Number(n || 0).toLocaleString(); }
 
 export function AdminOverview() {
   const [loading, setLoading] = useState(true);
@@ -124,9 +127,18 @@ export function AdminOverview() {
     const date = new Date(d);
     return `${date.getMonth() + 1}/${date.getDate()}`;
   };
-  const revenueChartData = dailyRevenue.map(r => ({ ...r, day: fmtDay(r.day) }));
-  const userGrowthChartData = userGrowth.map(r => ({ ...r, day: fmtDay(r.day) }));
-  const viewsChartData = dailyViews.map(r => ({ ...r, day: fmtDay(r.day) }));
+  // BIGINT → 문자열 직렬화라 recharts 수치축이 어긋난다 → 명시적 Number() 캐스팅.
+  const revenueChartData = dailyRevenue.map(r => ({
+    day: fmtDay(r.day), subscription: Number(r.subscription), license: Number(r.license),
+    ad_budget: Number(r.ad_budget), total: Number(r.total),
+  }));
+  const userGrowthChartData = userGrowth.map(r => ({
+    day: fmtDay(r.day), new_users: Number(r.new_users), cumulative: Number(r.cumulative),
+  }));
+  const viewsChartData = dailyViews.map(r => ({
+    day: fmtDay(r.day), total_views: Number(r.total_views), valid_views: Number(r.valid_views),
+    watch_hours: Number(r.watch_hours),
+  }));
 
   return (
     <div className="space-y-6">

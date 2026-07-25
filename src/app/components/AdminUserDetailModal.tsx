@@ -263,7 +263,10 @@ export function AdminUserDetailModal({ userId, onClose, onChanged }: { userId: s
                   <CreditCard className="w-3.5 h-3.5" />정산 정보
                 </p>
                 <Row label="정산 계좌" value={p.has_payout_info ? "등록됨" : "미등록"} />
-                {p.tax_type && <Row label="과세 유형" value={p.tax_type === "business" ? "사업자" : "개인"} />}
+                {p.tax_type && <Row label="과세 유형" value={
+                  ({ individual: "비사업자", business_simple: "간이과세자", business_general: "일반과세자", business_corp: "법인" } as Record<string, string>)[p.tax_type]
+                  ?? (p.tax_type.startsWith("business") ? "사업자" : "개인")
+                } />}
                 {p.business_name && <Row label="상호" value={p.business_name} />}
                 {p.business_number && <Row label="사업자번호" value={p.business_number} />}
               </div>
