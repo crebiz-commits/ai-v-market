@@ -164,7 +164,13 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const fileObjectUrlRef = useRef<string | null>(null);
   const uploadAbortRef = useRef<AbortController | null>(null);  // 업로드 중 언마운트/취소 시 TUS 전송 중단
-  useEffect(() => () => uploadAbortRef.current?.abort(), []);
+  const pollCancelRef = useRef(false);   // 언마운트 시 모더레이션/히어로 폴러 중단(불필요 백그라운드 요청 방지)
+  useEffect(() => () => {
+    uploadAbortRef.current?.abort();
+    pollCancelRef.current = true;
+    // 미리보기용 blob URL 회수(파일 선택만 하고 탭 이탈 시 누수 방지)
+    if (fileObjectUrlRef.current) { URL.revokeObjectURL(fileObjectUrlRef.current); fileObjectUrlRef.current = null; }
+  }, []);
   const uploadingRef = useRef(false);   // 동기 중복 제출 락(stale-closure 방지)
   // 재시도용: TUS까지 성공했으나 save-metadata 실패한 Bunny 영상 재사용(중복 생성·고아 방지)
   const uploadedRef = useRef<{ file: File; videoId: string; bunnyHostname: string; subtitleUrl: string } | null>(null);
@@ -985,6 +991,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
         // 10회(8s + 30s×9 ≈ 4.6분) — 대용량/4K 인코딩 시간 커버. 주 경로는 Bunny 웹훅.
         for (let attempt = 0; attempt < 10; attempt++) {
           await new Promise((r) => setTimeout(r, attempt === 0 ? 8000 : 30000));
+          if (pollCancelRef.current) return;   // 언마운트 시 폴링 중단
           try {
             const res = await fetch(moderateUrl, {
               method: 'POST',
@@ -1010,6 +1017,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
         (async () => {
           for (let attempt = 0; attempt < 10; attempt++) {
             await new Promise((r) => setTimeout(r, attempt === 0 ? 8000 : 30000));
+          if (pollCancelRef.current) return;   // 언마운트 시 폴링 중단
             try {
               const res = await fetch(clipModUrl, {
                 method: 'POST',

@@ -24,7 +24,7 @@ import { FollowButton } from "./FollowButton";
 import { VideoEditModal } from "./VideoEditModal";
 import { Pencil, Clock as ClockIcon, Play, Pause } from "lucide-react";
 import { AgeBadge, shouldBlur } from "./AgeBadge";
-import { useAgeRatings } from "../hooks/useAgeRatings";
+import { useAgeRatings, seedAgeRatings } from "../hooks/useAgeRatings";
 import { useSeriesCounts } from "../hooks/useSeriesCounts";
 import { AgeGateModal } from "./AgeGateModal";
 import { ShareModal } from "./ShareModal";
@@ -460,7 +460,10 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
           p_tier: "all",
           p_limit: 8,
         });
-        if (!cancelled && !error && data) setSimilarVideos(data as CarouselVideo[]);
+        if (!cancelled && !error && data) {
+          seedAgeRatings(data as Array<{ id: string; age_rating?: string | null }>);  // 캐시 선주입 → 썸네일 무블러창 제거
+          setSimilarVideos(data as CarouselVideo[]);
+        }
       } catch (err) {
         console.warn("[ProductDetail] similar videos fetch failed:", err);
       }
@@ -1269,6 +1272,9 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
 
         if (!data || data.length === 0) return;
         const v = data[0];
+        // get_similar_videos 소스면 age_rating 포함 → 캐시 선주입해 오버레이 썸네일 무블러창 제거
+        //   (trending/new_releases 폴백은 age_rating 미포함 → 훅이 별도 조회로 커버)
+        seedAgeRatings(data as Array<{ id: string; age_rating?: string | null }>);
         setNextVideo({
           id: v.id,
           title: v.title,

@@ -6,6 +6,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { useAuth } from "../contexts/AuthContext";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 import { toast } from "sonner";
 
 interface AuthModalProps {
@@ -15,6 +16,7 @@ interface AuthModalProps {
 
 export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
   const { t } = useTranslation();
+  const trapRef = useFocusTrap<HTMLDivElement>(true, onClose);  // 마운트=열림
   const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState("");
@@ -115,6 +117,7 @@ export function AuthModal({ onClose, initialMode = "signin" }: AuthModalProps) {
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
         className="bg-white w-full max-w-[420px] rounded-t-2xl md:rounded-2xl overflow-hidden shadow-2xl flex flex-col min-h-[500px] md:min-h-0"
         onClick={(e) => e.stopPropagation()}
+        ref={trapRef}
         role="dialog"
         aria-modal="true"
         aria-label={t("auth.signIn", "로그인")}

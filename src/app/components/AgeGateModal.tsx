@@ -11,6 +11,7 @@ import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 
 interface AgeGateModalProps {
   open: boolean;
@@ -20,6 +21,7 @@ interface AgeGateModalProps {
 
 export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
   const { t } = useTranslation();
+  const trapRef = useFocusTrap<HTMLDivElement>(open, onClose);
   const { isAuthenticated, refreshProfile } = useAuth();
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
@@ -35,7 +37,7 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
     const m = parseInt(month, 10);
     const d = parseInt(day, 10);
     if (!y || !m || !d || y < 1900 || y > new Date().getFullYear() || m < 1 || m > 12 || d < 1 || d > 31) {
-      toast.error(t("ageGate.tooOld"));
+      toast.error(t("ageGate.tooOld"));   // 메시지 실값="올바른 날짜를 입력해주세요"(형식 안내, 적절)
       return;
     }
     const birthdate = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -79,6 +81,7 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
           animate={{ scale: 1, y: 0 }}
           exit={{ scale: 0.92, y: 20 }}
           onClick={e => e.stopPropagation()}
+          ref={trapRef}
           role="dialog"
           aria-modal="true"
           aria-label={t("ageGate.title")}
@@ -120,7 +123,7 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
                   type="number"
                   inputMode="numeric"
                   value={year}
-                  onChange={e => setYear(e.target.value)}
+                  onChange={e => setYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
                   placeholder="1990"
                   maxLength={4}
                   className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-400"
@@ -130,7 +133,7 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
                   type="number"
                   inputMode="numeric"
                   value={month}
-                  onChange={e => setMonth(e.target.value)}
+                  onChange={e => setMonth(e.target.value.replace(/\D/g, "").slice(0, 2))}
                   placeholder="01"
                   maxLength={2}
                   className="w-16 bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-400 text-center"
@@ -140,7 +143,7 @@ export function AgeGateModal({ open, onClose, onResult }: AgeGateModalProps) {
                   type="number"
                   inputMode="numeric"
                   value={day}
-                  onChange={e => setDay(e.target.value)}
+                  onChange={e => setDay(e.target.value.replace(/\D/g, "").slice(0, 2))}
                   placeholder="01"
                   maxLength={2}
                   className="w-16 bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-400 text-center"

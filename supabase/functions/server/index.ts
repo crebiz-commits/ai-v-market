@@ -2746,6 +2746,9 @@ app.post('/moderate-video', async (c) => {
     const { data: caller, error: callerErr } = await supabase.auth.getUser(token);
     if (callerErr || !caller?.user) return c.json({ error: '인증 실패' }, 401);
     const callerId = caller.user.id;
+    // 정지 계정 차단(2026-07-25): 소유자·관리자 모두 정지 시 모더레이션/히어로 조작 불가(정지=쓰기 금지)
+    const _suspendedMod = await blockIfSuspended(callerId);
+    if (_suspendedMod) return _suspendedMod;
 
     const { video_id } = await c.req.json();
 
@@ -2800,6 +2803,9 @@ app.post('/videos/set-hero-clip', async (c) => {
     const { data: caller, error: callerErr } = await supabase.auth.getUser(token);
     if (callerErr || !caller?.user) return c.json({ error: '인증 실패' }, 401);
     const callerId = caller.user.id;
+    // 정지 계정 차단(2026-07-25): 소유자·관리자 모두 정지 시 히어로 클립 설정 불가(정지=쓰기 금지)
+    const _suspendedHero = await blockIfSuspended(callerId);
+    if (_suspendedHero) return _suspendedHero;
 
     const { video_id, heroClipId } = await c.req.json();
     if (!video_id) return c.json({ error: 'Missing video_id' }, 400);
@@ -2847,6 +2853,9 @@ app.post('/moderate-hero-clip', async (c) => {
     const { data: caller, error: callerErr } = await supabase.auth.getUser(token);
     if (callerErr || !caller?.user) return c.json({ error: '인증 실패' }, 401);
     const callerId = caller.user.id;
+    // 정지 계정 차단(2026-07-25): 소유자·관리자 모두 정지 시 모더레이션/히어로 조작 불가(정지=쓰기 금지)
+    const _suspendedMod = await blockIfSuspended(callerId);
+    if (_suspendedMod) return _suspendedMod;
 
     const { video_id } = await c.req.json();
     if (!video_id) return c.json({ error: 'Missing video_id' }, 400);

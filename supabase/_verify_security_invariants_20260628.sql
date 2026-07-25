@@ -804,5 +804,31 @@ SELECT * FROM (
     ) = 4 THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 content_rate_limit_20260725.sql 재적용'
 
+  UNION ALL
+  -- 57) 협업 DM 레이트리밋 + tg_content_rate_limit 제네릭 (2026-07-25 A2)
+  --     collab_messages(sender_id)·collab_threads(inquirer_id) 도배 상한. tg_content_rate_limit
+  --     을 컬럼명 인자(TG_ARGV[1]) 제네릭으로 확장해 붙임. content_rate_limit_20260725 의 함수를
+  --     재실행하면 비제네릭(user_id 고정)으로 되돌아가 collab_messages insert 가 깨진다 → 감시.
+  SELECT 57,
+    '협업 DM 레이트리밋(메시지·문의) + rate_limit 함수 제네릭',
+    CASE WHEN (SELECT prosrc ~ 'TG_ARGV\[1\]' FROM pg_proc WHERE proname='tg_content_rate_limit')
+          AND (SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+               WHERE t.tgname IN ('collab_messages_rate_limit','collab_threads_rate_limit')
+                 AND NOT t.tgisinternal) = 2
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 dm_content_rate_limit_20260725.sql 재적용(content_rate_limit_20260725.sql 의 함수 재실행 금지=비제네릭 회귀)'
+
+  UNION ALL
+  -- 58) 유사영상 RPC age_rating 반환 (2026-07-25 A6)
+  --     get_similar_videos 가 age_rating 을 실어야 ProductDetail 관련영상·다음영상 카드가
+  --     useAgeRatings 조회 응답 대기 없이 즉시 캐시 seed → 19+ 썸네일 무블러 로딩창 제거.
+  --     phase32_similar_videos.sql 재실행 시 age_rating 누락으로 회귀 → 감시.
+  SELECT 58,
+    '유사영상 get_similar_videos age_rating 반환',
+    CASE WHEN to_regprocedure('public.get_similar_videos(text,text,integer)') IS NOT NULL
+          AND pg_get_function_result(to_regprocedure('public.get_similar_videos(text,text,integer)')) ~ 'age_rating'
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 similar_videos_age_rating_20260725.sql 재적용(phase32_similar_videos.sql 재실행 금지=age_rating 누락 회귀)'
+
 ) AS gate
 ORDER BY sort;

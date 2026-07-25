@@ -923,11 +923,17 @@ function AppContent() {
   }, []);
 
   // 로그인 시 Supabase에서 장바구니 로드, 로그아웃 시 로컬 state 비우기
+  const cartUserRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isAuthenticated || !user) {
       setCartItems([]);
+      cartUserRef.current = null;
       return;
     }
+    // 로컬 병합(보류항목 보존)은 직전이 로그아웃(null) 또는 같은 유저일 때만 — 계정 A→B
+    //   직접전환(교차계정 비번재설정 딥링크 등, null 미경유)이면 A 카트가 B 화면에 남지 않게 폐기.
+    const _keepLocalCart = cartUserRef.current === null || cartUserRef.current === user.id;
+    cartUserRef.current = user.id;
     // 로그아웃/유저전환 중 늦게 도착한 응답이 이전 유저 장바구니를 되살리는 것 방지
     let cancelled = false;
     (async () => {
@@ -957,7 +963,9 @@ function AppContent() {
       //   → id 기준 병합으로 방금 담은 항목이 사라지지 않게 보존.
       setCartItems((prev) => {
         const byId = new Map<string, CartItem>(items.map((i) => [i.id, i]));
-        for (const local of prev) if (!byId.has(local.id)) byId.set(local.id, local);
+        if (_keepLocalCart) {
+          for (const local of prev) if (!byId.has(local.id)) byId.set(local.id, local);
+        }
         return Array.from(byId.values());
       });
     })();

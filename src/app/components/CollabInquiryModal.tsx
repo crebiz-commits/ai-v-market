@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../utils/supabaseClient";
 import { timeAgo } from "../utils/timeAgo";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 
 interface ThreadRow {
   threadId: string;
@@ -61,6 +62,7 @@ interface Props {
 
 export function CollabInquiryModal({ post, typeLabel, typeCls, meId, isKo, isAuthenticated, onClose, onRequireLogin, onToggleStatus, onDelete }: Props) {
   const { t } = useTranslation();
+  const trapRef = useFocusTrap<HTMLDivElement>(true, onClose);  // 마운트=열림
   const isAuthor = !!meId && post.ownerId === meId;
   const closed = post.status === "closed";
 
@@ -182,6 +184,7 @@ export function CollabInquiryModal({ post, typeLabel, typeCls, meId, isKo, isAut
         initial={{ opacity: 0, scale: 0.96, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         onClick={(e) => e.stopPropagation()}
+        ref={trapRef}
         className="fixed inset-x-3 bottom-3 top-auto md:inset-x-0 md:top-1/2 md:bottom-auto md:-translate-y-1/2 md:mx-auto md:max-w-lg z-[56] h-[82vh] md:h-[78vh] bg-[#141416] rounded-2xl border border-white/10 shadow-2xl flex flex-col overflow-hidden"
         role="dialog"
         aria-modal="true"

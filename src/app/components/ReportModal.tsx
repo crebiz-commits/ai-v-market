@@ -22,6 +22,7 @@ import { X, Loader2, Flag } from "lucide-react";
 import { Button } from "./ui/button";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -55,6 +56,7 @@ export function ReportModal({
   onSignInClick,
 }: ReportModalProps) {
   const { t } = useTranslation();
+  const trapRef = useFocusTrap<HTMLDivElement>(open, onClose);
   const { isAuthenticated } = useAuth();
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
   const [description, setDescription] = useState("");
@@ -120,6 +122,7 @@ export function ReportModal({
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[151] mx-auto max-w-md max-h-[85vh] overflow-y-auto bg-card border border-border rounded-2xl shadow-2xl"
             onClick={(e) => e.stopPropagation()}
+            ref={trapRef}
             role="dialog"
             aria-modal="true"
             aria-label={t("reportModal.title")}

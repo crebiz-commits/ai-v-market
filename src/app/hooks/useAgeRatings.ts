@@ -19,6 +19,16 @@ export function getCachedAgeRating(videoId: string): string {
   return cache[videoId] || "all";
 }
 
+// age_rating 을 함께 반환하는 RPC(get_similar_videos 등) 결과로 캐시를 미리 채운다.
+//   useAgeRatings 훅의 별도 조회 응답을 기다리는 로딩창 동안 19+ 썸네일이 무블러로
+//   노출되던 fail-open 을 제거(shouldBlur(undefined)=false). setState 직전에 호출하면
+//   같은 렌더에서 훅이 캐시 hit → 창 없이 즉시 블러. 이미 있는 값은 덮지 않음(권위값 보존).
+export function seedAgeRatings(entries: Array<{ id?: string | null; age_rating?: string | null }>): void {
+  for (const e of entries) {
+    if (e && e.id && !(e.id in cache)) cache[e.id] = e.age_rating || "all";
+  }
+}
+
 export function useAgeRatings(videoIds: string[]): RatingMap {
   const key = videoIds.join(",");
   const [version, force] = useState(0);
