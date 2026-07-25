@@ -44,6 +44,7 @@ RETURNS TABLE (
 LANGUAGE plpgsql
 SECURITY DEFINER
 STABLE
+SET search_path = public   -- 게이트 #9: CREATE OR REPLACE 는 sweep 이 ALTER 로 붙인 search_path 를 초기화 → 정의부에 직접 고정
 AS $$
 DECLARE
   v_creator_id UUID;
