@@ -830,5 +830,20 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 similar_videos_age_rating_20260725.sql 재적용(phase32_similar_videos.sql 재실행 금지=age_rating 누락 회귀)'
 
+  UNION ALL
+  -- 59) 공개 조회수 실시간 동기화 트리거 (2026-07-10 → 2026-07-25 B감사 편입)
+  --     videos.views(공개 카드·채널·탐색 소스)를 video_views(is_valid) 실측과 ±1 동기화하는
+  --     trg_sync_video_views_count 가 있어야 공개 조회수 = 크리에이터 대시보드(get_creator_video_view_counts,
+  --     동일 is_valid 기준). 트리거 유실 시 공개 카운트가 backfill 값에 얼어붙어 대시보드와
+  --     조용히 벌어진다(과거 "총조회수 소스 불일치"의 원인) → 감시.
+  SELECT 59,
+    '공개 조회수 동기화 트리거(videos.views↔video_views)',
+    CASE WHEN EXISTS (
+           SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+           WHERE t.tgname='trg_sync_video_views_count' AND c.relname='video_views'
+             AND NOT t.tgisinternal)
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 video_views_actual_count_sync_20260710.sql 재적용(백필+트리거)'
+
 ) AS gate
 ORDER BY sort;

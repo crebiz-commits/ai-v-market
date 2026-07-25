@@ -480,7 +480,7 @@ const mapProductRow = (r: any, viewMap: Record<string, number>, t: TFn) => ({
   id: r.id,
   thumbnail: r.thumbnail,
   title: r.title,
-  views: viewMap[r.id] ?? 0,   // 유효 조회수(video_views). videos.views(TEXT)는 미갱신이라 미사용
+  views: viewMap[r.id] ?? 0,   // 유효 조회수(video_views is_valid 권위 소스). videos.views 와 동기화됨(2026-07-10)
   likes: Number(r.likes) || 0,
   sales: Number(r.sales_count) || 0,
   revenue: Number(r.revenue) || 0,
@@ -779,7 +779,9 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
         supabase.rpc('get_my_creator_summary'),
       ]);
 
-      // 유효 조회수(video_views 기준) 영상별 집계 — videos.views 컬럼은 갱신 안 되므로 대신 사용.
+      // 유효 조회수(video_views is_valid 실측) 영상별 집계 — 권위 소스에서 직접 집계.
+      //   (참고: videos.views 컬럼도 2026-07-10 trg_sync_video_views_count 로 동일 is_valid
+      //    기준 실시간 동기화되므로 공개 카드와 값이 일치한다. 대시보드는 권위 소스를 직접 읽음.)
       const viewMap: Record<string, number> = {};
       try {
         const { data: vc } = await supabase.rpc("get_creator_video_view_counts");
