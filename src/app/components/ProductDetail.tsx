@@ -1162,8 +1162,8 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
     openExternal(product.sponsorLinkUrl);
   };
 
-  // ── Phase 28: Bumper 광고 (영상 시작 직후 6초, 구독자 tier별 SKIP 차등) ──
-  // 정책: Free=SKIP 불가 / Basic=5초 후 SKIP / Premium=광고 제거
+  // ── Phase 28: Bumper 광고 (영상 시작 직후 6초) ──
+  // 정책(2단): Free=SKIP 불가 / Premium=광고 자체 제거(basic 티어 2026-07-25 제거)
   const [bumperAd, setBumperAd] = useState<AdRpcResult | null>(null);
   useEffect(() => {
     setBumperAd(null);
