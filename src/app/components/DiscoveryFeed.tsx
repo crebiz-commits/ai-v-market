@@ -418,6 +418,7 @@ const MovieSection = memo(({
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const retryCountRef = useRef(0);  // 자동 재시도 카운터 (최대 2회)
+  const tapStartRef = useRef<{ x: number; y: number; t: number } | null>(null);  // 탭 판정용(스크롤/롱프레스 구분)
   // 하이라이트 기본 길이(초) — 관리자 수익 정책에서 조절(feed_highlight_seconds).
   //   timeupdate 핸들러가 매 틱 읽어야 하는데 이걸 effect 의존성에 넣으면 값 변경 시
   //   플레이어가 통째로 재생성되므로, ref 로 최신값만 갈아끼운다.
@@ -656,10 +657,18 @@ const MovieSection = memo(({
         </div>
       </div>
 
-      {/* 클릭 재생/정지 */}
+      {/* 탭 재생/정지 — 스냅 스크롤 컨테이너 안에서 bare onClick 은 손가락 미세이동에 취소돼
+          모바일에서 탭 토글이 안 먹던 문제 → pointerdown/up 을 이동·시간 임계값으로 직접 판정(2026-07-27).
+          preventDefault 를 안 하므로 스크롤은 그대로 동작. */}
       <div
         className="absolute inset-0 z-20 cursor-pointer pointer-events-auto"
-        onClick={() => {
+        onPointerDown={(e) => { tapStartRef.current = { x: e.clientX, y: e.clientY, t: Date.now() }; }}
+        onPointerCancel={() => { tapStartRef.current = null; }}
+        onPointerUp={(e) => {
+          const s = tapStartRef.current; tapStartRef.current = null;
+          if (!s) return;
+          // 스크롤(이동 > 12px)·롱프레스(> 500ms)는 탭이 아님 → 무시
+          if (Math.hypot(e.clientX - s.x, e.clientY - s.y) > 12 || Date.now() - s.t > 500) return;
           if (!isActive) {
             // 비활성 카드 탭 → 이 카드를 활성화 (스크롤과 동일한 효과)
             onSetActive(video.id);
