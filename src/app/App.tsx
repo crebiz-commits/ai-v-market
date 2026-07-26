@@ -1595,7 +1595,23 @@ function AppContent() {
                   transition-colors duration-200
                 `}
               >
-                <Icon className={`w-[20px] h-[20px] transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} />
+                {/* 마이 탭: 로그인 상태면 유튜브처럼 프로필 아바타(원형)를 표시. 활성 시 보라 링. */}
+                {id === "mypage" && isAuthenticated ? (
+                  <span
+                    className={`w-[22px] h-[22px] rounded-full overflow-hidden grid place-items-center shrink-0 transition-transform duration-200
+                      ${isActive ? 'scale-110 ring-2 ring-[#8b5cf6]' : 'ring-1 ring-white/20'}`}
+                  >
+                    {profile?.avatar_url ? (
+                      <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="w-full h-full grid place-items-center bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] text-white font-extrabold text-[11px] leading-none">
+                        {(profile?.display_name || user?.name || "C").charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  <Icon className={`w-[20px] h-[20px] transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} />
+                )}
                 <span className="text-[10px] font-bold tracking-tight">{label}</span>
                 {isActive && (
                   <motion.div
@@ -1650,7 +1666,23 @@ function AppContent() {
                   transition-colors duration-200
                 `}
               >
-                <Icon className={`w-[20px] h-[20px] transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} />
+                {/* 마이 탭: 로그인 상태면 유튜브처럼 프로필 아바타(원형)를 표시. 활성 시 보라 링. */}
+                {id === "mypage" && isAuthenticated ? (
+                  <span
+                    className={`w-[22px] h-[22px] rounded-full overflow-hidden grid place-items-center shrink-0 transition-transform duration-200
+                      ${isActive ? 'scale-110 ring-2 ring-[#8b5cf6]' : 'ring-1 ring-white/20'}`}
+                  >
+                    {profile?.avatar_url ? (
+                      <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="w-full h-full grid place-items-center bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] text-white font-extrabold text-[11px] leading-none">
+                        {(profile?.display_name || user?.name || "C").charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  <Icon className={`w-[20px] h-[20px] transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} />
+                )}
                 <span className="text-[10px] font-bold tracking-tight">{label}</span>
                 {isActive && (
                   <motion.div
