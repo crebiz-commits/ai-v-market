@@ -304,7 +304,7 @@ const ActionButtons = memo(({ video, onToggleLike, onComment, onShare, commentCo
   };
 
   return (
-    <div className="absolute right-3 bottom-[52px] z-40 flex flex-col gap-2 items-center pointer-events-auto">
+    <div className="absolute right-3 bottom-[52px] z-40 flex flex-col gap-2 items-center pointer-events-none">{/* 컨테이너는 pass-through — 버튼 사이 빈틈 탭도 재생/정지로 떨어지게. 각 버튼만 auto */}
       {/* 연령 등급 배지 — 액션 버튼 위(우측). right-3 + 아이콘 축소로 우측 끝 잘림 방지 */}
       {(video as any).age_rating && (
         <AgeBadge rating={(video as any).age_rating} size="xs" />
@@ -313,7 +313,7 @@ const ActionButtons = memo(({ video, onToggleLike, onComment, onShare, commentCo
       <motion.button
         whileTap={{ scale: 0.85 }}
         onClick={handleLike}
-        className="flex flex-col items-center relative"
+        className="flex flex-col items-center relative pointer-events-auto"
         aria-label={t("common.like")}
       >
         <AnimatePresence>
@@ -350,7 +350,7 @@ const ActionButtons = memo(({ video, onToggleLike, onComment, onShare, commentCo
         animate={{ scale: [1, 1.05, 1] }}
         transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
         onClick={(e) => { e.stopPropagation(); onComment(video); }}
-        className="flex flex-col items-center"
+        className="flex flex-col items-center pointer-events-auto"
         aria-label={t("common.comment")}
       >
         <div className="w-9 h-9 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.4)]">
@@ -366,7 +366,7 @@ const ActionButtons = memo(({ video, onToggleLike, onComment, onShare, commentCo
         whileTap={{ scale: 0.85 }}
         whileHover={{ rotate: 15 }}
         onClick={(e) => { e.stopPropagation(); onShare(video); }}
-        className="flex flex-col items-center"
+        className="flex flex-col items-center pointer-events-auto"
         aria-label={t("common.share")}
       >
         <div className="w-9 h-9 rounded-full backdrop-blur-xl bg-white/10 border-2 border-white/30 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.4)]">
@@ -752,13 +752,16 @@ const MovieSection = memo(({
       <div className="absolute bottom-0 left-0 right-0 z-30 pointer-events-none"
         style={{ background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 50%, transparent 100%)" }}
       >
-        <div className="px-3 pt-8 pb-3 pointer-events-auto">
+        {/* 박스 자체는 pointer-events-none — 빈 영역 탭은 아래 재생/정지 캐처(z-20)로 떨어지게 하고,
+            실제 버튼(크리에이터·팔로우·상세)만 pointer-events-auto 로 되살린다. 이 박스가 통째로
+            auto 라 중앙·하단 탭이 캐처에 안 닿아 재생/정지가 안 먹던 문제 수정(2026-07-27). */}
+        <div className="px-3 pt-8 pb-3 pointer-events-none">
           {/* 제목 + 크리에이터 + 팔로우 */}
           <div className="flex items-center gap-2 mb-1.5">
             {video.creatorId && onViewCreator ? (
               <button
                 onClick={(e) => { e.stopPropagation(); onViewCreator(video.creatorId!); }}
-                className="flex items-center gap-2 hover:text-white transition-colors"
+                className="flex items-center gap-2 hover:text-white transition-colors pointer-events-auto"
               >
                 <CreatorAvatar avatarUrl={creatorAvatar} name={creatorName ?? video.creator} size="xs" />
                 <span className="text-[13px] font-semibold text-white/80 hover:text-white">{creatorName ?? video.creator}</span>
@@ -770,7 +773,9 @@ const MovieSection = memo(({
               </div>
             )}
             {video.creatorId && (
-              <FollowButton creatorId={video.creatorId} onSignInClick={onSignInClick} size="sm" />
+              <span className="pointer-events-auto inline-flex">
+                <FollowButton creatorId={video.creatorId} onSignInClick={onSignInClick} size="sm" />
+              </span>
             )}
           </div>
           <h3 className="text-sm font-bold text-white leading-tight line-clamp-1 mb-1 pr-16">{video.title}</h3>
@@ -801,7 +806,7 @@ const MovieSection = memo(({
             </div>
             <button
               onClick={(e) => { e.stopPropagation(); onVideoClick(video); }}
-              className="aurora-btn h-7 px-3 text-white font-bold rounded-full text-[10px] flex items-center gap-1 border border-white/20 shadow-lg"
+              className="aurora-btn h-7 px-3 text-white font-bold rounded-full text-[10px] flex items-center gap-1 border border-white/20 shadow-lg pointer-events-auto"
             >
               {t("video.movieDetail")} <ChevronRight className="w-2.5 h-2.5" />
             </button>
