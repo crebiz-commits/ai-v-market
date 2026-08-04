@@ -1069,7 +1069,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       if (adTimer) clearTimeout(adTimer);
       window.removeEventListener("message", handleMessage);
     };
-  }, [product.id, durationSeconds, iframeBlocked, tokenReady, isPremium]);
+  }, [product.id, durationSeconds, iframeBlocked, tokenReady, metaReady, isPremium]);
 
   // ── Phase 28: Mid-roll 광고 (10분+ OTT 영상에 한정) ──
   const [midrollAd, setMidrollAd] = useState<AdRpcResult | null>(null);
@@ -1138,7 +1138,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       if (adTimer) clearTimeout(adTimer);
       window.removeEventListener("message", handleMessage);
     };
-  }, [product.id, durationSeconds, iframeBlocked, isSubscriber, tokenReady]);
+  }, [product.id, durationSeconds, iframeBlocked, isSubscriber, tokenReady, metaReady]);
 
   // ── Phase 28: Sponsorship 배지 (영상 시작 시 5초간 우상단 노출) ──
   const [showSponsorBadge, setShowSponsorBadge] = useState(false);
@@ -1333,7 +1333,7 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
       clearTimeout(initialSubscribe);
       window.removeEventListener("message", handleMessage);
     };
-  }, [product.id, iframeBlocked, onNavigateToVideo, durationSeconds, isSubscriber, tokenReady]);
+  }, [product.id, iframeBlocked, onNavigateToVideo, durationSeconds, isSubscriber, tokenReady, metaReady]);
 
   // 뒤로가기로 댓글 패널 닫기
   useBackButton(showComments, () => setShowComments(false));
@@ -1928,10 +1928,15 @@ export function ProductDetail({ product: productProp, onClose, onAddToCart, onSi
                       ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
                       : `${m}:${String(s).padStart(2, "0")}`;
                     return (
-                      <div key={idx} className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors">
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => seekBunnyTo(iframeRef.current, c.time_seconds)}
+                        className="w-full flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors text-left"
+                      >
                         <span className="text-xs font-mono text-[#a78bfa] w-14 flex-shrink-0">{fmt}</span>
                         <span className="text-sm text-gray-200 flex-1 truncate">{c.title}</span>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>

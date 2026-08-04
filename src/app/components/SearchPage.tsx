@@ -502,6 +502,11 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
     () => creators.filter((c) => !isBlocked(c.creator_id)),
     [creators, isBlocked]
   );
+  // 초기화면 "추천 크리에이터"도 차단 제외 — 검색결과·트렌딩과 일관(이전엔 이 목록만 누락).
+  const visibleDiscoverCreators = useMemo(
+    () => discoverCreators.filter((c) => !isBlocked(c.creator_id)),
+    [discoverCreators, isBlocked]
+  );
   // 디스커버리 트렌딩·카테고리 캐러셀도 차단 사용자 제외(다른 소스와 일관 — 이전엔 누락됐음).
   const visibleTrending = useMemo(
     () => trendingVideos.filter((v) => !v.creator_id || !isBlocked(v.creator_id)),
@@ -921,11 +926,11 @@ export function SearchPage({ onProductClick, onViewCreator, initialQuery, onClos
             ))}
 
             {/* 추천 크리에이터 */}
-            {discoverCreators.length > 0 && (
+            {visibleDiscoverCreators.length > 0 && (
               <section>
                 <p className="text-sm font-bold text-white mb-3 flex items-center gap-1.5"><Users className="w-4 h-4" /> {t("searchPage.suggestedCreators", "추천 크리에이터")}</p>
                 <div className="space-y-2">
-                  {discoverCreators.map((c) => (
+                  {visibleDiscoverCreators.map((c) => (
                     <CreatorRow key={c.creator_id} creator={c} onClick={() => onViewCreator?.(c.creator_id)} />
                   ))}
                 </div>

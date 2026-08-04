@@ -107,7 +107,9 @@ export function CreatorChannel({ creatorId, onBack, onSignInClick, onProductClic
 
   // 🔞 청소년보호(2026-07-22 감사) — get_creator_videos 는 age_rating 을 반환하지 않아
   //   채널 목록에만 블러가 없었다(기록·구매·검색·시네마/OTT 엔 다 있음). 검색과 동일하게
-  //   useAgeRatings 훅으로 별도 조회(RPC 실패 시 fail-closed). 본인 채널 영상은 예외.
+  //   useAgeRatings 훅으로 별도 조회한다. ⚠️ 정정(2026-08-04): shouldBlur(undefined)=false 라
+  //   등급 도착 전 짧은 창은 **fail-open**(무블러)이다 — 이전 주석의 "fail-closed"는 사실과 반대.
+  //   플랫폼 공통(전 피드 카드)인 수용된 로딩창이며, 훅 응답이 오면 즉시 블러된다. 본인 채널은 예외.
   const videoIds = useMemo(() => videos.map((v) => v.id).filter(Boolean), [videos]);
   const ageRatings = useAgeRatings(videoIds);
   const isAgeLocked = (id: string) =>

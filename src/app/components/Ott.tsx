@@ -923,7 +923,7 @@ const HeroBillboard = memo(function HeroBillboard({
               src={playUrl}
               autoPlay
               muted
-              loop={isClip && !onEnded}
+              loop={!onEnded}
               playsInline
               preload="auto"
               onEnded={() => onEnded?.()}

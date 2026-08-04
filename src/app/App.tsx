@@ -269,35 +269,35 @@ function AppContent() {
     if (infoParam === "terms") {
       return (
         <Suspense fallback={<PageLoading />}>
-          <TermsPage onBack={goBack} />
+          <TermsPage onBack={goBack} onNavigate={(tab) => { window.location.href = `${window.location.pathname}?tab=${tab}`; }} />
         </Suspense>
       );
     }
     if (infoParam === "privacy") {
       return (
         <Suspense fallback={<PageLoading />}>
-          <PrivacyPage onBack={goBack} />
+          <PrivacyPage onBack={goBack} onNavigate={(tab) => { window.location.href = `${window.location.pathname}?tab=${tab}`; }} />
         </Suspense>
       );
     }
     if (infoParam === "youth") {
       return (
         <Suspense fallback={<PageLoading />}>
-          <YouthProtectionPage onBack={goBack} />
+          <YouthProtectionPage onBack={goBack} onNavigate={(tab) => { window.location.href = `${window.location.pathname}?tab=${tab}`; }} />
         </Suspense>
       );
     }
     if (infoParam === "faq") {
       return (
         <Suspense fallback={<PageLoading />}>
-          <FaqPage onBack={goBack} />
+          <FaqPage onBack={goBack} onNavigate={(tab) => { window.location.href = `${window.location.pathname}?tab=${tab}`; }} />
         </Suspense>
       );
     }
     if (infoParam === "notices") {
       return (
         <Suspense fallback={<PageLoading />}>
-          <NoticesPage onBack={goBack} />
+          <NoticesPage onBack={goBack} onNavigate={(tab) => { window.location.href = `${window.location.pathname}?tab=${tab}`; }} />
         </Suspense>
       );
     }
