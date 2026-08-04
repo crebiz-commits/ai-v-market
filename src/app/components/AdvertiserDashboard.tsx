@@ -2,7 +2,8 @@
 // 광고주 센터 — 셀프서비스 Phase 2
 //   내 광고 목록(상태·노출/클릭·예산) + 새 광고 만들기 + 수정/제출/일시중지.
 //   데이터: advertiser_my_ads() RPC. 생성/수정: AdCreateModal.
-//   예산 충전은 Phase 3(ad_budget Toss) — 현재는 승인 후 "준비 중" 안내.
+//   예산 충전: 승인된 광고의 Wallet 버튼 → AdTopupModal → usePayment.startAdBudgetTopUp
+//     → Toss ad_budget 결제로 배선 완료(결제 게이트 open 시 실제 청구). (2026-08-04 주석 정정 — 스텁 아님)
 // ════════════════════════════════════════════════════════════════════════════
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "motion/react";

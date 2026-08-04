@@ -681,13 +681,27 @@ export function Community({ onNavigate, onSignInClick, initialTab, onInitialTabC
     return () => { cancelled = true; };
   }, [initialPostId, loadingPosts]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // R3: 챌린지 공유 딥링크 — 챌린지 로드 완료 후 상세 자동 열기
+  // R3: 챌린지 공유 딥링크 — 목록(최근 24개)에 없으면 단건 조회로 보강(글 딥링크와 대칭)
   useEffect(() => {
     if (!initialChallengeId || loadingChallenges) return;
-    const found = challenges.find((c) => c.id === initialChallengeId);
-    if (found) setSelectedChallenge(found);
-    else toast.error(t("community.challengeNotFound"));
-    onInitialChallengeConsumed?.();
+    let cancelled = false;
+    (async () => {
+      let found = challenges.find((c) => c.id === initialChallengeId) ?? null;
+      if (!found) {
+        const { data } = await supabase.from("challenges").select("*").eq("id", initialChallengeId).maybeSingle();
+        if (data) {
+          const { count } = await supabase.from("videos").select("id", { count: "exact", head: true })
+            .contains("tags", [`challenge:${(data as any).tag}`]).eq("is_hidden", false)
+            .or("visibility.eq.public,visibility.is.null");
+          found = challengeRowToChallenge(data, isKo, count || 0);
+        }
+      }
+      if (cancelled) return;
+      if (found) setSelectedChallenge(found);
+      else toast.error(t("community.challengeNotFound"));
+      onInitialChallengeConsumed?.();
+    })();
+    return () => { cancelled = true; };
   }, [initialChallengeId, loadingChallenges]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // 협업 글 등록
@@ -1694,7 +1708,7 @@ export function Community({ onNavigate, onSignInClick, initialTab, onInitialTabC
                   <Button
                     size="sm"
                     onClick={handleWritePost}
-                    disabled={submitting || !writeTitle.trim() || writeContent.trim().length < 10}
+                    disabled={submitting || !writeTitle.trim() || !writeContent.trim()}
                     className="bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] gap-2"
                   >
                     {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

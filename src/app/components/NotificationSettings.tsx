@@ -5,8 +5,10 @@
 //   - 진입 시: get_my_notification_preferences RPC로 현재 설정 로드
 //   - 토글 변경 시: update_my_notification_preferences RPC로 즉시 저장
 //   - 낙관적 업데이트 + 실패 시 롤백
-//   - 푸시는 컬럼만 있고 FCM 미연동 → "준비 중" 표시 + 토글은 가능
-//   - 일부 이메일 항목(new_video_from_followed, ad_budget_low)은 트리거 미구현 → "준비 중" 표시 + 비활성화
+//   - 푸시: VAPID 웹푸시(webPush.ts) 연동 완료 — 상단 "이 기기에서 푸시 받기" 토글로 통합.
+//     (네이티브 FCM 은 §6 앱 빌드 시. 옛 per-type "준비 중" 섹션은 2026-05-31 제거됨.)
+//   - 이메일 항목은 구현된 트리거만 노출(new_video_from_followed·ad_budget_low 는 ITEMS 에서 제외).
+//     comingSoon 필드/뱃지 분기는 현재 어떤 항목도 세팅하지 않는 미사용 잔재(2026-08-04 주석 정정).
 // ════════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useState } from "react";

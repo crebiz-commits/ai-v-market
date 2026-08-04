@@ -133,12 +133,15 @@ export function useFollows() {
             }
           }
         } else {
-          const { error } = await supabase
+          const { error, count } = await supabase
             .from("creator_followers")
-            .delete()
+            .delete({ count: "exact" })
             .eq("follower_id", user.id)
             .eq("creator_id", creatorId);
           if (error) throw error;
+          // 삭제 0행 = 서버엔 이미 없었음(캐시-서버 불일치) → 실제 변화 없음 → onChange 미호출
+          //   (follower_count 과소반영 차단. INSERT 측 23505 처리와 대칭.)
+          if (count === 0) return null;
         }
         return next;
       } catch (err: any) {
