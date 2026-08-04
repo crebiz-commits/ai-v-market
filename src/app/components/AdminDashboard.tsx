@@ -124,7 +124,9 @@ function applyFormatDefaults(prev: ReturnType<typeof emptyForm>, format: AdForma
   const base = { ...prev, format, ad_type: FORMAT_TO_AD_TYPE[format] };
   switch (format) {
     case "feed":
-      return { ...base, trigger_position_pct: null, duration_seconds: null, skip_after_seconds: null, min_video_duration_sec: 0 };
+      // feed 는 영상 타겟팅(tier·카테고리) UI 를 숨기므로, 타 형식에서 지정한 값이 stale 로 남아
+      //   저장되지 않도록 함께 초기화(안 그러면 target_tiers=["ott"] 등이 숨은 채 홈피드 광고를 걸러버림).
+      return { ...base, trigger_position_pct: null, duration_seconds: null, skip_after_seconds: null, min_video_duration_sec: 0, target_tiers: null, target_categories: null };
     case "preroll":
       return { ...base, trigger_position_pct: 0, duration_seconds: prev.max_duration || 30, skip_after_seconds: prev.skip_offset ?? 5, min_video_duration_sec: 0 };
     case "midroll":

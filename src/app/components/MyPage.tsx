@@ -1397,7 +1397,8 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
     setEmailChanging(true);
     try {
       // Supabase: 새 주소로 확인 메일 발송 → 링크 클릭 시 변경 확정.
-      const { error } = await supabase.auth.updateUser({ email: target });
+      //   emailRedirectTo 명시 — signUp/resend/reset 과 일관(미지정 시 프로젝트 Site URL 기본값 의존).
+      const { error } = await supabase.auth.updateUser({ email: target }, { emailRedirectTo: window.location.origin });
       if (error) throw error;
       toast.success(t("mypage.emailChange.confirmSent", { email: target }));
       setEmailEditMode(false);

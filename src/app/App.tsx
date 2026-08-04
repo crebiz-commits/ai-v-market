@@ -527,6 +527,14 @@ function AppContent() {
   };
 
   // 알림(벨) 클릭 시 link 파싱 → 영상/탭으로 이동
+  // 탭 페이지(?tab=support 등) "뒤로" — 내부 이동이면 이전으로, 외부 직접진입(히스토리 없음)이면
+  //   history.back() 이 안 먹혀 페이지에 갇히므로(사이트 이탈 대신) 메인 피드로 fallback.
+  const goBackOrHome = () => {
+    const beforeUrl = window.location.href;
+    window.history.back();
+    setTimeout(() => { if (window.location.href === beforeUrl) setActiveTab("discovery"); }, 100);
+  };
+
   const handleNotificationNavigate = (link: string) => {
     setActivePanel(null);
     if (!link || link === "/") return;
@@ -1172,29 +1180,29 @@ function AppContent() {
       // 햄버거 메뉴/푸터 등에서 진입한 정적 페이지 — onBack 은 브라우저 history.back() 으로 이전 화면 복귀
       // (햄버거 열기 직전 페이지로 자연스럽게 돌아감. setActiveTab("discovery") 로 강제 이동 시 LandingPage 또는 홈으로 가버리는 문제 해결)
       case "business":
-        return <BusinessPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <BusinessPage onBack={goBackOrHome} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "about":
-        return <AboutPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <AboutPage onBack={goBackOrHome} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "terms":
-        return <TermsPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <TermsPage onBack={goBackOrHome} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "privacy":
-        return <PrivacyPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <PrivacyPage onBack={goBackOrHome} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "youth":
-        return <YouthProtectionPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <YouthProtectionPage onBack={goBackOrHome} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "faq":
-        return <FaqPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <FaqPage onBack={goBackOrHome} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "notices":
-        return <NoticesPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
+        return <NoticesPage onBack={goBackOrHome} onNavigate={(tab) => setActiveTab(tab as Tab)} />;
       case "bug-report":
-        return <BugReportPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} onSignInClick={() => setShowAuthModal(true)} />;
+        return <BugReportPage onBack={goBackOrHome} onNavigate={(tab) => setActiveTab(tab as Tab)} onSignInClick={() => setShowAuthModal(true)} />;
       case "top-creators":
-        return <TopCreatorsPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} onViewCreator={handleViewCreator} onSignInClick={() => setShowAuthModal(true)} />;
+        return <TopCreatorsPage onBack={goBackOrHome} onNavigate={(tab) => setActiveTab(tab as Tab)} onViewCreator={handleViewCreator} onSignInClick={() => setShowAuthModal(true)} />;
       case "support":
-        return <SupportPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} onSignInClick={() => setShowAuthModal(true)} initialInquiryId={pendingSupportId} />;
+        return <SupportPage onBack={goBackOrHome} onNavigate={(tab) => setActiveTab(tab as Tab)} onSignInClick={() => setShowAuthModal(true)} initialInquiryId={pendingSupportId} />;
       case "subscription":
-        return <SubscriptionPage onBack={() => window.history.back()} onNavigate={(tab) => setActiveTab(tab as Tab)} onSignInClick={() => setShowAuthModal(true)} />;
+        return <SubscriptionPage onBack={goBackOrHome} onNavigate={(tab) => setActiveTab(tab as Tab)} onSignInClick={() => setShowAuthModal(true)} />;
       case "advertiser":
-        return <AdvertiserDashboard onBack={() => window.history.back()} onSignInClick={() => setShowAuthModal(true)} />;
+        return <AdvertiserDashboard onBack={goBackOrHome} onSignInClick={() => setShowAuthModal(true)} />;
       case "search":
         return (
           <SearchPage
