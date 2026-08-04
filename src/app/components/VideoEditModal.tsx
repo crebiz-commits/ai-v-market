@@ -303,6 +303,10 @@ export function VideoEditModal({
       setSponsorDisclosure(initialExtended?.sponsorDisclosure || "유료 광고 포함");
       setSponsorLinkUrl(initialExtended?.sponsorLinkUrl || "");
       setClearSponsor(false);
+      // 가격·하이라이트도 리셋 — 누락 시 재오픈/영상전환(A→B) 때 이전 값이 잔존해 B 를 덮어씀(2026-08-04).
+      setPriceStandard(initialExtended?.priceStandard != null ? formatPriceCommas(String(initialExtended.priceStandard)) : "");
+      setHighlightStartStr(initialExtended?.highlightStart != null ? formatTime(Math.round(initialExtended.highlightStart)) : "");
+      setHighlightEndStr(initialExtended?.highlightEnd != null ? formatTime(Math.round(initialExtended.highlightEnd)) : "");
     }
   }, [open, initialThumbnail, initialSubtitleUrl, initialAgeRating, initialExtKey]);  // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -1314,20 +1314,34 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
 
   const [showCommentSettings, setShowCommentSettings] = useState(false);
   // Phase 22: 영상 편집 모달
-  const [editingVideo, setEditingVideo] = useState<{ id: string; thumbnail: string; chapters: any[]; subtitle_url: string | null; age_rating: string } | null>(null);
+  const [editingVideo, setEditingVideo] = useState<{ id: string; thumbnail: string; chapters: any[]; subtitle_url: string | null; age_rating: string; extended: any } | null>(null);
 
   const handleOpenEditVideo = async (productId: string, thumbnail: string) => {
+    // ⚠️ 확장 메타를 전부 불러와 initialExtended 로 넘겨야 한다. 안 넘기면 모달이 빈 폼으로 열리고,
+    //   update_my_video_metadata 가 전 필드 COALESCE(p_x, x) 라 '' / [] 이 그대로 저장돼
+    //   설명·크레딧·AI정보·태그가 삭제된다(ProductDetail 과 동일 패턴 — 2026-08-04 데이터손실 수정).
     const { data } = await supabase
       .from("videos")
-      .select("chapters, subtitle_url, age_rating")
+      .select("chapters, subtitle_url, age_rating, title, description, category, genre, director, writer, composer, cast_credits, production_year, language, subtitle_language, ai_tool, ai_model_version, prompt, seed, resolution, tags, sponsor_brand, sponsor_logo_url, sponsor_disclosure, sponsor_link_url, price_standard, highlight_start, highlight_end")
       .eq("id", productId)
       .maybeSingle();
+    const d = (data as any) || {};
     setEditingVideo({
       id: productId,
       thumbnail,
-      chapters: Array.isArray((data as any)?.chapters) ? (data as any).chapters : [],
-      subtitle_url: (data as any)?.subtitle_url || null,
-      age_rating: (data as any)?.age_rating || "all",
+      chapters: Array.isArray(d.chapters) ? d.chapters : [],
+      subtitle_url: d.subtitle_url || null,
+      age_rating: d.age_rating || "all",
+      extended: {
+        title: d.title, description: d.description, category: d.category, genre: d.genre,
+        director: d.director, writer: d.writer, composer: d.composer, castCredits: d.cast_credits,
+        productionYear: d.production_year, language: d.language, subtitleLanguage: d.subtitle_language,
+        aiTool: d.ai_tool, aiModelVersion: d.ai_model_version, prompt: d.prompt, seed: d.seed,
+        resolution: d.resolution, tags: d.tags, sponsorBrand: d.sponsor_brand,
+        sponsorLogoUrl: d.sponsor_logo_url, sponsorDisclosure: d.sponsor_disclosure,
+        sponsorLinkUrl: d.sponsor_link_url, priceStandard: d.price_standard,
+        highlightStart: d.highlight_start, highlightEnd: d.highlight_end,
+      },
     });
   };
 
@@ -1553,6 +1567,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
           initialChapters={editingVideo.chapters}
           initialSubtitleUrl={editingVideo.subtitle_url}
           initialAgeRating={editingVideo.age_rating}
+          initialExtended={editingVideo.extended}
           onClose={() => setEditingVideo(null)}
           onSaved={() => { setEditingVideo(null); /* 추후 myProducts 갱신 */ }}
         />
