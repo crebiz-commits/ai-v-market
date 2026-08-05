@@ -1632,7 +1632,11 @@ function AppContent() {
             );
           })}
 
-          {/* Upload Button — 중앙 시그니처 액션 버튼 (CREAITE 로고) */}
+          {/* Upload Button — 중앙 시그니처 액션 버튼 (CREAITE 로고)
+              2026-08-06: 평시에도 로고 애니메이션 + 발광하도록 변경(사용자 요청).
+              이전에는 업로드 탭에 들어가야만 살아났다(정적→애니). 이제 상시 동작하고,
+              활성 상태는 '더 강한 상시 글로우 + 살짝 확대'로 구분한다.
+              ※ boxShadow 는 motion 이 인라인 style 로 제어하므로 tailwind transition-all 을 걸지 말 것(충돌). */}
           <div className="flex items-center justify-center flex-1 h-full">
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -1641,20 +1645,29 @@ function AppContent() {
               className="relative -mt-8 outline-none group"
               aria-label={t("app.uploadAria")}
             >
-              <div className={`w-14 h-14 rounded-full transition-all duration-300 border-[3px] border-background flex items-center justify-center
-                ${activeTab === "upload"
-                  ? "bg-gradient-to-tr from-[#6366f1] via-[#ec4899] to-[#06b6d4] shadow-[0_0_25px_rgba(139,92,246,0.6)] p-[2px]"
-                  : "bg-[#1a1a1c] hover:bg-[#2a2a2c] shadow-lg"}
-              `}>
-                <div className={`w-full h-full rounded-full flex items-center justify-center transition-colors duration-300
-                  ${activeTab === "upload" ? "bg-[#0a0a0a]" : "bg-transparent"}
-                `}>
-                  <CreaiteLogo
-                    className="w-7 h-7 -rotate-90"
-                    still={activeTab !== "upload"}
-                  />
+              <motion.div
+                animate={activeTab === "upload"
+                  ? { boxShadow: "0 0 30px rgba(139,92,246,0.85)", scale: 1.06 }
+                  : {
+                      // 평시: 은은하게 숨쉬는 발광 (꺼지지 않음)
+                      boxShadow: [
+                        "0 0 10px rgba(139,92,246,0.35)",
+                        "0 0 22px rgba(139,92,246,0.65)",
+                        "0 0 10px rgba(139,92,246,0.35)",
+                      ],
+                      scale: 1,
+                    }}
+                transition={activeTab === "upload"
+                  ? { duration: 0.3, ease: "easeOut" }
+                  : { duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+                className="w-14 h-14 rounded-full border-[3px] border-background flex items-center justify-center
+                  bg-gradient-to-tr from-[#6366f1] via-[#ec4899] to-[#06b6d4] p-[2px]"
+              >
+                <div className="w-full h-full rounded-full flex items-center justify-center bg-[#0a0a0a]">
+                  {/* still 미지정 = 상시 애니메이션 (이퀄라이저 막대 + ▶ 펄스) */}
+                  <CreaiteLogo className="w-7 h-7 -rotate-90" />
                 </div>
-              </div>
+              </motion.div>
             </motion.button>
           </div>
 
