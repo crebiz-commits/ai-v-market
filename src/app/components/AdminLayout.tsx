@@ -12,7 +12,8 @@ import {
   ShieldCheck, Megaphone, Settings, Coins, Flag, EyeOff,
   ArrowLeft, Menu, X, ShieldAlert, Loader2, LayoutDashboard,
   Users, Film, DollarSign, Send, ClipboardList, MessageSquare,
-  Globe, Sparkles, Inbox, Trophy, Image as ImageIcon, Bug, Coffee, LifeBuoy, ClipboardCheck, Crown, Layers
+  Globe, Sparkles, Inbox, Trophy, Image as ImageIcon, Bug, Coffee, LifeBuoy, ClipboardCheck, Crown, Layers,
+  Mail
 } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -42,6 +43,7 @@ const AdminCollections = lazy(() => import("./AdminCollections").then(m => ({ de
 const AdminBugReports = lazy(() => import("./AdminBugReports").then(m => ({ default: m.AdminBugReports })));
 const AdminMegaUploader = lazy(() => import("./AdminMegaUploader").then(m => ({ default: m.AdminMegaUploader })));
 const AdminGrantPremium = lazy(() => import("./AdminGrantPremium").then(m => ({ default: m.AdminGrantPremium })));
+const AdminShortcuts = lazy(() => import("./AdminShortcuts").then(m => ({ default: m.AdminShortcuts })));
 
 type AdminPage =
   | "overview"      // 대시보드 (한눈에 보기)
@@ -66,7 +68,8 @@ type AdminPage =
   | "bugs"          // 버그 제보 관리
   | "mega"          // 메가커피 업로더 이벤트
   | "grant_premium" // 프리미엄 수동 지급 (챌린지 보상 등)
-  | "activity";     // 활동 로그
+  | "activity"      // 활동 로그
+  | "shortcuts";    // 메일·콘솔 바로가기 (Zoho 계정 2개 안내 포함)
 
 interface MenuItem {
   key: AdminPage;
@@ -99,6 +102,7 @@ const MENU: MenuItem[] = [
   { key: "moderation",   label: "숨김 콘텐츠",      icon: EyeOff,          group: "🛡 안전·품질" },
   { key: "comments",     label: "댓글 관리",       icon: MessageSquare,   group: "🛡 안전·품질" },
   { key: "activity",     label: "활동 로그",       icon: ClipboardList,   group: "🛡 안전·품질" },
+  { key: "shortcuts",    label: "메일·콘솔",       icon: Mail,            group: "🔗 바로가기" },
 ];
 
 const PAGE_META: Record<AdminPage, { title: string; subtitle: string }> = {
@@ -125,6 +129,7 @@ const PAGE_META: Record<AdminPage, { title: string; subtitle: string }> = {
   moderation: { title: "숨김 콘텐츠",    subtitle: "자동/수동 숨김된 콘텐츠와 정지된 계정을 통합 관리합니다" },
   comments:   { title: "댓글 관리",      subtitle: "전체 댓글을 검색·필터링하고 강제 숨김/복원/삭제합니다 (스팸·도배 능동 대응)" },
   activity:   { title: "활동 로그",      subtitle: "어드민이 변경한 모든 작업의 이력을 추적합니다 (감사용)" },
+  shortcuts:  { title: "메일·콘솔",      subtitle: "Zoho 메일함(admin·contact)과 운영 콘솔 바로가기 — 메일 계정 2개는 서로 별개입니다" },
 };
 
 interface AdminLayoutProps {
@@ -223,6 +228,7 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
         {currentPage === "moderation" && <AdminModeration />}
         {currentPage === "comments" && <AdminComments />}
         {currentPage === "activity" && <AdminActivityLog />}
+        {currentPage === "shortcuts" && <AdminShortcuts />}
       </Suspense>
     );
   };
