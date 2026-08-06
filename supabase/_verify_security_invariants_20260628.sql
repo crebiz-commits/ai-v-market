@@ -870,5 +870,19 @@ SELECT * FROM (
       THEN '✅ PASS' ELSE '🔴 FAIL' END,
     'FAIL시 should_send_service_role_only_20260725.sql 재적용(audit3 GRANT 재실행 금지)'
 
+  UNION ALL
+  -- 62) OTT 큐레이션 정지필터 RPC (2026-08-06 전수감사 B#2)
+  --     셀렉트/피처링 히어로가 videos 직접쿼리라 정지 크리에이터를 못 걸렀음(클라는 is_suspended
+  --     미열람). get_videos_by_ids_public·get_featured_hero_videos(DEFINER, profiles 조인 is_suspended
+  --     필터)로 교체. RPC 유실/무필터 시 정지 크리에이터가 OTT 히어로·셀렉트에 재노출 → 감시.
+  SELECT 62,
+    'OTT 큐레이션 정지필터 RPC(셀렉트·피처링)',
+    CASE WHEN to_regprocedure('public.get_videos_by_ids_public(text[])') IS NOT NULL
+          AND to_regprocedure('public.get_featured_hero_videos(integer)') IS NOT NULL
+          AND (SELECT prosrc ~ 'is_suspended' FROM pg_proc WHERE proname='get_videos_by_ids_public')
+          AND (SELECT prosrc ~ 'is_suspended' FROM pg_proc WHERE proname='get_featured_hero_videos')
+      THEN '✅ PASS' ELSE '🔴 FAIL' END,
+    'FAIL시 ott_curation_suspended_filter_20260806.sql 재적용'
+
 ) AS gate
 ORDER BY sort;

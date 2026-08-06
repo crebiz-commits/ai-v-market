@@ -268,9 +268,8 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
     if (!ids.length) { setSelectVideos([]); return; }
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from("videos")
-        .select("id, title, thumbnail, creator, creator_id, category, genre, duration, duration_seconds, ai_tool, price_standard, views, likes, highlight_start, highlight_end")
-        .in("id", ids).or("visibility.eq.public,visibility.is.null").eq("is_hidden", false);
+      // 정지·숨김 서버필터 RPC(B#2) — 직접쿼리는 클라가 is_suspended 를 못 읽어 정지 크리에이터를 못 걸렀음
+      const { data } = await supabase.rpc("get_videos_by_ids_public", { p_ids: ids });
       if (cancelled) return;
       const map = new Map((data || []).map((v: any) => [v.id, { ...v, creator_display_name: v.creator, creator_avatar: null } as CarouselVideo]));
       setSelectVideos(ids.map((id) => map.get(id)).filter(Boolean) as CarouselVideo[]);
@@ -391,15 +390,8 @@ export function Ott({ onProductClick, onPlayProduct, onAddToCart, onNavigate, on
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from("videos")
-        .select("id, title, thumbnail, creator, creator_id, category, genre, duration, duration_seconds, ai_tool, views, likes, price_standard, highlight_start, highlight_end")
-        .gt("featured_hero_until", new Date().toISOString())
-        .eq("visibility", "public")
-        .eq("status", "ready")
-        .eq("is_hidden", false)   // 방어심층: 검수 미통과/숨김 영상은 히어로 제외(RLS 외 명시 필터)
-        .order("featured_hero_until", { ascending: false })
-        .limit(3);
+      // 정지·숨김 서버필터 RPC(B#2) — featured_hero_until 미래 + 공개·ready·비숨김·비정지만 서버에서 거름
+      const { data } = await supabase.rpc("get_featured_hero_videos", { p_limit: 3 });
       if (cancelled || !Array.isArray(data)) return;
       // 이 직접 쿼리는 profiles 조인이 없어 creator(업로드 시 저장된 문자열)만 옴 →
       // 트렌딩 RPC 처럼 프로필 display_name 을 얹어 히어로 업로더명이 일관되게 나오도록 보강.

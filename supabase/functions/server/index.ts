@@ -1863,7 +1863,9 @@ app.post('/billing-auth-confirm', async (c) => {
       return c.json({ error: '결제 처리에 실패해 취소되었습니다. 다시 시도해 주세요.' }, 500);
     }
 
-    return c.json({ success: true, message: '자동결제가 설정되고 첫 결제가 완료되었습니다.', cardLast4 });
+    // amount·orderId·method 를 함께 반환 → BillingResult 가 구독 첫결제 영수증(메일/알림)을 발송(E#1).
+    //   idempotent(이미 구독 중, 위 1805) 분기는 새 청구가 없어 영수증도 없음.
+    return c.json({ success: true, message: '자동결제가 설정되고 첫 결제가 완료되었습니다.', cardLast4, amount, orderId, method: chargeBody?.method || '카드' });
   } catch (err: any) {
     console.error('[billing-auth-confirm] 예외:', err);
     return c.json({ error: '자동결제 설정 중 오류: ' + (err?.message || err) }, 500);

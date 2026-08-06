@@ -165,6 +165,16 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
   const fileObjectUrlRef = useRef<string | null>(null);
   const uploadAbortRef = useRef<AbortController | null>(null);  // 업로드 중 언마운트/취소 시 TUS 전송 중단
   const pollCancelRef = useRef(false);   // 언마운트 시 모더레이션/히어로 폴러 중단(불필요 백그라운드 요청 방지)
+  const uploadCancelledRef = useRef(false);   // 사용자 취소 플래그 — abort 로 인한 reject 를 에러토스트 없이 처리
+
+  // 업로드 진행 중 사용자 취소 — TUS 전송·폴러 중단. isUploading 은 handleSubmit 의 finally 가 정리.
+  const handleCancelUpload = () => {
+    uploadCancelledRef.current = true;
+    uploadAbortRef.current?.abort();
+    pollCancelRef.current = true;
+    setUploadProgress(0);
+    toast(t("upload.uploadCancelled", "업로드를 취소했습니다."));
+  };
   useEffect(() => () => {
     uploadAbortRef.current?.abort();
     pollCancelRef.current = true;
@@ -1038,16 +1048,22 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
         })();
       }
     } catch (error: any) {
-      console.error('Upload error:', error);
-      // 재시도 안내: TUS까지 성공한(uploadedRef 존재) 실패는 다시 누르면 같은 Bunny 영상으로
-      //   메타데이터만 재저장(중복 생성 없음). 그 외는 처음부터.
-      const msg = error?.message || t("upload.toast.uploadError");
-      toast.error(uploadedRef.current
-        ? t("upload.toast.saveRetry", { message: msg })
-        : msg);
+      // 사용자 취소(abort)면 에러 토스트 스킵 — handleCancelUpload 가 이미 안내함.
+      if (uploadCancelledRef.current || error?.name === "AbortError") {
+        console.info('Upload cancelled by user');
+      } else {
+        console.error('Upload error:', error);
+        // 재시도 안내: TUS까지 성공한(uploadedRef 존재) 실패는 다시 누르면 같은 Bunny 영상으로
+        //   메타데이터만 재저장(중복 생성 없음). 그 외는 처음부터.
+        const msg = error?.message || t("upload.toast.uploadError");
+        toast.error(uploadedRef.current
+          ? t("upload.toast.saveRetry", { message: msg })
+          : msg);
+      }
     } finally {
       uploadingRef.current = false;   // 동기 락 해제
       setIsUploading(false);
+      uploadCancelledRef.current = false;   // 다음 업로드 위해 리셋
     }
   };
 
@@ -2107,6 +2123,14 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
                       <p className="text-xs font-bold text-white">{formatTime(uploadStats.eta)}</p>
                     </div>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={handleCancelUpload}
+                    className="mt-4 w-full py-2 rounded-md border border-red-500/30 text-red-300 text-sm font-semibold hover:bg-red-500/10 transition-colors"
+                  >
+                    {t("upload.uploadCancel", "업로드 취소")}
+                  </button>
                 </div>
               )}
 

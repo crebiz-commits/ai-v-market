@@ -10,6 +10,7 @@ import { motion } from "motion/react";
 import { Check, X, Loader2, Home, Crown, RotateCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { supabase, supabaseAnonKey } from "../utils/supabaseClient";
+import { sendNotification, buildSubscriptionReceiptEmail } from "../utils/sendNotification";
 import { useTranslation } from "react-i18next";
 
 const SUPABASE_PROJECT_ID = "tvbpiuwmvrccfnplhwer";
@@ -81,6 +82,25 @@ export function BillingResult({ onClose }: Props) {
       }
       setStatus("success");
       setMessage(body?.message || (isKo ? "자동결제가 설정되었습니다. 매월 자동으로 갱신됩니다." : "Auto-pay is set up."));
+
+      // E#1: 구독 첫 결제 영수증 메일/알림 (fire-and-forget) — 새 청구가 있었을 때만.
+      //   PaymentResult(일회성)와 동일 패턴. body.idempotent(이미 구독 중)면 청구 없음 → 스킵.
+      if (!body?.idempotent && body?.amount && body?.orderId) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.id && user.email) {
+            const { subject, html } = buildSubscriptionReceiptEmail({
+              orderName: "CREAITE 프리미엄 구독 (월)",
+              amount: Number(body.amount),
+              orderId: String(body.orderId),
+              paymentMethod: body.method,
+            });
+            void sendNotification({ user_id: user.id, type: "subscription_receipt", to: user.email, subject, html });
+          }
+        } catch (mailErr) {
+          console.warn("[BillingResult] 영수증 발송 실패:", mailErr);
+        }
+      }
     } catch (err: any) {
       setStatus("failed");
       setCanRetry(true);
