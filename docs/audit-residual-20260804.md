@@ -4,8 +4,13 @@
 > 3af91b1·ccc9aa9·354ef3d·6111b04). 아래는 **의도적으로 보류**했거나 **백엔드가 필요**해
 > 이번에 안 고친 것 — 조용히 누락 방지용 기록.
 
-## 백엔드 필요 (클라 단독 수정 불가)
-- **B#2 · OTT featured/select 직접쿼리 is_suspended 미필터** — `Ott.tsx:271-276`(셀렉트)·`394-402`(featured).
+## ✅ 2026-08-06 처리 완료 (E#1·D#3·B#2)
+- **B#2** OTT 큐레이션 정지필터 — RPC 2종(get_videos_by_ids_public·get_featured_hero_videos)으로 교체, 게이트 #62. (`ott_curation_suspended_filter_20260806.sql` Run 필요)
+- **E#1** 구독 첫결제 영수증 — billing-auth-confirm 응답 + BillingResult 발송 배선(Edge 재배포 완료).
+- **D#3** 업로드 취소 버튼 — 진행 UI 취소 + abort 처리.
+
+## 백엔드 필요 (클라 단독 수정 불가) — ✅ B#2 처리됨(위)
+- ~~**B#2 · OTT featured/select 직접쿼리 is_suspended 미필터**~~ — `Ott.tsx:271-276`(셀렉트)·`394-402`(featured).
   admin 이 큐레이션에 넣은 크리에이터가 이후 정지돼도 히어로/셀렉트 행에 계속 노출. **클라는
   profiles.is_suspended 를 못 읽어(컬럼 GRANT 잠금) 필터 불가** → 서버 RPC/뷰가 정지·hidden 을
   걸러 반환해야 함. admin 큐레이션 한정·저노출이라 보류. 처리 시 `v_available_videos` 경유 또는
