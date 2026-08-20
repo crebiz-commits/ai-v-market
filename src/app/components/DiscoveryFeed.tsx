@@ -633,7 +633,7 @@ const MovieSection = memo(({
   return (
     <div
       ref={sectionRef}
-      className="discovery-section snap-start w-full relative bg-black overflow-hidden"
+      className="discovery-section w-full relative bg-black overflow-hidden"
       data-video-id={video.id}
     >
       {/* 🎬 Video — 전체 높이 */}
@@ -1337,7 +1337,11 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
     return out;
   }, [visibleVideos, ads]);
 
-  // 스크롤 스냅 완료 후 상단 영상 감지 및 활성화
+  // 스크롤이 멎으면 "화면에 가장 많이 보이는 카드"를 활성화(자동재생).
+  //   2026-08-20: 스크롤 스냅 제거(유튜브식 자유 스크롤)에 맞춘 판정 교체.
+  //   스냅이 있을 땐 카드 경계에 딱 맞춰 멈춰서 round(scrollTop / 카드높이) 로 인덱스가 떨어졌지만,
+  //   자유 스크롤은 카드 중간에서 멈추므로 그 계산이 엉뚱한 카드를 고른다(반칸 위치에서 반올림 튐).
+  //   → 컨테이너 뷰포트와 각 카드가 겹치는 높이를 재서 최대인 카드를 고른다(광고 카드 포함).
   useEffect(() => {
     const container = containerRef.current;
     if (!container || videos.length === 0) return;
@@ -1346,34 +1350,41 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
       // 전체화면 중에는 active 자동 변경 금지 (전체화면 영상 유지)
       const fsEl = document.fullscreenElement || (document as any).webkitFullscreenElement;
       if (fsEl) return;
-      // scrollTop + offsetHeight 기반: 뷰포트 좌표 무관, 마우스 휠/터치 모두 정확
       const wrappers = Array.from(
         container.querySelectorAll<HTMLElement>(".discovery-section-wrapper")
       );
       if (wrappers.length === 0) return;
 
-      const sectionHeight = wrappers[0].offsetHeight;
-      if (sectionHeight === 0) return;
-
-      const scrollTop = container.scrollTop;
-      const idx = Math.round(scrollTop / sectionHeight);
-      const targetWrapper = wrappers[Math.min(idx, wrappers.length - 1)];
-      if (!targetWrapper) return;
+      // 쓰기 없이 읽기만 연속 수행 → 레이아웃 1회로 끝남(스크롤 중 호출돼도 부담 적음)
+      const view = container.getBoundingClientRect();
+      let best: HTMLElement | null = null;
+      let bestVisible = 0;
+      for (const w of wrappers) {
+        const r = w.getBoundingClientRect();
+        if (r.top >= view.bottom) break;      // DOM 순서 = 화면 순서 → 이후는 전부 화면 밖(아래)
+        if (r.bottom <= view.top) continue;   // 이미 지나쳐 올라간 카드
+        const visible = Math.min(r.bottom, view.bottom) - Math.max(r.top, view.top);
+        if (visible > bestVisible) { bestVisible = visible; best = w; }
+      }
+      // 보이는 카드가 없으면(로딩 스피너 구간 등) 직전 활성 유지 — 무음 정지 깜빡임 방지
+      if (!best) return;
 
       // 광고 카드는 data-video-id 없음 → null → 모든 영상 정지
-      const section = targetWrapper.querySelector<HTMLElement>("[data-video-id]");
+      const section = best.querySelector<HTMLElement>("[data-video-id]");
       const videoId = section ? section.getAttribute("data-video-id") : null;
       setActiveId(prev => (prev !== videoId ? videoId : prev));
     };
 
-    // scrollend: 스냅 완전히 멈춘 후 (Chrome 114+, Firefox 109+)
+    // scrollend: 스크롤 완전히 멈춘 후 (Chrome 114+, Firefox 109+)
     container.addEventListener("scrollend", detectActive, { passive: true });
 
-    // scroll + 디바운스: iOS Safari / 데스크탑 마우스 휠 fallback
+    // scroll + 디바운스: iOS Safari / 데스크탑 마우스 휠 fallback.
+    //   스냅 감속을 기다릴 필요가 없어져 350ms → 140ms (손 뗀 직후 바로 재생 시작).
+    //   플링 중에는 계속 리셋되므로 재생/정지가 연타되지 않는다.
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const onScroll = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(detectActive, 350);
+      debounceTimer = setTimeout(detectActive, 140);
     };
     container.addEventListener("scroll", onScroll, { passive: true });
 
@@ -1496,7 +1507,7 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
       </nav>
       <div
         ref={containerRef}
-        className={`mobile-feed-container h-full overflow-y-auto snap-y snap-mandatory custom-scrollbar ${isCommentOpen ? 'comments-open' : ''}`}
+        className={`mobile-feed-container h-full overflow-y-auto custom-scrollbar ${isCommentOpen ? 'comments-open' : ''}`}
       >
         {feedItems.map((item) => (
           <div
@@ -1677,17 +1688,18 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
       </div>
 
       <style>{`
+        /* 2026-08-20: 스크롤 스냅 제거 — 유튜브식 자유 스크롤(칸 단위로 걸리지 않고 쭉쭉 넘어감).
+           카드 높이(뷰포트 절반=2장)는 그대로. 자동재생은 스냅 위치가 아니라
+           "화면에 가장 많이 보이는 카드" 판정(detectActive)이 담당한다. */
         .mobile-feed-container {
           display: block;
           height: calc(100dvh - 136px);
           overflow-y: auto;
-          scroll-snap-type: y mandatory;
           -webkit-overflow-scrolling: touch;
           background: #0a0a0a; /* bg-gray-100 */
         }
         .discovery-section-wrapper {
           height: calc(50% - 1.5px) !important;
-          scroll-snap-align: start;
           box-sizing: border-box;
           background: #0a0a0a;
           position: relative;
@@ -1727,7 +1739,6 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
         .mobile-feed-container.comments-open {
           height: 40dvh !important;
           overflow: hidden !important;
-          scroll-snap-type: none !important;
         }
         .mobile-feed-container.comments-open > * {
           display: none !important;

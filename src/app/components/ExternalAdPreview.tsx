@@ -52,16 +52,15 @@ export function ExternalAdPreview() {
       </div>
 
       <style>{`
+        /* 2026-08-20: 실제 홈피드가 스냅 제거(자유 스크롤)로 바뀌어 미리보기도 동일하게 맞춤 */
         .preview-feed-container {
           height: calc(100dvh - 136px);
           overflow-y: auto;
-          scroll-snap-type: y mandatory;
           -webkit-overflow-scrolling: touch;
           background: #0a0a0a;
         }
         .preview-section {
           height: calc(50% - 1.5px);
-          scroll-snap-align: start;
           box-sizing: border-box;
           background: #0a0a0a;
           position: relative;
