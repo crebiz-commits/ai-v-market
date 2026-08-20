@@ -248,17 +248,27 @@ export function AdminOverview() {
               <MiniStat label="어제 방문자" value={num(visitors.yesterday?.users || 0) + "명"} />
               <MiniStat label="최근 7일 합계" value={num(visitors.last7Users || 0) + "명"} />
             </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={visitorChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="day" stroke="#888" fontSize={11} />
-                <YAxis stroke="#888" fontSize={11} allowDecimals={false} />
-                <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8 }} />
-                <Legend />
-                <Line type="monotone" dataKey="users" stroke="#06b6d4" name="방문자" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="views" stroke="#8b5cf6" name="페이지뷰" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+            {visitorChartData.length === 0 ? (
+              // 연동은 됐는데 행이 0 = 신규 속성의 집계 대기(실시간은 잡히는데 표준 보고서는 지연).
+              //   빈 그래프만 두면 고장으로 오해하므로 사유를 명시한다.
+              <div className="py-8 text-center text-xs text-muted-foreground leading-relaxed">
+                GA 연동은 정상이며, 아직 집계된 데이터가 없습니다.
+                <br />신규 속성은 표준 보고서 집계가 확정되기까지 <strong className="text-white">최대 48시간</strong> 걸립니다
+                (실시간 보고서에는 즉시 반영됨).
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={visitorChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                  <XAxis dataKey="day" stroke="#888" fontSize={11} />
+                  <YAxis stroke="#888" fontSize={11} allowDecimals={false} />
+                  <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8 }} />
+                  <Legend />
+                  <Line type="monotone" dataKey="users" stroke="#06b6d4" name="방문자" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="views" stroke="#8b5cf6" name="페이지뷰" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
             <p className="text-[11px] text-muted-foreground mt-2">
               ※ 오늘 수치는 집계 확정 전이라 실제보다 낮게 보일 수 있습니다(확정까지 수 시간~24시간).
               광고 차단기 사용자는 GA 에 잡히지 않아 실제보다 다소 적게 나옵니다.

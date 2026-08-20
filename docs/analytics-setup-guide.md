@@ -111,7 +111,15 @@ GA_SERVICE_ACCOUNT_JSON = {JSON 파일 전문}     (ⓑ 다운로드 파일 내�
 
 Supabase 대시보드 → Project Settings → Edge Functions → Secrets 에서 등록하거나,
 JSON 파일 경로를 알려주면 CLI(`npx supabase secrets set`)로 대신 넣을 수 있다.
-**시크릿 등록 후 Edge 재배포는 불필요**(런타임에 읽는다).
+**시크릿 등록 후 Edge 재배포는 불필요**(런타임에 읽는다 — 2026-08-21 실측 확인).
+
+⚠️ **CLI `--env-file` 로 넣을 때 따옴표 함정**(2026-08-21 실제로 걸림):
+JSON 값을 **큰따옴표**로 감싸면 이스케이프(`\"`)가 값에 그대로 저장돼 `JSON.parse` 가 깨진다
+(카드에 "GA_SERVICE_ACCOUNT_JSON 이 올바른 JSON 이 아닙니다" 표시).
+→ **작은따옴표로 감쌀 것**. 서비스 계정 JSON 에는 작은따옴표가 없어 안전하다.
+```
+GA_SERVICE_ACCOUNT_JSON='{"type":"service_account",...}'   # ← 한 줄로 compact 하게
+```
 
 ## ⓔ 확인
 
