@@ -70,6 +70,53 @@ GA는 쿠키·행태정보를 수집하므로 방침 고지가 선행돼야 한�
 - AdSense 는 별도 항목: `VITE_ADSENSE_CLIENT` / `VITE_ADSENSE_SLOT` + `public/ads.txt` 기입 → [ad-monetization-guide.md](ad-monetization-guide.md), [launch-checklist.md](launch-checklist.md) §7.
 - 콘텐츠 21편 기준이라 "가치 낮은 콘텐츠" 반려 리스크가 있다는 점은 그대로다(체크리스트 §7 주의사항 참고).
 
-## 나중에 (선택)
+---
 
-- **관리자 대시보드에 방문자 카드 통합** — 지금은 GA/Vercel 대시보드를 따로 봐야 한다. 매출·시청과 한 화면에서 보려면 자체 집계 테이블(`site_visits`)이 필요하고, 봇 필터·중복제거·IP 익명화를 직접 구현해야 한다. 트래픽이 의미 있게 쌓인 뒤 판단.
+# 관리자 대시보드 "방문자" 카드 (GA4 Data API 연동)
+
+> 코드는 **완료**. 관리자 → 대시보드에 `👣 방문자 (Google Analytics)` 카드가 이미 있고,
+> 시크릿 2개를 넣으면 숫자가 채워진다. 넣기 전에는 "연동 필요" 안내가 뜬다(에러 아님).
+> · Edge: `supabase/functions/server/index.ts` 의 `GET /admin-visitor-stats`
+> · 화면: `src/app/components/AdminOverview.tsx`
+
+**왜 서비스 계정이 필요한가**: GA4 Data API 는 **API 키를 받지 않는다**(OAuth2 전용). 기존 `GOOGLE_VISION_API_KEY` 는 Vision 용 API 키라 사용 불가. 서비스 계정 개인키는 브라우저에 내릴 수 없으므로 Edge 가 대신 호출하고 숫자만 넘긴다.
+
+## ⓐ GA4 속성 ID 확인 (측정 ID 아님)
+
+GA → **관리(⚙️) → 속성 설정 → 속성 세부정보** → 우측 상단 **속성 ID**(9~10자리 숫자).
+⚠️ `G-B7B53STY1Y`(측정 ID)나 스트림 ID(`15471135536`)와 **다른 값**이다.
+
+## ⓑ 구글 클라우드 서비스 계정 만들기
+
+1. <https://console.cloud.google.com> → 상단에서 프로젝트 선택(기존 `aimarket` 재사용 가능)
+2. **API 및 서비스 → 라이브러리** → `Google Analytics Data API` 검색 → **사용 설정**
+3. **API 및 서비스 → 사용자 인증 정보 → 사용자 인증 정보 만들기 → 서비스 계정**
+   - 이름: `creaite-ga-reader` (역할 부여 단계는 **건너뛰기** — GA 권한은 GA 쪽에서 준다)
+4. 만들어진 서비스 계정 클릭 → **키 → 키 추가 → 새 키 만들기 → JSON** → 파일 다운로드
+5. 그 서비스 계정의 **이메일**(`...@....iam.gserviceaccount.com`)을 복사
+
+## ⓒ GA 속성에 서비스 계정을 뷰어로 추가 ★ 빼먹기 쉬움
+
+GA → **관리 → 속성 액세스 관리 → + → 사용자 추가**
+→ ⓑ에서 복사한 서비스 계정 이메일 입력 → 역할 **뷰어** → 추가
+
+이걸 안 하면 카드에 `403 permission denied` 가 뜬다(카드가 원인 문구를 그대로 보여준다).
+
+## ⓓ Supabase Edge 시크릿 2개 등록
+
+```
+GA_PROPERTY_ID          = 123456789          (ⓐ 값)
+GA_SERVICE_ACCOUNT_JSON = {JSON 파일 전문}     (ⓑ 다운로드 파일 내용 그대로)
+```
+
+Supabase 대시보드 → Project Settings → Edge Functions → Secrets 에서 등록하거나,
+JSON 파일 경로를 알려주면 CLI(`npx supabase secrets set`)로 대신 넣을 수 있다.
+**시크릿 등록 후 Edge 재배포는 불필요**(런타임에 읽는다).
+
+## ⓔ 확인
+
+관리자 → 대시보드 → `👣 방문자` 카드에 **오늘/어제/최근 7일 방문자 + 30일 추이 그래프**가 뜨면 완료.
+
+- "연동 필요" 문구 → 시크릿 미등록(ⓓ)
+- `403` / `permission denied` → ⓒ 누락
+- `PERMISSION_DENIED: Google Analytics Data API has not been used` → ⓑ-2 누락

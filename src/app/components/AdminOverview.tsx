@@ -14,9 +14,14 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend
 } from "recharts";
-import { supabase } from "../utils/supabaseClient";
+import { supabase, supabaseUrl, supabaseAnonKey } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
+
+// 방문자 통계는 우리 DB 에 없다 — GA4 Data API 를 Edge 가 대신 호출해 숫자만 받아온다.
+//   (관리자 대시보드의 "24h 시청"은 video_views = 영상 재생 기준이라 방문자와 다른 지표.
+//    둘러보다 나간 사람·비로그인 방문자는 video_views 에 안 남는다.)
+const VISITOR_ENDPOINT = `${supabaseUrl}/functions/v1/server/admin-visitor-stats`;
 
 interface Summary {
   total_users: number;
@@ -47,6 +52,17 @@ interface AdPerf {
   total_impressions: number; total_clicks: number;
   total_spent: number; total_budget: number; avg_ctr: number;
 }
+interface VisitorDay { date: string; users: number; sessions: number; views: number; }
+interface VisitorStats {
+  configured: boolean;
+  ok?: boolean;
+  reason?: string;        // configured=false 사유(시크릿 미설정 등)
+  error?: string;         // GA API 오류(권한 누락이 가장 흔함)
+  today?: VisitorDay;
+  yesterday?: VisitorDay;
+  last7Users?: number;
+  daily?: VisitorDay[];
+}
 
 // ⚠️ get_admin_dashboard_summary·get_daily_* 는 지표를 BIGINT 로 반환 → PostgREST 가 JSON
 //   문자열로 직렬화한다. 문자열에 .toLocaleString() 하면 천단위 구분이 안 붙으므로(무포맷)
@@ -63,6 +79,23 @@ export function AdminOverview() {
   const [topVideos, setTopVideos] = useState<TopVideo[]>([]);
   const [topCreators, setTopCreators] = useState<TopCreator[]>([]);
   const [adPerf, setAdPerf] = useState<AdPerf | null>(null);
+  const [visitors, setVisitors] = useState<VisitorStats | null>(null);
+
+  // 방문자 통계 — 외부 API(GA) 라 느리고 실패할 수 있어 대시보드 본체와 분리해서 로드한다.
+  //   (같이 await 하면 GA 지연 때문에 매출·시청 지표까지 늦게 뜬다.)
+  const loadVisitors = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const res = await fetch(`${VISITOR_ENDPOINT}?days=30`, {
+        headers: { Authorization: `Bearer ${session.access_token}`, apikey: supabaseAnonKey },
+      });
+      if (!res.ok) { setVisitors({ configured: true, ok: false, error: `서버 오류(${res.status})` }); return; }
+      setVisitors(await res.json());
+    } catch (e: any) {
+      setVisitors({ configured: true, ok: false, error: String(e?.message || e) });
+    }
+  };
 
   const loadAll = async () => {
     setLoading(true);
@@ -110,7 +143,7 @@ export function AdminOverview() {
     }
   };
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => { loadAll(); loadVisitors(); }, []);
 
   if (loading) {
     return (
@@ -135,6 +168,10 @@ export function AdminOverview() {
   const userGrowthChartData = userGrowth.map(r => ({
     day: fmtDay(r.day), new_users: Number(r.new_users), cumulative: Number(r.cumulative),
   }));
+  // GA 는 'YYYY-MM-DD' 문자열로 오므로 fmtDay(MM/DD) 로 축만 짧게 맞춘다(다른 차트와 동일 표기).
+  const visitorChartData = (visitors?.daily || []).map(r => ({
+    day: fmtDay(r.date), users: Number(r.users), views: Number(r.views),
+  }));
   const viewsChartData = dailyViews.map(r => ({
     day: fmtDay(r.day), total_views: Number(r.total_views), valid_views: Number(r.valid_views),
     watch_hours: Number(r.watch_hours),
@@ -144,7 +181,7 @@ export function AdminOverview() {
     <div className="space-y-6">
       {/* 새로고침 버튼 */}
       <div className="flex justify-end">
-        <Button variant="outline" size="sm" onClick={loadAll} className="gap-1.5">
+        <Button variant="outline" size="sm" onClick={() => { loadAll(); loadVisitors(); }} className="gap-1.5">
           <RefreshCw className="w-3.5 h-3.5" />
           새로고침
         </Button>
@@ -181,6 +218,54 @@ export function AdminOverview() {
           sub={`${watchHours24h}시간`}
         />
       </div>
+
+      {/* ── 방문자 (GA4) ──
+          우리 DB 엔 방문 기록이 없어 GA4 Data API 를 Edge 경유로 읽어온다.
+          시크릿 미설정/권한 누락이면 숫자 대신 원인을 그대로 보여준다(조용한 0 방지). */}
+      <ChartCard title="👣 방문자 (Google Analytics)">
+        {!visitors ? (
+          <div className="py-6 flex justify-center"><Loader2 className="w-5 h-5 text-[#6366f1] animate-spin" /></div>
+        ) : !visitors.configured ? (
+          <div className="text-xs text-muted-foreground leading-relaxed">
+            아직 GA 연동이 설정되지 않았습니다. <span className="text-amber-400">{visitors.reason}</span>
+            <br />Supabase Edge 시크릿에 <code className="text-white">GA_PROPERTY_ID</code> ·{" "}
+            <code className="text-white">GA_SERVICE_ACCOUNT_JSON</code> 을 등록하면 이 카드가 채워집니다.
+            <br />설정 절차: <span className="text-white">docs/analytics-setup-guide.md</span>
+          </div>
+        ) : !visitors.ok ? (
+          <div className="text-xs text-red-400 leading-relaxed">
+            GA 조회 실패: {visitors.error}
+            <br />
+            <span className="text-muted-foreground">
+              가장 흔한 원인은 서비스 계정을 GA 속성에 <strong className="text-white">뷰어로 추가하지 않은 것</strong>입니다
+              (GA → 관리 → 속성 액세스 관리).
+            </span>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <MiniStat label="오늘 방문자" value={num(visitors.today?.users || 0) + "명"} color="text-cyan-400" />
+              <MiniStat label="어제 방문자" value={num(visitors.yesterday?.users || 0) + "명"} />
+              <MiniStat label="최근 7일 합계" value={num(visitors.last7Users || 0) + "명"} />
+            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={visitorChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                <XAxis dataKey="day" stroke="#888" fontSize={11} />
+                <YAxis stroke="#888" fontSize={11} allowDecimals={false} />
+                <Tooltip contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8 }} />
+                <Legend />
+                <Line type="monotone" dataKey="users" stroke="#06b6d4" name="방문자" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="views" stroke="#8b5cf6" name="페이지뷰" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              ※ 오늘 수치는 집계 확정 전이라 실제보다 낮게 보일 수 있습니다(확정까지 수 시간~24시간).
+              광고 차단기 사용자는 GA 에 잡히지 않아 실제보다 다소 적게 나옵니다.
+            </p>
+          </>
+        )}
+      </ChartCard>
 
       {/* ── 운영 알림 카드 ── */}
       {((summary?.pending_reports || 0) > 0 || (summary?.hidden_videos || 0) > 0 || (summary?.suspended_users || 0) > 0) && (

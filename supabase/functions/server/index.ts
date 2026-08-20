@@ -3140,4 +3140,164 @@ app.post('/refund-payment', async (c) => {
   }
 });
 
+// ════════════════════════════════════════════════════════════════════════════
+// 방문자 통계 (GA4 Data API) — 관리자 대시보드 "방문자" 카드/차트용
+//
+//   왜 서버에서 부르나: GA Data API 는 API 키를 받지 않고 **서비스 계정 OAuth2** 만 받는다.
+//     서비스 계정 개인키를 브라우저에 내릴 수 없으므로 Edge 에서 대신 호출하고 결과 숫자만 넘긴다.
+//
+//   필요한 시크릿 2개 (없으면 { configured:false } 를 200 으로 반환 → 카드가 "연동 필요" 안내를 띄움):
+//     · GA_PROPERTY_ID          — GA4 속성 ID(숫자). 측정 ID(G-...) 아님, 스트림 ID 도 아님.
+//     · GA_SERVICE_ACCOUNT_JSON — 구글 클라우드 서비스 계정 키 JSON 전문(client_email·private_key 사용).
+//                                 그 서비스 계정 이메일을 GA 속성에 "뷰어"로 추가해야 권한이 생긴다.
+//   설정 절차: docs/analytics-setup-guide.md
+// ════════════════════════════════════════════════════════════════════════════
+
+/** PEM(PKCS#8) → CryptoKey. 서비스 계정 private_key 는 "\n" 이 이스케이프돼 오는 경우가 많아 복원한다. */
+async function importGaPrivateKey(pem: string): Promise<CryptoKey> {
+  const body = pem
+    .replace(/\\n/g, '\n')
+    .replace(/-----BEGIN PRIVATE KEY-----/, '')
+    .replace(/-----END PRIVATE KEY-----/, '')
+    .replace(/\s+/g, '');
+  const der = Uint8Array.from(atob(body), (ch) => ch.charCodeAt(0));
+  return await crypto.subtle.importKey(
+    'pkcs8',
+    der.buffer,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+}
+
+function b64url(input: string | Uint8Array): string {
+  const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : input;
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** 서비스 계정 JWT 서명 → 구글 OAuth2 액세스 토큰 교환(readonly 스코프). */
+async function getGaAccessToken(clientEmail: string, privateKeyPem: string): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const claim = {
+    iss: clientEmail,
+    scope: 'https://www.googleapis.com/auth/analytics.readonly',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now + 3600,
+    iat: now,
+  };
+  const unsigned = `${b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))}.${b64url(JSON.stringify(claim))}`;
+  const key = await importGaPrivateKey(privateKeyPem);
+  const sig = new Uint8Array(
+    await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(unsigned)),
+  );
+  const assertion = `${unsigned}.${b64url(sig)}`;
+
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion,
+    }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.access_token) {
+    throw new Error(`구글 토큰 발급 실패(${res.status}): ${json.error_description || json.error || '알 수 없음'}`);
+  }
+  return json.access_token as string;
+}
+
+app.get("/admin-visitor-stats", async (c) => {
+  try {
+    // 관리자 전용 — 다른 관리자 엔드포인트와 동일한 검사(토큰 → is_admin)
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) return c.json({ error: "인증 토큰이 필요합니다." }, 401);
+    const supabase = getSupabaseClient(true);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) return c.json({ error: "유효하지 않은 토큰입니다." }, 401);
+    const { data: prof } = await supabase.from('profiles').select('is_admin').eq('id', user.id).maybeSingle();
+    if (!prof?.is_admin) return c.json({ error: "관리자만 사용할 수 있습니다." }, 403);
+
+    const propertyId = Deno.env.get('GA_PROPERTY_ID');
+    const saRaw = Deno.env.get('GA_SERVICE_ACCOUNT_JSON');
+    // 미설정은 에러가 아니라 "아직 연동 안 됨" 상태 — 대시보드가 안내 문구를 띄우고 나머지는 정상 동작.
+    if (!propertyId || !saRaw) {
+      return c.json({ configured: false, reason: 'GA_PROPERTY_ID / GA_SERVICE_ACCOUNT_JSON 미설정' });
+    }
+
+    let sa: { client_email?: string; private_key?: string };
+    try {
+      sa = JSON.parse(saRaw);
+    } catch {
+      return c.json({ configured: false, reason: 'GA_SERVICE_ACCOUNT_JSON 이 올바른 JSON 이 아닙니다.' });
+    }
+    if (!sa.client_email || !sa.private_key) {
+      return c.json({ configured: false, reason: '서비스 계정 JSON 에 client_email/private_key 가 없습니다.' });
+    }
+
+    const days = Math.min(Math.max(Number(c.req.query('days') || 30), 7), 90);
+    const token = await getGaAccessToken(sa.client_email, sa.private_key);
+
+    // 일자별 활성 사용자/세션/페이지뷰 — 오늘 포함 최근 N일
+    const gaRes = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${encodeURIComponent(propertyId)}:runReport`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dateRanges: [{ startDate: `${days - 1}daysAgo`, endDate: 'today' }],
+          dimensions: [{ name: 'date' }],
+          metrics: [{ name: 'activeUsers' }, { name: 'sessions' }, { name: 'screenPageViews' }],
+          orderBys: [{ dimension: { dimensionName: 'date' } }],
+          limit: 100,
+        }),
+      },
+    );
+    const ga = await gaRes.json().catch(() => ({}));
+    if (!gaRes.ok) {
+      const msg = ga?.error?.message || `GA API 오류(${gaRes.status})`;
+      console.error('[admin-visitor-stats] GA 오류:', msg);
+      // 권한 누락(서비스 계정을 속성에 추가 안 함)이 가장 흔한 실패 → 문구로 바로 알려준다.
+      return c.json({ configured: true, ok: false, error: msg }, 200);
+    }
+
+    // GA date 는 'YYYYMMDD' → 'YYYY-MM-DD' 로 정규화(차트 X축·비교 편의)
+    const daily = (ga.rows || []).map((r: any) => {
+      const d = String(r.dimensionValues?.[0]?.value || '');
+      return {
+        date: d.length === 8 ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : d,
+        users: Number(r.metricValues?.[0]?.value || 0),
+        sessions: Number(r.metricValues?.[1]?.value || 0),
+        views: Number(r.metricValues?.[2]?.value || 0),
+      };
+    });
+
+    const iso = (offsetDays: number) => {
+      const t = new Date();
+      t.setUTCHours(t.getUTCHours() + 9);            // KST 기준 날짜(GA 속성 시간대=대한민국)
+      t.setUTCDate(t.getUTCDate() - offsetDays);
+      return t.toISOString().slice(0, 10);
+    };
+    const todayKey = iso(0);
+    const yesterdayKey = iso(1);
+    const sum = (arr: any[], k: string) => arr.reduce((a, b) => a + (b[k] || 0), 0);
+    const last7 = daily.slice(-7);
+
+    return c.json({
+      configured: true,
+      ok: true,
+      today: daily.find((d: any) => d.date === todayKey) || { date: todayKey, users: 0, sessions: 0, views: 0 },
+      yesterday: daily.find((d: any) => d.date === yesterdayKey) || { date: yesterdayKey, users: 0, sessions: 0, views: 0 },
+      last7Users: sum(last7, 'users'),
+      totalUsers: sum(daily, 'users'),
+      daily,
+    });
+  } catch (err: any) {
+    console.error('[admin-visitor-stats] 예외:', err);
+    return c.json({ configured: true, ok: false, error: String(err?.message || err) }, 200);
+  }
+});
+
 Deno.serve(app.fetch);
