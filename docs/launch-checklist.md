@@ -111,11 +111,12 @@
 > **env 미설정 시 GA 스크립트를 아예 로드하지 않으므로**, 방침 공지 기간을 두고 나중에 켜도 안전하다. 📘 [analytics-setup-guide.md](analytics-setup-guide.md)
 > ※ 관리자 대시보드의 "24h 시청"은 video_views(영상 재생) 기준이라 비로그인·둘러보기 방문자는 잡히지 않음 — 그래서 필요한 작업.
 
-- [ ] (권장) 공지사항에 개인정보처리방침 개정 안내 게시 → 7일 후 아래 진행 (방침 §14 사전 고지 조항)
-- [ ] **GA4 속성 생성** → 측정 ID `G-XXXXXXXXXX` 발급 (⚠️ **향상된 측정 ON 유지** — SPA 페이지뷰가 여기에 의존, 수동 전송 코드 없음)
-- [ ] Vercel env `VITE_GA_MEASUREMENT_ID` = `G-...` 등록 → **재배포**(env 는 빌드 시 번들에 박힘)
-- [ ] Vercel 프로젝트 → **Analytics 탭 Enable** (Hobby 무료 월 5만 이벤트, 초과 시 그 달 수집 중단)
-- [ ] 확인: GA4 실시간 보고서에 접속자 잡히는지 + Vercel Analytics 에 Visitors 뜨는지
+- [x] ✅ **GA4 속성 생성 완료**(2026-08-20) — 속성 `CREAITE`(계정 "Default Account for Firebase" 하위, 기존 크레비즈 로지스틱스 속성과 분리), 웹 스트림 `CREAITE Web`, **측정 ID `G-B7B53STY1Y`**. 향상된 측정 ON + **"브라우저 방문 기록 이벤트 기반 페이지 변경" 체크 확인**(SPA 탭 이동 집계의 전제 — 끄면 첫 진입만 잡힘).
+- [x] ✅ **Vercel env 등록·재배포 완료**(2026-08-20) — `VITE_GA_MEASUREMENT_ID`(All Environments, Sensitive OFF). 배포 번들 `assets/analytics-*.js` 에 측정 ID 박힌 것 확인.
+- [x] ✅ **Vercel Web Analytics Enable 완료**(Hobby: 월 5만 이벤트·**조회 30일**). 장기 추이는 GA4 쪽에서 봐야 함.
+- [x] ✅ **작동 확인**(2026-08-20) — GA4 실시간에 활성 사용자 1, `page_view` 2·`first_visit`·`scroll`·`session_start` 수신. page_view 가 2 = history 기반 SPA 추적 정상.
+- [ ] (권장) 공지사항에 개인정보처리방침 개정 안내 게시 — 방침 §14 는 "개정 시 시행일 7일 전 공지"로 정하고 있는데 **수집이 이미 시작됐으므로 사후 공지라도 올려둘 것**(현재 이용자 수 적어 실질 위험은 낮음).
+- [ ] 내일(2026-08-21) 확인: `보고서 → 보고서 개요` 에 **전일 방문자 수**가 찍히는지 (실시간과 달리 집계 확정에 수 시간~24시간)
 
 ## 🧱 8. 기능 백로그 (베타 후 — 코드, 대행 가능)
 
