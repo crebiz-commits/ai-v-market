@@ -5,10 +5,14 @@
 
   createRoot(document.getElementById("root")!).render(<App />);
 
-  // 에러 모니터링 — 첫 페인트를 막지 않도록 idle 시 동적 import 로 지연 초기화.
+  // 에러 모니터링 + 방문자 분석 — 첫 페인트를 막지 않도록 idle 시 동적 import 로 지연 초기화.
   // (@sentry/react 를 초기 번들에서 분리 → 초기 로딩 속도 개선. VITE_SENTRY_DSN 설정 시에만 실제 활성)
+  // (분석은 GA4 + Vercel Web Analytics. GA4 는 VITE_GA_MEASUREMENT_ID 설정 시에만 로드 — 미설정이면 no-op)
   {
-    const initLater = () => { import("./app/utils/sentry").then(m => m.initSentry()).catch(() => {}); };
+    const initLater = () => {
+      import("./app/utils/sentry").then(m => m.initSentry()).catch(() => {});
+      import("./app/utils/analytics").then(m => m.initAnalytics()).catch(() => {});
+    };
     const ric: any = (window as any).requestIdleCallback;
     if (ric) ric(initLater, { timeout: 5000 });
     else setTimeout(initLater, 3000);
