@@ -45,7 +45,8 @@ const AdminMegaUploader = lazy(() => import("./AdminMegaUploader").then(m => ({ 
 const AdminGrantPremium = lazy(() => import("./AdminGrantPremium").then(m => ({ default: m.AdminGrantPremium })));
 const AdminShortcuts = lazy(() => import("./AdminShortcuts").then(m => ({ default: m.AdminShortcuts })));
 
-type AdminPage =
+// AdminOverview 의 운영 알림에서 해당 페이지로 바로 이동하기 위해 export.
+export type AdminPage =
   | "overview"      // 대시보드 (한눈에 보기)
   | "ads"           // 자체 광고 (CREAITE House Ads)
   | "ad_reviews"    // 광고 심사 (광고주 셀프서비스 제출 큐)
@@ -205,7 +206,7 @@ export function AdminLayout({ onBackToSite }: AdminLayoutProps) {
   const renderPage = () => {
     return (
       <Suspense fallback={<div className="flex justify-center py-16"><Loader2 className="w-8 h-8 text-[#6366f1] animate-spin" /></div>}>
-        {currentPage === "overview" && <AdminOverview />}
+        {currentPage === "overview" && <AdminOverview onNavigate={setCurrentPage} />}
         {currentPage === "users" && <AdminUsers />}
         {currentPage === "content" && <AdminContent />}
         {currentPage === "broadcast" && <AdminBroadcast />}

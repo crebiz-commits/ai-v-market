@@ -17,6 +17,7 @@ import {
 import { supabase, supabaseUrl, supabaseAnonKey } from "../utils/supabaseClient";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
+import type { AdminPage } from "./AdminLayout";
 
 // 방문자 통계는 우리 DB 에 없다 — GA4 Data API 를 Edge 가 대신 호출해 숫자만 받아온다.
 //   (관리자 대시보드의 "24h 시청"은 video_views = 영상 재생 기준이라 방문자와 다른 지표.
@@ -70,7 +71,9 @@ interface VisitorStats {
 function won(n: number) { return "₩" + Number(n || 0).toLocaleString(); }
 function num(n: number) { return Number(n || 0).toLocaleString(); }
 
-export function AdminOverview() {
+// onNavigate: 운영 알림(대기 신고·숨김 영상·정지 계정) 클릭 시 해당 관리 페이지로 이동.
+//   AdminLayout 이 setCurrentPage 를 그대로 넘긴다. 없으면 알림은 클릭 불가 텍스트로만 표시.
+export function AdminOverview({ onNavigate }: { onNavigate?: (page: AdminPage) => void } = {}) {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [dailyRevenue, setDailyRevenue] = useState<DailyRevenue[]>([]);
@@ -286,25 +289,25 @@ export function AdminOverview() {
           </p>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
             {(summary?.pending_reports || 0) > 0 && (
-              <div className="flex items-center gap-2">
-                <Flag className="w-4 h-4 text-red-400" />
-                <span className="text-muted-foreground">대기 신고:</span>
-                <span className="font-bold text-red-400">{num(summary!.pending_reports)}건</span>
-              </div>
+              <AlertItem
+                icon={Flag} iconColor="text-red-400" label="대기 신고"
+                value={`${num(summary!.pending_reports)}건`} valueColor="text-red-400"
+                onClick={onNavigate && (() => onNavigate("reports"))}
+              />
             )}
             {(summary?.hidden_videos || 0) > 0 && (
-              <div className="flex items-center gap-2">
-                <EyeOff className="w-4 h-4 text-amber-400" />
-                <span className="text-muted-foreground">숨김 영상:</span>
-                <span className="font-bold text-amber-400">{num(summary!.hidden_videos)}건</span>
-              </div>
+              <AlertItem
+                icon={EyeOff} iconColor="text-amber-400" label="숨김 영상"
+                value={`${num(summary!.hidden_videos)}건`} valueColor="text-amber-400"
+                onClick={onNavigate && (() => onNavigate("moderation"))}
+              />
             )}
             {(summary?.suspended_users || 0) > 0 && (
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-red-400" />
-                <span className="text-muted-foreground">정지 계정:</span>
-                <span className="font-bold text-red-400">{num(summary!.suspended_users)}건</span>
-              </div>
+              <AlertItem
+                icon={ShieldAlert} iconColor="text-red-400" label="정지 계정"
+                value={`${num(summary!.suspended_users)}건`} valueColor="text-red-400"
+                onClick={onNavigate && (() => onNavigate("moderation"))}
+              />
             )}
           </div>
         </div>
@@ -451,6 +454,36 @@ function KpiCard({
       <p className="text-xl font-black mt-1">{value}</p>
       {sub && <p className="text-[11px] text-muted-foreground mt-1">{sub}</p>}
     </div>
+  );
+}
+
+// 운영 알림 한 줄 — 클릭하면 담당 관리 페이지로 이동(처리하러 가는 게 목적이라 항상 바로가기).
+//   onClick 이 없으면(= onNavigate 미주입) 기존처럼 표시만 한다.
+function AlertItem({
+  icon: Icon, iconColor, label, value, valueColor, onClick,
+}: {
+  icon: typeof Flag; iconColor: string; label: string;
+  value: string; valueColor: string; onClick?: () => void;
+}) {
+  const inner = (
+    <>
+      <Icon className={`w-4 h-4 ${iconColor}`} />
+      <span className="text-muted-foreground">{label}:</span>
+      <span className={`font-bold ${valueColor}`}>{value}</span>
+      {onClick && <span className="text-muted-foreground/60 ml-auto">›</span>}
+    </>
+  );
+  if (!onClick) return <div className="flex items-center gap-2">{inner}</div>;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={`${label} 관리 페이지로 이동`}
+      className="flex items-center gap-2 w-full text-left rounded-lg px-2 py-1.5 -mx-2 -my-1.5
+                 hover:bg-amber-500/15 focus:outline-none focus:ring-1 focus:ring-amber-400/50 transition-colors"
+    >
+      {inner}
+    </button>
   );
 }
 
