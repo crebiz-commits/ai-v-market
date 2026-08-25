@@ -62,7 +62,7 @@
 - ✅ **매체 등록 완료**(CREAITE / Web / creaite.net / 엔터테인먼트·사진영상) + **광고단위 생성 완료**: 배너 300×250, **광고단위 코드 `DAN-u9aMDBktu0JpNuLu`**.
 - ✅ **Vercel env 2개 넣고 재배포 완료**: `VITE_EXTERNAL_ADS_ENABLED=1` + `VITE_ADFIT_UNIT_ID=DAN-u9aMDBktu0JpNuLu`(ai-v-market 프로젝트, All). 배포 자산(`ExternalAdSlot-*.js`)에 DAN id·`ba.min.js` 박힌 것 검증함.
 - ✅ **매체 심사 통과 → 실광고 노출 중**(2026-07-07 확인). 경위: 1차 보류(사유="로그인/회원가입 요구 페이지" — 심사자가 랜딩/스플래시 로그인 버튼을 로그인벽으로 오인) → **코드 수정**(랜딩 off + 스플래시 라벨 로그인→둘러보기 + 2.8초 자동진입)으로 비로그인도 바로 콘텐츠 도달 → 재심사 → **승인**. 카카오 하우스광고 대신 실광고 노출됨. env(`VITE_EXTERNAL_ADS_ENABLED=1`+`DAN-u9aMDBktu0JpNuLu`)·코드(`ExternalAdSlot`) 이미 완비라 추가 작업 없음. 📌 적립금 정산은 카카오 애드핏 대시보드에서 확인.
-- 📌 코드 로더 `t1.daumcdn.net/kas/static/ba.min.js` (콘솔 스크립트는 kakaocdn.net — 동일 CDN, 보통 호환. 승인 후 광고 안 뜨면 kakaocdn.net으로 교체).
+- ✅ **코드 로더 = `t1.kakaocdn.net/kas/static/ba.min.js`** ([public/adfit.html](../public/adfit.html) 34행, 유일한 로더 지점). 2026-07-09 애드핏 2차 공지 때 구 도메인 `t1.daumcdn.net` 에서 교체 완료. ⚠️ **구 도메인은 2026-08-26 지원 중단(deprecated)** — 3차 공지 메일(2026-08-25) 왔으나 **우리는 이미 신규 도메인이라 조치 불필요**(라이브 `/adfit.html` 실측 확인). 33행에 `daumcdn` 문자열이 남아 있는 건 변경 이력 설명 주석이지 실행 코드가 아님.
 - 📌 앱은 **TWA(웹 감싼 앱)**라 웹 광고단위 하나로 웹+앱 둘 다 노출됨 → 애드핏 앱 SDK 별도 연동 불필요(네이티브 앱 만들 때만).
 - 📌 법인 전환 시: 같은 카카오 로그인에서 **법인(683-87-03399) 사업자 계정 새로 생성** → 매체·광고단위 재등록 → env 교체. (기존 적립금 먼저 정산)
 - 가이드: [ad-monetization-guide.md](ad-monetization-guide.md). 토스 무관 — 무료 광고형 수익은 결제 없이 가능.
