@@ -25,20 +25,44 @@ interface MailAccount {
   desc: string;
 }
 
+// ⚠️ 비밀번호는 여기에 적지 않는다. 이 파일은 프론트 번들로 빌드돼 누구나 내려받을 수 있다
+//   (`curl .../assets/AdminShortcuts-*.js` 한 줄이면 문자열이 그대로 보인다).
+//   계정 비밀번호는 브라우저 비밀번호 관리자에 저장하고, 분실 시 Zoho 관리콘솔에서 재설정한다.
 const MAIL_ACCOUNTS: MailAccount[] = [
   {
     address: "admin@creaite.net",
     label: "관리자 계정",
     badge: "주 계정",
     badgeColor: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
-    desc: "평소 쓰는 편지함. Zoho 관리자 권한이 있어 사용자·별칭·비밀번호를 여기서 관리합니다.",
+    desc: "평소 쓰는 편지함. Zoho 관리자 권한(슈퍼 관리자)이 있어 사용자·별칭·비밀번호를 여기서 관리합니다.",
+  },
+  {
+    address: "support@creaite.net",
+    label: "Support Team",
+    badge: "★ 공식 문의처 · 정기 확인",
+    badgeColor: "bg-red-500/15 text-red-400 border border-red-500/30",
+    desc: "푸터·개인정보처리방침·이용약관·고객문의 등 사이트 30곳에 안내된 대외 공식 주소. 고객이 실제로 메일을 보내는 곳인데 독립 계정이라 admin 편지함에는 안 뜹니다. 2026-08-27 확인 시점까지 로그인 이력이 없었으므로 주기적으로 열어볼 것.",
   },
   {
     address: "contact@creaite.net",
     label: "Contact Team",
     badge: "별도 로그인 필요",
     badgeColor: "bg-amber-500/15 text-amber-400 border border-amber-500/30",
-    desc: "인스타그램 등 외부 서비스 가입에 쓴 주소. 독립 계정이라 admin 편지함에는 안 보입니다 — 로그아웃 후(또는 시크릿 창) 이 주소로 로그인해야 확인됩니다.",
+    desc: "인스타그램 등 외부 서비스 가입에 쓴 주소. 가입 확인·인증 메일이 여기로 옵니다. 독립 계정이라 admin 편지함에는 안 보입니다.",
+  },
+  {
+    address: "business@creaite.net",
+    label: "Business Team",
+    badge: "별도 로그인 필요",
+    badgeColor: "bg-amber-500/15 text-amber-400 border border-amber-500/30",
+    desc: "제휴·비즈니스 문의용. 비즈니스 안내 페이지에 노출됩니다. 문의가 잦지 않아도 가끔 확인 필요.",
+  },
+  {
+    address: "legal@creaite.net",
+    label: "Legal Team",
+    badge: "미사용 (안내 없음)",
+    badgeColor: "bg-white/5 text-muted-foreground border border-border",
+    desc: "계정만 만들어 둔 상태 — 사이트·문서 어디에도 이 주소를 안내하고 있지 않아 외부에서 오는 메일이 없습니다. 권리침해·법무 창구가 필요해지면 그때 안내에 추가하면 됩니다.",
   },
 ];
 
@@ -103,18 +127,21 @@ export function AdminShortcuts() {
         </h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
           creaite.net 로 오는 메일은 <b className="text-foreground">Zoho</b> 에서 받습니다.
-          아래 두 주소는 <b className="text-foreground">별칭이 아니라 서로 다른 계정</b>이라, 한쪽에
-          로그인하면 다른 쪽 메일은 보이지 않습니다.
+          아래 5개 주소는 <b className="text-foreground">별칭이 아니라 각각 독립된 계정</b>이라, 한쪽에
+          로그인하면 다른 쪽 메일은 보이지 않습니다. 특히{" "}
+          <b className="text-red-400">support@ 는 사이트 30곳에 안내된 공식 문의처</b>인데 admin 편지함에
+          섞이지 않으니 따로 확인해야 합니다.
           <br />
           <span className="text-xs text-muted-foreground/70">
             ※ 자동 전달(Email Forwarding)로 한 편지함에 합치는 기능은 Zoho <b>유료 플랜 전용</b>이라
-            현재(무료 플랜)는 사용할 수 없습니다. 두 계정을 오가야 합니다.
+            현재(무료 플랜)는 사용할 수 없습니다. IMAP/POP 도 막혀 있어 지메일로 가져올 수도 없습니다 —
+            계정을 오가며 확인하거나, 유료 전환 시 전달을 걸어 한 편지함으로 모으면 됩니다.
           </span>
         </p>
       </div>
 
       {/* ── 메일 계정 카드 ── */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {MAIL_ACCOUNTS.map((a) => (
           <div key={a.address} className="rounded-xl border border-border bg-card p-5 flex flex-col">
             <div className="flex items-center gap-2 mb-2">
@@ -201,6 +228,11 @@ export function AdminShortcuts() {
         <p className="font-bold text-foreground mb-1.5">참고</p>
         <p>· 애드핏·쿠팡·애드센스 대시보드는 <b>📢 광고 관리 → 외부 광고</b> 에 있습니다.</p>
         <p>· 고객 문의 답변은 메일 대신 <b>👥 운영 → 고객 문의</b> 에서 사이트 내 답변(알림 발송)이 기본입니다.</p>
+        <p className="mt-1.5">
+          · <b className="text-foreground">비밀번호는 이 페이지에 적지 않습니다.</b> 관리자 화면이라도 코드는
+          공개 번들로 배포돼 누구나 내려받을 수 있어서, 여기 적으면 사서함이 그대로 열립니다. 브라우저
+          비밀번호 관리자에 저장해 두고, 분실하면 위 <b>Zoho 관리콘솔 → 사용자 → 보안</b> 에서 재설정하세요.
+        </p>
       </div>
     </div>
   );
