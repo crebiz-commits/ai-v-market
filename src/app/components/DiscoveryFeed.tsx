@@ -28,6 +28,7 @@ import { useBackButton } from "../hooks/useBackButton";
 import { isNegotiationOnly } from "../utils/licensePricing";
 import { toast } from "sonner";
 import { BETA_MODE } from "../config/beta";
+import { CREATOR_REVENUE_ENABLED } from "../config/creatorRevenue";
 import { Sparkles, Plus } from "lucide-react";
 
 interface Ad {
@@ -1503,7 +1504,7 @@ export function DiscoveryFeed({ onVideoClick, onAddToCart, onSignInClick, onView
         <a href="?info=privacy">{t("footer.privacy")}</a>
         <a href="?info=terms">{t("footer.terms")}</a>
         <a href="?info=about">{t("footer.about")}</a>
-        <a href="?info=creator-revenue">{t("footer.creatorRevenue")}</a>
+        {CREATOR_REVENUE_ENABLED && <a href="?info=creator-revenue">{t("footer.creatorRevenue")}</a>}
       </nav>
       <div
         ref={containerRef}

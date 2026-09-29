@@ -31,6 +31,7 @@ import { deleteVideoEverywhere } from "../utils/videoDelete";
 import { shouldBlur } from "./AgeBadge";
 import { Footer } from "./Footer";
 import { formatCompactNumber } from "../i18n/numberFormat";
+import { CREATOR_REVENUE_ENABLED } from "../config/creatorRevenue";
 
 // Phase 27: 데이터 다운로드 섹션 (개인정보보호법 데이터 이동권)
 function DataDownloadSection() {
@@ -1975,6 +1976,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
 
               <TabsContent value="sales" className="space-y-4 m-0">
                 {/* 수익 정책 안내 링크 (대시보드 위) */}
+                {CREATOR_REVENUE_ENABLED && (
                 <a
                   href="?info=creator-revenue"
                   className="flex items-center gap-3 p-3 md:p-4 rounded-xl bg-gradient-to-br from-[#a78bfa]/10 to-[#ec4899]/10 border border-[#a78bfa]/20 hover:border-[#a78bfa]/40 transition-colors group"
@@ -1988,6 +1990,7 @@ export function MyPage({ onSignInClick, onVideoClick, onViewMyChannel, onNavigat
                   </div>
                   <span className="text-xs text-[#a78bfa] group-hover:translate-x-0.5 transition-transform">→</span>
                 </a>
+                )}
 
                 {/* Phase 21: 크리에이터 대시보드 (KPI 4개 + 일별 그래프) */}
                 <CreatorDashboard />

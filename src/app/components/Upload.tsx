@@ -28,6 +28,7 @@ import { uploadHeroClip } from "../utils/heroClipUpload";
 import { isNegotiationOnly } from "../utils/licensePricing";
 import { toast } from "sonner";
 import { useTranslation, Trans } from "react-i18next";
+import { CREATOR_REVENUE_ENABLED } from "../config/creatorRevenue";
 import { getCategoryLabel, getGenreLabel, getAiToolLabel, getLanguageLabel } from "../i18n/categoryLabels";
 import { GENRES } from "../data/genres";  // 장르 단일 출처 (업로드/시네마/OTT 공유)
 
@@ -539,11 +540,11 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
         toast.error(e?.message || t("auth.loginFail"));
       }
     };
-    const gateRev = [
+    const gateRev = CREATOR_REVENUE_ENABLED ? [
       { pct: "80%", label: t("upload.gateRevLicense"), color: "text-[#c4b5fd]" },
       { pct: "50~60%", label: t("upload.gateRevAd"), color: "text-[#f9a8d4]" },
       { pct: "50%", label: t("upload.gateRevPool"), color: "text-[#fcd34d]" },
-    ];
+    ] : [];
     return (
       <div className="h-full overflow-y-auto bg-background flex flex-col">
         <div className="flex-1 flex items-center justify-center p-6">
@@ -1211,6 +1212,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
         </div>
 
         {/* 수익 정책 안내 */}
+        {CREATOR_REVENUE_ENABLED && (
         <a
           href="?info=creator-revenue"
           className="flex items-center gap-3 p-3 md:p-4 mb-6 rounded-xl bg-gradient-to-br from-[#a78bfa]/10 to-[#ec4899]/10 border border-[#a78bfa]/20 hover:border-[#a78bfa]/40 transition-colors group"
@@ -1224,6 +1226,7 @@ export function Upload({ onSignInClick, onViewMyProducts, onNavigate, challengeC
           </div>
           <span className="text-xs text-[#a78bfa] group-hover:translate-x-0.5 transition-transform">→</span>
         </a>
+        )}
 
         {/* Progress Steps */}
         <div className="mb-8">

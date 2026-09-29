@@ -7,6 +7,7 @@ import { Play, Crown, Film, Wand2, ShieldCheck, Smartphone, ChevronDown, Sparkle
 import { supabase } from "../utils/supabaseClient";
 import { useTranslation, Trans } from "react-i18next";
 import { Button } from "./ui/button";
+import { CREATOR_REVENUE_ENABLED } from "../config/creatorRevenue";
 
 interface LandingPageProps {
   onLogin: () => void;
@@ -357,11 +358,13 @@ export function LandingPage({ onLogin, onExplore, onSubscribe, onNavigate, isAut
                     className="text-[#a78bfa] hover:underline font-semibold"
                   />
                 ),
-                revenueLink: (
+                revenueLink: CREATOR_REVENUE_ENABLED ? (
                   <a
                     href="?info=creator-revenue"
                     className="text-[#a78bfa] hover:underline font-semibold"
                   />
+                ) : (
+                  <span className="text-[#a78bfa] font-semibold" />
                 ),
               }}
             />

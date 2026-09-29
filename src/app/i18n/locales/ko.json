@@ -43,7 +43,7 @@
   },
   "meta": {
     "title": "CREAITE | 세계 최초 AI 시네마 OTT",
-    "description": "크리에잇(CREAITE) — 세계 최초 AI 시네마 OTT. AI 크리에이터의 영화를 감상하고, 창작자는 광고·판매 수익을 얻는 새로운 플랫폼"
+    "description": "크리에잇(CREAITE) — 세계 최초 AI 시네마 OTT. AI로 만든 영화와 영상을 감상하고, 원하는 작품은 라이선스로 구매하는 새로운 플랫폼"
   },
   "nav": {
     "home": "홈",
@@ -678,8 +678,8 @@
         "desc": "AI 영화를 영화관처럼 감상하세요"
       },
       "earnings": {
-        "title": "크리에이터 수익",
-        "desc": "조회수·광고·라이선스 판매로 수익을 얻으세요"
+        "title": "AI 크리에이터 마켓",
+        "desc": "AI로 만든 작품을 올리고 관객과 만나보세요"
       },
       "license": {
         "title": "올인원 라이선스",
@@ -1579,7 +1579,7 @@
     "loginRequiredHint": "영상을 업로드하고 마켓에 등록하려면 먼저 로그인해주세요.",
     "signInButton": "로그인 / 회원가입",
     "gateTitle": "당신을 한 분의 배급사로",
-    "gateSubtitle": "플랫폼은 가져가고, CREAITE는 돌려드립니다. 올려만 두면 수익은 CREAITE가 만들어 드려요.",
+    "gateSubtitle": "AI로 만든 작품을 올려 더 많은 관객과 만나보세요. 업로드는 무료입니다.",
     "gateRevLicense": "라이선스 판매",
     "gateRevAd": "영상 광고",
     "gateRevPool": "구독료 풀",
@@ -1589,7 +1589,7 @@
     "revenueGuideLabel": "💡 수익 정책 먼저 보기",
     "revenueGuideDesc": "영상 길이별 어떤 수익을 받을 수 있는지 1분만에 확인",
     "policyTitle": "1분 이상만 등록 가능 (최소 30초)",
-    "policyDescription": "CREAITE는 AI 시네마틱 영화 전문 플랫폼입니다. 유튜브 쇼츠·틱톡 같은 30초 미만 숏폼은 받지 않으며, 1분 이상 영상만 시네마/OTT 코너에 노출되어 라이선스·광고·구독 수익을 받을 수 있습니다.",
+    "policyDescription": "CREAITE는 AI 시네마틱 영화 전문 플랫폼입니다. 유튜브 쇼츠·틱톡 같은 30초 미만 숏폼은 받지 않으며, 1분 이상 영상만 시네마/OTT 코너에 노출됩니다.",
     "tooShort": "영상이 너무 짧습니다. 최소 {{sec}}초 이상 필요합니다 (현재 {{current}}초). CREAITE는 AI 시네마틱 영화 전문 플랫폼입니다.",
     "stepFileUpload": "파일 업로드",
     "stepProductInfo": "상품 정보",

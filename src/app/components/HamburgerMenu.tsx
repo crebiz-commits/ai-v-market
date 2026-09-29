@@ -5,6 +5,7 @@ import { Menu, X, Briefcase, Building2, FileText, Shield, Mail, Coins, LifeBuoy,
 import { motion, AnimatePresence } from "motion/react";
 import { useBackButton } from "../hooks/useBackButton";
 import { useTranslation } from "react-i18next";
+import { CREATOR_REVENUE_ENABLED } from "../config/creatorRevenue";
 
 interface HamburgerMenuProps {
   onNavigate: (tab: string) => void;
@@ -145,17 +146,19 @@ export function HamburgerMenu({ onNavigate }: HamburgerMenuProps) {
                 <MenuItem icon={FileText} label={t("footer.terms")} onClick={() => handleNav("terms")} />
                 <MenuItem icon={Shield} label={t("footer.privacy")} onClick={() => handleNav("privacy")} />
                 <MenuItem icon={Shield} label={t("footer.youth")} onClick={() => handleNav("youth")} />
-                <a
-                  href="?info=creator-revenue"
-                  className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors"
-                >
-                  <div className="w-11 h-11 rounded-xl bg-[#1c1c1e] border border-white/10 flex items-center justify-center shrink-0">
-                    <Coins className="w-5 h-5 text-gray-300" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[15px] font-bold text-white">{t("footer.creatorRevenue")}</p>
-                  </div>
-                </a>
+                {CREATOR_REVENUE_ENABLED && (
+                  <a
+                    href="?info=creator-revenue"
+                    className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 active:bg-white/10 transition-colors"
+                  >
+                    <div className="w-11 h-11 rounded-xl bg-[#1c1c1e] border border-white/10 flex items-center justify-center shrink-0">
+                      <Coins className="w-5 h-5 text-gray-300" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[15px] font-bold text-white">{t("footer.creatorRevenue")}</p>
+                    </div>
+                  </a>
+                )}
 
                 <MenuItem icon={Megaphone} label={t("hamburger.advertiser", "광고주 센터")} onClick={() => handleNav("advertiser")} />
 

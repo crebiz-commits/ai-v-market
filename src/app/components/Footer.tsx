@@ -2,6 +2,7 @@ import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { CoupangBanner } from "./CoupangBanner";
 import { MAGAZINE_ARTICLES } from "../data/magazineArticles";
+import { CREATOR_REVENUE_ENABLED } from "../config/creatorRevenue";
 
 interface FooterProps {
   // 각 페이지에서 Footer 호출 시 페이지의 onNavigate prop 그대로 전달 가능하도록 string 타입
@@ -176,14 +177,16 @@ export function Footer({ onNavigate, mobile = false }: FooterProps) {
                   {t("footer.youth")}
                 </button>
               </li>
-              <li>
-                <a
-                  href="?info=creator-revenue"
-                  className="text-sm text-gray-400 hover:text-white transition-colors"
-                >
-                  {t("footer.creatorRevenue")}
-                </a>
-              </li>
+              {CREATOR_REVENUE_ENABLED && (
+                <li>
+                  <a
+                    href="?info=creator-revenue"
+                    className="text-sm text-gray-400 hover:text-white transition-colors"
+                  >
+                    {t("footer.creatorRevenue")}
+                  </a>
+                </li>
+              )}
             </ul>
           </div>
 

@@ -43,6 +43,7 @@ import { SettingsProvider } from "./contexts/SettingsContext";
 import { LikesProvider } from "./contexts/LikesContext";
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
+import { CREATOR_REVENUE_ENABLED } from "./config/creatorRevenue";
 
 // ────────────────────────────────────────────────────
 // Lazy imports — 라우트 진입 시점에 동적 로드 (code split)
@@ -253,6 +254,11 @@ function AppContent() {
       }, 100);
     };
     if (infoParam === "creator-revenue") {
+      // 크리에이터 수익 노출 OFF 구간에는 직접 URL 진입도 차단 → 홈으로
+      if (!CREATOR_REVENUE_ENABLED) {
+        if (typeof window !== "undefined") window.location.replace(window.location.pathname);
+        return <PageLoading />;
+      }
       return (
         <Suspense fallback={<PageLoading />}>
           <CreatorRevenueGuide onBack={goBack} />
